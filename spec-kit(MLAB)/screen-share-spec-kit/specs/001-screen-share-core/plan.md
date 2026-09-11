@@ -237,9 +237,42 @@ Não declarar meta atingida sem medição real.
 | NAT/firewall do aluno | aluno sem mídia | TURN obrigatório desde o primeiro deploy externo |
 | SFU saturada | degradação de todos | teste de carga + métricas; limite de 50 por sala |
 | permissões incorretas no Electron | publicação indevida ou acesso ao Node.js | contextBridge + validação server-side |
-| Reconexão incompleta | aluno fica sem vídeo | state machine de reconexão + indicador na UI |
+| Reconexão incompleta | aluno fica sem vídeo | state machine definida em `contracts/media-session.md` |
 | Aluno entra com dados inválidos | sala poluída com nomes falsos | validação no servidor; campos obrigatórios |
-| Chat com spam | sala degradada | limite de rate no backend (a definir em task) |
+| Chat com spam | sala degradada | rate limit server-side definido em `contracts/media-session.md` |
+
+## 10a. Reconexão (State Machine)
+
+A política completa está definida em `contracts/media-session.md`. Resumo para o plan:
+
+### Professor perde conexão
+
+- Backend detecta WebSocket fechado ou falha ICE.
+- Backend emite `session-state: { status: "reconnecting" }` a todos os alunos (UI exibe banner).
+- SFU mantém tracks de assinatura abertas por até `PUBLISHER_RECONNECT_TIMEOUT_S` segundos (padrão: 30s).
+- Se reconectar dentro do timeout: tracks reativadas, alunos recebem `session-state: { status: "publishing" }`.
+- Se timeout expirar: SFU encerra tracks, alunos recebem `room-closed` e vão para tela de espera.
+
+### Aluno perde conexão
+
+- Cliente detecta falha no ICE ou WebSocket e exibe indicador de reconexão.
+- Cliente tenta reconexão com backoff exponencial (1s → 2s → 4s → ... → máx 30s).
+- Ao reconectar: reenvia `join` + `subscribe-request` com o mesmo JWT (se ainda válido).
+- Se JWT expirado: redireciona à página de identificação sem recriar a sala.
+
+## 10b. Rate Limit do Chat
+
+Aplicado server-side no módulo `internal/chat` (valores configuráveis via ENV):
+
+| Janela | Limite | Ação |
+|---|---|---|
+| 5 segundos | 5 mensagens | `error: { code: "CHAT_RATE_LIMITED" }` |
+| 1 minuto | 30 mensagens | `error: { code: "CHAT_RATE_LIMITED" }` |
+
+- Não desconecta o participante; apenas recusa a mensagem.
+- O cliente exibe feedback visual ao receber `CHAT_RATE_LIMITED`.
+- ENVs: `CHAT_RATE_WINDOW_S`, `CHAT_RATE_MAX_PER_WINDOW`.
+
 
 ## Scope Lock
 

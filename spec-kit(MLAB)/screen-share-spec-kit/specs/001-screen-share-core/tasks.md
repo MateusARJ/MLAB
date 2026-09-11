@@ -2,7 +2,7 @@
 
 Feature: `001-screen-share-core`
 Prerequisites: spec/clarify/plan/checklist/analyze aprovados
-Status: READY-FOR-T005
+Status: READY-FOR-IMPLEMENTATION
 
 ## Tarefas de decisão (concluídas)
 
@@ -108,42 +108,125 @@ Checks:
 
 ### T005 — Revalidar spec/plan/checklist/analyze
 
-[ ] T005 [revalidação completa]
+[x] T005 [revalidação completa]
 
 Depends On: T001, T002, T003, T004, T005a, T005b
 
 Allowed Paths:
 - `specs/001-screen-share-core/**`
+- `specs/001-screen-share-core/contracts/**`
+- `specs/001-screen-share-core/plan.md`
 
 Checks:
-- [ ] checklist APPROVED — verificar `checklists/requirements.md`.
-- [ ] analyze PASS — verificar `analyze.md`.
-- [ ] Todos os contratos em READY.
-- [ ] plan.md sem itens PENDENTE.
+- [x] checklist APPROVED — `checklists/requirements.md` Status: APPROVED.
+- [x] analyze PASS — `analyze.md` Status: PASS.
+- [x] Todos os contratos em READY — auth, room-api, signaling, media-session.
+- [x] plan.md sem itens PENDENTE — seções 10a e 10b adicionadas.
+
+Itens executados em T005:
+- `contracts/media-session.md` elevado de DRAFT para READY.
+- Política de reconexão detalhada em `plan.md` (seção 10a).
+- Rate limit do chat definido em `plan.md` (seção 10b) e `contracts/media-session.md`.
 
 ---
 
 ## Tarefas de implementação
 
-As tarefas de implementação (T006+) DEVEM ser geradas após T005 passar e NUNCA antes.
+Status: **UNLOCKED** — T005 concluída. As tarefas T006+ abaixo são válidas e devem
+ser expandidas com Allowed Paths e checks explícitos antes de cada implementação.
 
-Ordem prevista de geração (a confirmar após T005):
+### T006 — Scaffold do monorepo
+[ ] T006
+Allowed Paths: `turbo.json`, `package.json`, `apps/**`, `packages/**`, `.gitignore`
+Prohibited Paths: `specs/**`, `docs/**`
+Checks: `turbo run build` executa sem erro; estrutura de pastas corresponde ao plan.
 
-1. Scaffold do monorepo (turbo.json, package.json raiz, apps/, packages/).
-2. `packages/types` — DTOs compartilhados.
-3. `apps/backend` — módulo auth (JWT, login, join).
-4. `apps/backend` — módulo room (CRUD, link único).
-5. `apps/backend` — módulo signaling (WebSocket, sinalização WebRTC).
-6. `apps/backend` — módulo webrtc (SFU Pion — publish/subscribe).
-7. `apps/backend` — módulo chat (mensagens via WebSocket).
-8. `apps/desktop` — scaffold Electron (main, preload, renderer).
-9. `apps/desktop` — UI Login.
-10. `apps/desktop` — UI Dashboard (criar sala, copiar link).
-11. `apps/desktop` — UI Room (captura de tela, áudio, chat).
-12. `apps/web` — scaffold Vite (Join, Room).
-13. `apps/web` — página Join (Nome + Matrícula).
-14. `apps/web` — página Room (player WebRTC, chat).
-15. Testes de carga: 40 espectadores simultâneos.
-16. Medição de métricas e validação dos RNFs.
+### T007 — packages/types — DTOs compartilhados
+[ ] T007
+Depends On: T006
+Allowed Paths: `packages/types/**`
+Checks: tipos importados sem erro em `apps/desktop` e `apps/web`.
 
-Nenhuma tarefa de código é válida enquanto T005 não for concluída.
+### T008 — apps/backend — módulo auth
+[ ] T008
+Depends On: T007
+Allowed Paths: `apps/backend/internal/auth/**`, `apps/backend/cmd/**`
+Checks: `POST /auth/login` retorna JWT válido; token inválido retorna 401.
+
+### T009 — apps/backend — módulo room
+[ ] T009
+Depends On: T008
+Allowed Paths: `apps/backend/internal/room/**`
+Checks: `POST /rooms`, `GET /rooms/{id}/link`, `POST /rooms/{id}/join`, `POST /rooms/{id}/close` funcionam conforme `room-api.md`.
+
+### T010 — apps/backend — módulo signaling (WebSocket)
+[ ] T010
+Depends On: T009
+Allowed Paths: `apps/backend/internal/signaling/**`
+Checks: cliente conecta via WSS; mensagens `join`, `offer`, `answer`, `ice-candidate` são trocadas conforme `signaling.md`.
+
+### T011 — apps/backend — módulo webrtc (SFU Pion)
+[ ] T011
+Depends On: T010
+Allowed Paths: `apps/backend/internal/webrtc/**`
+Checks: professor publica tela+áudio; 2 alunos recebem sem upstream individual do professor.
+
+### T012 — apps/backend — módulo chat
+[ ] T012
+Depends On: T010
+Allowed Paths: `apps/backend/internal/chat/**`
+Checks: mensagem enviada por um participante chega a todos; rate limit retorna CHAT_RATE_LIMITED.
+
+### T013 — apps/desktop — scaffold Electron
+[ ] T013
+Depends On: T007
+Allowed Paths: `apps/desktop/**`
+Checks: `npm run dev` (desktop) abre janela Electron; contextBridge exposto corretamente.
+
+### T014 — apps/desktop — UI Login
+[ ] T014
+Depends On: T013, T008
+Allowed Paths: `apps/desktop/src/renderer/pages/Login.tsx`, `apps/desktop/src/renderer/services/**`
+Checks: professor faz login com credenciais válidas e é redirecionado ao Dashboard.
+
+### T015 — apps/desktop — UI Dashboard
+[ ] T015
+Depends On: T014, T009
+Allowed Paths: `apps/desktop/src/renderer/pages/Dashboard.tsx`
+Checks: professor cria sala e copia link único; sala aparece em status "waiting".
+
+### T016 — apps/desktop — UI Room (captura de tela, áudio, chat)
+[ ] T016
+Depends On: T015, T011, T012
+Allowed Paths: `apps/desktop/src/renderer/pages/Room.tsx`, `apps/desktop/src/renderer/hooks/**`
+Checks: professor inicia captura; `desktopCapturer` stream publicado na SFU; áudio toggle funciona; chat envia e recebe mensagens.
+
+### T017 — apps/web — scaffold Vite
+[ ] T017
+Depends On: T007
+Allowed Paths: `apps/web/**`
+Checks: `npm run dev` (web) abre no navegador sem erro; rota `/sala/:slug` existe.
+
+### T018 — apps/web — página Join
+[ ] T018
+Depends On: T017, T009
+Allowed Paths: `apps/web/src/pages/Join.tsx`, `apps/web/src/services/**`
+Checks: aluno informa Nome e Matrícula; campos vazios bloqueados; JWT de aluno retornado e armazenado.
+
+### T019 — apps/web — página Room (player WebRTC + chat)
+[ ] T019
+Depends On: T018, T011, T012
+Allowed Paths: `apps/web/src/pages/Room.tsx`, `apps/web/src/hooks/**`, `apps/web/src/components/**`
+Checks: aluno recebe vídeo e áudio do professor; chat funciona; indicador de reconexão exibido em falha de ICE.
+
+### T020 — Testes de carga (40 espectadores)
+[ ] T020
+Depends On: T019
+Allowed Paths: `docs/load-test/**`
+Checks: 40 clientes simulados assinam a stream; FPS ≥ 25, packet loss < 2%, RTT < 300ms medidos e documentados.
+
+### T021 — Medição de métricas e validação dos RNFs
+[ ] T021
+Depends On: T020
+Allowed Paths: `docs/metrics/**`, `specs/001-screen-share-core/analyze.md`
+Checks: todos os RNFs (01–07) têm evidência de medição; `analyze.md` atualizado com resultados reais.
