@@ -1,0 +1,324 @@
+# Plan: Transmissão de Tela em Sala
+
+Feature: `001-screen-share-core`
+Status: READY
+Spec: `./spec.md`
+Clarify: `./clarify.md` (CLOSED — C-01 a C-06 aprovados)
+
+## 1. Summary
+
+Implementar uma sala de transmissão onde o app desktop do professor (Electron) captura
+a tela e o áudio e publica uma única upstream WebRTC para uma SFU em Go (Pion). O backend
+Go controla identidade, salas, autorização, sinalização e chat de texto via WebSocket.
+Os alunos acessam via web app (React + Vite) pelo link único, se identificam com Nome e
+Matrícula e recebem a transmissão sem publicar mídia.
+
+## 2. Technical Context
+
+| Item | Decisão | Ref |
+|---|---|---|
+| Repositório | Monorepo — Turborepo | ADR 0001 |
+| App do Professor | Electron + React + TypeScript | ADR 0002 |
+| Build desktop | electron-vite | ADR 0002 |
+| Distribuição desktop | electron-builder | ADR 0002 |
+| Web app dos alunos | React + TypeScript + Vite | — |
+| Backend | Go | — |
+| Sinalização + Chat | WebSocket (Go) | — |
+| API de controle | HTTP/JSON (Go) | — |
+| Autenticação | JWT | C-01 |
+| Mídia | WebRTC via SFU Pion | C-03 |
+| Topologia | SFU | C-03 |
+| TURN | coturn obrigatório em produção | C-04 |
+| Limite da sala | 50 participantes (configurável via ENV) | C-02 |
+| Persistência | PostgreSQL | — |
+| Pacotes compartilhados | `packages/types` (DTOs), `packages/ui` (opcional) | — |
+| Métricas | WebRTC stats + métricas do backend | — |
+
+## 3. Architecture
+
+```text
+┌──────────────────────────────────┐
+│     apps/desktop (Professor)     │
+│  Electron + React + TypeScript   │
+│                                  │
+│  main process (Node.js):         │
+│    desktopCapturer               │
+│    IPC / contextBridge           │
+│  renderer process (React):       │
+│    Login, Dashboard, Room        │
+│    useScreenShare, useWebRTC     │
+└──────────────┬───────────────────┘
+               │ WebRTC publish (tela + áudio)
+               │ HTTP/WSS (login, sala, sinalização, chat)
+               ▼
+┌──────────────────────────────────┐
+│       apps/backend (Go)          │
+│                                  │
+│  internal/auth    → JWT          │
+│  internal/room    → CRUD salas   │
+│  internal/signaling → WebSocket  │
+│  internal/chat    → mensagens    │
+│  internal/webrtc  → SFU (Pion)  │
+│                                  │
+│  PostgreSQL                      │
+└──────────────┬───────────────────┘
+               │ WebRTC subscribe (tela + áudio)
+               │ HTTP/WSS (join, sinalização, chat)
+               ▼
+┌──────────────────────────────────┐
+│      apps/web (Alunos)           │
+│  React + TypeScript + Vite       │
+│                                  │
+│  /sala/:slug → Join (nome+mat.)  │
+│  /sala/:slug/live → Room         │
+│    VideoPlayer, ChatBox          │
+│    useWebRTC (subscribe only)    │
+│  Responsivo: desktop-first       │
+└──────────────────────────────────┘
+
+Infraestrutura:
+  TURN server (coturn) ← necessário para NAT traversal
+```
+
+## 4. Estrutura do Repositório
+
+```text
+screenshare/
+├── turbo.json
+├── package.json                    ← npm workspaces root
+├── .gitignore
+│
+├── apps/
+│   ├── desktop/                    ← App Electron do professor
+│   │   ├── src/
+│   │   │   ├── main/               ← main process
+│   │   │   │   ├── main.ts
+│   │   │   │   └── preload.ts      ← contextBridge (IPC seguro)
+│   │   │   └── renderer/           ← React UI
+│   │   │       ├── components/
+│   │   │       ├── pages/
+│   │   │       │   ├── Login.tsx
+│   │   │       │   ├── Dashboard.tsx
+│   │   │       │   └── Room.tsx
+│   │   │       ├── hooks/
+│   │   │       │   ├── useScreenShare.ts
+│   │   │       │   ├── useAudio.ts
+│   │   │       │   └── useWebRTC.ts
+│   │   │       └── services/
+│   │   │           ├── api.ts
+│   │   │           └── signaling.ts
+│   │   ├── electron.vite.config.ts
+│   │   └── package.json
+│   │
+│   ├── web/                        ← Web app dos alunos
+│   │   ├── src/
+│   │   │   ├── components/
+│   │   │   │   ├── VideoPlayer.tsx
+│   │   │   │   ├── ChatBox.tsx
+│   │   │   │   └── StatusBanner.tsx
+│   │   │   ├── pages/
+│   │   │   │   ├── Join.tsx        ← nome + matrícula
+│   │   │   │   └── Room.tsx        ← player + chat
+│   │   │   ├── hooks/
+│   │   │   │   ├── useWebRTC.ts    ← subscribe only
+│   │   │   │   └── useChat.ts
+│   │   │   └── services/
+│   │   │       ├── api.ts
+│   │   │       └── signaling.ts
+│   │   ├── index.html
+│   │   ├── vite.config.ts
+│   │   └── package.json
+│   │
+│   └── backend/                    ← Go
+│       ├── cmd/server/main.go
+│       ├── internal/
+│       │   ├── auth/
+│       │   ├── room/
+│       │   ├── signaling/
+│       │   ├── chat/
+│       │   └── webrtc/             ← SFU com Pion
+│       ├── go.mod
+│       ├── go.sum
+│       └── package.json            ← wrapper de scripts para Turborepo
+│
+├── packages/
+│   ├── types/                      ← DTOs TypeScript compartilhados
+│   │   ├── src/
+│   │   │   └── index.ts            ← Room, Participant, ChatMessage, eventos WS
+│   │   └── package.json
+│   └── ui/                         ← Componentes React (opcional)
+│       └── package.json
+│
+└── docs/
+    └── adrs/
+        ├── 0001-monorepo-turborepo.md
+        └── 0002-desktop-app-framework.md
+```
+
+## 5. Data Model
+
+Ver `./data-model.md` (Status: READY).
+
+Entidades: `Professor`, `Room`, `Participant`, `ChatMessage`, `Session`.
+
+## 6. Contracts
+
+Todos os contratos têm Status: READY:
+
+- `contracts/auth.md` — JWT professor e aluno.
+- `contracts/room-api.md` — CRUD de salas, link único, join.
+- `contracts/signaling.md` — WebSocket: sinalização WebRTC + chat.
+- `contracts/media-session.md` — semântica de publicação e assinatura.
+
+## 7. Security
+
+- JWT assinado com chave secreta de ENV; nunca hardcoded.
+- Renderer do Electron não acessa Node.js diretamente; usa contextBridge.
+- Somente professor autorizado publica tela e áudio.
+- Alunos recebem permissão de subscribe; nunca de publish.
+- Servidor valida JWT em toda conexão WebSocket antes de aceitar mensagens.
+- Credenciais TURN geradas por tempo limitado no backend.
+- Logs não expõem tokens completos.
+- Nome e Matrícula são validados no servidor (campos não-vazios); UI não é fonte de verdade.
+
+## 8. Performance and Observability
+
+Metas iniciais (hipóteses até medição):
+
+- resolução: até 1080p;
+- FPS alvo: 30;
+- upload do professor para SFU: ~3–6 Mbps;
+- downstream da SFU para cada aluno: ~3 Mbps;
+- teste mínimo de carga: 40 espectadores simultâneos.
+
+Métricas mínimas por sessão:
+
+- FPS recebido;
+- bitrate;
+- RTT;
+- packet loss;
+- tempo até primeiro frame (latência de entrada);
+- quantidade de participantes ativos;
+- CPU/RAM do backend durante testes de carga.
+
+Não declarar meta atingida sem medição real.
+
+## 9. Dependencies
+
+### apps/desktop
+- Electron (runtime Chromium embutido)
+- electron-vite (build tool)
+- electron-builder (distribuição)
+- React + TypeScript
+- `packages/types`
+- `packages/ui` (opcional)
+
+### apps/web
+- React + TypeScript + Vite
+- `packages/types`
+- `packages/ui` (opcional)
+
+### apps/backend
+- Go
+- Pion WebRTC (`github.com/pion/webrtc/v3`)
+- PostgreSQL driver (`github.com/jackc/pgx/v5`)
+- JWT library (`github.com/golang-jwt/jwt/v5`)
+- WebSocket library (`github.com/gorilla/websocket`)
+
+### Infraestrutura
+- PostgreSQL
+- coturn (TURN server)
+- Servidor VPS (Oracle Cloud Always Free recomendado para testes)
+
+## 10. Risks / Failure Modes
+
+| Risco | Impacto | Mitigação |
+|---|---|---|
+| NAT/firewall do aluno | aluno sem mídia | TURN obrigatório desde o primeiro deploy externo |
+| SFU saturada | degradação de todos | teste de carga + métricas; limite de 50 por sala |
+| permissões incorretas no Electron | publicação indevida ou acesso ao Node.js | contextBridge + validação server-side |
+| Reconexão incompleta | aluno fica sem vídeo | state machine de reconexão + indicador na UI |
+| Aluno entra com dados inválidos | sala poluída com nomes falsos | validação no servidor; campos obrigatórios |
+| Chat com spam | sala degradada | limite de rate no backend (a definir em task) |
+
+## Scope Lock
+
+### IN
+
+- login do professor no app Electron;
+- criação/entrada de sala;
+- geração de link único;
+- captura de tela via desktopCapturer;
+- transmissão de áudio (microfone do professor);
+- publicação/assinatura WebRTC (SFU Pion);
+- sinalização via WebSocket;
+- identificação de aluno por Nome + Matrícula;
+- chat de texto em tempo real;
+- estados de conexão e reconexão;
+- métricas mínimas de sessão;
+- testes para 40+ espectadores.
+
+### OUT
+
+- câmera do professor ou alunos;
+- microfone dos alunos;
+- gravação;
+- transcodificação por aluno;
+- painel administrativo completo;
+- integração com banco de dados da instituição.
+
+### Allowed Paths
+
+- `apps/desktop/**`
+- `apps/web/**`
+- `apps/backend/**`
+- `packages/types/**`
+- `packages/ui/**`
+- `specs/001-screen-share-core/**`
+- `docs/adrs/**` somente para registrar decisões arquiteturais
+- `.specify/**` somente para manutenção do kit
+
+### Prohibited Paths
+
+- `infra/production/**` até contrato de deploy existir;
+- dependências não aprovadas neste plan;
+- features fora desta spec.
+
+### Dependencies aprovadas
+
+- C-01: JWT.
+- C-02: limite 50 configurável.
+- C-03: Pion WebRTC.
+- C-04: TURN (coturn).
+- C-05: Turborepo (ADR 0001).
+- C-06: Electron (ADR 0002).
+
+### Non-Goals
+
+- videoconferência completa;
+- distribuição P2P em mesh;
+- gravação;
+- edição/transcodificação por espectador;
+- câmera do professor.
+
+## 11. Constitution Check
+
+- [x] Princípio I — especificação existe e está READY-FOR-PLAN.
+- [x] Princípio II — autenticação JWT definida; server-side obrigatório.
+- [x] Princípio III — SFU definida; P2P mesh rejeitado.
+- [x] Princípio IV — métricas definidas; metas são hipóteses até medição.
+- [x] Princípio V — todos os contratos estão em Status: READY.
+- [x] Princípio VI — Scope Lock completo com paths e non-goals.
+- [x] Princípio VII — complexidade restrita; sem abstrações sem consumidor.
+- [ ] Princípio VIII — convergência após implementação (pendente até código existir).
+
+## 12. Decision Log
+
+| Data | Decisão | Ref |
+|---|---|---|
+| 2026-09-11 | Turborepo como estrutura do monorepo | ADR 0001 |
+| 2026-09-11 | Electron como framework do app desktop | ADR 0002 |
+| 2026-09-11 | JWT para autenticação | C-01 |
+| 2026-09-11 | Limite 50 participantes configurável | C-02 |
+| 2026-09-11 | Pion WebRTC como SFU | C-03 |
+| 2026-09-11 | TURN obrigatório (coturn) | C-04 |
