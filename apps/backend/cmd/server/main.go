@@ -9,6 +9,7 @@ import (
 	"github.com/screenshare/classroom/internal/auth"
 	"github.com/screenshare/classroom/internal/room"
 	"github.com/screenshare/classroom/internal/signaling"
+	"github.com/screenshare/classroom/internal/webrtc"
 )
 
 func main() {
@@ -21,12 +22,20 @@ func main() {
 	authStore := auth.NewInMemoryStore()
 	roomStore := room.NewInMemoryStore()
 
+	// ── SFU Pion WebRTC (T011) ────────────────────────────────────────────────
+	sfuService, err := webrtc.NewSFUService(webrtc.Config{
+		UDPPortMin: 50000,
+		UDPPortMax: 50100,
+	})
+	if err != nil {
+		log.Fatalf("erro ao inicializar SFUService: %v", err)
+	}
+
 	// ── Handlers ──────────────────────────────────────────────────────────────
 	authHandler := auth.NewHandler(authStore)
 	roomHandler := room.NewHandler(roomStore)
+	sigHandler := signaling.NewHandler(roomStore, sfuService)
 
-	// sfu=nil até T011 (Pion WebRTC) — signaling funciona em modo chat/stub.
-	sigHandler := signaling.NewHandler(roomStore, nil)
 
 	// ── Roteador ──────────────────────────────────────────────────────────────
 	mux := http.NewServeMux()

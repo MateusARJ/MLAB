@@ -190,15 +190,15 @@ Checks:
 - [ ] Testes de integração e segurança (`hub_test.go`, `signaling_security_test.go`): upgrade WS, desconexão de sessão única (`4001 Duplicate Session`), rate limit e HMAC TURN (ADR 0003, ADR 0004).
 
 ### T011 — apps/backend — módulo webrtc (SFU Pion)
-[ ] T011
+[x] T011
 Depends On: T010
 Allowed Paths: `apps/backend/internal/webrtc/**`
 Checks:
-- [ ] Professor publica tela + áudio em tracks independentes (RF-05, RF-10, RN-10).
-- [ ] SFU aloca portas UDP na faixa 50000–50100 (RNF-14).
-- [ ] 2+ alunos recebem downstream sem upstream adicional do professor (RF-06, RNF-09).
-- [ ] Mídia repassada em memória com zero gravação em disco (RNF-15, RNF-16).
-- [ ] Testes de unidade e segurança (`sfu_test.go`, `sfu_security_test.go`): isolamento de tracks por sala e rejeição de `publish-request` de alunos (ADR 0003, ADR 0004).
+- [x] Professor publica tela + áudio em tracks independentes (RF-05, RF-10, RN-10).
+- [x] SFU aloca portas UDP na faixa 50000–50100 (RNF-14).
+- [x] 2+ alunos recebem downstream sem upstream adicional do professor (RF-06, RNF-09).
+- [x] Mídia repassada em memória com zero gravação em disco (RNF-15, RNF-16).
+- [x] Testes de unidade e segurança (`sfu_test.go`, `sfu_security_test.go`): isolamento de tracks por sala e rejeição de `publish-request` de alunos (ADR 0003, ADR 0004).
 
 ### T012 — apps/backend — módulo chat
 [ ] T012
