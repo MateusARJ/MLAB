@@ -1,0 +1,41 @@
+# ── Node ──────────────────────────────────────────────
+node_modules/
+.npm
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+
+# ── Build outputs ──────────────────────────────────────
+dist/
+out/
+build/
+*.tsbuildinfo
+
+# ── Turborepo ─────────────────────────────────────────
+.turbo/
+
+# ── Electron ──────────────────────────────────────────
+apps/desktop/dist/
+apps/desktop/out/
+apps/desktop/release/
+
+# ── Go ────────────────────────────────────────────────
+apps/backend/bin/
+apps/backend/tmp/
+*.exe
+*.test
+*.prof
+
+# ── Env / Secrets ──────────────────────────────────────
+.env
+.env.*
+!.env.example
+
+# ── IDEs ──────────────────────────────────────────────
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db

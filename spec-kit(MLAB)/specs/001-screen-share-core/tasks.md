@@ -136,10 +136,12 @@ Status: **UNLOCKED** — T005 concluída. As tarefas T006+ abaixo são válidas 
 ser expandidas com Allowed Paths e checks explícitos antes de cada implementação.
 
 ### T006 — Scaffold do monorepo
-[ ] T006
+[x] T006
 Allowed Paths: `turbo.json`, `package.json`, `apps/**`, `packages/**`, `.gitignore`
 Prohibited Paths: `specs/**`, `docs/**`
-Checks: `turbo run build` executa sem erro; estrutura de pastas corresponde ao plan.
+Checks:
+- [x] `turbo run build` — 5/5 tasks, exit 0 (types, ui, backend, web, desktop).
+- [x] Estrutura de pastas corresponde ao plan (apps/desktop, apps/web, apps/backend, packages/types, packages/ui).
 
 ### T007 — packages/types — DTOs compartilhados
 [ ] T007

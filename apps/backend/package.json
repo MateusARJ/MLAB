@@ -1,0 +1,12 @@
+{
+  "name": "@screenshare/backend",
+  "version": "0.0.1",
+  "private": true,
+  "scripts": {
+    "build": "node -e \"console.log('Backend (Go): run `go build ./cmd/server/...` with Go 1.22+')\"",
+    "dev": "node -e \"console.log('Backend: run `go run ./cmd/server/main.go` with Go 1.22+')\"",
+    "test": "node -e \"console.log('Backend: run `go test ./...` with Go 1.22+')\"",
+    "lint": "node -e \"console.log('Backend: run `go vet ./...` with Go 1.22+')\"",
+    "clean": "node -e \"require('fs').rmSync('bin', { recursive: true, force: true })\""
+  }
+}
