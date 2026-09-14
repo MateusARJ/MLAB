@@ -37,5 +37,5 @@ apps/backend/tmp/
 .idea/
 *.swp
 *.swo
-.DS_Store
-Thumbs.db
+# ── Scratch / Temp scripts ─────────────────────────────
+scratch/
