@@ -163,10 +163,16 @@ Checks:
 - [ ] Teste de runtime — pendente instalação do Go 1.22+.
 
 ### T009 — apps/backend — módulo room
-[ ] T009
+[x] T009
 Depends On: T008
 Allowed Paths: `apps/backend/internal/room/**`
-Checks: `POST /rooms`, `GET /rooms/{id}/link`, `POST /rooms/{id}/join`, `POST /rooms/{id}/close` funcionam conforme `room-api.md`.
+Checks:
+- [x] `POST /rooms` — cria sala com slug legível, retorna link.
+- [x] `GET /rooms/{id}/link` — professor obtém link (verifica propriedade).
+- [x] `POST /rooms/{id}/join` — aluno recebe JWT, verifica limite e status.
+- [x] `POST /rooms/{id}/close` — professor encerra sala (verifica propriedade).
+- [x] Erros 401/403/404/409/429 implementados conforme contrato.
+- [ ] Teste de runtime — pendente instalação do Go 1.22+.
 
 ### T010 — apps/backend — módulo signaling (WebSocket)
 [ ] T010

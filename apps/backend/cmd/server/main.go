@@ -7,6 +7,7 @@ import (
 	"os"
 
 	"github.com/screenshare/classroom/internal/auth"
+	"github.com/screenshare/classroom/internal/room"
 )
 
 func main() {
@@ -15,29 +16,37 @@ func main() {
 		port = "8080"
 	}
 
-	// ── Store de desenvolvimento ──────────────────────────────────────────────
-	// Em produção, substituir por uma implementação real com PostgreSQL (T009).
-	store := auth.NewInMemoryStore()
+	// ── Stores ────────────────────────────────────────────────────────────────
+	// Desenvolvimento: stores em memória.
+	// Produção: substituir pelas implementações PostgreSQL.
+	authStore := auth.NewInMemoryStore()
+	roomStore := room.NewInMemoryStore()
 
 	// ── Handlers ──────────────────────────────────────────────────────────────
-	authHandler := auth.NewHandler(store)
+	authHandler := auth.NewHandler(authStore)
+	roomHandler := room.NewHandler(roomStore)
 
 	// ── Roteador ──────────────────────────────────────────────────────────────
 	mux := http.NewServeMux()
 
-	// Health check (público)
+	// Público: health check
 	mux.HandleFunc("GET /health", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
 		fmt.Fprintln(w, `{"status":"ok"}`)
 	})
 
-	// Auth (público)
+	// Público: POST /auth/login
 	authHandler.RegisterRoutes(mux)
 
-	// TODO T009: rotas de sala (protegidas com auth.Middleware + auth.RequireRole)
-	// TODO T010: WebSocket de sinalização
-	// TODO T012: WebSocket de chat
+	// Público: POST /rooms/{roomId}/join (aluno sem JWT)
+	roomHandler.RegisterRoutes(mux)
+
+	// Protegido: POST /rooms, GET /rooms/{id}/link, POST /rooms/{id}/close
+	roomHandler.RegisterProtectedRoutes(mux, auth.Middleware)
+
+	// TODO T010: WebSocket de sinalização (wss://.../ws/rooms/{id}/signal)
+	// TODO T012: WebSocket de chat (wss://.../ws/rooms/{id}/chat)
 
 	addr := ":" + port
 	log.Printf("ScreenShare Classroom backend escutando em %s", addr)
