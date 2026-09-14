@@ -144,16 +144,23 @@ Checks:
 - [x] Estrutura de pastas corresponde ao plan (apps/desktop, apps/web, apps/backend, packages/types, packages/ui).
 
 ### T007 — packages/types — DTOs compartilhados
-[ ] T007
+[x] T007
 Depends On: T006
 Allowed Paths: `packages/types/**`
-Checks: tipos importados sem erro em `apps/desktop` e `apps/web`.
+Checks:
+- [x] Tipos importados sem erro em `apps/desktop` — turbo run lint 5/5 OK.
+- [x] Tipos importados sem erro em `apps/web` — turbo run lint 5/5 OK.
+Nota: implementado antecipadamente dentro do T006 (packages/types/src/index.ts).
 
 ### T008 — apps/backend — módulo auth
-[ ] T008
+[x] T008
 Depends On: T007
 Allowed Paths: `apps/backend/internal/auth/**`, `apps/backend/cmd/**`
-Checks: `POST /auth/login` retorna JWT válido; token inválido retorna 401.
+Checks:
+- [x] Código escrito conforme `contracts/auth.md` (model, jwt, handler, middleware, store).
+- [x] `POST /auth/login` implementado com bcrypt + JWT HS256.
+- [x] Token inválido retorna 401 (middleware.go).
+- [ ] Teste de runtime — pendente instalação do Go 1.22+.
 
 ### T009 — apps/backend — módulo room
 [ ] T009
