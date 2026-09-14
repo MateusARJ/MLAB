@@ -193,13 +193,21 @@ Checks:
 [ ] T011
 Depends On: T010
 Allowed Paths: `apps/backend/internal/webrtc/**`
-Checks: professor publica tela+áudio; 2 alunos recebem sem upstream individual do professor.
+Checks:
+- [ ] Professor publica tela + áudio em tracks independentes (RF-05, RF-10, RN-10).
+- [ ] SFU aloca portas UDP na faixa 50000–50100 (RNF-14).
+- [ ] 2+ alunos recebem downstream sem upstream adicional do professor (RF-06, RNF-09).
+- [ ] Mídia repassada em memória com zero gravação em disco (RNF-15, RNF-16).
 
 ### T012 — apps/backend — módulo chat
 [ ] T012
 Depends On: T010
 Allowed Paths: `apps/backend/internal/chat/**`
-Checks: mensagem enviada por um participante chega a todos; rate limit retorna CHAT_RATE_LIMITED.
+Checks:
+- [ ] Mensagem enviada por participante chega a todos com nome e papel `[Professor]` / `[Aluno]` (RF-09, RF-16).
+- [ ] Timestamp `sent_at` gerado no servidor e mensagens vazias descartadas (RF-17, RN-17).
+- [ ] Rate limit (5/5s, 30/60s) retorna erro `CHAT_RATE_LIMITED` sem desconectar usuário (RF-17, RN-15, RN-16).
+- [ ] Sanitização XSS aplicada antes do broadcast (RNF-17).
 
 ### T013 — apps/desktop — scaffold Electron
 [ ] T013
@@ -211,19 +219,23 @@ Checks: `npm run dev` (desktop) abre janela Electron; contextBridge exposto corr
 [ ] T014
 Depends On: T013, T008
 Allowed Paths: `apps/desktop/src/renderer/pages/Login.tsx`, `apps/desktop/src/renderer/services/**`
-Checks: professor faz login com credenciais válidas e é redirecionado ao Dashboard.
+Checks: professor faz login com credenciais válidas, obtém JWT de 8h e é redirecionado ao Dashboard (RF-12, RN-01).
 
 ### T015 — apps/desktop — UI Dashboard
 [ ] T015
 Depends On: T014, T009
 Allowed Paths: `apps/desktop/src/renderer/pages/Dashboard.tsx`
-Checks: professor cria sala e copia link único; sala aparece em status "waiting".
+Checks: professor cria sala, obtém slug único e copia link de convite; sala aparece em status "waiting" (RF-13, RN-05, RN-06).
 
 ### T016 — apps/desktop — UI Room (captura de tela, áudio, chat)
 [ ] T016
 Depends On: T015, T011, T012
 Allowed Paths: `apps/desktop/src/renderer/pages/Room.tsx`, `apps/desktop/src/renderer/hooks/**`
-Checks: professor inicia captura; `desktopCapturer` stream publicado na SFU; áudio toggle funciona; chat envia e recebe mensagens.
+Checks:
+- [ ] Checagem prévia de permissões do SO para tela e microfone (RF-24).
+- [ ] Seletor nativo de monitores e janelas via `desktopCapturer` (RF-04).
+- [ ] Toggle de mute de microfone e pausa de vídeo independentes (RF-20).
+- [ ] Troca de fonte de captura mantém a mesma PeerConnection ativa (RN-12).
 
 ### T017 — apps/web — scaffold Vite
 [ ] T017
@@ -235,19 +247,27 @@ Checks: `npm run dev` (web) abre no navegador sem erro; rota `/sala/:slug` exist
 [ ] T018
 Depends On: T017, T009
 Allowed Paths: `apps/web/src/pages/Join.tsx`, `apps/web/src/services/**`
-Checks: aluno informa Nome e Matrícula; campos vazios bloqueados; JWT de aluno retornado e armazenado.
+Checks:
+- [ ] Aluno informa Nome e Matrícula; campos vazios bloqueados (RF-11, RN-02).
+- [ ] Sessão única por aluno: reconexão com mesmo aluno desconecta sessão anterior com `4001 Duplicate Session` (RN-04).
 
 ### T019 — apps/web — página Room (player WebRTC + chat)
 [ ] T019
 Depends On: T018, T011, T012
 Allowed Paths: `apps/web/src/pages/Room.tsx`, `apps/web/src/hooks/**`, `apps/web/src/components/**`
-Checks: aluno recebe vídeo e áudio do professor; chat funciona; indicador de reconexão exibido em falha de ICE.
+Checks:
+- [ ] Aluno recebe vídeo e áudio do professor sem permissão de publicação (RF-03, RN-09).
+- [ ] Autoplay Policy tratada com botão interativo "Clique para Ativar Som" (RF-21).
+- [ ] Modos Fullscreen e Picture-in-Picture funcionais (RF-22).
+- [ ] Monitoramento de `iceConnectionState` aciona ICE Restart em falhas de rota (RF-25).
+- [ ] Reconexão do aluno com backoff exponencial 1s a 30s (RF-19, RN-14).
 
 ### T020 — Testes de carga (40 espectadores)
 [ ] T020
 Depends On: T019
 Allowed Paths: `docs/load-test/**`
-Checks: 40 clientes simulados assinam a stream; FPS ≥ 25, packet loss < 2%, RTT < 300ms medidos e documentados.
+Checks: 40 clientes simulados assinam a stream; FPS ≥ 25, packet loss < 2%, RTT < 300ms, upload do professor fixo entre 3-6 Mbps e CPU do servidor < 15% (RF-08, RNF-01 a RNF-09, RNF-15).
+
 
 ### T021 — Medição de métricas e validação dos RNFs
 [ ] T021

@@ -15,13 +15,15 @@ Permitir que um professor crie uma sala via app desktop e transmita sua tela e �
 - criação e entrada em sala;
 - professor iniciando/parando compartilhamento de tela;
 - professor transmitindo áudio pelo microfone;
+- controle independente de mute e áudio/vídeo;
 - alunos se identificando com Nome Completo e Matrícula;
 - alunos acessando via link único gerado pelo professor;
 - alunos entrando como espectadores via navegador web;
-- transmissão de uma única tela do professor para múltiplos alunos;
-- chat de texto em tempo real para todos os participantes da sala (estilo Jitsi);
-- estado de sala e presença básica;
-- tratamento de perda de conexão e encerramento da transmissão;
+- transmissão de uma única tela do professor para múltiplos alunos via SFU Pion;
+- chat de texto em tempo real para todos os participantes da sala;
+- estado de sala e presença em tempo real via WebSocket;
+- tratamento de perda de conexão, ICE restart e reconexão em 30s;
+- suporte a credenciais TURN HMAC-SHA1 epêmeras;
 - coleta dos indicadores básicos necessários para validar qualidade da transmissão.
 
 ### Não incluído
@@ -68,8 +70,8 @@ Pode assistir à tela transmitida e participar do chat de texto. Não transmite 
 
 **Critérios de aceitação**
 
-- Ao criar a sala, o professor recebe um identificador único e um link de acesso.
-- A sala inicia em estado aguardando transmissão.
+- Ao criar a sala, o professor recebe um identificador único (slug) e um link de acesso.
+- A sala inicia em estado aguardando transmissão (`waiting`).
 - O professor pode copiar o link facilmente da interface.
 
 ### US-03 — Iniciar compartilhamento de tela e áudio
@@ -79,8 +81,9 @@ Pode assistir à tela transmitida e participar do chat de texto. Não transmite 
 **Critérios de aceitação**
 
 - O app usa `desktopCapturer` (Electron) para capturar a tela.
-- O professor pode ativar/desativar o microfone durante a transmissão.
-- A transmissão de tela e áudio segue em paralelo pelo mesmo fluxo WebRTC.
+- O app verifica permissões do sistema operacional para gravação de tela e áudio.
+- O professor pode ativar/desativar o microfone durante a transmissão sem derrubar o vídeo.
+- A transmissão de tela e áudio segue em paralelo por tracks WebRTC independentes.
 - O professor consegue interromper a transmissão a qualquer momento.
 
 ### US-04 — Identificação do aluno e entrada na sala
@@ -102,7 +105,8 @@ Pode assistir à tela transmitida e participar do chat de texto. Não transmite 
 
 - Alunos podem entrar sem publicar câmera/microfone.
 - Uma transmissão ativa é exibida sem exigir atualização manual da página.
-- O áudio do professor é reproduzido automaticamente (respeitando políticas do navegador).
+- O player web lida com Autoplay Policy do navegador (exibe botão "Clique para Ativar Som" se o áudio for bloqueado).
+- Suporte aos modos Fullscreen e Picture-in-Picture no player web.
 - O encerramento da transmissão é refletido para os alunos.
 
 ### US-06 — Escala da sala
@@ -113,7 +117,8 @@ Pode assistir à tela transmitida e participar do chat de texto. Não transmite 
 
 - A arquitetura de mídia usa SFU (Pion WebRTC).
 - O professor publica uma única upstream de mídia (tela + áudio).
-- A distribuição é feita pela SFU para todos os espectadores.
+- A distribuição é feita pela SFU para todos os espectadores sem transcoding.
+- Faixa de portas UDP do SFU delimitada entre 50000 e 50100.
 - O limite operacional inicial é 50 participantes por sala (configurável).
 
 ### US-07 — Chat de texto em tempo real
@@ -123,97 +128,115 @@ Pode assistir à tela transmitida e participar do chat de texto. Não transmite 
 **Critérios de aceitação**
 
 - Todos os participantes (professor e alunos) podem enviar e ler mensagens.
-- Mensagens exibem o nome e papel (professor/aluno) do remetente.
-- Mensagens chegam em tempo real via WebSocket.
-- O chat é acessível na interface web e no app desktop.
+- Mensagens exibem o nome e papel (`[Professor]` ou `[Aluno]`) do remetente.
+- Mensagens chegam em tempo real via WebSocket com timestamp server-side.
+- Rate limit de 5 msgs/5s e 30 msgs/min por participante; extrapolação gera alerta sem desconectar.
+- Sanitização contra injeção de HTML/XSS.
 
 ### US-08 — Recuperação de conexão
 
-**Como** aluno, **quero** que uma perda temporária de conexão seja tratada sem quebrar a sala, **para** voltar a receber a transmissão quando possível.
+**Como** aluno/professor, **quero** que uma perda temporária de conexão seja tratada sem quebrar a sala.
 
 **Critérios de aceitação**
 
 - O cliente sinaliza o estado de reconexão.
-- Quando a sessão puder ser recuperada, a mídia volta a aparecer sem criar uma segunda sala.
+- Professor possui janela de 30 segundos para reconectar antes do encerramento da sala.
+- Aluno utiliza backoff exponencial para reconexão automática.
+- Suporte a ICE Restart em caso de falha de rota na conexão WebRTC.
 
 ## 5. Requisitos Funcionais
 
-- RF-01: o sistema deve identificar o papel do participante (professor/aluno).
-- RF-02: somente o professor autorizado pode publicar a tela da sala.
-- RF-03: alunos devem possuir permissão apenas de espectador por padrão.
-- RF-04: a captura no app desktop deve usar `desktopCapturer` (Electron API).
-- RF-05: a transmissão deve usar WebRTC via SFU (Pion).
-- RF-06: a topologia deve usar SFU para distribuição a múltiplos alunos.
-- RF-07: o sistema deve sinalizar estado de sala e de transmissão via WebSocket.
-- RF-08: o sistema deve registrar métricas mínimas de qualidade da sessão.
-- RF-09: o sistema deve suportar chat de texto em tempo real via WebSocket para todos os participantes.
-- RF-10: o professor deve poder transmitir áudio do microfone junto com a tela.
+- RF-01: o sistema deve identificar o papel do participante (`professor` ou `aluno`) via JWT.
+- RF-02: somente o professor autorizado e dono da sala pode publicar a tela.
+- RF-03: alunos possuem permissão apenas de espectador por padrão.
+- RF-04: a captura no app desktop usa `desktopCapturer` (Electron API) com seletor de janelas/monitores.
+- RF-05: a transmissão usa WebRTC via SFU (Pion Go).
+- RF-06: a topologia usa SFU para distribuição a múltiplos alunos sem transcoding.
+- RF-07: o sistema sinaliza estado de sala (`waiting`, `publishing`, `reconnecting`, `closed`) via WebSocket.
+- RF-08: o sistema registra e expõe métricas de qualidade (bitrate, FPS, RTT, loss).
+- RF-09: o sistema suporta chat de texto em tempo real via WebSocket.
+- RF-10: o professor pode transmitir áudio do microfone junto com a tela.
 - RF-11: o aluno deve informar Nome Completo e Matrícula ao entrar na sala.
-- RF-12: o professor deve se autenticar com credenciais no app desktop.
-- RF-13: o professor deve poder gerar um link único de acesso à sala para os alunos.
+- RF-12: o professor deve se autenticar com e-mail e senha no app desktop (JWT 8h).
+- RF-13: o professor pode gerar um link único de acesso à sala para os alunos.
+- RF-14: criação e encerramento de sala são operações REST exclusivas do professor.
+- RF-15: encerramento da sala fecha conexões WebRTC e notifica clientes via WS (`room-closed`).
+- RF-16: mensagens de chat exibem o nome e o papel (`[Professor]` / `[Aluno]`) do remetente.
+- RF-17: timestamp das mensagens é gerado pelo servidor (`sent_at`) e mensagens vazias são descartadas.
+- RF-18: perda de conexão do professor coloca a sala em `reconnecting` por 30 segundos.
+- RF-19: reconexão do aluno utiliza algoritmo de backoff exponencial (1s a 30s).
+- RF-20: controle independente de mute de áudio e pausa de vídeo pelo professor.
+- RF-21: tratamento de Autoplay Policy no player web com opção interativa para un-mute.
+- RF-22: suporte aos modos Fullscreen e Picture-in-Picture no player web.
+- RF-23: credenciais epêmeras HMAC-SHA1 para acesso ao servidor TURN (válidas por 24h).
+- RF-24: verificação de permissões do sistema operacional no app desktop antes da captura.
+- RF-25: monitoramento de `iceConnectionState` e disparo automático de ICE Restart.
 
 ## 6. Requisitos Não Funcionais
 
-- RNF-01: resolução alvo de até 1920×1080.
+- RNF-01: resolução alvo de até 1920×1080 (Full HD).
 - RNF-02: taxa alvo de 30 FPS para o cenário principal de aula.
-- RNF-03: a arquitetura deve ser validada com pelo menos 40 espectadores simultâneos.
-- RNF-04: a sessão deve expor dados de bitrate, FPS, RTT e perda de pacotes para diagnóstico.
-- RNF-05: nenhum segredo deve ser exposto ao cliente fora do que for estritamente necessário para a sessão.
-- RNF-06: a web app dos alunos deve ser responsiva (desktop-first ≥1280px; mobile funcional <768px).
-- RNF-07: o app desktop deve ser distribuível para Windows, macOS e Linux.
+- RNF-03: escalabilidade validada para 40 a 50 espectadores simultâneos por sala.
+- RNF-04: exposição contínua de dados de bitrate, FPS, RTT e perda de pacotes.
+- RNF-05: nenhum segredo exposto ao cliente fora do estritamente necessário (HTTPS/WSS obrigatórios).
+- RNF-06: interface web responsiva (desktop-first >= 1280px; mobile funcional < 768px).
+- RNF-07: app desktop distribuível para Windows, macOS e Linux (electron-builder).
+- RNF-08: latência ponta a ponta menor que 500ms em redes com RTT < 100ms.
+- RNF-09: consumo de upload do professor fixo entre 3 e 6 Mbps.
+- RNF-10: stack tecnológica homologada em Go 1.22+, Pion WebRTC, React e PostgreSQL.
+- RNF-13: keepalive e heartbeat WebSocket via Ping (15s) e Pong (30s).
+- RNF-14: faixa de portas UDP do SFU delimitada entre 50000 e 50100.
+- RNF-15: processamento eficiente em memória com uso de CPU do backend < 15%.
+- RNF-16: transmissão 100% epêmera sem gravação de vídeo/áudio em disco.
+- RNF-17: sanitização estrita de XSS no chat de texto.
 
-## 7. Estados e Erros
+## 7. Regras de Negócio
+
+- RN-01: emissão de JWT de professor após validação de senha bcrypt (TTL 8h).
+- RN-02: emissão de JWT de aluno após envio de Nome e Matrícula válidos (TTL 6h).
+- RN-03: isolamento de JWT por sala (`room_id` verificado em requisições WS).
+- RN-04: restrição de sessão única por aluno (`4001 Duplicate Session` se a mesma matrícula reconectar).
+- RN-05: apenas o professor proprietário (`owner_id`) pode gerar convites e encerrar a sala.
+- RN-06: slug da sala gerado aleatoriamente no padrão legível `palavra-palavra-numero`.
+- RN-07: capacidade máxima inicial de 50 alunos por sala (HTTP 429 se exceder).
+- RN-08: salas encerradas (`closed`) rejeitam novas entradas com HTTP 409.
+- RN-09: apenas um publisher de mídia por sala (`FORBIDDEN` para tentativas de outros participantes).
+- RN-10: transmissão em tracks de áudio e vídeo independentes.
+- RN-11: validade máxima de credenciais TURN de 24h geradas via HMAC-SHA1.
+- RN-12: alteração da janela/tela capturada pelo professor realizada na mesma PeerConnection.
+- RN-13: janela de reconexão do publisher de 30 segundos antes do encerramento da sala.
+- RN-14: sequência de backoff exponencial do aluno: 1s, 2s, 4s, 8s, 16s, 30s.
+- RN-15: rate limit do chat de 5 mensagens/5s e 30 mensagens/minuto por participante.
+- RN-16: estouro de rate limit gera erro `CHAT_RATE_LIMITED` sem desconectar o participante.
+- RN-17: mensagens vazias descartadas e tags HTML escapadas no servidor.
+- RN-18: ausência de histórico retroativo de chat para novos ingressantes.
+
+## 8. Estados e Erros
 
 | Estado | Evento | Resultado esperado |
 |---|---|---|
-| Aguardando | professor ainda não publicou | aluno vê estado de espera |
-| Publicando | professor autorizou captura e transmite | alunos recebem mídia e áudio |
-| Áudio mudo | professor desativou microfone | alunos recebem vídeo sem áudio |
-| Interrompida | professor para a captura | alunos recebem estado encerrado |
-| Reconectando | transporte perdeu conectividade | cliente informa reconexão |
-| Encerrada | sala terminada | acesso à mídia é revogado |
-| Erro de permissão | aluno sem autorização | acesso é negado claramente |
-| Sala cheia | limite de 50 atingido | aluno recebe erro com mensagem clara |
-
-## 8. Edge Cases
-
-- professor cancela o diálogo de seleção da tela;
-- professor fecha a janela compartilhada;
-- professor desativa o microfone durante a transmissão;
-- aluno entra antes de o professor iniciar;
-- aluno entra durante a transmissão;
-- professor perde conectividade;
-- SFU fica temporariamente indisponível;
-- aluno perde conectividade;
-- dois usuários tentam assumir a função de professor;
-- sala atingiu o limite configurado (50 por padrão);
-- token inválido ou expirado;
-- aluno tenta entrar com campos de identificação vazios;
-- link único inválido ou sala encerrada.
+| Waiting | professor ainda não publicou | aluno vê estado de espera |
+| Publishing | professor autorizou captura e transmite | alunos recebem mídia e áudio |
+| Reconnecting | perda de conexão do professor | alunos veem alerta; timer de 30s ativo |
+| Closed | sala terminada pelo professor ou por timeout | acesso à mídia é revogado; WS desconectado |
+| Erro de permissão | aluno sem autorização ou token corrompido | acesso negado com 401/403 |
+| Sala cheia | limite de 50 atingido | aluno recebe erro 429 |
 
 ## 9. Dados/Contratos impactados
 
 - `contracts/auth.md` — autenticação JWT (professor e aluno);
 - `contracts/room-api.md` — criação/entrada de sala, geração de link único;
-- `contracts/signaling.md` — sinalização WebRTC e eventos de chat;
-- `contracts/media-session.md` — publicação/assinatura de tela e áudio;
+- `contracts/signaling.md` — sinalização WebRTC, ICE restart, heartbeat e mensagens de chat;
+- `contracts/media-session.md` — publicação/assinatura de tela e áudio, TURN credentials HMAC;
 - `data-model.md` — entidades Room, Participant, ChatMessage.
 
 ## 10. Critérios de Sucesso
 
-- uma sala com 40+ espectadores pode receber a tela e o áudio de um único professor;
+- uma sala com 40+ espectadores recebe tela e áudio de um único professor;
 - a arquitetura não cria uma conexão upstream individual do professor para cada aluno;
 - alvo operacional de 1080p/30 FPS é mensurável em uma rede adequada;
+- latência ponta a ponta menor que 500ms;
 - métricas permitem identificar degradação de bitrate, FPS, RTT e packet loss;
 - interrupção da captura encerra a publicação sem deixar uma track órfã;
 - alunos conseguem se identificar e entrar via link único sem instalação de software;
-- chat entrega mensagens em tempo real para todos os participantes da sala.
-
-## 11. Perguntas que bloqueavam a implementação
-
-- [x] Qual mecanismo de autenticação será usado na primeira versão? → JWT (C-01 CLOSED).
-- [x] O limite máximo inicial de participantes será fixo ou configurável? → 50, configurável (C-02 CLOSED).
-- [x] A SFU será implementada diretamente com Pion ou baseada em um servidor SFU externo? → Pion (C-03 CLOSED).
-- [x] O TURN será obrigatório no primeiro deploy? → Sim (C-04 CLOSED).
-- [x] Estrutura do repositório? → Monorepo Turborepo (C-05 CLOSED).
-- [x] Framework do app desktop? → Electron (C-06 CLOSED).
+- chat entrega mensagens em tempo real com sanitização e rate limit para todos os participantes.
