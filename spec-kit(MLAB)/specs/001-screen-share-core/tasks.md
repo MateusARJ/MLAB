@@ -160,7 +160,7 @@ Checks:
 - [x] Código escrito conforme `contracts/auth.md` (model, jwt, handler, middleware, store).
 - [x] `POST /auth/login` implementado com bcrypt + JWT HS256.
 - [x] Token inválido retorna 401 (middleware.go).
-- [ ] Testes unitários e de segurança (`auth_test.go`, `auth_security_test.go`): validação de JWT, senhas bcrypt e rejeição de tokens forjados/expirados (ADR 0001, ADR 0002).
+- [ ] Testes unitários e de segurança (`auth_test.go`, `auth_security_test.go`): validação de JWT, senhas bcrypt e rejeição de tokens forjados/expirados (ADR 0003, ADR 0004).
 
 ### T009 — apps/backend — módulo room
 [x] T009
@@ -172,7 +172,7 @@ Checks:
 - [x] `POST /rooms/{id}/join` — aluno recebe JWT, verifica limite e status.
 - [x] `POST /rooms/{id}/close` — professor encerra sala (verifica propriedade).
 - [x] Erros 401/403/404/409/429 implementados conforme contrato.
-- [ ] Testes unitários e de segurança (`room_test.go`, `room_security_test.go`): gerador de slug e restrição de acesso por propriedade (`403 Forbidden`) (ADR 0001, ADR 0002).
+- [ ] Testes unitários e de segurança (`room_test.go`, `room_security_test.go`): gerador de slug e restrição de acesso por propriedade (`403 Forbidden`) (ADR 0003, ADR 0004).
 
 ### T010 — apps/backend — módulo signaling (WebSocket)
 [x] T010
@@ -187,7 +187,7 @@ Checks:
 - [x] Reconexão do publisher: timer 30s → room-closed (§10a media-session.md).
 - [x] TURN credentials temporárias (HMAC-SHA1, RFC 8489).
 - [x] Interface SFU desacoplada — hub opera em stub até T011.
-- [ ] Testes de integração e segurança (`hub_test.go`, `signaling_security_test.go`): upgrade WS, desconexão de sessão única (`4001 Duplicate Session`), rate limit e HMAC TURN (ADR 0001, ADR 0002).
+- [ ] Testes de integração e segurança (`hub_test.go`, `signaling_security_test.go`): upgrade WS, desconexão de sessão única (`4001 Duplicate Session`), rate limit e HMAC TURN (ADR 0003, ADR 0004).
 
 ### T011 — apps/backend — módulo webrtc (SFU Pion)
 [ ] T011
@@ -198,7 +198,7 @@ Checks:
 - [ ] SFU aloca portas UDP na faixa 50000–50100 (RNF-14).
 - [ ] 2+ alunos recebem downstream sem upstream adicional do professor (RF-06, RNF-09).
 - [ ] Mídia repassada em memória com zero gravação em disco (RNF-15, RNF-16).
-- [ ] Testes de unidade e segurança (`sfu_test.go`, `sfu_security_test.go`): isolamento de tracks por sala e rejeição de `publish-request` de alunos (ADR 0001, ADR 0002).
+- [ ] Testes de unidade e segurança (`sfu_test.go`, `sfu_security_test.go`): isolamento de tracks por sala e rejeição de `publish-request` de alunos (ADR 0003, ADR 0004).
 
 ### T012 — apps/backend — módulo chat
 [ ] T012
@@ -209,7 +209,7 @@ Checks:
 - [ ] Timestamp `sent_at` gerado no servidor e mensagens vazias descartadas (RF-17, RN-17).
 - [ ] Rate limit (5/5s, 30/60s) retorna erro `CHAT_RATE_LIMITED` sem desconectar usuário (RF-17, RN-15, RN-16).
 - [ ] Sanitização XSS aplicada antes do broadcast (RNF-17).
-- [ ] Testes unitários e de segurança (`chat_test.go`, `chat_security_test.go`): descarte de mensagens vazias e prevenção contra injeção de HTML/XSS (ADR 0001, ADR 0002).
+- [ ] Testes unitários e de segurança (`chat_test.go`, `chat_security_test.go`): descarte de mensagens vazias e prevenção contra injeção de HTML/XSS (ADR 0003, ADR 0004).
 
 ### T013 — apps/desktop — scaffold Electron
 [ ] T013

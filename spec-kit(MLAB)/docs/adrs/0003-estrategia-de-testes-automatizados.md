@@ -1,4 +1,4 @@
-# ADR 0001: Estratégia de Testes Automatizados no Monorepo
+# ADR 0003: Estratégia de Testes Automatizados no Monorepo
 
 * **Status:** Aceito
 * **Data:** 2026-09-14

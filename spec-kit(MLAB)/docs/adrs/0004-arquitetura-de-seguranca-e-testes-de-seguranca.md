@@ -1,4 +1,4 @@
-# ADR 0002: Arquitetura de Segurança e Testes de Segurança
+# ADR 0004: Arquitetura de Segurança e Testes de Segurança
 
 * **Status:** Aceito
 * **Data:** 2026-09-14
