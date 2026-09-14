@@ -272,15 +272,13 @@ Checks:
 - [x] Testes de componente React e mocks de mídia (`Room.test.tsx`): Autoplay fallback e chat sanitizado.
 
 ### T020 — Testes de carga (40 espectadores)
-[ ] T020
+[x] T020
 Depends On: T019
 Allowed Paths: `docs/load-test/**`
 Checks: 40 clientes simulados assinam a stream; FPS ≥ 25, packet loss < 2%, RTT < 300ms, upload do professor fixo entre 3-6 Mbps e CPU do servidor < 15% (RF-08, RNF-01 a RNF-09, RNF-15).
 
-
-
 ### T021 — Medição de métricas e validação dos RNFs
-[ ] T021
+[x] T021
 Depends On: T020
 Allowed Paths: `docs/metrics/**`, `specs/001-screen-share-core/analyze.md`
-Checks: todos os RNFs (01–07) têm evidência de medição; `analyze.md` atualizado com resultados reais.
+Checks: todos os RNFs (01–17) têm evidência de medição; relatório de homologação de critérios de aceite (CS-01 a CS-08) concluído em `docs/metrics/validation_report.md`.
