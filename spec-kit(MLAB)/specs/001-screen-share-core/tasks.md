@@ -245,7 +245,7 @@ Checks:
 - [x] Testes de componente e mocks (`Room.test.tsx`): mocks de `desktopCapturer` e IPC Electron.
 
 ### T017 — apps/web — scaffold Vite
-[ ] T017
+[x] T017
 Depends On: T007
 Allowed Paths: `apps/web/**`
 Checks: `npm run dev` (web) abre no navegador sem erro; rota `/sala/:slug` existe; suíte de testes Vitest configurada.
