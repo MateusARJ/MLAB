@@ -226,12 +226,12 @@ Checks:
 - [x] Testes de componente React (`Login.test.tsx`): renderização do formulário, validação de campos e erro de login.
 
 ### T015 — apps/desktop — UI Dashboard
-[ ] T015
+[x] T015
 Depends On: T014, T009
 Allowed Paths: `apps/desktop/src/renderer/pages/Dashboard.tsx`
 Checks:
-- [ ] Professor cria sala, obtém slug único e copia link de convite; sala aparece em status "waiting" (RF-13, RN-05, RN-06).
-- [ ] Testes de componente React (`Dashboard.test.tsx`): cópia de link único e estado da sala.
+- [x] Professor cria sala, obtém slug único e copia link de convite; sala aparece em status "waiting" (RF-13, RN-05, RN-06).
+- [x] Testes de componente React (`Dashboard.test.tsx`): cópia de link único e estado da sala.
 
 ### T016 — apps/desktop — UI Room (captura de tela, áudio, chat)
 [ ] T016
