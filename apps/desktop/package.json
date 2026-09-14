@@ -10,6 +10,7 @@
     "start": "electron .",
     "make": "npm run build && electron-builder",
     "lint": "tsc --noEmit",
+    "test": "vitest run",
     "clean": "rm -rf out dist"
   },
   "dependencies": {

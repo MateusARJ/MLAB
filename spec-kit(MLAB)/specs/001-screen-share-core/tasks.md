@@ -212,7 +212,7 @@ Checks:
 - [x] Testes unitários e de segurança (`chat_test.go`, `chat_security_test.go`): descarte de mensagens vazias e prevenção contra injeção de HTML/XSS (ADR 0003, ADR 0004).
 
 ### T013 — apps/desktop — scaffold Electron
-[ ] T013
+[x] T013
 Depends On: T007
 Allowed Paths: `apps/desktop/**`
 Checks: `npm run dev` (desktop) abre janela Electron; contextBridge exposto corretamente; suíte de testes Vitest configurada.
