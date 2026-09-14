@@ -251,13 +251,13 @@ Allowed Paths: `apps/web/**`
 Checks: `npm run dev` (web) abre no navegador sem erro; rota `/sala/:slug` existe; suíte de testes Vitest configurada.
 
 ### T018 — apps/web — página Join
-[ ] T018
+[x] T018
 Depends On: T017, T009
 Allowed Paths: `apps/web/src/pages/Join.tsx`, `apps/web/src/services/**`
 Checks:
-- [ ] Aluno informa Nome e Matrícula; campos vazios bloqueados (RF-11, RN-02).
-- [ ] Sessão única por aluno: reconexão com mesmo aluno desconecta sessão anterior com `4001 Duplicate Session` (RN-04).
-- [ ] Testes de componente React e segurança (`Join.test.tsx`): validação de formulário e tratamento de erro 4001.
+- [x] Aluno informa Nome e Matrícula; campos vazios bloqueados (RF-11, RN-02).
+- [x] Sessão única por aluno: reconexão com mesmo aluno desconecta sessão anterior com `4001 Duplicate Session` (RN-04).
+- [x] Testes de componente React e segurança (`Join.test.tsx`): validação de formulário e tratamento de erro 4001.
 
 ### T019 — apps/web — página Room (player WebRTC + chat)
 [ ] T019
