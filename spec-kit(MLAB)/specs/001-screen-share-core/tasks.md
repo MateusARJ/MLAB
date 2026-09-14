@@ -260,16 +260,16 @@ Checks:
 - [x] Testes de componente React e segurança (`Join.test.tsx`): validação de formulário e tratamento de erro 4001.
 
 ### T019 — apps/web — página Room (player WebRTC + chat)
-[ ] T019
+[x] T019
 Depends On: T018, T011, T012
 Allowed Paths: `apps/web/src/pages/Room.tsx`, `apps/web/src/hooks/**`, `apps/web/src/components/**`
 Checks:
-- [ ] Aluno recebe vídeo e áudio do professor sem permissão de publicação (RF-03, RN-09).
-- [ ] Autoplay Policy tratada com botão interativo "Clique para Ativar Som" (RF-21).
-- [ ] Modos Fullscreen e Picture-in-Picture funcionais (RF-22).
-- [ ] Monitoramento de `iceConnectionState` aciona ICE Restart em falhas de rota (RF-25).
-- [ ] Reconexão do aluno com backoff exponencial 1s a 30s (RF-19, RN-14).
-- [ ] Testes de componente React e mocks de mídia (`Room.test.tsx`): Autoplay fallback e chat sanitizado.
+- [x] Aluno recebe vídeo e áudio do professor sem permissão de publicação (RF-03, RN-09).
+- [x] Autoplay Policy tratada com botão interativo "Clique para Ativar Som" (RF-21).
+- [x] Modos Fullscreen e Picture-in-Picture funcionais (RF-22).
+- [x] Monitoramento de `iceConnectionState` aciona ICE Restart em falhas de rota (RF-25).
+- [x] Reconexão do aluno com backoff exponencial 1s a 30s (RF-19, RN-14).
+- [x] Testes de componente React e mocks de mídia (`Room.test.tsx`): Autoplay fallback e chat sanitizado.
 
 ### T020 — Testes de carga (40 espectadores)
 [ ] T020
