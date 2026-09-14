@@ -234,15 +234,15 @@ Checks:
 - [x] Testes de componente React (`Dashboard.test.tsx`): cópia de link único e estado da sala.
 
 ### T016 — apps/desktop — UI Room (captura de tela, áudio, chat)
-[ ] T016
+[x] T016
 Depends On: T015, T011, T012
 Allowed Paths: `apps/desktop/src/renderer/pages/Room.tsx`, `apps/desktop/src/renderer/hooks/**`
 Checks:
-- [ ] Checagem prévia de permissões do SO para tela e microfone (RF-24).
-- [ ] Seletor nativo de monitores e janelas via `desktopCapturer` (RF-04).
-- [ ] Toggle de mute de microfone e pausa de vídeo independentes (RF-20).
-- [ ] Troca de fonte de captura mantém a mesma PeerConnection ativa (RN-12).
-- [ ] Testes de componente e mocks (`Room.test.tsx`): mocks de `desktopCapturer` e IPC Electron.
+- [x] Checagem prévia de permissões do SO para tela e microfone (RF-24).
+- [x] Seletor nativo de monitores e janelas via `desktopCapturer` (RF-04).
+- [x] Toggle de mute de microfone e pausa de vídeo independentes (RF-20).
+- [x] Troca de fonte de captura mantém a mesma PeerConnection ativa (RN-12).
+- [x] Testes de componente e mocks (`Room.test.tsx`): mocks de `desktopCapturer` e IPC Electron.
 
 ### T017 — apps/web — scaffold Vite
 [ ] T017
