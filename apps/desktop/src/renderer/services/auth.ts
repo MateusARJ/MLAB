@@ -1,0 +1,31 @@
+import { LoginRequest, LoginResponse } from '@screenshare/types';
+
+const API_BASE_URL = 'http://localhost:8080';
+
+export async function loginProfessor(credentials: LoginRequest): Promise<LoginResponse> {
+  const response = await fetch(`${API_BASE_URL}/auth/login`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(credentials),
+  });
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({ message: 'Erro na autenticacao' }));
+    throw new Error(errorData.message || 'Credenciais invalidas');
+  }
+
+  const data: LoginResponse = await response.json();
+  // Armazena token na memoria/storage seguro da sessao (RF-12)
+  sessionStorage.setItem('professor_token', data.token);
+  return data;
+}
+
+export function getStoredToken(): string | null {
+  return sessionStorage.getItem('professor_token');
+}
+
+export function logout(): void {
+  sessionStorage.removeItem('professor_token');
+}

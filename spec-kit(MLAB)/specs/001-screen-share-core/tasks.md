@@ -218,12 +218,12 @@ Allowed Paths: `apps/desktop/**`
 Checks: `npm run dev` (desktop) abre janela Electron; contextBridge exposto corretamente; suíte de testes Vitest configurada.
 
 ### T014 — apps/desktop — UI Login
-[ ] T014
+[x] T014
 Depends On: T013, T008
 Allowed Paths: `apps/desktop/src/renderer/pages/Login.tsx`, `apps/desktop/src/renderer/services/**`
 Checks:
-- [ ] Professor faz login com credenciais válidas, obtém JWT de 8h e é redirecionado ao Dashboard (RF-12, RN-01).
-- [ ] Testes de componente React (`Login.test.tsx`): renderização do formulário, validação de campos e erro de login.
+- [x] Professor faz login com credenciais válidas, obtém JWT de 8h e é redirecionado ao Dashboard (RF-12, RN-01).
+- [x] Testes de componente React (`Login.test.tsx`): renderização do formulário, validação de campos e erro de login.
 
 ### T015 — apps/desktop — UI Dashboard
 [ ] T015
