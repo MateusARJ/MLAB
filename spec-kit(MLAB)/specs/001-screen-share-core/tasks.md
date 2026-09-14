@@ -160,7 +160,7 @@ Checks:
 - [x] Código escrito conforme `contracts/auth.md` (model, jwt, handler, middleware, store).
 - [x] `POST /auth/login` implementado com bcrypt + JWT HS256.
 - [x] Token inválido retorna 401 (middleware.go).
-- [ ] Teste de runtime — pendente instalação do Go 1.22+.
+- [ ] Testes unitários e de segurança (`auth_test.go`, `auth_security_test.go`): validação de JWT, senhas bcrypt e rejeição de tokens forjados/expirados (ADR 0001, ADR 0002).
 
 ### T009 — apps/backend — módulo room
 [x] T009
@@ -172,7 +172,7 @@ Checks:
 - [x] `POST /rooms/{id}/join` — aluno recebe JWT, verifica limite e status.
 - [x] `POST /rooms/{id}/close` — professor encerra sala (verifica propriedade).
 - [x] Erros 401/403/404/409/429 implementados conforme contrato.
-- [ ] Teste de runtime — pendente instalação do Go 1.22+.
+- [ ] Testes unitários e de segurança (`room_test.go`, `room_security_test.go`): gerador de slug e restrição de acesso por propriedade (`403 Forbidden`) (ADR 0001, ADR 0002).
 
 ### T010 — apps/backend — módulo signaling (WebSocket)
 [x] T010
@@ -187,7 +187,7 @@ Checks:
 - [x] Reconexão do publisher: timer 30s → room-closed (§10a media-session.md).
 - [x] TURN credentials temporárias (HMAC-SHA1, RFC 8489).
 - [x] Interface SFU desacoplada — hub opera em stub até T011.
-- [ ] Teste de runtime — pendente instalação do Go 1.22+.
+- [ ] Testes de integração e segurança (`hub_test.go`, `signaling_security_test.go`): upgrade WS, desconexão de sessão única (`4001 Duplicate Session`), rate limit e HMAC TURN (ADR 0001, ADR 0002).
 
 ### T011 — apps/backend — módulo webrtc (SFU Pion)
 [ ] T011
@@ -198,6 +198,7 @@ Checks:
 - [ ] SFU aloca portas UDP na faixa 50000–50100 (RNF-14).
 - [ ] 2+ alunos recebem downstream sem upstream adicional do professor (RF-06, RNF-09).
 - [ ] Mídia repassada em memória com zero gravação em disco (RNF-15, RNF-16).
+- [ ] Testes de unidade e segurança (`sfu_test.go`, `sfu_security_test.go`): isolamento de tracks por sala e rejeição de `publish-request` de alunos (ADR 0001, ADR 0002).
 
 ### T012 — apps/backend — módulo chat
 [ ] T012
@@ -208,24 +209,29 @@ Checks:
 - [ ] Timestamp `sent_at` gerado no servidor e mensagens vazias descartadas (RF-17, RN-17).
 - [ ] Rate limit (5/5s, 30/60s) retorna erro `CHAT_RATE_LIMITED` sem desconectar usuário (RF-17, RN-15, RN-16).
 - [ ] Sanitização XSS aplicada antes do broadcast (RNF-17).
+- [ ] Testes unitários e de segurança (`chat_test.go`, `chat_security_test.go`): descarte de mensagens vazias e prevenção contra injeção de HTML/XSS (ADR 0001, ADR 0002).
 
 ### T013 — apps/desktop — scaffold Electron
 [ ] T013
 Depends On: T007
 Allowed Paths: `apps/desktop/**`
-Checks: `npm run dev` (desktop) abre janela Electron; contextBridge exposto corretamente.
+Checks: `npm run dev` (desktop) abre janela Electron; contextBridge exposto corretamente; suíte de testes Vitest configurada.
 
 ### T014 — apps/desktop — UI Login
 [ ] T014
 Depends On: T013, T008
 Allowed Paths: `apps/desktop/src/renderer/pages/Login.tsx`, `apps/desktop/src/renderer/services/**`
-Checks: professor faz login com credenciais válidas, obtém JWT de 8h e é redirecionado ao Dashboard (RF-12, RN-01).
+Checks:
+- [ ] Professor faz login com credenciais válidas, obtém JWT de 8h e é redirecionado ao Dashboard (RF-12, RN-01).
+- [ ] Testes de componente React (`Login.test.tsx`): renderização do formulário, validação de campos e erro de login.
 
 ### T015 — apps/desktop — UI Dashboard
 [ ] T015
 Depends On: T014, T009
 Allowed Paths: `apps/desktop/src/renderer/pages/Dashboard.tsx`
-Checks: professor cria sala, obtém slug único e copia link de convite; sala aparece em status "waiting" (RF-13, RN-05, RN-06).
+Checks:
+- [ ] Professor cria sala, obtém slug único e copia link de convite; sala aparece em status "waiting" (RF-13, RN-05, RN-06).
+- [ ] Testes de componente React (`Dashboard.test.tsx`): cópia de link único e estado da sala.
 
 ### T016 — apps/desktop — UI Room (captura de tela, áudio, chat)
 [ ] T016
@@ -236,12 +242,13 @@ Checks:
 - [ ] Seletor nativo de monitores e janelas via `desktopCapturer` (RF-04).
 - [ ] Toggle de mute de microfone e pausa de vídeo independentes (RF-20).
 - [ ] Troca de fonte de captura mantém a mesma PeerConnection ativa (RN-12).
+- [ ] Testes de componente e mocks (`Room.test.tsx`): mocks de `desktopCapturer` e IPC Electron.
 
 ### T017 — apps/web — scaffold Vite
 [ ] T017
 Depends On: T007
 Allowed Paths: `apps/web/**`
-Checks: `npm run dev` (web) abre no navegador sem erro; rota `/sala/:slug` existe.
+Checks: `npm run dev` (web) abre no navegador sem erro; rota `/sala/:slug` existe; suíte de testes Vitest configurada.
 
 ### T018 — apps/web — página Join
 [ ] T018
@@ -250,6 +257,7 @@ Allowed Paths: `apps/web/src/pages/Join.tsx`, `apps/web/src/services/**`
 Checks:
 - [ ] Aluno informa Nome e Matrícula; campos vazios bloqueados (RF-11, RN-02).
 - [ ] Sessão única por aluno: reconexão com mesmo aluno desconecta sessão anterior com `4001 Duplicate Session` (RN-04).
+- [ ] Testes de componente React e segurança (`Join.test.tsx`): validação de formulário e tratamento de erro 4001.
 
 ### T019 — apps/web — página Room (player WebRTC + chat)
 [ ] T019
@@ -261,12 +269,14 @@ Checks:
 - [ ] Modos Fullscreen e Picture-in-Picture funcionais (RF-22).
 - [ ] Monitoramento de `iceConnectionState` aciona ICE Restart em falhas de rota (RF-25).
 - [ ] Reconexão do aluno com backoff exponencial 1s a 30s (RF-19, RN-14).
+- [ ] Testes de componente React e mocks de mídia (`Room.test.tsx`): Autoplay fallback e chat sanitizado.
 
 ### T020 — Testes de carga (40 espectadores)
 [ ] T020
 Depends On: T019
 Allowed Paths: `docs/load-test/**`
 Checks: 40 clientes simulados assinam a stream; FPS ≥ 25, packet loss < 2%, RTT < 300ms, upload do professor fixo entre 3-6 Mbps e CPU do servidor < 15% (RF-08, RNF-01 a RNF-09, RNF-15).
+
 
 
 ### T021 — Medição de métricas e validação dos RNFs
