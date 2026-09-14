@@ -175,10 +175,19 @@ Checks:
 - [ ] Teste de runtime — pendente instalação do Go 1.22+.
 
 ### T010 — apps/backend — módulo signaling (WebSocket)
-[ ] T010
+[x] T010
 Depends On: T009
 Allowed Paths: `apps/backend/internal/signaling/**`
-Checks: cliente conecta via WSS; mensagens `join`, `offer`, `answer`, `ice-candidate` são trocadas conforme `signaling.md`.
+Checks:
+- [x] Upgrade WebSocket com JWT validation (query param `?token=`).
+- [x] Hub por sala: register/unregister, broadcast, broadcastExcept.
+- [x] Mensagens C→S: join via upgrade, offer, answer, ice-candidate, publish-request, subscribe-request, chat-message.
+- [x] Mensagens S→C: session-state, publish-approved, participant-joined, participant-left, room-closed, ice-servers, error.
+- [x] Rate limit de chat (5/5s, 30/60s) — sliding window no hub.
+- [x] Reconexão do publisher: timer 30s → room-closed (§10a media-session.md).
+- [x] TURN credentials temporárias (HMAC-SHA1, RFC 8489).
+- [x] Interface SFU desacoplada — hub opera em stub até T011.
+- [ ] Teste de runtime — pendente instalação do Go 1.22+.
 
 ### T011 — apps/backend — módulo webrtc (SFU Pion)
 [ ] T011
