@@ -201,15 +201,15 @@ Checks:
 - [x] Testes de unidade e segurança (`sfu_test.go`, `sfu_security_test.go`): isolamento de tracks por sala e rejeição de `publish-request` de alunos (ADR 0003, ADR 0004).
 
 ### T012 — apps/backend — módulo chat
-[ ] T012
+[x] T012
 Depends On: T010
 Allowed Paths: `apps/backend/internal/chat/**`
 Checks:
-- [ ] Mensagem enviada por participante chega a todos com nome e papel `[Professor]` / `[Aluno]` (RF-09, RF-16).
-- [ ] Timestamp `sent_at` gerado no servidor e mensagens vazias descartadas (RF-17, RN-17).
-- [ ] Rate limit (5/5s, 30/60s) retorna erro `CHAT_RATE_LIMITED` sem desconectar usuário (RF-17, RN-15, RN-16).
-- [ ] Sanitização XSS aplicada antes do broadcast (RNF-17).
-- [ ] Testes unitários e de segurança (`chat_test.go`, `chat_security_test.go`): descarte de mensagens vazias e prevenção contra injeção de HTML/XSS (ADR 0003, ADR 0004).
+- [x] Mensagem enviada por participante chega a todos com nome e papel `[Professor]` / `[Aluno]` (RF-09, RF-16).
+- [x] Timestamp `sent_at` gerado no servidor e mensagens vazias descartadas (RF-17, RN-17).
+- [x] Rate limit (5/5s, 30/60s) retorna erro `CHAT_RATE_LIMITED` sem desconectar usuário (RF-17, RN-15, RN-16).
+- [x] Sanitização XSS aplicada antes do broadcast (RNF-17).
+- [x] Testes unitários e de segurança (`chat_test.go`, `chat_security_test.go`): descarte de mensagens vazias e prevenção contra injeção de HTML/XSS (ADR 0003, ADR 0004).
 
 ### T013 — apps/desktop — scaffold Electron
 [ ] T013
