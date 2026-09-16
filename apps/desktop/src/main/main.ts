@@ -1,10 +1,40 @@
-import { app, BrowserWindow, ipcMain, desktopCapturer } from 'electron'
+import { app, BrowserWindow, ipcMain, desktopCapturer, nativeImage } from 'electron'
 import { join } from 'path'
+import { existsSync } from 'fs'
+
+// Registra o AppUserModelId no Windows para agrupar e exibir a logo na Barra de Tarefas
+if (process.platform === 'win32') {
+  app.setAppUserModelId('com.mlab.classroom')
+}
+
+function getAppIcon(): string | Electron.NativeImage {
+  const icoPath = join(__dirname, '../../resources/icon.ico')
+  const pngPath = join(__dirname, '../../resources/icon.png')
+  const devIcoPath = join(process.cwd(), 'resources/icon.ico')
+  const devPngPath = join(process.cwd(), 'resources/icon.png')
+
+  const candidates = process.platform === 'win32'
+    ? [icoPath, devIcoPath, pngPath, devPngPath]
+    : [pngPath, devPngPath, icoPath, devIcoPath]
+
+  for (const candidate of candidates) {
+    if (existsSync(candidate)) {
+      const img = nativeImage.createFromPath(candidate)
+      if (!img.isEmpty()) {
+        return img
+      }
+      return candidate
+    }
+  }
+  return pngPath
+}
 
 function createWindow(): void {
+  const appIcon = getAppIcon()
+
   const win = new BrowserWindow({
     title: 'MLab',
-    icon: join(__dirname, '../../resources/icon.png'),
+    icon: appIcon,
     width: 1280,
     height: 800,
     minWidth: 900,
@@ -15,9 +45,12 @@ function createWindow(): void {
       contextIsolation: true,
       nodeIntegration: false
     },
-    titleBarStyle: 'hiddenInset',
+    ...(process.platform === 'darwin' ? { titleBarStyle: 'hiddenInset' } : {}),
     show: false
   })
+
+  // Garante que o ícone seja definido na janela (barra de título / menu) no Windows
+  win.setIcon(appIcon)
 
   win.on('ready-to-show', () => {
     win.show()
