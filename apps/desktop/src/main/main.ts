@@ -8,10 +8,10 @@ if (process.platform === 'win32') {
 }
 
 function getAppIcon(): string | Electron.NativeImage {
-  const icoPath = join(__dirname, '../../resources/icon.ico')
-  const pngPath = join(__dirname, '../../resources/icon.png')
-  const devIcoPath = join(process.cwd(), 'resources/icon.ico')
-  const devPngPath = join(process.cwd(), 'resources/icon.png')
+  const icoPath = join(__dirname, '../../resources/icon-dark.ico')
+  const pngPath = join(__dirname, '../../resources/icon-dark.png')
+  const devIcoPath = join(process.cwd(), 'resources/icon-dark.ico')
+  const devPngPath = join(process.cwd(), 'resources/icon-dark.png')
 
   const candidates = process.platform === 'win32'
     ? [icoPath, devIcoPath, pngPath, devPngPath]
