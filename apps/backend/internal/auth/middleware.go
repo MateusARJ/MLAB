@@ -4,6 +4,8 @@ import (
 	"context"
 	"net/http"
 	"strings"
+
+	"github.com/golang-jwt/jwt/v5"
 )
 
 // contextKey é o tipo privado para chaves de contexto deste pacote.
@@ -60,13 +62,18 @@ func RequireRole(role Role, next http.Handler) http.Handler {
 
 // ClaimsFromContext recupera os claims JWT do contexto da requisição.
 // Retorna (nil, false) se o middleware não foi aplicado.
-func ClaimsFromContext(ctx context.Context) (map[string]interface{}, bool) {
+func ClaimsFromContext(ctx context.Context) (jwt.MapClaims, bool) {
 	v := ctx.Value(claimsKey)
 	if v == nil {
 		return nil, false
 	}
-	claims, ok := v.(map[string]interface{})
-	return claims, ok
+	if claims, ok := v.(jwt.MapClaims); ok {
+		return claims, true
+	}
+	if claims, ok := v.(map[string]interface{}); ok {
+		return jwt.MapClaims(claims), true
+	}
+	return nil, false
 }
 
 // extractBearer extrai o token do header Authorization: Bearer <token>.

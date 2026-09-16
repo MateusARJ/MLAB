@@ -14,7 +14,7 @@ func TestChatSecurity_XSSSanitization(t *testing.T) {
 	}{
 		{
 			input:    "<script>alert('xss')</script>",
-			expected: "&lt;script&gt;alert('xss')&lt;/script&gt;",
+			expected: "&lt;script&gt;alert(&#39;xss&#39;)&lt;/script&gt;",
 		},
 		{
 			input:    "<img src=x onerror=alert(1)>",

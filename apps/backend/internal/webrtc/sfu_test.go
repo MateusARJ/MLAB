@@ -2,6 +2,8 @@ package webrtc
 
 import (
 	"testing"
+
+	"github.com/pion/webrtc/v3"
 )
 
 func TestSFUService_Lifecycle(t *testing.T) {
@@ -16,10 +18,26 @@ func TestSFUService_Lifecycle(t *testing.T) {
 	roomID := "room-test-101"
 	publisherID := "prof-01"
 
-	// Mock SDP Offer valida
-	dummySDP := "v=0\r\no=- 1457497746401030806 2 IN IP4 127.0.0.1\r\ns=-\r\nt=0 0\r\na=group:BUNDLE 0\r\nm=video 9 UDP/TLS/RTP/SAVPF 96\r\nc=IN IP4 0.0.0.0\r\na=rtcp:9 IN IP4 0.0.0.0\r\na=rtcp-mux\r\na=sendonly\r\na=mid:0\r\na=rtpmap:96 VP8/90000\r\n"
+	// Cria uma PeerConnection de teste para gerar SDP Offer válida com ICE e codecs
+	testPC, err := webrtc.NewPeerConnection(webrtc.Configuration{})
+	if err != nil {
+		t.Fatalf("Erro ao criar test PeerConnection: %v", err)
+	}
+	defer testPC.Close()
 
-	answerSDP, err := sfu.HandlePublisherOffer(roomID, publisherID, dummySDP)
+	_, _ = testPC.AddTransceiverFromKind(webrtc.RTPCodecTypeVideo, webrtc.RTPTransceiverInit{
+		Direction: webrtc.RTPTransceiverDirectionSendonly,
+	})
+	_, _ = testPC.AddTransceiverFromKind(webrtc.RTPCodecTypeAudio, webrtc.RTPTransceiverInit{
+		Direction: webrtc.RTPTransceiverDirectionSendonly,
+	})
+
+	offer, err := testPC.CreateOffer(nil)
+	if err != nil {
+		t.Fatalf("Erro ao criar Offer de teste: %v", err)
+	}
+
+	answerSDP, err := sfu.HandlePublisherOffer(roomID, publisherID, offer.SDP)
 	if err != nil {
 		t.Fatalf("Erro ao processar HandlePublisherOffer: %v", err)
 	}

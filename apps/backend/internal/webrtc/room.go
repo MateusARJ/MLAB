@@ -56,7 +56,7 @@ func (r *Room) handlePublisherOffer(publisherID, sdp string) (string, error) {
 		log.Printf("[SFU] Nova track recebida do professor (%s): Kind=%s, MimeType=%s", publisherID, remoteTrack.Kind().String(), remoteTrack.Codec().MimeType)
 
 		localTrack, err := webrtc.NewTrackLocalStaticRTP(
-			remoteTrack.Codec().Capability,
+			remoteTrack.Codec().RTPCodecCapability,
 			remoteTrack.ID(),
 			remoteTrack.StreamID(),
 		)

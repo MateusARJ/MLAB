@@ -39,3 +39,4 @@ apps/backend/tmp/
 *.swo
 # ── Scratch / Temp scripts ─────────────────────────────
 scratch/
+.gotmp/

@@ -1,30 +1,27 @@
-import React from 'react'
-import { Routes, Route, Navigate } from 'react-router-dom'
+import React, { useState } from 'react'
+import { Routes, Route, Navigate, useNavigate, useParams } from 'react-router-dom'
+import { Join } from './pages/Join'
+import { Room } from './pages/Room'
 
 /**
  * Roteamento do web app dos alunos.
- *
- * Rotas:
- *   /sala/:slug/entrar   → página Join (nome + matrícula) — T018
- *   /sala/:slug/ao-vivo  → página Room (player + chat)    — T019
- *
- * As páginas reais são implementadas em T018 e T019.
- * Este componente serve como placeholder de roteamento para o scaffold (T006).
  */
 export default function App(): React.ReactElement {
+  const [roomData, setRoomData] = useState<{
+    token: string
+    roomInfo: any
+    slug?: string
+  } | null>(null)
+
   return (
     <Routes>
       <Route
         path="/sala/:slug/entrar"
-        element={
-          <Placeholder title="Entrar na Sala" subtitle="Identificação do aluno — T018" />
-        }
+        element={<JoinRoute setRoomData={setRoomData} />}
       />
       <Route
         path="/sala/:slug/ao-vivo"
-        element={
-          <Placeholder title="Sala ao Vivo" subtitle="Player WebRTC + Chat — T019" />
-        }
+        element={<RoomRoute roomData={roomData} setRoomData={setRoomData} />}
       />
       <Route path="*" element={<Navigate to="/" replace />} />
       <Route
@@ -37,6 +34,39 @@ export default function App(): React.ReactElement {
         }
       />
     </Routes>
+  )
+}
+
+function JoinRoute({ setRoomData }: { setRoomData: any }) {
+  const navigate = useNavigate()
+  const { slug } = useParams()
+  return (
+    <Join 
+      onJoined={(token, roomInfo) => {
+        setRoomData({ token, roomInfo, slug })
+        navigate(`/sala/${slug}/ao-vivo`)
+      }}
+    />
+  )
+}
+
+function RoomRoute({ roomData, setRoomData }: { roomData: any, setRoomData: any }) {
+  const navigate = useNavigate()
+  const { slug } = useParams()
+  
+  if (!roomData || roomData.slug !== slug) {
+    return <Navigate to={`/sala/${slug}/entrar`} replace />
+  }
+
+  return (
+    <Room 
+      token={roomData.token}
+      roomInfo={roomData.roomInfo}
+      onLeave={() => {
+        setRoomData(null)
+        navigate(`/sala/${slug}/entrar`)
+      }}
+    />
   )
 }
 

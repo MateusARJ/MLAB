@@ -22,7 +22,7 @@ export const Login: React.FC<LoginProps> = ({ onSuccess }) => {
 
     setLoading(true);
     try {
-      await loginProfessor({ email, password });
+      await loginProfessor({ email: email.trim(), password: password.trim() });
       setLoading(false);
       onSuccess();
     } catch (err: any) {

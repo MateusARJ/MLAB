@@ -12,8 +12,8 @@ export async function loginProfessor(credentials: LoginRequest): Promise<LoginRe
   });
 
   if (!response.ok) {
-    const errorData = await response.json().catch(() => ({ message: 'Erro na autenticacao' }));
-    throw new Error(errorData.message || 'Credenciais invalidas');
+    const errorData = await response.json().catch(() => ({ error: 'Erro na autenticacao' }));
+    throw new Error(errorData.error || errorData.message || 'Credenciais invalidas');
   }
 
   const data: LoginResponse = await response.json();

@@ -18,6 +18,12 @@ func main() {
 		port = "8080"
 	}
 
+	// Chave secreta padrão para desenvolvimento local quando executado via Turborepo ou npm run dev
+	if os.Getenv("JWT_SECRET") == "" {
+		os.Setenv("JWT_SECRET", "dev-secret-key-12345")
+		log.Println("AVISO: JWT_SECRET não configurado no ambiente. Usando chave padrão para desenvolvimento local.")
+	}
+
 	// ── Stores (desenvolvimento: em memória) ──────────────────────────────────
 	authStore := auth.NewInMemoryStore()
 	roomStore := room.NewInMemoryStore()
@@ -59,12 +65,25 @@ func main() {
 	// WebSocket: GET /ws/rooms/{id}/signal?token=<jwt>
 	sigHandler.RegisterRoutes(mux)
 
-	// TODO T011: injetar SFU Pion em sigHandler via sigHandler.SetSFU(sfuImpl)
-	// TODO T012: módulo de chat (rate limit já implementado no hub)
-
 	addr := ":" + port
 	log.Printf("ScreenShare Classroom backend escutando em %s", addr)
-	if err := http.ListenAndServe(addr, mux); err != nil {
+	if err := http.ListenAndServe(addr, corsMiddleware(mux)); err != nil {
 		log.Fatalf("erro no servidor: %v", err)
 	}
+}
+
+// corsMiddleware permite requisições cross-origin durante o desenvolvimento local.
+func corsMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Access-Control-Allow-Origin", "*")
+		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
+		w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
+
+		if r.Method == http.MethodOptions {
+			w.WriteHeader(http.StatusNoContent)
+			return
+		}
+
+		next.ServeHTTP(w, r)
+	})
 }

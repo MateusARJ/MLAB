@@ -2,8 +2,6 @@ package webrtc
 
 import (
 	"fmt"
-	"io"
-	"log"
 	"sync"
 
 	"github.com/pion/webrtc/v3"

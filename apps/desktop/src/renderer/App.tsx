@@ -1,28 +1,32 @@
-import React from 'react'
+import React, { useState } from 'react'
+import { Login } from './pages/Login'
+import { Dashboard } from './pages/Dashboard'
+import { Room } from './pages/Room'
 
-/**
- * Componente raiz do app desktop.
- * O roteamento entre Login, Dashboard e Room será adicionado em T014-T016.
- */
+type AppState = 'login' | 'dashboard' | 'room'
+
 export default function App(): React.ReactElement {
+  const [state, setState] = useState<AppState>('login')
+  const [room, setRoom] = useState<{ id: string; slug: string; link: string } | null>(null)
+
+  const handleLoginSuccess = () => setState('dashboard')
+  const handleLogout = () => setState('login')
+  
+  const handleEnterRoom = (roomData: { id: string; slug: string; link: string }) => {
+    setRoom(roomData)
+    setState('room')
+  }
+  
+  const handleCloseRoom = () => {
+    setRoom(null)
+    setState('dashboard')
+  }
+
   return (
-    <div
-      style={{
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        height: '100vh',
-        fontFamily: 'system-ui, sans-serif',
-        background: '#0f172a',
-        color: '#f1f5f9'
-      }}
-    >
-      <div style={{ textAlign: 'center' }}>
-        <h1 style={{ fontSize: '2rem', marginBottom: '0.5rem' }}>
-          ScreenShare Classroom
-        </h1>
-        <p style={{ color: '#94a3b8' }}>App do Professor — Scaffold T006</p>
-      </div>
-    </div>
+    <>
+      {state === 'login' && <Login onSuccess={handleLoginSuccess} />}
+      {state === 'dashboard' && <Dashboard onEnterRoom={handleEnterRoom} onLogout={handleLogout} />}
+      {state === 'room' && room && <Room room={room} onCloseRoom={handleCloseRoom} />}
+    </>
   )
 }

@@ -5,7 +5,9 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"html"
 	"log"
+	"strings"
 	"time"
 )
 
@@ -337,7 +339,9 @@ func (h *Hub) onChatMessage(c *Client, msg WsMessage) {
 		c.sendError("INVALID_PAYLOAD", "payload de chat-message inválido")
 		return
 	}
-	if len([]rune(p.Content)) == 0 {
+
+	trimmed := strings.TrimSpace(p.Content)
+	if len(trimmed) == 0 {
 		return // descarta vazio
 	}
 
@@ -349,12 +353,14 @@ func (h *Hub) onChatMessage(c *Client, msg WsMessage) {
 		}
 	}
 
+	sanitized := html.EscapeString(trimmed)
+
 	h.broadcastAll(TypeChatMessage, ChatRecvPayload{
 		MessageID:     hubNewID(),
 		ParticipantID: c.participantID,
 		Name:          c.name,
 		Role:          c.role,
-		Content:       p.Content,
+		Content:       sanitized,
 		SentAt:        time.Now().UTC().Format(time.RFC3339),
 	})
 }
