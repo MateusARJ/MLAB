@@ -1,5 +1,6 @@
 import React, { useRef, useEffect } from 'react';
 import { useScreenCapture, Source } from '../hooks/useScreenCapture';
+import mlabLogo from '../assets/MLAB-logo.png';
 
 interface RoomProps {
   room: { id: string; slug: string; link: string };
@@ -31,9 +32,12 @@ export const Room: React.FC<RoomProps> = ({ room, onCloseRoom }) => {
   return (
     <div style={styles.container}>
       <header style={styles.header}>
-        <div>
-          <h2 style={styles.title}>Sala: {room.slug}</h2>
-          <span style={styles.subtitle}>ID: {room.id}</span>
+        <div style={styles.headerTitleBox}>
+          <img src={mlabLogo} alt="MLab Logo" style={styles.logoImg} />
+          <div>
+            <h2 style={styles.title}>MLab — Sala: {room.slug}</h2>
+            <span style={styles.subtitle}>ID: {room.id}</span>
+          </div>
         </div>
         <button onClick={() => { stopCapture(); onCloseRoom(); }} style={styles.closeBtn}>
           Encerrar Transmissão
@@ -109,6 +113,16 @@ const styles: { [key: string]: React.CSSProperties } = {
     padding: '16px 24px',
     backgroundColor: '#1e293b',
     borderBottom: '1px solid #334155',
+  },
+  headerTitleBox: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '12px',
+  },
+  logoImg: {
+    width: '32px',
+    height: '32px',
+    objectFit: 'contain',
   },
   title: {
     fontSize: '18px',

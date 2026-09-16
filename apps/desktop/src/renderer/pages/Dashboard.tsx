@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { createRoom } from '../services/room';
+import mlabLogo from '../assets/MLAB-logo.png';
 
 interface DashboardProps {
   onEnterRoom: (roomData: { id: string; slug: string; link: string }) => void;
@@ -45,7 +46,10 @@ export const Dashboard: React.FC<DashboardProps> = ({ onEnterRoom, onLogout }) =
   return (
     <div style={styles.container}>
       <header style={styles.topbar}>
-        <h2 style={styles.logo}>ScreenShare Classroom</h2>
+        <div style={styles.logoBox}>
+          <img src={mlabLogo} alt="MLab Logo" style={styles.logoImg} />
+          <h2 style={styles.logo}>MLab</h2>
+        </div>
         <button onClick={onLogout} style={styles.logoutBtn}>Sair</button>
       </header>
 
@@ -115,6 +119,16 @@ const styles: { [key: string]: React.CSSProperties } = {
     padding: '16px 32px',
     borderBottom: '1px solid #1e293b',
     backgroundColor: '#1e293b',
+  },
+  logoBox: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '12px',
+  },
+  logoImg: {
+    width: '32px',
+    height: '32px',
+    objectFit: 'contain',
   },
   logo: {
     fontSize: '18px',

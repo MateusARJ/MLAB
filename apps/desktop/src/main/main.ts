@@ -3,6 +3,8 @@ import { join } from 'path'
 
 function createWindow(): void {
   const win = new BrowserWindow({
+    title: 'MLab',
+    icon: join(__dirname, '../../resources/icon.png'),
     width: 1280,
     height: 800,
     minWidth: 900,

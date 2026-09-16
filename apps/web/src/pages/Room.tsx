@@ -75,7 +75,10 @@ export const Room: React.FC<RoomProps> = ({ token, roomInfo, onLeave }) => {
   return (
     <div ref={containerRef} style={styles.container}>
       <header style={styles.header}>
-        <h2 style={styles.title}>Aula ao Vivo</h2>
+        <div style={styles.brandBox}>
+          <img src="/MLAB-logo.png" alt="MLab Logo" style={styles.logoImg} />
+          <h2 style={styles.title}>MLab — Aula ao Vivo</h2>
+        </div>
         <div style={styles.statusBox}>
           <span style={styles.statusLabel}>Status: {connectionStatus}</span>
           <button onClick={onLeave} style={styles.leaveBtn}>Sair</button>
@@ -156,6 +159,16 @@ const styles: { [key: string]: React.CSSProperties } = {
     padding: '14px 24px',
     backgroundColor: '#1e293b',
     borderBottom: '1px solid #334155',
+  },
+  brandBox: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '12px',
+  },
+  logoImg: {
+    width: '28px',
+    height: '28px',
+    objectFit: 'contain',
   },
   title: {
     fontSize: '18px',

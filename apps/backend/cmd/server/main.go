@@ -66,7 +66,7 @@ func main() {
 	sigHandler.RegisterRoutes(mux)
 
 	addr := ":" + port
-	log.Printf("ScreenShare Classroom backend escutando em %s", addr)
+	log.Printf("MLab backend escutando em %s", addr)
 	if err := http.ListenAndServe(addr, corsMiddleware(mux)); err != nil {
 		log.Fatalf("erro no servidor: %v", err)
 	}

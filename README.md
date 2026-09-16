@@ -1,4 +1,8 @@
-# ScreenShare Classroom
+# MLab
+
+<p align="center">
+  <img src="MLAB-logo.png" alt="MLab Logo" width="160" />
+</p>
 
 Plataforma de transmissão de tela e áudio ao vivo voltada para ambientes educacionais, permitindo que um professor transmita sua tela para turmas com 40 ou mais alunos com baixa latência, consumo fixo de upload e distribuição via SFU (Selective Forwarding Unit).
 
@@ -63,7 +67,7 @@ $env:GOTMPDIR = "c:\Users\User\Documents\mlab\.gotmp"
 $env:JWT_SECRET = "dev-secret-key-12345"
 go run ./cmd/server/main.go
 ```
-> O backend inicializará na porta **`:8080`** com endpoints REST, WebSocket Hub e Pion SFU.
+> O backend inicializará na porta **`:8080`** com endpoints REST, WebSocket Hub e Pion SFU do MLab.
 
 ### Terminal 2 — App Web do Aluno (React / Vite)
 ```powershell

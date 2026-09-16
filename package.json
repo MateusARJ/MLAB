@@ -1,5 +1,5 @@
 {
-  "name": "screenshare-classroom",
+  "name": "mlab",
   "private": true,
   "packageManager": "npm@11.13.0",
   "workspaces": [

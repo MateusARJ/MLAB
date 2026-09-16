@@ -50,7 +50,8 @@ export const Join: React.FC<JoinProps> = ({ onJoined }) => {
     <div style={styles.container}>
       <div style={styles.card}>
         <div style={styles.header}>
-          <h1 style={styles.title}>ScreenShare Classroom</h1>
+          <img src="/MLAB-logo.png" alt="MLab Logo" style={styles.logoImg} />
+          <h1 style={styles.title}>MLab</h1>
           <p style={styles.subtitle}>Entrada na Aula — Sala: <strong style={{ color: '#38bdf8' }}>{slug}</strong></p>
         </div>
 
@@ -120,6 +121,12 @@ const styles: { [key: string]: React.CSSProperties } = {
   header: {
     textAlign: 'center',
     marginBottom: '28px',
+  },
+  logoImg: {
+    width: '96px',
+    height: '96px',
+    objectFit: 'contain',
+    marginBottom: '12px',
   },
   title: {
     fontSize: '24px',

@@ -1,4 +1,4 @@
-# Documentação de Requisitos: Sistema de Compartilhamento de Tela
+# Documentação de Requisitos: MLab
 
 ## 1. Visão Geral
 Um sistema de compartilhamento de tela e áudio focado em aulas remotas. Desenvolvido com **Golang** e **Pion (WebRTC)**, o projeto utiliza uma arquitetura **SFU (Selective Forwarding Unit)** customizada. Isso garante alta performance, baixa latência e suporte para salas com 30 ou mais alunos sem sobrecarregar o processamento ou a banda de upload da máquina do professor. O sistema é multiplataforma (Windows, Linux, macOS) e o acesso é feito totalmente via navegador web.

@@ -2,7 +2,7 @@
 
 > **Status:** 🟢 Homologado  
 > **Data:** 2026-09-14  
-> **Projeto:** ScreenShare Classroom  
+> **Projeto:** MLab  
 
 ---
 

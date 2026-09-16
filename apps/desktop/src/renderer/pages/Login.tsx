@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { loginProfessor } from '../services/auth';
+import mlabLogo from '../assets/MLAB-logo.png';
 
 interface LoginProps {
   onSuccess: () => void;
@@ -35,7 +36,8 @@ export const Login: React.FC<LoginProps> = ({ onSuccess }) => {
     <div style={styles.container}>
       <div style={styles.card}>
         <div style={styles.header}>
-          <h1 style={styles.title}>ScreenShare Classroom</h1>
+          <img src={mlabLogo} alt="MLab Logo" style={styles.logoImg} />
+          <h1 style={styles.title}>MLab</h1>
           <p style={styles.subtitle}>Painel do Professor — Acesso Restrito</p>
         </div>
 
@@ -105,6 +107,12 @@ const styles: { [key: string]: React.CSSProperties } = {
   header: {
     textAlign: 'center',
     marginBottom: '28px',
+  },
+  logoImg: {
+    width: '96px',
+    height: '96px',
+    objectFit: 'contain',
+    marginBottom: '12px',
   },
   title: {
     fontSize: '24px',

@@ -1,4 +1,4 @@
-# Instruções para Agentes de IA — ScreenShare Classroom
+# Instruções para Agentes de IA — MLab
 
 Este arquivo governa todo o repositório. O projeto utiliza Spec-Driven Development (SDD) com inspiração e compatibilidade conceitual com o GitHub Spec Kit. Nenhum agente pode tratar código como fonte primária de requisitos.
 
