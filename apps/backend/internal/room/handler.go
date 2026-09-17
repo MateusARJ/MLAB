@@ -64,20 +64,34 @@ func (h *Handler) createRoom(w http.ResponseWriter, r *http.Request) {
 	}
 
 	professorID := auth.ClaimSub(claims)
-	slug := newSlug()
-	room := &Room{
-		ID:              newID(),
-		Slug:            slug,
-		OwnerID:         professorID,
-		Status:          StatusWaiting,
-		MaxParticipants: req.MaxParticipants,
-		CreatedAt:       time.Now().UTC(),
-	}
 
-	if err := h.store.CreateRoom(r.Context(), room); err != nil {
-		log.Printf("room: CreateRoom: %v", err)
-		writeError(w, http.StatusInternalServerError, "erro ao criar sala")
-		return
+	// Gera slug fixo baseado no login/email do professor (ex: professor@screenshare.local -> "professor")
+	email, _ := claims["email"].(string)
+	slug := slugFromEmail(email)
+
+	// Se o professor já possui uma sala criada, reutiliza o slug fixo e reativa a sala
+	var room *Room
+	existing, err := h.store.GetRoomByOwnerID(r.Context(), professorID)
+	if err == nil && existing != nil {
+		room = existing
+		room.Status = StatusWaiting
+		room.ClosedAt = nil
+		_ = h.store.UpdateRoomStatus(r.Context(), room.ID, StatusWaiting, nil)
+	} else {
+		room = &Room{
+			ID:              newID(),
+			Slug:            slug,
+			OwnerID:         professorID,
+			Status:          StatusWaiting,
+			MaxParticipants: req.MaxParticipants,
+			CreatedAt:       time.Now().UTC(),
+		}
+
+		if err := h.store.CreateRoom(r.Context(), room); err != nil {
+			log.Printf("room: CreateRoom: %v", err)
+			writeError(w, http.StatusInternalServerError, "erro ao criar sala")
+			return
+		}
 	}
 
 	writeJSON(w, http.StatusCreated, CreateRoomResponse{

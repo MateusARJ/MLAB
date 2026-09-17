@@ -27,6 +27,7 @@ type Store interface {
 	CreateRoom(ctx context.Context, room *Room) error
 	GetRoomByID(ctx context.Context, roomID string) (*Room, error)
 	GetRoomBySlug(ctx context.Context, slug string) (*Room, error)
+	GetRoomByOwnerID(ctx context.Context, ownerID string) (*Room, error)
 	UpdateRoomStatus(ctx context.Context, roomID string, status Status, closedAt *time.Time) error
 
 	// Participantes
@@ -83,6 +84,18 @@ func (s *inMemoryStore) GetRoomBySlug(_ context.Context, slug string) (*Room, er
 	return &copy, nil
 }
 
+func (s *inMemoryStore) GetRoomByOwnerID(_ context.Context, ownerID string) (*Room, error) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	for _, r := range s.rooms {
+		if r.OwnerID == ownerID {
+			copy := *r
+			return &copy, nil
+		}
+	}
+	return nil, ErrRoomNotFound
+}
+
 func (s *inMemoryStore) UpdateRoomStatus(_ context.Context, roomID string, status Status, closedAt *time.Time) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -137,6 +150,29 @@ func newSlug() string {
 	suffix, _ := rand.Int(rand.Reader, big.NewInt(9000))
 	suffix = new(big.Int).Add(suffix, big.NewInt(1000))
 	return fmt.Sprintf("%s-%s-%s", pick(), pick(), suffix.String())
+}
+
+// slugFromEmail gera um slug fixo e amigável baseado no login/email do professor.
+func slugFromEmail(email string) string {
+	email = strings.TrimSpace(strings.ToLower(email))
+	if email == "" {
+		return newSlug()
+	}
+	parts := strings.Split(email, "@")
+	user := parts[0]
+	var b strings.Builder
+	for _, r := range user {
+		if (r >= 'a' && r <= 'z') || (r >= '0' && r <= '9') {
+			b.WriteRune(r)
+		} else if r == '.' || r == '_' || r == '-' || r == '+' {
+			b.WriteRune('-')
+		}
+	}
+	clean := strings.Trim(b.String(), "-")
+	if clean == "" {
+		return newSlug()
+	}
+	return clean
 }
 
 // buildLink constrói a URL pública da sala.

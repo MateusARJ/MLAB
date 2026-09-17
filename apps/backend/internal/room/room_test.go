@@ -223,3 +223,84 @@ func TestJoinRoomBySlug(t *testing.T) {
 		t.Error("esperava IceServers configurados")
 	}
 }
+
+func TestSlugFromEmail(t *testing.T) {
+	cases := []struct {
+		email    string
+		expected string
+	}{
+		{"professor@screenshare.local", "professor"},
+		{"carlos.silva@escola.com", "carlos-silva"},
+		{"maria_oliveira@univ.edu.br", "maria-oliveira"},
+		{"prof+test@domain.com", "prof-test"},
+	}
+
+	for _, c := range cases {
+		got := slugFromEmail(c.email)
+		if got != c.expected {
+			t.Errorf("slugFromEmail(%q) = %q; want %q", c.email, got, c.expected)
+		}
+	}
+}
+
+func TestCreateRoomFixedSlug(t *testing.T) {
+	t.Setenv("JWT_SECRET", "test-secret-12345")
+	t.Setenv("BASE_URL", "http://localhost:3000")
+
+	store := NewInMemoryStore()
+	handler := NewHandler(store)
+	mux := http.NewServeMux()
+	handler.RegisterProtectedRoutes(mux, auth.Middleware)
+
+	// Gera token de professor com email
+	profClaims := auth.ProfessorMapClaims("prof-123", "professor@screenshare.local")
+	profToken, err := auth.SignToken(profClaims)
+	if err != nil {
+		t.Fatalf("falha ao assinar token: %v", err)
+	}
+
+	// 1. Cria sala
+	req := httptest.NewRequest("POST", "/rooms", bytes.NewReader([]byte(`{"title":"Matemática"}`)))
+	req.Header.Set("Authorization", "Bearer "+profToken)
+	rec := httptest.NewRecorder()
+	mux.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("expected 201 Created, got %d: %s", rec.Code, rec.Body.String())
+	}
+
+	var resp CreateRoomResponse
+	if err := json.NewDecoder(rec.Body).Decode(&resp); err != nil {
+		t.Fatalf("decode err: %v", err)
+	}
+
+	if resp.Slug != "professor" {
+		t.Errorf("esperava slug fixo 'professor', obteve %q", resp.Slug)
+	}
+	expectedLink := "http://localhost:3000/sala/professor/entrar"
+	if resp.Link != expectedLink {
+		t.Errorf("esperava Link %q, obteve %q", expectedLink, resp.Link)
+	}
+
+	// 2. Cria novamente com o mesmo professor -> deve reutilizar o mesmo slug e ID
+	req2 := httptest.NewRequest("POST", "/rooms", bytes.NewReader([]byte(`{"title":"Matemática 2"}`)))
+	req2.Header.Set("Authorization", "Bearer "+profToken)
+	rec2 := httptest.NewRecorder()
+	mux.ServeHTTP(rec2, req2)
+
+	if rec2.Code != http.StatusCreated {
+		t.Fatalf("expected 201 Created, got %d", rec2.Code)
+	}
+
+	var resp2 CreateRoomResponse
+	if err := json.NewDecoder(rec2.Body).Decode(&resp2); err != nil {
+		t.Fatalf("decode err: %v", err)
+	}
+
+	if resp2.RoomID != resp.RoomID {
+		t.Errorf("esperava reuso do RoomID %q, obteve %q", resp.RoomID, resp2.RoomID)
+	}
+	if resp2.Slug != "professor" {
+		t.Errorf("esperava reuso do slug 'professor', obteve %q", resp2.Slug)
+	}
+}

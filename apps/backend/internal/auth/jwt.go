@@ -45,8 +45,8 @@ func studentTTL() time.Duration {
 	return 6 * time.Hour // duração de aula + margem
 }
 
-// professorMapClaims monta os claims padronizados para o token do professor.
-func professorMapClaims(professorID, email string) jwt.MapClaims {
+// ProfessorMapClaims monta os claims padronizados para o token do professor.
+func ProfessorMapClaims(professorID, email string) jwt.MapClaims {
 	now := time.Now()
 	exp := now.Add(professorTTL())
 	return jwt.MapClaims{
@@ -84,9 +84,9 @@ func SignToken(claims jwt.MapClaims) (string, error) {
 	return token.SignedString(secret)
 }
 
-// SignProfessorToken gera um JWT para o professor autenticado.
+// SignProfessorToken gera um token JWT assinado para um professor.
 func SignProfessorToken(professorID, email string) (tokenStr string, expiresAt time.Time, err error) {
-	claims := professorMapClaims(professorID, email)
+	claims := ProfessorMapClaims(professorID, email)
 	tokenStr, err = SignToken(claims)
 	if err != nil {
 		return "", time.Time{}, err
