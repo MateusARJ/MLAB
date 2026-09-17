@@ -32,12 +32,24 @@ export interface ElectronAPI {
     defaultName?: string,
     format?: RecordingFormat
   ) => Promise<SaveRecordingResult>
+
+  /**
+   * Verifica o status atual de permissões de mídia (microfone e tela) no SO.
+   */
+  checkMediaPermissions: () => Promise<{ microphone: string; screen: string }>
+
+  /**
+   * Solicita autorização de mídia ao Sistema Operacional.
+   */
+  requestMediaPermissions: () => Promise<{ microphone: boolean; screen: boolean }>
 }
 
 const api: ElectronAPI = {
   getScreenSources: (type) => ipcRenderer.invoke('get-screen-sources', type),
   saveRecordedVideo: (buffer, defaultName, format) =>
-    ipcRenderer.invoke('save-recorded-video', { buffer, defaultName, format })
+    ipcRenderer.invoke('save-recorded-video', { buffer, defaultName, format }),
+  checkMediaPermissions: () => ipcRenderer.invoke('check-media-permissions'),
+  requestMediaPermissions: () => ipcRenderer.invoke('request-media-permissions')
 }
 
 contextBridge.exposeInMainWorld('electronAPI', api)

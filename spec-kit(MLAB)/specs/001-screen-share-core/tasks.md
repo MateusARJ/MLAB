@@ -364,3 +364,18 @@ Checks:
 - [x] Testes de renderização de abas e fluxo de escolha de gravação em `Room.test.tsx`.
 - [x] 100% dos testes passando (`npm run test`) e build limpo (`npm run build`).
 
+### T029 — apps/desktop — Fluxo e aceite de permissões de microfone e captura de tela no pós-login do professor
+[x] T029
+Depends On: T028
+Allowed Paths: `apps/desktop/src/**`, `packages/types/src/index.ts`
+Prohibited Paths: `apps/web/**`, `apps/backend/**`
+Checks:
+- [x] Handlers de permissão de sessão no Electron main (`setPermissionRequestHandler`, `setPermissionCheckHandler`, `setDisplayMediaRequestHandler`).
+- [x] IPC handlers `check-media-permissions` e `request-media-permissions` expostos no contextBridge.
+- [x] Tela intermediária `Permissions.tsx` após o login do professor para solicitação e teste de Microfone e Tela Cheia/Janelas.
+- [x] Bloqueio de avanço para o Dashboard até que as permissões sejam validadas/concedidas.
+- [x] Guia de instruções para configurações de privacidade do SO caso negado.
+- [x] 100% dos testes passando e build limpo.
+
+
+

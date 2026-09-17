@@ -28,6 +28,7 @@ export const Room: React.FC<RoomProps> = ({ room, onCloseRoom }) => {
     micMuted,
     videoPaused,
     hasPermissions,
+    loadSources,
     selectSource,
     toggleMicMute,
     toggleVideoPause,
@@ -132,7 +133,13 @@ export const Room: React.FC<RoomProps> = ({ room, onCloseRoom }) => {
 
       {hasPermissions === false && (
         <div style={styles.permissionAlert}>
-          Atenção: Permissões de gravação de tela ou microfone não foram concedidas no Sistema Operacional.
+          <span>Atenção: Permissões de gravação de tela ou microfone não foram detectadas no Sistema Operacional.</span>
+          <button
+            onClick={() => loadSources(captureMode)}
+            style={styles.retryPermBtn}
+          >
+            🔄 Verificar Novamente
+          </button>
         </div>
       )}
 
@@ -417,6 +424,21 @@ const styles: { [key: string]: React.CSSProperties } = {
     padding: '10px 24px',
     fontSize: '13px',
     borderBottom: '1px solid rgba(239, 68, 68, 0.4)',
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    gap: '12px',
+  },
+  retryPermBtn: {
+    backgroundColor: '#ef4444',
+    color: '#ffffff',
+    border: 'none',
+    padding: '6px 12px',
+    borderRadius: '6px',
+    fontSize: '12px',
+    fontWeight: '600',
+    cursor: 'pointer',
+    flexShrink: 0,
   },
   errorBanner: {
     backgroundColor: 'rgba(239, 68, 68, 0.2)',

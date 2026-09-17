@@ -165,3 +165,13 @@ export interface CaptureSource {
 export type RecordingFormat = 'webm' | 'mp4';
 
 export type RecordingStatus = 'idle' | 'recording' | 'paused' | 'stopped';
+
+// ── Media Permissions ────────────────────────────────────────────────────────
+
+export type MediaPermissionStatus = 'granted' | 'denied' | 'prompt' | 'not-determined' | 'unknown';
+
+export interface SystemMediaPermissions {
+  microphone: MediaPermissionStatus;
+  screen: MediaPermissionStatus;
+}
+

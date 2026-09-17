@@ -1,4 +1,13 @@
-import { app, BrowserWindow, ipcMain, desktopCapturer, nativeImage, dialog } from 'electron'
+import {
+  app,
+  BrowserWindow,
+  ipcMain,
+  desktopCapturer,
+  nativeImage,
+  dialog,
+  session,
+  systemPreferences
+} from 'electron'
 import { join } from 'path'
 import { existsSync, promises as fsPromises } from 'fs'
 
@@ -163,9 +172,79 @@ ipcMain.handle(
   }
 )
 
+// ── IPC: Verificação e solicitação de permissões de SO (Microfone e Tela) ─────
+
+ipcMain.handle('check-media-permissions', async () => {
+  let micStatus = 'granted'
+  let screenStatus = 'granted'
+
+  try {
+    if (process.platform === 'darwin' || process.platform === 'win32') {
+      if (typeof systemPreferences.getMediaAccessStatus === 'function') {
+        micStatus = systemPreferences.getMediaAccessStatus('microphone')
+        screenStatus = systemPreferences.getMediaAccessStatus('screen')
+      }
+    }
+  } catch (err) {
+    console.warn('Falha ao consultar getMediaAccessStatus:', err)
+  }
+
+  return {
+    microphone: micStatus,
+    screen: screenStatus
+  }
+})
+
+ipcMain.handle('request-media-permissions', async () => {
+  let micGranted = true
+  try {
+    if (process.platform === 'darwin' && typeof systemPreferences.askForMediaAccess === 'function') {
+      micGranted = await systemPreferences.askForMediaAccess('microphone')
+    }
+  } catch (err) {
+    console.warn('Falha ao solicitar permissão de microfone:', err)
+    micGranted = false
+  }
+
+  return {
+    microphone: micGranted,
+    screen: true
+  }
+})
+
 // ── App lifecycle ─────────────────────────────────────────────────────────────
 
 app.whenReady().then(() => {
+  // Configuração explícita de permissões do Chromium para captura e áudio
+  session.defaultSession.setPermissionRequestHandler((_webContents, permission, callback) => {
+    const allowed = ['media', 'display-capture', 'mediaKeySystem', 'notifications']
+    if (allowed.includes(permission)) {
+      callback(true)
+    } else {
+      callback(false)
+    }
+  })
+
+  session.defaultSession.setPermissionCheckHandler((_webContents, permission) => {
+    return permission === 'media' || permission === 'display-capture'
+  })
+
+  session.defaultSession.setDisplayMediaRequestHandler((_request, callback) => {
+    desktopCapturer
+      .getSources({ types: ['screen', 'window'] })
+      .then((sources) => {
+        if (sources.length > 0) {
+          callback({ video: sources[0] })
+        } else {
+          callback({ video: null as any })
+        }
+      })
+      .catch((err) => {
+        console.error('Erro no displayMediaRequestHandler:', err)
+        callback({ video: null as any })
+      })
+  })
+
   createWindow()
 
   app.on('activate', () => {

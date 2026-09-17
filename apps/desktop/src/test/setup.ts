@@ -18,6 +18,14 @@ window.electronAPI = {
     success: true,
     filePath: 'C:/fake/path/aula-mlab.webm',
   }),
+  checkMediaPermissions: vi.fn().mockResolvedValue({
+    microphone: 'granted',
+    screen: 'granted',
+  }),
+  requestMediaPermissions: vi.fn().mockResolvedValue({
+    microphone: true,
+    screen: true,
+  }),
 };
 
 if (typeof window !== 'undefined') {
