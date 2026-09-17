@@ -259,7 +259,22 @@ export const Room: React.FC<RoomProps> = ({ room, onCloseRoom }) => {
               </div>
             </div>
 
-            {/* 3. Botão de Avanço */}
+            {/* 3. Qualidade da Transmissão */}
+            <div style={styles.sectionBox}>
+              <h4 style={styles.sectionTitle}>3. Resolução e Qualidade de Vídeo</h4>
+              <div style={styles.qualityInfoBox}>
+                <div style={styles.qualityBadgeActive}>
+                  📺 1080p Full HD @ 30 fps
+                </div>
+                <div style={styles.qualityDetails}>
+                  <span style={styles.qualityParam}>Bitrate: <strong>4.0 Mbps</strong></span>
+                  <span style={styles.qualityParam}>Otimização: <strong>Nitidez para Textos e Código</strong></span>
+                  <span style={styles.qualityParam}>Fidelidade: <strong>Resolução Bloqueada</strong> (sem rebaixamento)</span>
+                </div>
+              </div>
+            </div>
+
+            {/* 4. Botão de Avanço */}
             <div style={styles.advanceBar}>
               <button
                 type="button"
@@ -279,6 +294,9 @@ export const Room: React.FC<RoomProps> = ({ room, onCloseRoom }) => {
               <div style={styles.statusLeft}>
                 <span style={styles.liveBadge}>
                   <span style={styles.pulsingDotGreen} /> AO VIVO
+                </span>
+                <span style={styles.resolutionBadge}>
+                  1080p @ 30fps • 4 Mbps
                 </span>
                 <span style={styles.statusInfo}>
                   Modo: {captureMode === 'screen' ? '🖥️ Tela Cheia' : '🗔 Janela Específica'} (
@@ -708,6 +726,48 @@ const styles: { [key: string]: React.CSSProperties } = {
     height: '8px',
     borderRadius: '50%',
     backgroundColor: '#22c55e',
+  },
+  resolutionBadge: {
+    fontSize: '12px',
+    fontWeight: '600',
+    color: '#38bdf8',
+    backgroundColor: 'rgba(56, 189, 248, 0.1)',
+    border: '1px solid rgba(56, 189, 248, 0.3)',
+    padding: '3px 8px',
+    borderRadius: '6px',
+  },
+  qualityInfoBox: {
+    backgroundColor: '#0f172a',
+    border: '1px solid #1e293b',
+    borderRadius: '8px',
+    padding: '14px 16px',
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '10px',
+  },
+  qualityBadgeActive: {
+    display: 'inline-flex',
+    alignItems: 'center',
+    width: 'fit-content',
+    gap: '6px',
+    backgroundColor: 'rgba(56, 189, 248, 0.15)',
+    border: '1px solid #38bdf8',
+    color: '#38bdf8',
+    fontWeight: '700',
+    fontSize: '13px',
+    padding: '4px 10px',
+    borderRadius: '6px',
+  },
+  qualityDetails: {
+    display: 'flex',
+    flexWrap: 'wrap',
+    gap: '16px',
+    fontSize: '12px',
+    color: '#94a3b8',
+  },
+  qualityParam: {
+    display: 'flex',
+    gap: '4px',
   },
   statusInfo: {
     fontSize: '13px',

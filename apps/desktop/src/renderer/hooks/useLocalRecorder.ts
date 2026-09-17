@@ -63,7 +63,10 @@ export function useLocalRecorder({ stream, initialFormat = 'webm' }: UseLocalRec
       setSavedFilePath(null);
 
       const mimeType = getBestMimeType(targetFormat);
-      const options: MediaRecorderOptions = mimeType ? { mimeType } : {};
+      const options: MediaRecorderOptions = {
+        ...(mimeType ? { mimeType } : {}),
+        videoBitsPerSecond: 4000000, // 4 Mbps para 1080p (RF-04, RNF-01)
+      };
       const recorder = new MediaRecorder(activeStream, options);
 
       recorder.ondataavailable = (event) => {

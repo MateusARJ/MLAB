@@ -63,10 +63,38 @@ export function useWebRTCPublisher({
       });
       pcRef.current = pc;
 
+      const applyVideoSenderParameters = async () => {
+        if (!pcRef.current) return;
+        const videoSender = pcRef.current.getSenders().find((s) => s.track && s.track.kind === 'video');
+        if (videoSender) {
+          const params = videoSender.getParameters();
+          if (!params.encodings || params.encodings.length === 0) {
+            params.encodings = [{}];
+          }
+          params.encodings[0].maxBitrate = 4000000; // 4 Mbps para 1080p (RF-04, RNF-01)
+          params.encodings[0].maxFramerate = 30; // 30 fps
+          params.encodings[0].scaleResolutionDownBy = 1.0;
+          // @ts-ignore
+          params.degradationPreference = 'maintain-resolution';
+          try {
+            await videoSender.setParameters(params);
+            console.log('[WebRTC Publisher] 1080p@30fps 4Mbps maintain-resolution aplicado ao videoSender.');
+          } catch (e) {
+            console.warn('[WebRTC Publisher] Erro ao aplicar parâmetros no RTCRtpSender:', e);
+          }
+        }
+      };
+
       // Adiciona tracks de vídeo e áudio do stream ativo
       activeStream.getTracks().forEach((track) => {
+        if (track.kind === 'video') {
+          // @ts-ignore
+          track.contentHint = 'detail';
+        }
         pc.addTrack(track, activeStream);
       });
+
+      await applyVideoSenderParameters();
 
       pc.onicecandidate = (event) => {
         if (event.candidate && ws.readyState === WebSocket.OPEN) {
@@ -113,13 +141,25 @@ export function useWebRTCPublisher({
           if (msg.type === 'publish-approved') {
             // Cria a oferta SDP após aprovação do hub
             const offer = await pc.createOffer();
-            await pc.setLocalDescription(offer);
+            let sdp = offer.sdp;
+            if (sdp) {
+              // Insere b=AS:4000 (4 Mbps) e b=TIAS:4000000 na seção de vídeo do SDP
+              sdp = sdp.replace(/m=video ([^\r\n]+)\r\n/g, (match) => {
+                return `${match}b=AS:4000\r\nb=TIAS:4000000\r\n`;
+              });
+            }
+            const modifiedOffer = new RTCSessionDescription({
+              type: 'offer',
+              sdp: sdp || offer.sdp,
+            });
+            await pc.setLocalDescription(modifiedOffer);
+            await applyVideoSenderParameters();
 
             if (ws.readyState === WebSocket.OPEN) {
               ws.send(
                 JSON.stringify({
                   type: 'offer',
-                  payload: { sdp: offer.sdp },
+                  payload: { sdp: modifiedOffer.sdp },
                 })
               );
             }
@@ -180,9 +220,25 @@ export function useWebRTCPublisher({
     const videoSender = senders.find((s) => s.track && s.track.kind === 'video');
 
     if (videoSender && newVideoTrack && videoSender.track !== newVideoTrack) {
-      videoSender.replaceTrack(newVideoTrack).catch((err) => {
-        console.warn('Erro ao substituir track de vídeo dinamicamente:', err);
-      });
+      // @ts-ignore
+      newVideoTrack.contentHint = 'detail';
+      videoSender
+        .replaceTrack(newVideoTrack)
+        .then(async () => {
+          const params = videoSender.getParameters();
+          if (!params.encodings || params.encodings.length === 0) {
+            params.encodings = [{}];
+          }
+          params.encodings[0].maxBitrate = 4000000;
+          params.encodings[0].maxFramerate = 30;
+          params.encodings[0].scaleResolutionDownBy = 1.0;
+          // @ts-ignore
+          params.degradationPreference = 'maintain-resolution';
+          await videoSender.setParameters(params).catch(() => {});
+        })
+        .catch((err) => {
+          console.warn('Erro ao substituir track de vídeo dinamicamente:', err);
+        });
     }
 
     const newAudioTrack = stream.getAudioTracks()[0];

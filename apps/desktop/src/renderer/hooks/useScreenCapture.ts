@@ -59,10 +59,18 @@ export function useScreenCapture(initialMode: CaptureSourceType = 'screen') {
             chromeMediaSourceId: source.id,
             maxWidth: 1920,
             maxHeight: 1080,
+            minFrameRate: 30,
             maxFrameRate: 30,
           },
         },
       });
+
+      // Crava contentHint='detail' para que o encoder VP8 priorize nitidez de código/texto e evite suavização espacial
+      const videoTrack = mediaStream.getVideoTracks()[0];
+      if (videoTrack) {
+        // @ts-ignore
+        videoTrack.contentHint = 'detail';
+      }
 
       // Tenta anexar microfone do professor se disponível (RF-10, RN-10)
       try {
