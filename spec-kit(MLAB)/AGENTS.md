@@ -234,3 +234,25 @@ spec -> clarify -> plan -> checklist -> tasks -> analyze -> implementation
 ```
 
 Depois de mudar um artefato upstream, todos os artefatos downstream afetados devem ser revalidados.
+
+## 12. Padrão Obrigatório de Mensagens de Commit e Pull Request
+
+Todo commit e todo Pull Request no repositório devem seguir obrigatoriamente a seguinte convenção:
+
+- **Prefixo estritamente em inglês**: `feat`, `fix`, `docs`, `style`, `refactor`, `perf`, `test`, `build`, `ci`, `chore`.
+- **Escopo opcional entre parênteses**: ex: `(desktop)`, `(web)`, `(backend)`, `(types)`.
+- **Restante da mensagem restritamente em português**: toda a descrição, corpo explicativo e justificativa devem ser redigidos exclusivamente em português.
+
+### Formato
+`<tipo>(<escopo>): <descrição em português no imperativo>`
+
+### Exemplos válidos
+- `feat(desktop): adiciona suporte a gravação local em .webm e .mp4`
+- `fix(backend): corrige validação de senha bcrypt no login do professor`
+- `docs(specs): atualiza checklist de requisitos da sala de aula`
+- `test(desktop): adiciona testes para alternância de fontes de captura`
+- `chore(repo): configura templates de commit e pull request`
+
+Templates oficiais configurados no repositório:
+- Commit: `.gitmessage` e `.github/.gitmessage` (ativo via `git config commit.template .gitmessage`)
+- Pull Request: `.github/pull_request_template.md`

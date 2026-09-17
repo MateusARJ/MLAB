@@ -1,0 +1,29 @@
+﻿# <tipo>(<escopo opcional>): <descrição sucinta estritamente em português>
+#
+# ─── REGRA OBRIGATÓRIA DE COMMIT ───────────────────────────────────────────────
+# 1. O prefixo DEVE ser estritamente em inglês:
+#      feat:     Nova funcionalidade
+#      fix:      Correção de bug
+#      docs:     Alterações em documentação e specs
+#      style:    Formatação, espaçamento, ponto e vírgula
+#      refactor: Refatoração de código sem alteração de funcionalidade
+#      perf:     Melhoria de desempenho
+#      test:     Adição ou correção de testes automatizados
+#      build:    Alterações no sistema de build e dependências (turbo, vite, go)
+#      ci:       Arquivos e configurações de CI/CD
+#      chore:    Tarefas de manutenção geral
+#
+# 2. O escopo entre parênteses é opcional, ex: (desktop), (web), (backend), (types).
+# 3. Todo o restante do assunto e do corpo da mensagem DEVE ser RESTRITAMENTE em português.
+#
+# Exemplos válidos:
+#   feat(desktop): adiciona suporte a gravação local em .webm e .mp4
+#   fix(backend): corrige validação de credenciais do professor
+#   docs(specs): atualiza checklist de requisitos da sala de aula
+#   chore(turbo): atualiza dependências do monorepo
+# ──────────────────────────────────────────────────────────────────────────────
+#
+# Corpo explicativo (opcional): Descreva a motivação da mudança e detalhes técnicos:
+#
+# Tarefas relacionadas / Spec-Kit (opcional):
+# Ref: T022, T023, RF-026
