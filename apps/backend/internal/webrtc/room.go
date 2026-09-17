@@ -6,7 +6,9 @@ import (
 	"io"
 	"log"
 	"sync"
+	"time"
 
+	"github.com/pion/rtcp"
 	"github.com/pion/webrtc/v3"
 )
 
@@ -16,8 +18,9 @@ type Room struct {
 	api *webrtc.API
 	mu  sync.RWMutex
 
-	publisherID string
-	publisherPC *webrtc.PeerConnection
+	publisherID        string
+	publisherPC        *webrtc.PeerConnection
+	publisherVideoSSRC uint32
 
 	// Tracks locais encaminhadas do professor para os alunos (repasse RTP em memória)
 	videoTrack *webrtc.TrackLocalStaticRTP
@@ -53,12 +56,17 @@ func (r *Room) handlePublisherOffer(publisherID, sdp string) (string, error) {
 
 	// Trata o recebimento das tracks de vídeo e áudio do professor
 	pc.OnTrack(func(remoteTrack *webrtc.TrackRemote, receiver *webrtc.RTPReceiver) {
-		log.Printf("[SFU] Nova track recebida do professor (%s): Kind=%s, MimeType=%s", publisherID, remoteTrack.Kind().String(), remoteTrack.Codec().MimeType)
+		log.Printf("[SFU] Nova track recebida do professor (%s): Kind=%s, MimeType=%s, SSRC=%d", publisherID, remoteTrack.Kind().String(), remoteTrack.Codec().MimeType, remoteTrack.SSRC())
+
+		trackID := "video"
+		if remoteTrack.Kind() == webrtc.RTPCodecTypeAudio {
+			trackID = "audio"
+		}
 
 		localTrack, err := webrtc.NewTrackLocalStaticRTP(
 			remoteTrack.Codec().RTPCodecCapability,
-			remoteTrack.ID(),
-			remoteTrack.StreamID(),
+			trackID,
+			"mlab-stream",
 		)
 		if err != nil {
 			log.Printf("[SFU] Erro ao criar TrackLocalStaticRTP: %v", err)
@@ -68,13 +76,38 @@ func (r *Room) handlePublisherOffer(publisherID, sdp string) (string, error) {
 		r.mu.Lock()
 		if remoteTrack.Kind() == webrtc.RTPCodecTypeVideo {
 			r.videoTrack = localTrack
+			r.publisherVideoSSRC = uint32(remoteTrack.SSRC())
 		} else if remoteTrack.Kind() == webrtc.RTPCodecTypeAudio {
 			r.audioTrack = localTrack
 		}
 		r.mu.Unlock()
 
+		// Se for track de vídeo, inicia ticker periódico para solicitar RTCP PLI (Keyframe)
+		// Isso garante que novos espectadores decodifiquem o vídeo sem tela preta
+		if remoteTrack.Kind() == webrtc.RTPCodecTypeVideo {
+			go func() {
+				ticker := time.NewTicker(2 * time.Second)
+				defer ticker.Stop()
+				for range ticker.C {
+					r.mu.RLock()
+					pubPC := r.publisherPC
+					ssrc := r.publisherVideoSSRC
+					r.mu.RUnlock()
+
+					if pubPC == nil || pubPC.ConnectionState() == webrtc.PeerConnectionStateClosed {
+						return
+					}
+					if ssrc != 0 {
+						_ = pubPC.WriteRTCP([]rtcp.Packet{
+							&rtcp.PictureLossIndication{MediaSSRC: ssrc},
+						})
+					}
+				}
+			}()
+		}
+
 		// Repasse de pacotes RTP em memória (Zero gravação em disco, RNF-15 / RNF-16)
-		buf := make([]byte, 1500)
+		buf := make([]byte, 4096)
 		for {
 			n, _, err := remoteTrack.Read(buf)
 			if err != nil {
@@ -104,11 +137,13 @@ func (r *Room) handlePublisherOffer(publisherID, sdp string) (string, error) {
 		return "", fmt.Errorf("falha ao criar Answer do publisher: %w", err)
 	}
 
+	gatherComplete := webrtc.GatheringCompletePromise(pc)
 	if err := pc.SetLocalDescription(answer); err != nil {
 		return "", fmt.Errorf("falha ao aplicar LocalDescription do publisher: %w", err)
 	}
+	<-gatherComplete
 
-	return answer.SDP, nil
+	return pc.LocalDescription().SDP, nil
 }
 
 func (r *Room) createSubscriberOffer(subscriberID, publisherID string) (string, error) {
@@ -128,16 +163,43 @@ func (r *Room) createSubscriberOffer(subscriberID, publisherID string) (string, 
 
 	r.subscribers[subscriberID] = pc
 
+	// Dispara solicitação imediata de Keyframe (RTCP PLI) para o novo aluno decodificar o vídeo sem espera
+	if r.publisherPC != nil && r.publisherVideoSSRC != 0 {
+		_ = r.publisherPC.WriteRTCP([]rtcp.Packet{
+			&rtcp.PictureLossIndication{MediaSSRC: r.publisherVideoSSRC},
+		})
+	}
+
 	// Adiciona as tracks ativas do professor (video e audio independentes)
 	if r.videoTrack != nil {
-		if _, err := pc.AddTrack(r.videoTrack); err != nil {
+		sender, err := pc.AddTrack(r.videoTrack)
+		if err != nil {
 			log.Printf("[SFU] Erro ao adicionar videoTrack para %s: %v", subscriberID, err)
+		} else {
+			go func() {
+				rtcpBuf := make([]byte, 1500)
+				for {
+					if _, _, rtcpErr := sender.Read(rtcpBuf); rtcpErr != nil {
+						return
+					}
+				}
+			}()
 		}
 	}
 
 	if r.audioTrack != nil {
-		if _, err := pc.AddTrack(r.audioTrack); err != nil {
+		sender, err := pc.AddTrack(r.audioTrack)
+		if err != nil {
 			log.Printf("[SFU] Erro ao adicionar audioTrack para %s: %v", subscriberID, err)
+		} else {
+			go func() {
+				rtcpBuf := make([]byte, 1500)
+				for {
+					if _, _, rtcpErr := sender.Read(rtcpBuf); rtcpErr != nil {
+						return
+					}
+				}
+			}()
 		}
 	}
 
@@ -146,11 +208,13 @@ func (r *Room) createSubscriberOffer(subscriberID, publisherID string) (string, 
 		return "", fmt.Errorf("falha ao criar Offer do subscriber %s: %w", subscriberID, err)
 	}
 
+	gatherComplete := webrtc.GatheringCompletePromise(pc)
 	if err := pc.SetLocalDescription(offer); err != nil {
 		return "", fmt.Errorf("falha ao aplicar LocalDescription do subscriber %s: %w", subscriberID, err)
 	}
+	<-gatherComplete
 
-	return offer.SDP, nil
+	return pc.LocalDescription().SDP, nil
 }
 
 func (r *Room) handleSubscriberAnswer(subscriberID, sdp string) error {
@@ -223,4 +287,5 @@ func (r *Room) close() {
 
 	r.videoTrack = nil
 	r.audioTrack = nil
+	r.publisherVideoSSRC = 0
 }

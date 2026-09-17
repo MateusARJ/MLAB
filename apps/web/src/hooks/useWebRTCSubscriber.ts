@@ -13,7 +13,13 @@ export function useWebRTCSubscriber(token: string, roomInfo: { room_id: string; 
   const connect = useCallback(() => {
     setConnectionStatus('connecting');
 
-    const ws = new WebSocket(`${roomInfo.ws_url}?token=${token}`);
+    let finalWsUrl = roomInfo.ws_url;
+    if (typeof window !== 'undefined' && window.location && window.location.host) {
+      const wsProto = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+      finalWsUrl = `${wsProto}//${window.location.host}/ws/rooms/${roomInfo.room_id}/signal`;
+    }
+
+    const ws = new WebSocket(`${finalWsUrl}?token=${token}`);
     wsRef.current = ws;
 
     const pc = new RTCPeerConnection({
@@ -22,31 +28,102 @@ export function useWebRTCSubscriber(token: string, roomInfo: { room_id: string; 
     pcRef.current = pc;
 
     pc.ontrack = (event) => {
-      if (event.streams && event.streams[0]) {
-        setStream(event.streams[0]);
-      } else {
-        const inboundStream = new MediaStream([event.track]);
-        setStream(inboundStream);
+      setStream((prev) => {
+        if (!prev) {
+          return new MediaStream([event.track]);
+        }
+        if (!prev.getTracks().some((t) => t.id === event.track.id)) {
+          prev.addTrack(event.track);
+        }
+        return new MediaStream(prev.getTracks());
+      });
+    };
+
+    pc.onicecandidate = (event) => {
+      if (event.candidate && ws.readyState === WebSocket.OPEN) {
+        ws.send(
+          JSON.stringify({
+            type: 'ice-candidate',
+            payload: { candidate: JSON.stringify(event.candidate) },
+          })
+        );
       }
     };
 
     // Monitoramento de ICE Connection State (RF-25: ICE Restart em falha)
     pc.oniceconnectionstatechange = () => {
-      if (pc.iceConnectionState === 'failed' || pc.iceConnectionState === 'disconnected') {
+      if (pc.iceConnectionState === 'connected' || pc.iceConnectionState === 'completed') {
+        setConnectionStatus('connected');
+      } else if (pc.iceConnectionState === 'failed' || pc.iceConnectionState === 'disconnected') {
         console.warn('Conexão ICE falhou/desconectou. Tentando ICE Restart...');
-        pc.restartIce();
+        try {
+          pc.restartIce();
+        } catch (e) {
+          console.warn('Falha no restartIce:', e);
+        }
       }
     };
 
-    ws.onmessage = (evt) => {
+    const requestSubscription = () => {
+      if (ws.readyState === WebSocket.OPEN) {
+        ws.send(
+          JSON.stringify({
+            type: 'subscribe-request',
+            payload: {},
+          })
+        );
+      }
+    };
+
+    ws.onopen = () => {
+      requestSubscription();
+    };
+
+    ws.onmessage = async (evt) => {
       try {
         const msg = JSON.parse(evt.data);
         if (msg.type === 'chat-message') {
           setMessages((prev) => [...prev, msg.payload]);
         } else if (msg.type === 'session-state') {
           setConnectionStatus(msg.payload.status);
+          if (msg.payload.status === 'publishing') {
+            requestSubscription();
+          }
+        } else if (msg.type === 'offer') {
+          if (msg.payload && msg.payload.sdp) {
+            await pc.setRemoteDescription(
+              new RTCSessionDescription({
+                type: 'offer',
+                sdp: msg.payload.sdp,
+              })
+            );
+            const answer = await pc.createAnswer();
+            await pc.setLocalDescription(answer);
+            if (ws.readyState === WebSocket.OPEN) {
+              ws.send(
+                JSON.stringify({
+                  type: 'answer',
+                  payload: { sdp: answer.sdp },
+                })
+              );
+            }
+          }
+        } else if (msg.type === 'ice-candidate') {
+          if (msg.payload && msg.payload.candidate) {
+            try {
+              const candInit = JSON.parse(msg.payload.candidate);
+              await pc.addIceCandidate(new RTCIceCandidate(candInit));
+            } catch {
+              await pc.addIceCandidate(new RTCIceCandidate({ candidate: msg.payload.candidate }));
+            }
+          }
+        } else if (msg.type === 'ice-servers') {
+          if (msg.payload && msg.payload.ice_servers) {
+            pc.setConfiguration({ iceServers: msg.payload.ice_servers });
+          }
         } else if (msg.type === 'room-closed') {
           setConnectionStatus('closed');
+          setStream(null);
         }
       } catch (err) {
         console.error('Erro ao processar mensagem WS:', err);

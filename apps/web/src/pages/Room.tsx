@@ -28,8 +28,12 @@ export const Room: React.FC<RoomProps> = ({ token, roomInfo, onLeave }) => {
         .play()
         .then(() => setAutoplayBlocked(false))
         .catch((err) => {
-          // RF-21: Tratamento de Autoplay Policy dos navegadores
+          // RF-21: Tratamento de Autoplay Policy dos navegadores (móveis ou desktop)
           if (err.name === 'NotAllowedError') {
+            if (videoRef.current) {
+              videoRef.current.muted = true;
+              videoRef.current.play().catch(() => {});
+            }
             setAutoplayBlocked(true);
           }
         });
@@ -38,7 +42,8 @@ export const Room: React.FC<RoomProps> = ({ token, roomInfo, onLeave }) => {
 
   const handleUnmuteAudio = () => {
     if (videoRef.current) {
-      videoRef.current.play();
+      videoRef.current.muted = false;
+      videoRef.current.play().catch(() => {});
       setAutoplayBlocked(false);
     }
   };
@@ -99,7 +104,13 @@ export const Room: React.FC<RoomProps> = ({ token, roomInfo, onLeave }) => {
         <div style={styles.videoSection}>
           {stream ? (
             <div style={styles.videoWrapper}>
-              <video ref={videoRef} playsInline style={styles.video} />
+              <video
+                ref={videoRef}
+                autoPlay
+                playsInline
+                muted={autoplayBlocked}
+                style={styles.video}
+              />
               <div style={styles.videoOverlayControls}>
                 <button onClick={handleToggleFullscreen} style={styles.overlayBtn}>Tela Cheia</button>
                 <button onClick={handleTogglePiP} style={styles.overlayBtn}>Picture-in-Picture</button>

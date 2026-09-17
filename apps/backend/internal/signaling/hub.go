@@ -268,15 +268,18 @@ func (h *Hub) onSubscribeRequest(c *Client, msg WsMessage) {
 		return
 	}
 	var p SubscribeRequestPayload
-	if err := json.Unmarshal(msg.Payload, &p); err != nil {
-		c.sendError("INVALID_PAYLOAD", "payload de subscribe-request inválido")
-		return
+	if len(msg.Payload) > 0 {
+		_ = json.Unmarshal(msg.Payload, &p)
+	}
+	publisherID := p.PublisherID
+	if publisherID == "" {
+		publisherID = h.publisherID
 	}
 	if h.sfu == nil {
-		c.sendError("SFU_UNAVAILABLE", "SFU não inicializado (pendente T011)")
+		c.sendError("SFU_UNAVAILABLE", "SFU não inicializado")
 		return
 	}
-	offerSDP, err := h.sfu.CreateSubscriberOffer(h.roomID, c.participantID, p.PublisherID)
+	offerSDP, err := h.sfu.CreateSubscriberOffer(h.roomID, c.participantID, publisherID)
 	if err != nil {
 		log.Printf("hub[%s]: CreateSubscriberOffer: %v", h.roomID, err)
 		c.sendError("SFU_ERROR", "erro ao criar oferta")
