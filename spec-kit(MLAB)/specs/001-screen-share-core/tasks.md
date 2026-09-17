@@ -387,3 +387,33 @@ Checks:
 - [x] Resposta de erro do backend capturada e exibida adequadamente no formulário de entrada do aluno em `apps/web`.
 - [x] Testes unitários no backend validando ingresso via slug (`TestJoinRoomBySlug`) e contrato de retorno WebRTC.
 - [x] 100% dos testes passando e build da monorepo concluído com sucesso.
+
+### T031 — apps/web & apps/backend — Reprodução de vídeo no aluno e solicitação de keyframes via SFU
+[x] T031
+Depends On: T011, T019, T030
+Allowed Paths: `apps/web/src/**`, `apps/backend/internal/webrtc/**`, `apps/backend/internal/signaling/**`
+Checks:
+- [x] Hook `useWebRTCSubscriber` implementa máquina de estados de sinalização WebRTC completa (`subscribe-request`, `offer`, `answer`, `ice-candidate`, `ontrack`), recebendo e renderizando o stream de tela e áudio do professor.
+- [x] Correção de tela preta via solicitação de IDR Keyframes (RTCP PLI) no SFU Pion de forma periódica e imediata ao ingresso de novos alunos.
+- [x] Acumulação correta de tracks (`prev.addTrack`) na mesma MediaStream para evitar que a track de áudio sobrescreva a de vídeo.
+- [x] Tratamento de Autoplay Policy dos navegadores e dispositivos móveis (`playsInline`, `autoPlay`, `muted`).
+
+### T032 — apps/backend — Link fixo e permanente por professor
+[x] T032
+Depends On: T009, T013
+Allowed Paths: `apps/backend/internal/room/**`, `apps/backend/internal/auth/**`
+Checks:
+- [x] Slug da sala determinístico gerado a partir do email/login do professor (`slugFromEmail`, ex: `professor@screenshare.local` -> `professor`).
+- [x] Reutilização da sala pré-existente no store (`GetRoomByOwnerID`) para manter link e identificador canônico fixos entre sessões.
+- [x] Testes unitários validando geração de slug e reuso de sala.
+
+### T033 — apps/backend & apps/web — Suporte a túnel ngrok e IP de rede local
+[x] T033
+Depends On: T032
+Allowed Paths: `apps/backend/internal/**`, `apps/web/**`, `docs/requirements/**`
+Checks:
+- [x] Resolução automática de URL base e WebSocket via `NGROK_URL`, `PUBLIC_URL` e detecção de IP primário de rede (`getOutboundIP()`).
+- [x] Suporte a NAT 1-to-1 IP no SFU Pion (`NAT_1TO1_IP` / `PUBLIC_IP`).
+- [x] Vite escutando em `0.0.0.0` (`host: true`) com proxy reverso de `/rooms`, `/auth` e `/ws`.
+- [x] 100% dos testes passando (`apps/backend`, `apps/web`, `apps/desktop`) e monorepo build com sucesso.
+

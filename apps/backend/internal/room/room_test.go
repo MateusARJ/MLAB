@@ -304,3 +304,38 @@ func TestCreateRoomFixedSlug(t *testing.T) {
 		t.Errorf("esperava reuso do slug 'professor', obteve %q", resp2.Slug)
 	}
 }
+
+func TestCreateRoomNgrok(t *testing.T) {
+	t.Setenv("JWT_SECRET", "test-secret-12345")
+	t.Setenv("NGROK_URL", "https://mlab-live.ngrok-free.app")
+
+	store := NewInMemoryStore()
+	handler := NewHandler(store)
+	mux := http.NewServeMux()
+	handler.RegisterProtectedRoutes(mux, auth.Middleware)
+
+	profClaims := auth.ProfessorMapClaims("prof-ngrok", "professor.silva@screenshare.local")
+	profToken, err := auth.SignToken(profClaims)
+	if err != nil {
+		t.Fatalf("falha ao assinar token: %v", err)
+	}
+
+	req := httptest.NewRequest("POST", "/rooms", bytes.NewReader([]byte(`{"title":"Matemática"}`)))
+	req.Header.Set("Authorization", "Bearer "+profToken)
+	rec := httptest.NewRecorder()
+	mux.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("expected 201 Created, got %d: %s", rec.Code, rec.Body.String())
+	}
+
+	var resp CreateRoomResponse
+	if err := json.NewDecoder(rec.Body).Decode(&resp); err != nil {
+		t.Fatalf("decode err: %v", err)
+	}
+
+	expectedLink := "https://mlab-live.ngrok-free.app/sala/professor-silva/entrar"
+	if resp.Link != expectedLink {
+		t.Errorf("esperava Link com ngrok %q, obteve %q", expectedLink, resp.Link)
+	}
+}

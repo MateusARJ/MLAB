@@ -1,6 +1,16 @@
 import { JoinRoomRequest, JoinRoomResponse } from '@screenshare/types';
 
-const API_BASE_URL = 'http://localhost:8080';
+function getApiBaseUrl(): string {
+  if (typeof import.meta !== 'undefined' && import.meta.env && import.meta.env.VITE_API_BASE_URL) {
+    return import.meta.env.VITE_API_BASE_URL;
+  }
+  if (typeof window !== 'undefined' && window.location) {
+    return '';
+  }
+  return 'http://localhost:8080';
+}
+
+const API_BASE_URL = getApiBaseUrl();
 
 export async function joinRoom(slug: string, req: JoinRoomRequest): Promise<JoinRoomResponse> {
   const response = await fetch(`${API_BASE_URL}/rooms/${slug}/join`, {

@@ -11,8 +11,17 @@ export default defineConfig({
     }
   },
   server: {
+    host: true,
     port: 3000,
     proxy: {
+      '/rooms': {
+        target: 'http://localhost:8080',
+        changeOrigin: true
+      },
+      '/auth': {
+        target: 'http://localhost:8080',
+        changeOrigin: true
+      },
       '/api': {
         target: 'http://localhost:8080',
         changeOrigin: true

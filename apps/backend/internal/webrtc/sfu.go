@@ -2,6 +2,7 @@ package webrtc
 
 import (
 	"fmt"
+	"os"
 	"sync"
 
 	"github.com/pion/webrtc/v3"
@@ -32,6 +33,14 @@ func NewSFUService(cfg Config) (*SFUService, error) {
 	settingEngine := webrtc.SettingEngine{}
 	if err := settingEngine.SetEphemeralUDPPortRange(cfg.UDPPortMin, cfg.UDPPortMax); err != nil {
 		return nil, fmt.Errorf("falha ao configurar faixa de portas UDP: %w", err)
+	}
+
+	natIP := os.Getenv("NAT_1TO1_IP")
+	if natIP == "" {
+		natIP = os.Getenv("PUBLIC_IP")
+	}
+	if natIP != "" {
+		settingEngine.SetNAT1To1IPs([]string{natIP}, webrtc.ICECandidateTypeHost)
 	}
 
 	mediaEngine := &webrtc.MediaEngine{}
