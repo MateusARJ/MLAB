@@ -37,6 +37,22 @@ export function useWebRTCPublisher({
     setConnectionState('idle');
   }, []);
 
+  const endSession = useCallback(() => {
+    if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+      try {
+        wsRef.current.send(
+          JSON.stringify({
+            type: 'end-session',
+            payload: {},
+          })
+        );
+      } catch (e) {
+        console.warn('Erro ao enviar sinal de end-session:', e);
+      }
+    }
+    stopPublishing();
+  }, [stopPublishing]);
+
   const startPublishing = useCallback(async (directStream?: MediaStream) => {
     if (!token) {
       setError('Token de autenticação não encontrado.');
@@ -262,5 +278,6 @@ export function useWebRTCPublisher({
     error,
     startPublishing,
     stopPublishing,
+    endSession,
   };
 }

@@ -54,6 +54,7 @@ export const Room: React.FC<RoomProps> = ({ room, onCloseRoom }) => {
     error: publisherError,
     startPublishing,
     stopPublishing,
+    endSession,
   } = useWebRTCPublisher({
     roomId: room.id,
     stream,
@@ -104,10 +105,10 @@ export const Room: React.FC<RoomProps> = ({ room, onCloseRoom }) => {
     if (wantRecord && recordingStatus === 'recording') {
       stopRecording();
     }
-    stopPublishing();
+    endSession();
     stopCapture();
     onCloseRoom();
-  }, [wantRecord, recordingStatus, stopRecording, stopPublishing, stopCapture, onCloseRoom]);
+  }, [wantRecord, recordingStatus, stopRecording, endSession, stopCapture, onCloseRoom]);
 
   const handleReconfigure = useCallback(() => {
     setIsLiveSession(false);

@@ -62,9 +62,13 @@ function RoomRoute({ roomData, setRoomData }: { roomData: any, setRoomData: any 
     <Room 
       token={roomData.token}
       roomInfo={roomData.roomInfo}
-      onLeave={() => {
+      onLeave={(reason?: string) => {
         setRoomData(null)
-        navigate(`/sala/${slug}/entrar`)
+        navigate(`/sala/${slug}/entrar`, {
+          state: {
+            closedMessage: reason || 'A transmissão foi encerrada pelo professor. Por favor, insira suas credenciais para entrar novamente.'
+          }
+        })
       }}
     />
   )

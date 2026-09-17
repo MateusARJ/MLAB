@@ -13,6 +13,7 @@ const (
 	TypePublishRequest   = "publish-request"
 	TypeSubscribeRequest = "subscribe-request"
 	TypeChatMessage      = "chat-message"
+	TypeEndSession       = "end-session"
 )
 
 // Mensagens que o servidor envia ao(s) cliente(s).

@@ -93,9 +93,29 @@ export function useWebRTCSubscriber(token: string, roomInfo: { room_id: string; 
         if (msg.type === 'chat-message') {
           setMessages((prev) => [...prev, msg.payload]);
         } else if (msg.type === 'session-state') {
-          setConnectionStatus(msg.payload.status);
-          if (msg.payload.status === 'publishing' && !hasSubscribedRef.current) {
-            requestSubscription();
+          if (msg.payload && msg.payload.status === 'closed') {
+            setConnectionStatus('closed');
+            setStream(null);
+          } else {
+            setConnectionStatus(msg.payload.status);
+            if (msg.payload.status === 'publishing' && !hasSubscribedRef.current) {
+              requestSubscription();
+            }
+          }
+        } else if (msg.type === 'room-closed') {
+          setConnectionStatus('closed');
+          setStream(null);
+          if (reconnectTimerRef.current) {
+            clearTimeout(reconnectTimerRef.current);
+            reconnectTimerRef.current = null;
+          }
+          if (pcRef.current) {
+            pcRef.current.close();
+            pcRef.current = null;
+          }
+          if (wsRef.current) {
+            wsRef.current.close();
+            wsRef.current = null;
           }
         } else if (msg.type === 'offer') {
           if (msg.payload && msg.payload.sdp) {
@@ -133,9 +153,6 @@ export function useWebRTCSubscriber(token: string, roomInfo: { room_id: string; 
           if (msg.payload && msg.payload.ice_servers) {
             pc.setConfiguration({ iceServers: msg.payload.ice_servers });
           }
-        } else if (msg.type === 'room-closed') {
-          setConnectionStatus('closed');
-          setStream(null);
         }
       } catch (err) {
         console.error('Erro ao processar mensagem WS:', err);

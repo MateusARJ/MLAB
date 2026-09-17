@@ -4,7 +4,7 @@ import { useWebRTCSubscriber } from '../hooks/useWebRTCSubscriber';
 interface RoomProps {
   token: string;
   roomInfo: { room_id: string; ws_url: string; ice_servers: any[] };
-  onLeave: () => void;
+  onLeave: (reason?: string) => void;
 }
 
 export const Room: React.FC<RoomProps> = ({ token, roomInfo, onLeave }) => {
@@ -16,6 +16,13 @@ export const Room: React.FC<RoomProps> = ({ token, roomInfo, onLeave }) => {
     messages,
     sendChatMessage,
   } = useWebRTCSubscriber(token, roomInfo);
+
+  // Quando o professor encerra a transmissão (connectionStatus === 'closed'), redireciona de volta para a tela de credenciais
+  useEffect(() => {
+    if (connectionStatus === 'closed') {
+      onLeave('A transmissão foi encerrada pelo professor. Por favor, insira suas credenciais novamente.');
+    }
+  }, [connectionStatus, onLeave]);
 
   const videoRef = useRef<HTMLVideoElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);

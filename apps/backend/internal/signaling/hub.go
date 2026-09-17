@@ -231,6 +231,8 @@ func (h *Hub) route(env *envelope) {
 		h.onIceCandidate(c, env.msg)
 	case TypeChatMessage:
 		h.onChatMessage(c, env.msg)
+	case TypeEndSession:
+		h.onEndSession(c)
 	default:
 		c.sendError("UNKNOWN_TYPE", fmt.Sprintf("tipo desconhecido: %s", env.msg.Type))
 	}
@@ -366,6 +368,15 @@ func (h *Hub) onChatMessage(c *Client, msg WsMessage) {
 		Content:       sanitized,
 		SentAt:        time.Now().UTC().Format(time.RFC3339),
 	})
+}
+
+func (h *Hub) onEndSession(c *Client) {
+	if c.role != RoleProfessor {
+		c.sendError("FORBIDDEN", "apenas o professor pode encerrar a transmissão")
+		return
+	}
+	log.Printf("hub[%s]: encerramento solicitado pelo professor %s", h.roomID, c.participantID)
+	h.onRoomClose()
 }
 
 // ── Sinais internos ───────────────────────────────────────────────────────────

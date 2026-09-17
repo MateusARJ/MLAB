@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams, useLocation } from 'react-router-dom';
 import { joinRoom } from '../services/api';
 
 interface JoinProps {
@@ -8,6 +8,8 @@ interface JoinProps {
 
 export const Join: React.FC<JoinProps> = ({ onJoined }) => {
   const { slug } = useParams<{ slug: string }>();
+  const location = useLocation();
+  const closedMessage = (location.state as any)?.closedMessage;
   const [name, setName] = useState('');
   const [studentId, setStudentId] = useState('');
   const [loading, setLoading] = useState(false);
@@ -55,6 +57,7 @@ export const Join: React.FC<JoinProps> = ({ onJoined }) => {
           <p style={styles.subtitle}>Entrada na Aula — Sala: <strong style={{ color: '#38bdf8' }}>{slug}</strong></p>
         </div>
 
+        {closedMessage && <div style={styles.infoAlert}>{closedMessage}</div>}
         {error && <div style={styles.errorAlert}>{error}</div>}
 
         <form onSubmit={handleSubmit} style={styles.form}>
@@ -137,6 +140,15 @@ const styles: { [key: string]: React.CSSProperties } = {
   subtitle: {
     fontSize: '14px',
     color: '#94a3b8',
+  },
+  infoAlert: {
+    backgroundColor: 'rgba(2, 132, 199, 0.15)',
+    border: '1px solid #0284c7',
+    color: '#7dd3fc',
+    padding: '12px',
+    borderRadius: '8px',
+    fontSize: '13px',
+    marginBottom: '20px',
   },
   errorAlert: {
     backgroundColor: 'rgba(239, 68, 68, 0.15)',
