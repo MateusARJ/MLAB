@@ -14,14 +14,15 @@ describe('Dashboard Component', () => {
   });
 
   it('deve criar a sala e exibir o link unico com atalho para copiar', async () => {
+    const handleEnterRoom = vi.fn();
     (roomService.createRoom as any).mockResolvedValueOnce({
-      id: 'room-123',
+      room_id: 'room-123',
       slug: 'charlie-delta-7342',
-      join_url: 'http://localhost:3000/sala/charlie-delta-7342/entrar',
+      link: 'http://localhost:3000/sala/charlie-delta-7342/entrar',
       status: 'waiting',
     });
 
-    render(<Dashboard onEnterRoom={vi.fn()} onLogout={vi.fn()} />);
+    render(<Dashboard onEnterRoom={handleEnterRoom} onLogout={vi.fn()} />);
 
     fireEvent.change(screen.getByLabelText(/Titulo \/ Disciplina/i), {
       target: { value: 'Algoritmos I' },
@@ -33,6 +34,14 @@ describe('Dashboard Component', () => {
       expect(roomService.createRoom).toHaveBeenCalledWith('Algoritmos I');
       expect(screen.getByText(/Estado: Waiting/i)).toBeInTheDocument();
       expect(screen.getByRole('button', { name: /Copiar Link/i })).toBeInTheDocument();
+      expect(screen.getByDisplayValue('http://localhost:3000/sala/charlie-delta-7342/entrar')).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: /Abrir Sala de Transmissão/i }));
+    expect(handleEnterRoom).toHaveBeenCalledWith({
+      id: 'room-123',
+      slug: 'charlie-delta-7342',
+      link: 'http://localhost:3000/sala/charlie-delta-7342/entrar',
     });
   });
 });

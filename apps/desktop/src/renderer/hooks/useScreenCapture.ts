@@ -31,7 +31,8 @@ export function useScreenCapture(initialMode: CaptureSourceType = 'screen') {
         setHasPermissions(false);
       }
     } else {
-      setHasPermissions(true);
+      console.warn('window.electronAPI não encontrado. A API nativa do Electron não está disponível no renderer.');
+      setHasPermissions(false);
     }
   }, []);
 
@@ -44,10 +45,11 @@ export function useScreenCapture(initialMode: CaptureSourceType = 'screen') {
     setSelectedSource(null);
   }, []);
 
-  const selectSource = useCallback(async (source: CaptureSource) => {
+  const selectSource = useCallback(async (source: CaptureSource): Promise<MediaStream | null> => {
     setSelectedSource(source);
     try {
       // Captura via desktopCapturer constraints 1080p 30fps (RF-04, RF-26, RF-27, RNF-01, RNF-02)
+      // Constraints flexíveis sem minWidth/minHeight para não quebrar em resoluções ou DPIs escaladas
       const mediaStream = await navigator.mediaDevices.getUserMedia({
         audio: false,
         video: {
@@ -55,11 +57,8 @@ export function useScreenCapture(initialMode: CaptureSourceType = 'screen') {
           mandatory: {
             chromeMediaSource: 'desktop',
             chromeMediaSourceId: source.id,
-            minWidth: 1280,
             maxWidth: 1920,
-            minHeight: 720,
             maxHeight: 1080,
-            minFrameRate: 15,
             maxFrameRate: 30,
           },
         },
@@ -78,7 +77,7 @@ export function useScreenCapture(initialMode: CaptureSourceType = 'screen') {
           mediaStream.addTrack(track);
         });
       } catch (err) {
-        console.warn('Microfone não disponível ou permissão não concedida');
+        console.warn('Microfone não disponível ou permissão não concedida:', err);
       }
 
       // Para tracks anteriores se houver troca de fonte (RN-12, RN-20)
@@ -87,8 +86,10 @@ export function useScreenCapture(initialMode: CaptureSourceType = 'screen') {
       }
 
       setStream(mediaStream);
+      return mediaStream;
     } catch (err) {
       console.error('Erro ao capturar stream de tela/janela:', err);
+      return null;
     }
   }, [stream, micMuted]);
 

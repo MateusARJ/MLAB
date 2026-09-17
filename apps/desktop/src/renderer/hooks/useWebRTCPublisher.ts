@@ -1,4 +1,4 @@
-﻿import { useState, useRef, useEffect, useCallback } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 
 export interface UseWebRTCPublisherProps {
   roomId: string;
@@ -11,7 +11,7 @@ export function useWebRTCPublisher({
   roomId,
   stream,
   token,
-  wsUrl = 'ws://localhost:8080/ws/signaling',
+  wsUrl,
 }: UseWebRTCPublisherProps) {
   const [isPublishing, setIsPublishing] = useState<boolean>(false);
   const [connectionState, setConnectionState] = useState<
@@ -37,22 +37,25 @@ export function useWebRTCPublisher({
     setConnectionState('idle');
   }, []);
 
-  const startPublishing = useCallback(async () => {
+  const startPublishing = useCallback(async (directStream?: MediaStream) => {
     if (!token) {
       setError('Token de autenticação não encontrado.');
       return;
     }
-    if (!streamRef.current) {
+    const activeStream = directStream || streamRef.current;
+    if (!activeStream) {
       setError('Nenhum stream de vídeo/áudio ativo para publicação.');
       return;
     }
+    streamRef.current = activeStream;
 
     stopPublishing();
     setConnectionState('connecting');
     setError(null);
 
     try {
-      const ws = new WebSocket(`${wsUrl}?token=${token}`);
+      const finalWsUrl = wsUrl || `ws://localhost:8080/ws/rooms/${roomId}/signal`;
+      const ws = new WebSocket(`${finalWsUrl}?token=${token}`);
       wsRef.current = ws;
 
       const pc = new RTCPeerConnection({
@@ -61,10 +64,8 @@ export function useWebRTCPublisher({
       pcRef.current = pc;
 
       // Adiciona tracks de vídeo e áudio do stream ativo
-      streamRef.current.getTracks().forEach((track) => {
-        if (streamRef.current) {
-          pc.addTrack(track, streamRef.current);
-        }
+      activeStream.getTracks().forEach((track) => {
+        pc.addTrack(track, activeStream);
       });
 
       pc.onicecandidate = (event) => {
@@ -168,7 +169,7 @@ export function useWebRTCPublisher({
       setError(err.message || 'Falha ao iniciar publicação');
       setConnectionState('failed');
     }
-  }, [token, wsUrl, connectionState, stopPublishing]);
+  }, [token, roomId, wsUrl, connectionState, stopPublishing]);
 
   // Atualização dinâmica de tracks ao alterar fonte (RN-12, RN-20)
   useEffect(() => {

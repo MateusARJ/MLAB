@@ -23,6 +23,26 @@ export interface Room {
   closedAt?: string;
 }
 
+export interface CreateRoomRequest {
+  title?: string;
+  max_participants?: number;
+}
+
+export interface CreateRoomResponse {
+  room_id: string;
+  slug: string;
+  link: string;
+  status: RoomStatus;
+  created_at: string;
+  id?: string;
+  join_url?: string;
+}
+
+export interface RoomLinkResponse {
+  room_id: string;
+  link: string;
+}
+
 // ── Participant ───────────────────────────────────────────────────────────────
 
 export interface Participant {

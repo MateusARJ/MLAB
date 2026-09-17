@@ -87,20 +87,16 @@ export const Room: React.FC<RoomProps> = ({ room, onCloseRoom }) => {
   const handleStartSession = useCallback(async () => {
     if (!tentativeSource) return;
 
-    await selectSource(tentativeSource);
+    const activeStream = await selectSource(tentativeSource);
     setIsLiveSession(true);
 
     // Se optou por gravar, inicia gravação local
     if (wantRecord) {
-      setTimeout(() => {
-        startRecording(selectedFormat);
-      }, 500);
+      startRecording(selectedFormat, activeStream || undefined);
     }
 
     // Inicia publicação WebRTC para a SFU Pion
-    setTimeout(() => {
-      startPublishing();
-    }, 600);
+    startPublishing(activeStream || undefined);
   }, [tentativeSource, selectSource, wantRecord, selectedFormat, startRecording, startPublishing]);
 
   const handleEndSession = useCallback(() => {

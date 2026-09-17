@@ -1,4 +1,4 @@
-﻿import { useState, useRef, useEffect, useCallback } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import type { RecordingFormat, RecordingStatus } from '@screenshare/types';
 
 export interface UseLocalRecorderOptions {
@@ -45,8 +45,9 @@ export function useLocalRecorder({ stream, initialFormat = 'webm' }: UseLocalRec
     return '';
   };
 
-  const startRecording = useCallback((overrideFormat?: RecordingFormat) => {
-    if (!stream) {
+  const startRecording = useCallback((overrideFormat?: RecordingFormat, directStream?: MediaStream) => {
+    const activeStream = directStream || stream;
+    if (!activeStream) {
       setError('Nenhum stream ativo para gravação.');
       return;
     }
@@ -63,7 +64,7 @@ export function useLocalRecorder({ stream, initialFormat = 'webm' }: UseLocalRec
 
       const mimeType = getBestMimeType(targetFormat);
       const options: MediaRecorderOptions = mimeType ? { mimeType } : {};
-      const recorder = new MediaRecorder(stream, options);
+      const recorder = new MediaRecorder(activeStream, options);
 
       recorder.ondataavailable = (event) => {
         if (event.data && event.data.size > 0) {

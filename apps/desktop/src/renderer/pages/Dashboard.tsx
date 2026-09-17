@@ -23,10 +23,12 @@ export const Dashboard: React.FC<DashboardProps> = ({ onEnterRoom, onLogout }) =
     try {
       const resp = await createRoom(title);
       setLoading(false);
+      const roomId = resp.room_id || (resp as any).id;
+      const roomLink = resp.link || (resp as any).join_url;
       const roomData = {
-        id: resp.id,
+        id: roomId,
         slug: resp.slug,
-        link: resp.join_url,
+        link: roomLink,
       };
       setCurrentRoom(roomData);
     } catch (err: any) {

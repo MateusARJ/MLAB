@@ -29,6 +29,20 @@ function getAppIcon(): string | Electron.NativeImage {
   return pngPath
 }
 
+function getPreloadPath(): string {
+  const candidates = [
+    join(__dirname, '../preload/preload.js'),
+    join(__dirname, '../preload/index.js'),
+    join(__dirname, 'preload.js')
+  ]
+  for (const candidate of candidates) {
+    if (existsSync(candidate)) {
+      return candidate
+    }
+  }
+  return join(__dirname, '../preload/preload.js')
+}
+
 function createWindow(): void {
   const appIcon = getAppIcon()
 
@@ -40,7 +54,7 @@ function createWindow(): void {
     minWidth: 900,
     minHeight: 600,
     webPreferences: {
-      preload: join(__dirname, '../preload/index.js'),
+      preload: getPreloadPath(),
       sandbox: false,
       contextIsolation: true,
       nodeIntegration: false
@@ -68,27 +82,32 @@ function createWindow(): void {
 // ── IPC: desktopCapturer (acesso seguro via contextBridge) ────────────────────
 
 ipcMain.handle('get-screen-sources', async (_event, type?: 'screen' | 'window') => {
-  const types: ('screen' | 'window')[] = type ? [type] : ['screen', 'window']
-  const sources = await desktopCapturer.getSources({
-    types,
-    thumbnailSize: { width: 320, height: 180 },
-    fetchWindowIcons: true
-  })
-
-  return sources
-    .filter((source) => {
-      // No modo janela, ignora janelas internas sem título
-      if (type === 'window' && (!source.name || source.name.trim() === '')) {
-        return false
-      }
-      return true
+  try {
+    const types: ('screen' | 'window')[] = type ? [type] : ['screen', 'window']
+    const sources = await desktopCapturer.getSources({
+      types,
+      thumbnailSize: { width: 320, height: 180 },
+      fetchWindowIcons: types.includes('window')
     })
-    .map((source) => ({
-      id: source.id,
-      name: source.name,
-      thumbnail: source.thumbnail.toDataURL(),
-      type: source.id.startsWith('screen') ? ('screen' as const) : ('window' as const)
-    }))
+
+    return sources
+      .filter((source) => {
+        // No modo janela, ignora janelas internas sem título
+        if (type === 'window' && (!source.name || source.name.trim() === '')) {
+          return false
+        }
+        return true
+      })
+      .map((source) => ({
+        id: source.id,
+        name: source.name,
+        thumbnail: source.thumbnail.toDataURL(),
+        type: source.id.startsWith('screen') ? ('screen' as const) : ('window' as const)
+      }))
+  } catch (err) {
+    console.error('Erro ao listar fontes no desktopCapturer:', err)
+    return []
+  }
 })
 
 // ── IPC: Gravação local de aula (salvamento em disco via diálogo nativo) ──────
