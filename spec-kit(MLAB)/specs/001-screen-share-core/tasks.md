@@ -377,5 +377,13 @@ Checks:
 - [x] Guia de instruções para configurações de privacidade do SO caso negado.
 - [x] 100% dos testes passando e build limpo.
 
-
-
+### T030 — apps/backend & apps/web — Ingresso de aluno via slug legível e retorno de parâmetros WebRTC
+[x] T030
+Depends On: T009, T018, T020
+Allowed Paths: `apps/backend/internal/room/**`, `apps/web/src/**`, `packages/types/src/**`
+Checks:
+- [x] `POST /rooms/{id}/join` aceita tanto UUID quanto slug legível (ex: `uniform-lima-4770`).
+- [x] `JoinResponse` inclui `room_id` (UUID canônico), `ws_url` (`ws://localhost:8080/ws/rooms/{room.ID}/signal`) e `ice_servers`.
+- [x] Resposta de erro do backend capturada e exibida adequadamente no formulário de entrada do aluno em `apps/web`.
+- [x] Testes unitários no backend validando ingresso via slug (`TestJoinRoomBySlug`) e contrato de retorno WebRTC.
+- [x] 100% dos testes passando e build da monorepo concluído com sucesso.

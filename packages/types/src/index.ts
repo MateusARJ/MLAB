@@ -77,6 +77,7 @@ export interface AuthResponse {
 export interface JoinRequest {
   name: string;
   studentId: string;
+  student_id?: string;
 }
 
 export interface JoinResponse {
@@ -84,7 +85,25 @@ export interface JoinResponse {
   expiresAt: string;
   participantId: string;
   roomStatus: RoomStatus;
+  room_id?: string;
+  ws_url?: string;
+  ice_servers?: any[];
 }
+
+export type JoinRoomRequest = {
+  name: string;
+  student_id: string;
+};
+
+export type JoinRoomResponse = {
+  token: string;
+  expires_at: string;
+  participant_id: string;
+  room_status: RoomStatus;
+  room_id: string;
+  ws_url: string;
+  ice_servers: any[];
+};
 
 // ── WebSocket Events (Signaling + Chat) ──────────────────────────────────────
 

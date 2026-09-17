@@ -12,8 +12,8 @@ export async function joinRoom(slug: string, req: JoinRoomRequest): Promise<Join
   });
 
   if (!response.ok) {
-    const errorData = await response.json().catch(() => ({ message: 'Erro ao entrar na sala' }));
-    throw new Error(errorData.message || 'Falha ao entrar na sala');
+    const errorData = await response.json().catch(() => ({ error: 'Erro ao entrar na sala' }));
+    throw new Error(errorData.error || errorData.message || 'Falha ao entrar na sala');
   }
 
   const data: JoinRoomResponse = await response.json();

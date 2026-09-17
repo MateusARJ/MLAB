@@ -2,11 +2,13 @@ package room
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"regexp"
 	"testing"
+	"time"
 
 	"github.com/screenshare/classroom/internal/auth"
 )
@@ -167,5 +169,57 @@ func TestJoinValidation(t *testing.T) {
 
 	if recNotFound.Code != http.StatusNotFound {
 		t.Errorf("expected 404 Not Found for non-existent room, got %d", recNotFound.Code)
+	}
+}
+
+func TestJoinRoomBySlug(t *testing.T) {
+	t.Setenv("JWT_SECRET", "test-secret-12345")
+	t.Setenv("WS_URL", "ws://localhost:8080")
+
+	store := NewInMemoryStore()
+	handler := NewHandler(store)
+	mux := http.NewServeMux()
+	handler.RegisterRoutes(mux)
+
+	// Cria sala diretamente no store
+	targetRoom := &Room{
+		ID:              "canon-room-uuid-123",
+		Slug:            "uniform-lima-4770",
+		OwnerID:         "prof-1",
+		Status:          StatusWaiting,
+		MaxParticipants: 50,
+		CreatedAt:       time.Now().UTC(),
+	}
+	if err := store.CreateRoom(context.Background(), targetRoom); err != nil {
+		t.Fatalf("falha ao criar sala: %v", err)
+	}
+
+	// Aluno ingressa usando o SLUG na URL
+	joinBody := []byte(`{"name": "Mateus de Araujo", "student_id": "2025116tads0039"}`)
+	req := httptest.NewRequest("POST", "/rooms/uniform-lima-4770/join", bytes.NewReader(joinBody))
+	rec := httptest.NewRecorder()
+	mux.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200 OK for join via slug, got %d: %s", rec.Code, rec.Body.String())
+	}
+
+	var resp JoinResponse
+	if err := json.NewDecoder(rec.Body).Decode(&resp); err != nil {
+		t.Fatalf("falha ao decodificar JoinResponse: %v", err)
+	}
+
+	if resp.Token == "" {
+		t.Error("esperava token JWT gerado para o aluno")
+	}
+	if resp.RoomID != "canon-room-uuid-123" {
+		t.Errorf("esperava RoomID canon-room-uuid-123, obteve %s", resp.RoomID)
+	}
+	expectedWs := "ws://localhost:8080/ws/rooms/canon-room-uuid-123/signal"
+	if resp.WsURL != expectedWs {
+		t.Errorf("esperava WsURL %s, obteve %s", expectedWs, resp.WsURL)
+	}
+	if len(resp.IceServers) == 0 {
+		t.Error("esperava IceServers configurados")
 	}
 }

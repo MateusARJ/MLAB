@@ -61,12 +61,20 @@ type JoinRequest struct {
 	StudentID string `json:"student_id"`
 }
 
+// IceServer representa a configuração de servidores STUN/TURN para o WebRTC.
+type IceServer struct {
+	URLs []string `json:"urls"`
+}
+
 // JoinResponse é a resposta de POST /rooms/{id}/join (200).
 type JoinResponse struct {
-	Token         string `json:"token"`
-	ExpiresAt     string `json:"expires_at"`
-	ParticipantID string `json:"participant_id"`
-	RoomStatus    Status `json:"room_status"`
+	Token         string      `json:"token"`
+	ExpiresAt     string      `json:"expires_at"`
+	ParticipantID string      `json:"participant_id"`
+	RoomStatus    Status      `json:"room_status"`
+	RoomID        string      `json:"room_id"`
+	WsURL         string      `json:"ws_url"`
+	IceServers    []IceServer `json:"ice_servers"`
 }
 
 // CloseResponse é a resposta de POST /rooms/{id}/close (200).

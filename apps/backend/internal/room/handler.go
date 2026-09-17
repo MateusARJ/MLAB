@@ -3,6 +3,7 @@ package room
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"log"
 	"net/http"
 	"os"
@@ -138,14 +139,20 @@ func (h *Handler) joinRoom(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// 1. Tenta buscar por ID (UUID); se não encontrar, busca por Slug (usado no link público de convite)
 	room, err := h.store.GetRoomByID(r.Context(), roomID)
 	if err != nil {
 		if errors.Is(err, ErrRoomNotFound) {
-			writeError(w, http.StatusNotFound, "sala não encontrada")
+			room, err = h.store.GetRoomBySlug(r.Context(), roomID)
+		}
+		if err != nil {
+			if errors.Is(err, ErrRoomNotFound) {
+				writeError(w, http.StatusNotFound, "sala não encontrada")
+				return
+			}
+			writeError(w, http.StatusInternalServerError, "erro ao buscar sala")
 			return
 		}
-		writeError(w, http.StatusInternalServerError, "erro ao buscar sala")
-		return
 	}
 
 	if room.Status == StatusClosed {
@@ -153,7 +160,7 @@ func (h *Handler) joinRoom(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	count, err := h.store.CountParticipants(r.Context(), roomID)
+	count, err := h.store.CountParticipants(r.Context(), room.ID)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "erro ao verificar participantes")
 		return
@@ -166,7 +173,7 @@ func (h *Handler) joinRoom(w http.ResponseWriter, r *http.Request) {
 	participantID := newID()
 	participant := &Participant{
 		ID:        participantID,
-		RoomID:    roomID,
+		RoomID:    room.ID,
 		Name:      req.Name,
 		StudentID: req.StudentID,
 		JoinedAt:  time.Now().UTC(),
@@ -177,8 +184,8 @@ func (h *Handler) joinRoom(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Gera JWT do aluno (usando helper do pacote auth).
-	claims := auth.StudentMapClaims(participantID, req.Name, req.StudentID, roomID)
+	// 2. Gera JWT do aluno com o ID canônico da sala (room.ID)
+	claims := auth.StudentMapClaims(participantID, req.Name, req.StudentID, room.ID)
 	tokenStr, err := auth.SignToken(claims)
 	if err != nil {
 		log.Printf("room: SignToken: %v", err)
@@ -189,11 +196,21 @@ func (h *Handler) joinRoom(w http.ResponseWriter, r *http.Request) {
 	expUnix := int64(claims["exp"].(int64))
 	expiresAt := time.Unix(expUnix, 0).UTC().Format(time.RFC3339)
 
+	wsBase := os.Getenv("WS_URL")
+	if wsBase == "" {
+		wsBase = "ws://localhost:8080"
+	}
+	wsBase = strings.TrimRight(wsBase, "/")
+	wsURL := fmt.Sprintf("%s/ws/rooms/%s/signal", wsBase, room.ID)
+
 	writeJSON(w, http.StatusOK, JoinResponse{
 		Token:         tokenStr,
 		ExpiresAt:     expiresAt,
 		ParticipantID: participantID,
 		RoomStatus:    room.Status,
+		RoomID:        room.ID,
+		WsURL:         wsURL,
+		IceServers:    []IceServer{{URLs: []string{"stun:stun.l.google.com:19302"}}},
 	})
 }
 
