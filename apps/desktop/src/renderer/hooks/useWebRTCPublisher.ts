@@ -7,6 +7,34 @@ export interface UseWebRTCPublisherProps {
   wsUrl?: string;
 }
 
+/**
+ * Injeta diretivas no SDP para cravar a taxa de transmissão em alta qualidade (1080p @ 4 Mbps)
+ * Força o motor Chromium WebRTC a iniciar imediatamente em 4000 kbps via x-google-start-bitrate
+ */
+function enforceHighBitrateSDP(sdp: string, bitrateKbps: number = 4000): string {
+  let result = sdp.replace(/m=video ([^\r\n]+)\r\n/g, (match) => {
+    return `${match}b=AS:${bitrateKbps}\r\nb=TIAS:${bitrateKbps * 1000}\r\n`;
+  });
+
+  const rtpmapRegex = /a=rtpmap:(\d+) (VP8|H264|VP9)\/90000/g;
+  let match: RegExpExecArray | null;
+  while ((match = rtpmapRegex.exec(result)) !== null) {
+    const pt = match[1];
+    const codec = match[2];
+    const fmtpRegex = new RegExp(`a=fmtp:${pt} (.*)\r\n`);
+    const params = `x-google-min-bitrate=${bitrateKbps - 500};x-google-start-bitrate=${bitrateKbps};x-google-max-bitrate=${bitrateKbps + 1000}`;
+    if (fmtpRegex.test(result)) {
+      result = result.replace(fmtpRegex, `a=fmtp:${pt} $1;${params}\r\n`);
+    } else {
+      result = result.replace(
+        `a=rtpmap:${pt} ${codec}/90000\r\n`,
+        `a=rtpmap:${pt} ${codec}/90000\r\na=fmtp:${pt} ${params}\r\n`
+      );
+    }
+  }
+  return result;
+}
+
 export function useWebRTCPublisher({
   roomId,
   stream,
@@ -155,15 +183,9 @@ export function useWebRTCPublisher({
           const msg = JSON.parse(evt.data);
 
           if (msg.type === 'publish-approved') {
-            // Cria a oferta SDP após aprovação do hub
+            // Cria a oferta SDP após aprovação do hub com diretivas estritas de alta taxa
             const offer = await pc.createOffer();
-            let sdp = offer.sdp;
-            if (sdp) {
-              // Insere b=AS:4000 (4 Mbps) e b=TIAS:4000000 na seção de vídeo do SDP
-              sdp = sdp.replace(/m=video ([^\r\n]+)\r\n/g, (match) => {
-                return `${match}b=AS:4000\r\nb=TIAS:4000000\r\n`;
-              });
-            }
+            const sdp = offer.sdp ? enforceHighBitrateSDP(offer.sdp, 4000) : offer.sdp;
             const modifiedOffer = new RTCSessionDescription({
               type: 'offer',
               sdp: sdp || offer.sdp,
@@ -181,10 +203,12 @@ export function useWebRTCPublisher({
             }
           } else if (msg.type === 'answer') {
             if (msg.payload && msg.payload.sdp) {
+              const answerSdp = enforceHighBitrateSDP(msg.payload.sdp, 4000);
               await pc.setRemoteDescription({
                 type: 'answer',
-                sdp: msg.payload.sdp,
+                sdp: answerSdp,
               });
+              await applyVideoSenderParameters();
             }
           } else if (msg.type === 'ice-candidate') {
             if (msg.payload && msg.payload.candidate) {

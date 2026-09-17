@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"regexp"
 	"sync"
 	"time"
 
@@ -100,6 +101,10 @@ func (r *Room) handlePublisherOffer(publisherID, sdp string) (string, error) {
 					if ssrc != 0 {
 						_ = pubPC.WriteRTCP([]rtcp.Packet{
 							&rtcp.PictureLossIndication{MediaSSRC: ssrc},
+							&rtcp.ReceiverEstimatedMaximumBitrate{
+								Bitrate: 4_000_000,
+								SSRCs:   []uint32{ssrc},
+							},
 						})
 					}
 				}
@@ -166,10 +171,14 @@ func (r *Room) createSubscriberOffer(subscriberID, publisherID string) (string, 
 
 	r.subscribers[subscriberID] = pc
 
-	// Dispara solicitação imediata de Keyframe (RTCP PLI) para o novo aluno decodificar o vídeo sem espera
+	// Dispara solicitação imediata de Keyframe (RTCP PLI) e REMB para o novo aluno decodificar o vídeo em 4 Mbps
 	if r.publisherPC != nil && r.publisherVideoSSRC != 0 {
 		_ = r.publisherPC.WriteRTCP([]rtcp.Packet{
 			&rtcp.PictureLossIndication{MediaSSRC: r.publisherVideoSSRC},
+			&rtcp.ReceiverEstimatedMaximumBitrate{
+				Bitrate: 4_000_000,
+				SSRCs:   []uint32{r.publisherVideoSSRC},
+			},
 		})
 	}
 
@@ -217,7 +226,10 @@ func (r *Room) createSubscriberOffer(subscriberID, publisherID string) (string, 
 	}
 	<-gatherComplete
 
-	return pc.LocalDescription().SDP, nil
+	subSDP := pc.LocalDescription().SDP
+	re := regexp.MustCompile(`(m=video [^\r\n]+)\r\n`)
+	subSDP = re.ReplaceAllString(subSDP, "$1\r\nb=AS:4000\r\nb=TIAS:4000000\r\n")
+	return subSDP, nil
 }
 
 func (r *Room) handleSubscriberAnswer(subscriberID, sdp string) error {

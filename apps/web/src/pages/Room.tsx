@@ -366,6 +366,8 @@ const styles: { [key: string]: React.CSSProperties } = {
     width: '100%',
     height: '100%',
     objectFit: 'contain',
+    backgroundColor: '#000000',
+    imageRendering: '-webkit-optimize-contrast' as any,
   },
   videoOverlayControls: {
     position: 'absolute',

@@ -48,28 +48,50 @@ export function useScreenCapture(initialMode: CaptureSourceType = 'screen') {
   const selectSource = useCallback(async (source: CaptureSource): Promise<MediaStream | null> => {
     setSelectedSource(source);
     try {
-      // Captura via desktopCapturer constraints 1080p 30fps (RF-04, RF-26, RF-27, RNF-01, RNF-02)
-      // Constraints flexíveis sem minWidth/minHeight para não quebrar em resoluções ou DPIs escaladas
-      const mediaStream = await navigator.mediaDevices.getUserMedia({
-        audio: false,
-        video: {
-          // @ts-ignore
-          mandatory: {
-            chromeMediaSource: 'desktop',
-            chromeMediaSourceId: source.id,
-            maxWidth: 1920,
-            maxHeight: 1080,
-            minFrameRate: 30,
-            maxFrameRate: 30,
+      let mediaStream: MediaStream;
+      try {
+        // Tenta capturar cravando resolução de alta fidelidade 1080p @ 30fps (RF-04, RNF-01, RNF-02)
+        mediaStream = await navigator.mediaDevices.getUserMedia({
+          audio: false,
+          video: {
+            // @ts-ignore
+            mandatory: {
+              chromeMediaSource: 'desktop',
+              chromeMediaSourceId: source.id,
+              minWidth: 1920,
+              maxWidth: 1920,
+              minHeight: 1080,
+              maxHeight: 1080,
+              minFrameRate: 30,
+              maxFrameRate: 30,
+            },
           },
-        },
-      });
+        });
+      } catch {
+        // Fallback flexível para monitores ou janelas com dimensões menores que 1080p (ex: 1366x768 ou janelas isoladas)
+        mediaStream = await navigator.mediaDevices.getUserMedia({
+          audio: false,
+          video: {
+            // @ts-ignore
+            mandatory: {
+              chromeMediaSource: 'desktop',
+              chromeMediaSourceId: source.id,
+              maxWidth: 1920,
+              maxHeight: 1080,
+              minFrameRate: 30,
+              maxFrameRate: 30,
+            },
+          },
+        });
+      }
 
       // Crava contentHint='detail' para que o encoder VP8 priorize nitidez de código/texto e evite suavização espacial
       const videoTrack = mediaStream.getVideoTracks()[0];
       if (videoTrack) {
         // @ts-ignore
         videoTrack.contentHint = 'detail';
+        const settings = videoTrack.getSettings();
+        console.log(`[Capture] Resolução capturada: ${settings.width}x${settings.height} @ ${settings.frameRate}fps`);
       }
 
       // Tenta anexar microfone do professor se disponível (RF-10, RN-10)
