@@ -2,6 +2,7 @@ package webrtc
 
 import (
 	"fmt"
+	"net"
 	"os"
 	"sync"
 
@@ -35,11 +36,26 @@ func NewSFUService(cfg Config) (*SFUService, error) {
 		return nil, fmt.Errorf("falha ao configurar faixa de portas UDP: %w", err)
 	}
 
+	// Descarta endereços de link-local / APIPA (169.254.x.x) para evitar timeouts de STUN e rotas mortas
+	settingEngine.SetIPFilter(func(ip net.IP) bool {
+		return !ip.IsLinkLocalUnicast()
+	})
+
 	natIP := os.Getenv("NAT_1TO1_IP")
 	if natIP == "" {
 		natIP = os.Getenv("PUBLIC_IP")
 	}
-	if natIP != "" {
+	if natIP == "" {
+		// Detecta o IP real da interface de rede primária (ex: 192.168.1.40)
+		conn, err := net.Dial("udp", "8.8.8.8:80")
+		if err == nil {
+			if localAddr, ok := conn.LocalAddr().(*net.UDPAddr); ok {
+				natIP = localAddr.IP.String()
+			}
+			_ = conn.Close()
+		}
+	}
+	if natIP != "" && natIP != "127.0.0.1" && natIP != "localhost" {
 		settingEngine.SetNAT1To1IPs([]string{natIP}, webrtc.ICECandidateTypeHost)
 	}
 

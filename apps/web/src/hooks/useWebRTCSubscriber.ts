@@ -9,8 +9,12 @@ export function useWebRTCSubscriber(token: string, roomInfo: { room_id: string; 
   const pcRef = useRef<RTCPeerConnection | null>(null);
   const wsRef = useRef<WebSocket | null>(null);
   const reconnectAttemptRef = useRef(0);
+  const reconnectTimerRef = useRef<any>(null);
+  const hasSubscribedRef = useRef(false);
+  const isCleanedUpRef = useRef(false);
 
   const connect = useCallback(() => {
+    if (isCleanedUpRef.current) return;
     setConnectionStatus('connecting');
 
     let finalWsUrl = roomInfo.ws_url;
@@ -23,9 +27,12 @@ export function useWebRTCSubscriber(token: string, roomInfo: { room_id: string; 
     wsRef.current = ws;
 
     const pc = new RTCPeerConnection({
-      iceServers: roomInfo.ice_servers || [{ urls: 'stun:stun.l.google.com:19302' }],
+      iceServers: roomInfo.ice_servers && roomInfo.ice_servers.length > 0
+        ? roomInfo.ice_servers
+        : [{ urls: 'stun:stun.l.google.com:19302' }],
     });
     pcRef.current = pc;
+    hasSubscribedRef.current = false;
 
     pc.ontrack = (event) => {
       setStream((prev) => {
@@ -35,7 +42,7 @@ export function useWebRTCSubscriber(token: string, roomInfo: { room_id: string; 
         if (!prev.getTracks().some((t) => t.id === event.track.id)) {
           prev.addTrack(event.track);
         }
-        return new MediaStream(prev.getTracks());
+        return prev;
       });
     };
 
@@ -65,7 +72,8 @@ export function useWebRTCSubscriber(token: string, roomInfo: { room_id: string; 
     };
 
     const requestSubscription = () => {
-      if (ws.readyState === WebSocket.OPEN) {
+      if (ws.readyState === WebSocket.OPEN && !hasSubscribedRef.current) {
+        hasSubscribedRef.current = true;
         ws.send(
           JSON.stringify({
             type: 'subscribe-request',
@@ -76,7 +84,7 @@ export function useWebRTCSubscriber(token: string, roomInfo: { room_id: string; 
     };
 
     ws.onopen = () => {
-      requestSubscription();
+      // Aguarda recebimento do session-state antes de enviar subscribe-request
     };
 
     ws.onmessage = async (evt) => {
@@ -86,11 +94,15 @@ export function useWebRTCSubscriber(token: string, roomInfo: { room_id: string; 
           setMessages((prev) => [...prev, msg.payload]);
         } else if (msg.type === 'session-state') {
           setConnectionStatus(msg.payload.status);
-          if (msg.payload.status === 'publishing') {
+          if (msg.payload.status === 'publishing' && !hasSubscribedRef.current) {
             requestSubscription();
           }
         } else if (msg.type === 'offer') {
           if (msg.payload && msg.payload.sdp) {
+            if (pc.signalingState !== 'stable' && pc.signalingState !== 'have-local-offer') {
+              console.warn('Ignorando offer fora de estado estável:', pc.signalingState);
+              return;
+            }
             await pc.setRemoteDescription(
               new RTCSessionDescription({
                 type: 'offer',
@@ -131,6 +143,8 @@ export function useWebRTCSubscriber(token: string, roomInfo: { room_id: string; 
     };
 
     ws.onclose = (evt) => {
+      if (isCleanedUpRef.current) return;
+
       // Trata encerramento por sessão duplicada (RN-04 / erro 4001)
       if (evt.code === 4001) {
         setConnectionStatus('closed');
@@ -144,7 +158,7 @@ export function useWebRTCSubscriber(token: string, roomInfo: { room_id: string; 
         const delay = Math.min(1000 * Math.pow(2, attempts), 30000);
         reconnectAttemptRef.current += 1;
 
-        setTimeout(() => {
+        reconnectTimerRef.current = setTimeout(() => {
           connect();
         }, delay);
       }
@@ -152,10 +166,16 @@ export function useWebRTCSubscriber(token: string, roomInfo: { room_id: string; 
   }, [token, roomInfo]);
 
   useEffect(() => {
+    isCleanedUpRef.current = false;
     connect();
     return () => {
+      isCleanedUpRef.current = true;
+      if (reconnectTimerRef.current) clearTimeout(reconnectTimerRef.current);
+      if (wsRef.current) {
+        wsRef.current.onclose = null;
+        wsRef.current.close();
+      }
       if (pcRef.current) pcRef.current.close();
-      if (wsRef.current) wsRef.current.close();
     };
   }, [connect]);
 

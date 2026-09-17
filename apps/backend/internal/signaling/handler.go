@@ -116,20 +116,18 @@ func (h *Handler) serveWS(w http.ResponseWriter, r *http.Request) {
 
 // getOrCreateHub retorna o Hub existente ou cria um novo para a sala.
 func (h *Handler) getOrCreateHub(roomID string) *Hub {
-	h.mu.RLock()
-	hub, ok := h.hubs[roomID]
-	h.mu.RUnlock()
-	if ok {
-		return hub
-	}
-
 	h.mu.Lock()
 	defer h.mu.Unlock()
-	// Double-check após adquirir o lock de escrita.
-	if hub, ok = h.hubs[roomID]; ok {
-		return hub
+
+	if hub, ok := h.hubs[roomID]; ok {
+		if hub.status == SessionClosed {
+			delete(h.hubs, roomID)
+		} else {
+			return hub
+		}
 	}
-	hub = newHub(roomID, h.sfu)
+
+	hub := newHub(roomID, h.sfu)
 	h.hubs[roomID] = hub
 	log.Printf("signaling: hub criado para sala %s", roomID)
 	return hub

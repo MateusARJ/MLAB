@@ -29,7 +29,16 @@ export default defineConfig({
       '/ws': {
         target: 'ws://localhost:8080',
         ws: true,
-        changeOrigin: true
+        changeOrigin: true,
+        configure: (proxy) => {
+          proxy.on('error', (err: any) => {
+            // Ignora erros transitórios de socket abortado em reload/desconexão
+            if (err.code === 'ECONNABORTED' || err.code === 'ECONNRESET') {
+              return;
+            }
+            console.warn('[vite] ws proxy error:', err.message);
+          });
+        }
       }
     }
   },

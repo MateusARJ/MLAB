@@ -150,9 +150,12 @@ func (r *Room) createSubscriberOffer(subscriberID, publisherID string) (string, 
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
-	// Fecha conexao existente do mesmo subscriber se houver (RN-04)
-	if oldPC, exists := r.subscribers[subscriberID]; exists {
-		_ = oldPC.Close()
+	// Se já existe um PeerConnection com oferta pendente com SDP local válido, reutiliza a oferta existente
+	if existingPC, exists := r.subscribers[subscriberID]; exists {
+		if existingPC.SignalingState() == webrtc.SignalingStateHaveLocalOffer && existingPC.LocalDescription() != nil {
+			return existingPC.LocalDescription().SDP, nil
+		}
+		_ = existingPC.Close()
 		delete(r.subscribers, subscriberID)
 	}
 
@@ -224,6 +227,12 @@ func (r *Room) handleSubscriberAnswer(subscriberID, sdp string) error {
 
 	if !exists {
 		return fmt.Errorf("subscriber nao encontrado: %s", subscriberID)
+	}
+
+	// Se o PeerConnection já concluiu a negociação e está em stable, ignora respostas redundantes sem erro
+	if pc.SignalingState() == webrtc.SignalingStateStable {
+		log.Printf("[SFU] Subscriber %s já está em estado stable, ignorando answer redundante", subscriberID)
+		return nil
 	}
 
 	answer := webrtc.SessionDescription{

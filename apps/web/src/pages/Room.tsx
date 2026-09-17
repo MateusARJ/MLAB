@@ -22,18 +22,19 @@ export const Room: React.FC<RoomProps> = ({ token, roomInfo, onLeave }) => {
   const [chatInput, setChatInput] = useState('');
 
   useEffect(() => {
-    if (videoRef.current && stream) {
-      videoRef.current.srcObject = stream;
-      videoRef.current
+    const videoEl = videoRef.current;
+    if (videoEl && stream) {
+      if (videoEl.srcObject !== stream) {
+        videoEl.srcObject = stream;
+      }
+      videoEl
         .play()
         .then(() => setAutoplayBlocked(false))
         .catch((err) => {
           // RF-21: Tratamento de Autoplay Policy dos navegadores (móveis ou desktop)
           if (err.name === 'NotAllowedError') {
-            if (videoRef.current) {
-              videoRef.current.muted = true;
-              videoRef.current.play().catch(() => {});
-            }
+            videoEl.muted = true;
+            videoEl.play().catch(() => {});
             setAutoplayBlocked(true);
           }
         });
