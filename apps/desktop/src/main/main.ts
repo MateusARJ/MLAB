@@ -1,6 +1,6 @@
-import { app, BrowserWindow, ipcMain, desktopCapturer, nativeImage } from 'electron'
+import { app, BrowserWindow, ipcMain, desktopCapturer, nativeImage, dialog } from 'electron'
 import { join } from 'path'
-import { existsSync } from 'fs'
+import { existsSync, promises as fsPromises } from 'fs'
 
 // Registra o AppUserModelId no Windows para agrupar e exibir a logo na Barra de Tarefas
 if (process.platform === 'win32') {
@@ -67,18 +67,82 @@ function createWindow(): void {
 
 // ── IPC: desktopCapturer (acesso seguro via contextBridge) ────────────────────
 
-ipcMain.handle('get-screen-sources', async () => {
+ipcMain.handle('get-screen-sources', async (_event, type?: 'screen' | 'window') => {
+  const types: ('screen' | 'window')[] = type ? [type] : ['screen', 'window']
   const sources = await desktopCapturer.getSources({
-    types: ['screen', 'window'],
-    thumbnailSize: { width: 320, height: 180 }
+    types,
+    thumbnailSize: { width: 320, height: 180 },
+    fetchWindowIcons: true
   })
 
-  return sources.map((source) => ({
-    id: source.id,
-    name: source.name,
-    thumbnail: source.thumbnail.toDataURL()
-  }))
+  return sources
+    .filter((source) => {
+      // No modo janela, ignora janelas internas sem título
+      if (type === 'window' && (!source.name || source.name.trim() === '')) {
+        return false
+      }
+      return true
+    })
+    .map((source) => ({
+      id: source.id,
+      name: source.name,
+      thumbnail: source.thumbnail.toDataURL(),
+      type: source.id.startsWith('screen') ? ('screen' as const) : ('window' as const)
+    }))
 })
+
+// ── IPC: Gravação local de aula (salvamento em disco via diálogo nativo) ──────
+
+ipcMain.handle(
+  'save-recorded-video',
+  async (
+    _event,
+    {
+      buffer,
+      defaultName,
+      format = 'webm'
+    }: {
+      buffer: ArrayBuffer
+      defaultName?: string
+      format?: 'webm' | 'mp4'
+    }
+  ) => {
+    try {
+      const now = new Date()
+      const dateStr = now.toISOString().slice(0, 10)
+      const timeStr = now.toTimeString().slice(0, 5).replace(':', '')
+      const ext = format === 'mp4' ? 'mp4' : 'webm'
+      const suggestedName = defaultName || `aula-mlab-${dateStr}-${timeStr}.${ext}`
+
+      const filters =
+        format === 'mp4'
+          ? [
+              { name: 'Vídeo MP4 (*.mp4)', extensions: ['mp4'] },
+              { name: 'Todos os Arquivos', extensions: ['*'] }
+            ]
+          : [
+              { name: 'Vídeo WebM (*.webm)', extensions: ['webm'] },
+              { name: 'Todos os Arquivos', extensions: ['*'] }
+            ]
+
+      const { canceled, filePath } = await dialog.showSaveDialog({
+        title: 'Salvar Gravação da Aula — MLab',
+        defaultPath: suggestedName,
+        filters
+      })
+
+      if (canceled || !filePath) {
+        return { success: false, cancelled: true }
+      }
+
+      await fsPromises.writeFile(filePath, Buffer.from(buffer))
+      return { success: true, filePath }
+    } catch (err: any) {
+      console.error('Erro ao salvar gravação:', err)
+      return { success: false, error: err.message || 'Falha ao gravar arquivo em disco' }
+    }
+  }
+)
 
 // ── App lifecycle ─────────────────────────────────────────────────────────────
 

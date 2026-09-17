@@ -24,13 +24,14 @@ Permitir que um professor crie uma sala via app desktop e transmita sua tela e �
 - estado de sala e presença em tempo real via WebSocket;
 - tratamento de perda de conexão, ICE restart e reconexão em 30s;
 - suporte a credenciais TURN HMAC-SHA1 epêmeras;
+- gravação local opcional da aula pelo professor nos formatos .webm e .mp4;
 - coleta dos indicadores básicos necessários para validar qualidade da transmissão.
 
 ### Não incluído
 
 - câmera do professor ou dos alunos;
 - microfone dos alunos;
-- gravação da aula;
+- gravação ou persistência de mídia no servidor SFU (permanece 100% efêmero em memória);
 - upload de arquivos;
 - edição de vídeo;
 - transcodificação por espectador;
@@ -144,6 +145,27 @@ Pode assistir à tela transmitida e participar do chat de texto. Não transmite 
 - Aluno utiliza backoff exponencial para reconexão automática.
 - Suporte a ICE Restart em caso de falha de rota na conexão WebRTC.
 
+### US-09 — Seleção de Modo de Captura (Tela Cheia vs Janela Específica)
+
+**Como** professor, **quero** escolher explicitamente entre capturar a Tela Cheia ou uma Janela/Aba Específica, **para** controlar se a transmissão acompanha toda a minha navegação no sistema operacional ou se isola um aplicativo específico.
+
+**Critérios de aceitação**
+- O app desktop exibe abas ou seletores claros entre "Tela Cheia" e "Janela Específica".
+- Em Tela Cheia, a transmissão acompanha o cursor e qualquer aplicativo ou tela aberta no monitor selecionado.
+- Em Janela Específica, a transmissão restringe-se aos limites da janela selecionada, sem expor notificações ou outras janelas.
+- O professor pode alterar a fonte selecionada durante a transmissão sem desconectar a sessão.
+
+### US-10 — Gravação Local Opcional da Aula (.webm / .mp4)
+
+**Como** professor, **quero** optar por gravar localmente a aula e escolher o formato do arquivo (.webm ou .mp4) antes de iniciar a transmissão, **para** disponibilizar a gravação posteriormente aos alunos mantendo controle sobre o arquivo gerado.
+
+**Critérios de aceitação**
+- Antes de iniciar a transmissão, o sistema pergunta ao professor se ele deseja gravar a aula (`Sim` ou `Não`).
+- Caso o professor opte por gravar, o sistema permite escolher o formato do arquivo (`.webm` ou `.mp4`).
+- Se o professor optar por não gravar, a transmissão ocorre normalmente sem gerar arquivo em disco.
+- Ao avançar, a transmissão ao vivo é iniciada e, caso habilitada, a gravação é acionada simultaneamente.
+- O professor pode pausar, retomar e finalizar a gravação salvando o arquivo via diálogo nativo do sistema operacional.
+
 ## 5. Requisitos Funcionais
 
 - RF-01: o sistema deve identificar o papel do participante (`professor` ou `aluno`) via JWT.
@@ -171,6 +193,10 @@ Pode assistir à tela transmitida e participar do chat de texto. Não transmite 
 - RF-23: credenciais epêmeras HMAC-SHA1 para acesso ao servidor TURN (válidas por 24h).
 - RF-24: verificação de permissões do sistema operacional no app desktop antes da captura.
 - RF-25: monitoramento de `iceConnectionState` e disparo automático de ICE Restart.
+- RF-26: captura e transmissão de tela cheia (display tracking) acompanhando o sistema operacional e aplicativos.
+- RF-27: captura e transmissão de janela/aba específica com isolamento da aplicação e sem vazamento de notificações.
+- RF-28: gravação local de aula no app desktop via MediaRecorder com controle de start/pause/stop e salvamento em disco.
+- RF-29: publicação WebRTC ativa do app desktop via SFU Pion Go (sinalização WS, SDP offer/answer, troca de ICE).
 
 ## 6. Requisitos Não Funcionais
 
@@ -187,8 +213,9 @@ Pode assistir à tela transmitida e participar do chat de texto. Não transmite 
 - RNF-13: keepalive e heartbeat WebSocket via Ping (15s) e Pong (30s).
 - RNF-14: faixa de portas UDP do SFU delimitada entre 50000 e 50100.
 - RNF-15: processamento eficiente em memória com uso de CPU do backend < 15%.
-- RNF-16: transmissão 100% epêmera sem gravação de vídeo/áudio em disco.
+- RNF-16: transmissão 100% epêmera sem gravação de vídeo/áudio em disco pelo servidor SFU.
 - RNF-17: sanitização estrita de XSS no chat de texto.
+- RNF-18: opcionalidade de gravação local com suporte explícito aos formatos .webm e .mp4 escolhidos pelo professor.
 
 ## 7. Regras de Negócio
 
@@ -210,6 +237,8 @@ Pode assistir à tela transmitida e participar do chat de texto. Não transmite 
 - RN-16: estouro de rate limit gera erro `CHAT_RATE_LIMITED` sem desconectar o participante.
 - RN-17: mensagens vazias descartadas e tags HTML escapadas no servidor.
 - RN-18: ausência de histórico retroativo de chat para novos ingressantes.
+- RN-19: a gravação local de aula no desktop do professor é independente do SFU e não viola a efemeridade do servidor (RNF-16).
+- RN-20: alternância de fonte de captura entre tela cheia e janela específica ocorre dinamicamente mantendo a gravação e transmissão ativas.
 
 ## 8. Estados e Erros
 

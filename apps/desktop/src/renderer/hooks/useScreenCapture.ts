@@ -1,39 +1,53 @@
 import { useState, useEffect, useCallback } from 'react';
+import type { CaptureSource, CaptureSourceType } from '@screenshare/types';
 
-export interface Source {
-  id: string;
-  name: string;
-  thumbnail: string;
-}
+export type Source = CaptureSource;
 
-export function useScreenCapture() {
-  const [sources, setSources] = useState<Source[]>([]);
-  const [selectedSource, setSelectedSource] = useState<Source | null>(null);
+export function useScreenCapture(initialMode: CaptureSourceType = 'screen') {
+  const [captureMode, setCaptureMode] = useState<CaptureSourceType>(initialMode);
+  const [sources, setSources] = useState<CaptureSource[]>([]);
+  const [selectedSource, setSelectedSource] = useState<CaptureSource | null>(null);
   const [stream, setStream] = useState<MediaStream | null>(null);
   const [micMuted, setMicMuted] = useState(false);
   const [videoPaused, setVideoPaused] = useState(false);
   const [hasPermissions, setHasPermissions] = useState<boolean | null>(null);
 
-  useEffect(() => {
-    // Checagem prévia de permissões do SO (RF-24)
+  const loadSources = useCallback(async (mode: CaptureSourceType) => {
     if (window.electronAPI && window.electronAPI.getScreenSources) {
-      window.electronAPI.getScreenSources()
-        .then((srcs) => {
-          setSources(srcs);
-          setHasPermissions(true);
-        })
-        .catch(() => {
-          setHasPermissions(false);
+      try {
+        const srcs = await window.electronAPI.getScreenSources(mode);
+        // Filtra janelas do próprio MLab para evitar captura em espelho recursivo
+        const filtered = srcs.filter((s) => {
+          if (mode === 'window') {
+            const name = s.name.toLowerCase();
+            return !name.includes('mlab') && s.name.trim().length > 0;
+          }
+          return true;
         });
+        setSources(filtered);
+        setHasPermissions(true);
+      } catch (err) {
+        console.error('Erro ao buscar fontes de captura:', err);
+        setHasPermissions(false);
+      }
     } else {
       setHasPermissions(true);
     }
   }, []);
 
-  const selectSource = useCallback(async (source: Source) => {
+  useEffect(() => {
+    loadSources(captureMode);
+  }, [captureMode, loadSources]);
+
+  const changeCaptureMode = useCallback((mode: CaptureSourceType) => {
+    setCaptureMode(mode);
+    setSelectedSource(null);
+  }, []);
+
+  const selectSource = useCallback(async (source: CaptureSource) => {
     setSelectedSource(source);
     try {
-      // Captura via desktopCapturer constraints (RF-04)
+      // Captura via desktopCapturer constraints 1080p 30fps (RF-04, RF-26, RF-27, RNF-01, RNF-02)
       const mediaStream = await navigator.mediaDevices.getUserMedia({
         audio: false,
         video: {
@@ -41,29 +55,48 @@ export function useScreenCapture() {
           mandatory: {
             chromeMediaSource: 'desktop',
             chromeMediaSourceId: source.id,
+            minWidth: 1280,
+            maxWidth: 1920,
+            minHeight: 720,
+            maxHeight: 1080,
+            minFrameRate: 15,
+            maxFrameRate: 30,
           },
         },
       });
 
-      // Tenta anexar microfone se disponivel (RF-10, RN-10)
+      // Tenta anexar microfone do professor se disponível (RF-10, RN-10)
       try {
-        const audioStream = await navigator.mediaDevices.getUserMedia({ audio: true });
-        audioStream.getAudioTracks().forEach((track) => mediaStream.addTrack(track));
+        const audioStream = await navigator.mediaDevices.getUserMedia({
+          audio: {
+            echoCancellation: true,
+            noiseSuppression: true,
+          },
+        });
+        audioStream.getAudioTracks().forEach((track) => {
+          track.enabled = !micMuted;
+          mediaStream.addTrack(track);
+        });
       } catch (err) {
-        console.warn('Microfone nao disponivel ou nao concedido');
+        console.warn('Microfone não disponível ou permissão não concedida');
+      }
+
+      // Para tracks anteriores se houver troca de fonte (RN-12, RN-20)
+      if (stream) {
+        stream.getVideoTracks().forEach((t) => t.stop());
       }
 
       setStream(mediaStream);
     } catch (err) {
-      console.error('Erro ao capturar stream de tela:', err);
+      console.error('Erro ao capturar stream de tela/janela:', err);
     }
-  }, []);
+  }, [stream, micMuted]);
 
   const toggleMicMute = useCallback(() => {
     if (stream) {
       const audioTracks = stream.getAudioTracks();
       audioTracks.forEach((track) => {
-        track.enabled = micMuted; // Inverte o estado atual
+        track.enabled = micMuted; // inverte estado
       });
       setMicMuted(!micMuted);
     }
@@ -73,7 +106,7 @@ export function useScreenCapture() {
     if (stream) {
       const videoTracks = stream.getVideoTracks();
       videoTracks.forEach((track) => {
-        track.enabled = videoPaused; // Inverte o estado atual
+        track.enabled = videoPaused; // inverte estado
       });
       setVideoPaused(!videoPaused);
     }
@@ -88,15 +121,19 @@ export function useScreenCapture() {
   }, [stream]);
 
   return {
+    captureMode,
+    setCaptureMode: changeCaptureMode,
     sources,
     selectedSource,
     stream,
     micMuted,
     videoPaused,
     hasPermissions,
+    loadSources,
     selectSource,
     toggleMicMute,
     toggleVideoPause,
     stopCapture,
   };
 }
+

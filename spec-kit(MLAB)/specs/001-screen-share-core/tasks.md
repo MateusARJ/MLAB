@@ -282,3 +282,85 @@ Checks: 40 clientes simulados assinam a stream; FPS ≥ 25, packet loss < 2%, RT
 Depends On: T020
 Allowed Paths: `docs/metrics/**`, `specs/001-screen-share-core/analyze.md`
 Checks: todos os RNFs (01–17) têm evidência de medição; relatório de homologação de critérios de aceite (CS-01 a CS-08) concluído em `docs/metrics/validation_report.md`.
+
+---
+
+## Novas tarefas: Captura Segregada e Gravação Local
+
+### T022 — apps/desktop — IPC & Preload: separação de fontes e gravação local
+[x] T022
+Depends On: T016
+Allowed Paths: `apps/desktop/src/main/main.ts`, `apps/desktop/src/main/preload.ts`, `packages/types/src/index.ts`
+Prohibited Paths: `apps/web/**`, `apps/backend/**`
+Checks:
+- [x] IPC `get-screen-sources` aceita parâmetro de tipo (`screen` | `window`) e retorna apenas as fontes correspondentes.
+- [x] IPC `save-recorded-video` implementado com `dialog.showSaveDialog` e gravação segura em disco (`fs.promises.writeFile`).
+- [x] Tipos exportados em `preload.ts` e `window.electronAPI`.
+
+### T023 — apps/desktop — Hook useScreenCapture: modo Tela Cheia
+[x] T023
+Depends On: T022
+Allowed Paths: `apps/desktop/src/renderer/hooks/useScreenCapture.ts`, `packages/types/src/index.ts`
+Prohibited Paths: `apps/web/**`, `apps/backend/**`
+Checks:
+- [x] Captura do monitor inteiro com constraints 1080p e 30 FPS (`RF-26`).
+- [x] Acompanha navegação pelo sistema operacional, múltiplas janelas e desktop.
+- [x] Áudio do microfone mixado ao MediaStream com controle de mute.
+
+### T024 — apps/desktop — Hook useScreenCapture: modo Janela Específica
+[x] T024
+Depends On: T022
+Allowed Paths: `apps/desktop/src/renderer/hooks/useScreenCapture.ts`
+Prohibited Paths: `apps/web/**`, `apps/backend/**`
+Checks:
+- [x] Captura restrita à janela da aplicação selecionada sem vazamento do desktop (`RF-27`).
+- [x] Filtro para evitar captura recursiva do próprio app MLab.
+- [x] Suporte à troca dinâmica de fonte mantendo a sessão ativa (`RN-12`, `RN-20`).
+
+### T025 — apps/desktop — Hook useLocalRecorder: gravação local (.webm / .mp4)
+[x] T025
+Depends On: T022, T023, T024
+Allowed Paths: `apps/desktop/src/renderer/hooks/useLocalRecorder.ts`, `apps/desktop/src/renderer/hooks/index.ts`
+Prohibited Paths: `apps/web/**`, `apps/backend/**`
+Checks:
+- [x] Suporte à escolha prévia de gravar ou não gravar (`RNF-18`).
+- [x] Suporte aos formatos `.webm` e `.mp4` via `MediaRecorder` (`RF-28`, `RNF-18`).
+- [x] Controle de estados: `idle`, `recording`, `paused`, `stopped` e cronômetro em tempo real.
+- [x] Ao encerrar a gravação, aciona o diálogo nativo e salva o arquivo em disco.
+
+### T026 — apps/desktop — Hook useWebRTCPublisher: publicação ativa na SFU Pion
+[x] T026
+Depends On: T023, T024
+Allowed Paths: `apps/desktop/src/renderer/hooks/useWebRTCPublisher.ts`
+Prohibited Paths: `apps/web/**`
+Checks:
+- [x] Conexão ao WebSocket `/ws/signaling?token=...` e emissão de `publish-request`.
+- [x] Criação de RTCPeerConnection e envio de SDP offer com tracks de tela e microfone.
+- [x] Recebimento de SDP answer da SFU e troca de candidatos ICE (`RF-29`).
+- [x] Alunos conectados no `apps/web` recebem o stream de vídeo e áudio em tempo real.
+
+### T027 — apps/desktop — UI Room: fluxo guiado de setup e controles
+[x] T027
+Depends On: T025, T026
+Allowed Paths: `apps/desktop/src/renderer/pages/Room.tsx`
+Prohibited Paths: `apps/web/**`, `apps/backend/**`
+Checks:
+- [x] Modal/etapa de setup antes da transmissão:
+  1. Pergunta "Deseja gravar a aula?" [Sim / Não].
+  2. Se Sim, seleção de formato [.webm / .mp4].
+  3. Abas de modo de tela: [Tela Cheia] vs [Janela Específica].
+  4. Seleção da fonte (thumbnail).
+  5. Botão "Avançar / Iniciar Transmissão".
+- [x] Durante a aula: exibição de timer REC (se habilitado), botões de pausar/salvar gravação, botões de mute/pausa de mídia e status de transmissão.
+- [x] Menu nativo do Electron permanece intacto.
+
+### T028 — apps/desktop — Testes automatizados e homologação
+[x] T028
+Depends On: T027
+Allowed Paths: `apps/desktop/src/renderer/pages/Room.test.tsx`, `apps/desktop/src/test/setup.ts`
+Prohibited Paths: `apps/web/**`, `apps/backend/**`
+Checks:
+- [x] Mocks atualizados em `setup.ts` para os novos canais IPC e `MediaRecorder`.
+- [x] Testes de renderização de abas e fluxo de escolha de gravação em `Room.test.tsx`.
+- [x] 100% dos testes passando (`npm run test`) e build limpo (`npm run build`).
+

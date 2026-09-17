@@ -281,9 +281,10 @@ Aplicado server-side no módulo `internal/chat` (valores configuráveis via ENV)
 - login do professor no app Electron;
 - criação/entrada de sala;
 - geração de link único;
-- captura de tela via desktopCapturer;
+- captura de tela via desktopCapturer com separação estrita de Tela Cheia (display tracking) e Janela Específica (application isolation);
+- gravação local opcional da aula pelo professor nos formatos .webm e .mp4 via MediaRecorder e diálogo nativo do SO;
 - transmissão de áudio (microfone do professor);
-- publicação/assinatura WebRTC (SFU Pion);
+- publicação ativa do desktop e assinatura WebRTC (SFU Pion);
 - sinalização via WebSocket;
 - identificação de aluno por Nome + Matrícula;
 - chat de texto em tempo real;
@@ -295,7 +296,7 @@ Aplicado server-side no módulo `internal/chat` (valores configuráveis via ENV)
 
 - câmera do professor ou alunos;
 - microfone dos alunos;
-- gravação;
+- gravação ou retenção de mídia no servidor SFU (servidor permanece efêmero);
 - transcodificação por aluno;
 - painel administrativo completo;
 - integração com banco de dados da instituição.
@@ -308,7 +309,7 @@ Aplicado server-side no módulo `internal/chat` (valores configuráveis via ENV)
 - `packages/types/**`
 - `packages/ui/**`
 - `specs/001-screen-share-core/**`
-- `docs/adrs/**` somente para registrar decisões arquiteturais
+- `docs/**`
 - `.specify/**` somente para manutenção do kit
 
 ### Prohibited Paths
@@ -330,7 +331,7 @@ Aplicado server-side no módulo `internal/chat` (valores configuráveis via ENV)
 
 - videoconferência completa;
 - distribuição P2P em mesh;
-- gravação;
+- gravação server-side em disco da SFU;
 - edição/transcodificação por espectador;
 - câmera do professor.
 

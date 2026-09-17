@@ -130,3 +130,18 @@ export interface SessionMetrics {
   firstFrameAt?: string;
   transportState: 'connecting' | 'connected' | 'disconnected' | 'failed';
 }
+
+// ── Capture & Recording ──────────────────────────────────────────────────────
+
+export type CaptureSourceType = 'screen' | 'window';
+
+export interface CaptureSource {
+  id: string;
+  name: string;
+  thumbnail: string;
+  type: CaptureSourceType;
+}
+
+export type RecordingFormat = 'webm' | 'mp4';
+
+export type RecordingStatus = 'idle' | 'recording' | 'paused' | 'stopped';
