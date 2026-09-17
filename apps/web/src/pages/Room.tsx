@@ -21,6 +21,48 @@ export const Room: React.FC<RoomProps> = ({ token, roomInfo, onLeave }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const [chatInput, setChatInput] = useState('');
 
+  const [isMobile, setIsMobile] = useState<boolean>(() => {
+    if (typeof window !== 'undefined') {
+      return window.innerWidth <= 768;
+    }
+    return false;
+  });
+
+  const [isChatOpen, setIsChatOpen] = useState<boolean>(() => {
+    if (typeof window !== 'undefined') {
+      return window.innerWidth > 768;
+    }
+    return true;
+  });
+
+  const [unreadCount, setUnreadCount] = useState<number>(0);
+  const prevMessagesLength = useRef(messages.length);
+
+  useEffect(() => {
+    const handleResize = () => {
+      const mobile = window.innerWidth <= 768;
+      setIsMobile(mobile);
+    };
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
+  useEffect(() => {
+    if (!isChatOpen && messages.length > prevMessagesLength.current) {
+      setUnreadCount((prev) => prev + (messages.length - prevMessagesLength.current));
+    }
+    prevMessagesLength.current = messages.length;
+  }, [messages, isChatOpen]);
+
+  const handleToggleChat = () => {
+    setIsChatOpen((prev) => {
+      if (!prev) {
+        setUnreadCount(0);
+      }
+      return !prev;
+    });
+  };
+
   useEffect(() => {
     const videoEl = videoRef.current;
     if (videoEl && stream) {
@@ -87,6 +129,19 @@ export const Room: React.FC<RoomProps> = ({ token, roomInfo, onLeave }) => {
         </div>
         <div style={styles.statusBox}>
           <span style={styles.statusLabel}>Status: {connectionStatus}</span>
+          <button
+            onClick={handleToggleChat}
+            style={{
+              ...styles.chatToggleBtn,
+              ...(isChatOpen ? styles.chatToggleBtnActive : {}),
+            }}
+            title={isChatOpen ? 'Recolher Chat' : 'Abrir Chat'}
+          >
+            💬 Chat
+            {unreadCount > 0 && (
+              <span style={styles.unreadBadge}>{unreadCount > 99 ? '99+' : unreadCount}</span>
+            )}
+          </button>
           <button onClick={onLeave} style={styles.leaveBtn}>Sair</button>
         </div>
       </header>
@@ -113,6 +168,18 @@ export const Room: React.FC<RoomProps> = ({ token, roomInfo, onLeave }) => {
                 style={styles.video}
               />
               <div style={styles.videoOverlayControls}>
+                {!isChatOpen && (
+                  <button
+                    onClick={handleToggleChat}
+                    style={styles.floatingChatBtn}
+                    title="Abrir Chat"
+                  >
+                    💬 Chat
+                    {unreadCount > 0 && (
+                      <span style={styles.unreadBadgeSmall}>{unreadCount}</span>
+                    )}
+                  </button>
+                )}
                 <button onClick={handleToggleFullscreen} style={styles.overlayBtn}>Tela Cheia</button>
                 <button onClick={handleTogglePiP} style={styles.overlayBtn}>Picture-in-Picture</button>
               </div>
@@ -121,13 +188,55 @@ export const Room: React.FC<RoomProps> = ({ token, roomInfo, onLeave }) => {
             <div style={styles.waitingStateBox}>
               <h3 style={styles.waitingTitle}>Aguardando o professor iniciar a transmissão...</h3>
               <p style={styles.waitingSub}>Você receberá o vídeo e áudio automaticamente assim que a aula começar.</p>
+              {!isChatOpen && (
+                <button
+                  onClick={handleToggleChat}
+                  style={styles.waitingChatBtn}
+                >
+                  💬 Abrir Chat da Aula
+                  {unreadCount > 0 && (
+                    <span style={styles.unreadBadge}>{unreadCount}</span>
+                  )}
+                </button>
+              )}
             </div>
           )}
         </div>
 
-        {/* Painel do Chat */}
-        <aside style={styles.chatSection}>
-          <div style={styles.chatHeader}>Chat da Aula</div>
+        {/* Backdrop para mobile quando a gaveta de chat estiver aberta */}
+        {isMobile && isChatOpen && (
+          <div style={styles.mobileBackdrop} onClick={handleToggleChat} />
+        )}
+
+        {/* Painel do Chat Retrátil (Sidebar no Desktop / Drawer no Mobile) */}
+        <aside
+          style={
+            isMobile
+              ? {
+                  ...styles.chatDrawerMobile,
+                  transform: isChatOpen ? 'translateX(0)' : 'translateX(100%)',
+                  pointerEvents: isChatOpen ? 'auto' : 'none',
+                }
+              : {
+                  ...styles.chatSectionDesktop,
+                  width: isChatOpen ? '320px' : '0px',
+                  minWidth: isChatOpen ? '320px' : '0px',
+                  opacity: isChatOpen ? 1 : 0,
+                  borderLeft: isChatOpen ? '1px solid #334155' : 'none',
+                  pointerEvents: isChatOpen ? 'auto' : 'none',
+                }
+          }
+        >
+          <div style={styles.chatHeader}>
+            <span>Chat da Aula</span>
+            <button
+              onClick={handleToggleChat}
+              style={styles.closeChatBtn}
+              title="Recolher Chat"
+            >
+              ✕
+            </button>
+          </div>
           <div style={styles.messagesList}>
             {messages.map((m, idx) => (
               <div key={idx} style={styles.messageCard}>
@@ -281,12 +390,111 @@ const styles: { [key: string]: React.CSSProperties } = {
     fontSize: '14px',
     color: '#64748b',
   },
-  chatSection: {
-    width: '320px',
+  chatToggleBtn: {
+    padding: '8px 14px',
+    borderRadius: '6px',
+    border: '1px solid #475569',
+    backgroundColor: '#334155',
+    color: '#f8fafc',
+    cursor: 'pointer',
+    fontSize: '13px',
+    fontWeight: '600',
+    display: 'flex',
+    alignItems: 'center',
+    gap: '6px',
+    transition: 'background-color 0.2s, border-color 0.2s',
+  },
+  chatToggleBtnActive: {
+    backgroundColor: '#0284c7',
+    border: '1px solid #38bdf8',
+    color: '#ffffff',
+  },
+  unreadBadge: {
+    backgroundColor: '#ef4444',
+    color: '#ffffff',
+    fontSize: '11px',
+    fontWeight: '700',
+    padding: '2px 6px',
+    borderRadius: '10px',
+    lineHeight: '1',
+  },
+  unreadBadgeSmall: {
+    backgroundColor: '#ef4444',
+    color: '#ffffff',
+    fontSize: '10px',
+    fontWeight: '700',
+    padding: '2px 5px',
+    borderRadius: '8px',
+    lineHeight: '1',
+  },
+  floatingChatBtn: {
+    padding: '8px 14px',
+    borderRadius: '6px',
+    border: '1px solid #38bdf8',
+    backgroundColor: '#0284c7',
+    color: '#ffffff',
+    cursor: 'pointer',
+    fontSize: '12px',
+    fontWeight: '600',
+    display: 'flex',
+    alignItems: 'center',
+    gap: '6px',
+    boxShadow: '0 4px 12px rgba(0,0,0,0.4)',
+  },
+  waitingChatBtn: {
+    marginTop: '16px',
+    padding: '10px 18px',
+    borderRadius: '6px',
+    border: '1px solid #38bdf8',
+    backgroundColor: '#0284c7',
+    color: '#ffffff',
+    cursor: 'pointer',
+    fontSize: '13px',
+    fontWeight: '600',
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: '8px',
+  },
+  closeChatBtn: {
+    background: 'transparent',
+    border: 'none',
+    color: '#94a3b8',
+    fontSize: '16px',
+    cursor: 'pointer',
+    padding: '4px 8px',
+    borderRadius: '4px',
+    lineHeight: '1',
+  },
+  mobileBackdrop: {
+    position: 'fixed',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0, 0, 0, 0.65)',
+    zIndex: 90,
+  },
+  chatDrawerMobile: {
+    position: 'fixed',
+    right: 0,
+    top: 0,
+    bottom: 0,
+    width: '85%',
+    maxWidth: '360px',
     backgroundColor: '#1e293b',
     borderLeft: '1px solid #334155',
+    boxShadow: '-4px 0 20px rgba(0, 0, 0, 0.6)',
+    zIndex: 100,
     display: 'flex',
     flexDirection: 'column',
+    transition: 'transform 0.25s ease',
+  },
+  chatSectionDesktop: {
+    backgroundColor: '#1e293b',
+    display: 'flex',
+    flexDirection: 'column',
+    overflow: 'hidden',
+    transition: 'width 0.25s ease, opacity 0.2s ease',
   },
   chatHeader: {
     padding: '16px',
@@ -294,6 +502,9 @@ const styles: { [key: string]: React.CSSProperties } = {
     fontWeight: '700',
     borderBottom: '1px solid #334155',
     color: '#f8fafc',
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
   },
   messagesList: {
     flex: 1,

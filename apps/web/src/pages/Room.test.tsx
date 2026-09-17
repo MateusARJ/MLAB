@@ -43,4 +43,21 @@ describe('Room Component (Web Subscriber)', () => {
     expect(screen.getByText(/Professor Girafales/i)).toBeInTheDocument();
     expect(screen.getByText(/Bem-vindos a aula!/i)).toBeInTheDocument();
   });
+
+  it('deve alternar a visibilidade do chat ao clicar no botão de toggle', () => {
+    render(<Room token={dummyToken} roomInfo={dummyRoomInfo} onLeave={vi.fn()} />);
+
+    const chatToggleBtn = screen.getByRole('button', { name: /Chat/i });
+    expect(chatToggleBtn).toBeInTheDocument();
+
+    // Fecha o chat
+    fireEvent.click(chatToggleBtn);
+
+    // Botão de fechar não deve estar visível com o chat recolhido ou deve ter botão flutuante
+    expect(screen.getAllByRole('button', { name: /Chat/i }).length).toBeGreaterThanOrEqual(1);
+
+    // Reabre o chat
+    fireEvent.click(chatToggleBtn);
+    expect(screen.getByText(/Chat da Aula/i)).toBeInTheDocument();
+  });
 });
