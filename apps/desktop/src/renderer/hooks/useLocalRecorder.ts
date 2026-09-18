@@ -7,21 +7,8 @@ export interface UseLocalRecorderOptions {
   initialFormat?: RecordingFormat;
 }
 
-export const isMp4Supported = (): boolean => {
-  if (typeof MediaRecorder === 'undefined') return false;
-  return (
-    MediaRecorder.isTypeSupported('video/mp4;codecs=avc1') ||
-    MediaRecorder.isTypeSupported('video/mp4;codecs=h264') ||
-    MediaRecorder.isTypeSupported('video/mp4')
-  );
-};
-
-export function useLocalRecorder({ stream, initialFormat = 'webm' }: UseLocalRecorderOptions) {
-  // Se MP4 não for suportado nativamente pelo Chromium/Electron, força webm como formato padrão
-  const validatedInitialFormat: RecordingFormat =
-    initialFormat === 'mp4' && !isMp4Supported() ? 'webm' : initialFormat;
-
-  const [format, setFormat] = useState<RecordingFormat>(validatedInitialFormat);
+export function useLocalRecorder({ stream }: UseLocalRecorderOptions) {
+  const [format, setFormat] = useState<RecordingFormat>('webm');
   const [status, setStatus] = useState<RecordingStatus>('idle');
   const [duration, setDuration] = useState<number>(0);
   const [isSaving, setIsSaving] = useState<boolean>(false);
@@ -34,20 +21,7 @@ export function useLocalRecorder({ stream, initialFormat = 'webm' }: UseLocalRec
   const durationRef = useRef<number>(0);
   const saveResolverRef = useRef<((val: { success: boolean; filePath?: string }) => void) | null>(null);
 
-  const getBestMimeType = (requestedFormat: RecordingFormat): { mimeType: string; actualFormat: RecordingFormat } => {
-    if (requestedFormat === 'mp4' && isMp4Supported()) {
-      const mp4Types = [
-        'video/mp4;codecs=avc1,mp4a.40.2',
-        'video/mp4;codecs=h264,aac',
-        'video/mp4',
-      ];
-      for (const t of mp4Types) {
-        if (typeof MediaRecorder !== 'undefined' && MediaRecorder.isTypeSupported(t)) {
-          return { mimeType: t, actualFormat: 'mp4' };
-        }
-      }
-    }
-
+  const getBestMimeType = (): string => {
     // Padrão de alta definição WebM (suportado universalmente pelo Electron)
     const webmTypes = [
       'video/webm;codecs=vp9,opus',
@@ -56,22 +30,17 @@ export function useLocalRecorder({ stream, initialFormat = 'webm' }: UseLocalRec
     ];
     for (const t of webmTypes) {
       if (typeof MediaRecorder !== 'undefined' && MediaRecorder.isTypeSupported(t)) {
-        return { mimeType: t, actualFormat: 'webm' };
+        return t;
       }
     }
-    return { mimeType: '', actualFormat: 'webm' };
+    return '';
   };
 
-  const startRecording = useCallback((overrideFormat?: RecordingFormat, directStream?: MediaStream) => {
+  const startRecording = useCallback((_overrideFormat?: RecordingFormat, directStream?: MediaStream) => {
     const activeStream = directStream || stream;
     if (!activeStream) {
       setError('Nenhum stream ativo para gravação.');
       return;
-    }
-
-    const targetFormat = overrideFormat || format;
-    if (overrideFormat) {
-      setFormat(overrideFormat);
     }
 
     try {
@@ -79,7 +48,7 @@ export function useLocalRecorder({ stream, initialFormat = 'webm' }: UseLocalRec
       setError(null);
       setSavedFilePath(null);
 
-      const { mimeType, actualFormat } = getBestMimeType(targetFormat);
+      const mimeType = getBestMimeType();
       const options: MediaRecorderOptions = {
         ...(mimeType ? { mimeType } : {}),
         videoBitsPerSecond: 4000000, // 4 Mbps para 1080p (RF-04, RNF-01)
@@ -104,18 +73,15 @@ export function useLocalRecorder({ stream, initialFormat = 'webm' }: UseLocalRec
 
         setIsSaving(true);
         try {
-          const blobMime = mimeType || (actualFormat === 'mp4' ? 'video/mp4' : 'video/webm');
+          const blobMime = mimeType || 'video/webm';
           const rawBlob = new Blob(chunksRef.current, { type: blobMime });
 
           // Injeta a duração real no cabeçalho EBML para WebM, eliminando corrupção e permitindo navegação na timeline
-          let finalBlob = rawBlob;
-          if (actualFormat === 'webm') {
-            finalBlob = await fixWebmDuration(rawBlob, durationRef.current * 1000);
-          }
+          const finalBlob = await fixWebmDuration(rawBlob, durationRef.current * 1000);
           const arrayBuffer = await finalBlob.arrayBuffer();
 
           if (window.electronAPI && window.electronAPI.saveRecordedVideo) {
-            const res = await window.electronAPI.saveRecordedVideo(arrayBuffer, undefined, actualFormat);
+            const res = await window.electronAPI.saveRecordedVideo(arrayBuffer, undefined, 'webm');
             if (res.success && res.filePath) {
               setSavedFilePath(res.filePath);
               if (saveResolverRef.current) {

@@ -27,20 +27,17 @@ describe('Room Component (Desktop)', () => {
     });
   });
 
-  it('deve alternar entre formatos de gravação (.webm e .mp4)', async () => {
+  it('deve exibir o botão de formato .webm em Alta Fidelidade em 1080p e não conter .mp4', async () => {
     render(<Room room={dummyRoom} onCloseRoom={vi.fn()} />);
 
     await waitFor(() => {
       expect(screen.getByText('Tela Inteira 1')).toBeInTheDocument();
     });
 
-    const mp4Btn = screen.getByRole('button', { name: /\.mp4/i });
-    fireEvent.click(mp4Btn);
-    expect(mp4Btn).toBeInTheDocument();
-
-    const webmBtn = screen.getByRole('button', { name: /\.webm/i });
-    fireEvent.click(webmBtn);
+    const webmBtn = screen.getByRole('button', { name: /\.webm \(Alta Fidelidade em 1080p\)/i });
     expect(webmBtn).toBeInTheDocument();
+
+    expect(screen.queryByRole('button', { name: /\.mp4/i })).not.toBeInTheDocument();
   });
 
   it('deve alternar para modo Janela e carregar fontes filtradas', async () => {

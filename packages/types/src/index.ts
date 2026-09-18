@@ -181,7 +181,7 @@ export interface CaptureSource {
   type: CaptureSourceType;
 }
 
-export type RecordingFormat = 'webm' | 'mp4';
+export type RecordingFormat = 'webm';
 
 export type RecordingStatus = 'idle' | 'recording' | 'paused' | 'stopped';
 

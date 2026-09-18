@@ -132,26 +132,20 @@ ipcMain.handle(
     }: {
       buffer: ArrayBuffer
       defaultName?: string
-      format?: 'webm' | 'mp4'
+      format?: 'webm'
     }
   ) => {
     try {
       const now = new Date()
       const dateStr = now.toISOString().slice(0, 10)
       const timeStr = now.toTimeString().slice(0, 5).replace(':', '')
-      const ext = format === 'mp4' ? 'mp4' : 'webm'
+      const ext = 'webm'
       const suggestedName = defaultName || `aula-mlab-${dateStr}-${timeStr}.${ext}`
 
-      const filters =
-        format === 'mp4'
-          ? [
-              { name: 'Vídeo MP4 (*.mp4)', extensions: ['mp4'] },
-              { name: 'Todos os Arquivos', extensions: ['*'] }
-            ]
-          : [
-              { name: 'Vídeo WebM (*.webm)', extensions: ['webm'] },
-              { name: 'Todos os Arquivos', extensions: ['*'] }
-            ]
+      const filters = [
+        { name: 'Vídeo WebM (*.webm)', extensions: ['webm'] },
+        { name: 'Todos os Arquivos', extensions: ['*'] }
+      ]
 
       const { canceled, filePath } = await dialog.showSaveDialog({
         title: 'Salvar Gravação da Aula — MLab',

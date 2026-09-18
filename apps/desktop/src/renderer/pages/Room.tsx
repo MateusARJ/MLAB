@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
-import type { CaptureSource, CaptureSourceType, RecordingFormat } from '@screenshare/types';
+import type { CaptureSource, CaptureSourceType } from '@screenshare/types';
 import { useScreenCapture } from '../hooks/useScreenCapture';
-import { useLocalRecorder, isMp4Supported } from '../hooks/useLocalRecorder';
+import { useLocalRecorder } from '../hooks/useLocalRecorder';
 import { useWebRTCPublisher } from '../hooks/useWebRTCPublisher';
 import { getStoredToken } from '../services/auth';
 import mlabLogo from '../assets/MLAB-logo.png';
@@ -14,7 +14,6 @@ interface RoomProps {
 export const Room: React.FC<RoomProps> = ({ room, onCloseRoom }) => {
   // Configuração pré-transmissão
   const [wantRecord, setWantRecord] = useState<boolean>(true);
-  const [selectedFormat, setSelectedFormat] = useState<RecordingFormat>('webm');
   const [tentativeSource, setTentativeSource] = useState<CaptureSource | null>(null);
   const [isLiveSession, setIsLiveSession] = useState<boolean>(false);
   const [saveSuccessMsg, setSaveSuccessMsg] = useState<string | null>(null);
@@ -45,7 +44,7 @@ export const Room: React.FC<RoomProps> = ({ room, onCloseRoom }) => {
     pauseRecording,
     resumeRecording,
     stopRecording,
-  } = useLocalRecorder({ stream, initialFormat: selectedFormat });
+  } = useLocalRecorder({ stream });
 
   const token = getStoredToken();
   const {
@@ -94,12 +93,12 @@ export const Room: React.FC<RoomProps> = ({ room, onCloseRoom }) => {
 
     // Se optou por gravar, inicia gravação local
     if (wantRecord) {
-      startRecording(selectedFormat, activeStream || undefined);
+      startRecording('webm', activeStream || undefined);
     }
 
     // Inicia publicação WebRTC para a SFU Pion
     startPublishing(activeStream || undefined);
-  }, [tentativeSource, selectSource, wantRecord, selectedFormat, startRecording, startPublishing]);
+  }, [tentativeSource, selectSource, wantRecord, startRecording, startPublishing]);
 
   const handleEndSession = useCallback(async () => {
     if (wantRecord && recordingStatus === 'recording') {
@@ -203,38 +202,11 @@ export const Room: React.FC<RoomProps> = ({ room, onCloseRoom }) => {
                   <div style={styles.buttonGroup}>
                     <button
                       type="button"
-                      onClick={() => setSelectedFormat('webm')}
-                      style={selectedFormat === 'webm' ? styles.subChoiceBtnActive : styles.subChoiceBtn}
+                      style={styles.subChoiceBtnActive}
                     >
-                      ✓ .webm (Alta Fidelidade 1080p • Duração e Metadados Corrigidos)
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        if (isMp4Supported()) setSelectedFormat('mp4');
-                      }}
-                      disabled={!isMp4Supported()}
-                      style={
-                        !isMp4Supported()
-                          ? styles.subChoiceBtnDisabled
-                          : selectedFormat === 'mp4'
-                          ? styles.subChoiceBtnActive
-                          : styles.subChoiceBtn
-                      }
-                      title={
-                        !isMp4Supported()
-                          ? 'O motor Chromium/Electron deste dispositivo não suporta container MP4 nativo no MediaRecorder. O formato .webm corrigido é o padrão compatível.'
-                          : 'Gravação em .mp4'
-                      }
-                    >
-                      {isMp4Supported() ? '.mp4 (Compatibilidade MP4)' : '🔒 .mp4 (Indisponível no Chromium/Electron)'}
+                      .webm (Alta Fidelidade em 1080p)
                     </button>
                   </div>
-                  {!isMp4Supported() && (
-                    <span style={styles.formatHelper}>
-                      ℹ️ O motor do Electron grava nativamente em <strong>.webm</strong> de alta fidelidade com duração corrigida para reprodução universal (Windows Media Player, VLC e navegadores).
-                    </span>
-                  )}
                 </div>
               )}
             </div>
@@ -337,7 +309,7 @@ export const Room: React.FC<RoomProps> = ({ room, onCloseRoom }) => {
                   <div style={styles.recordStatusBox}>
                     {recordingStatus === 'recording' && (
                       <span style={styles.recordingBadge}>
-                        <span style={styles.pulsingDotRed} /> REC {formattedDuration} ({selectedFormat})
+                        <span style={styles.pulsingDotRed} /> REC {formattedDuration} (.webm)
                       </span>
                     )}
                     {recordingStatus === 'paused' && (
@@ -610,21 +582,6 @@ const styles: { [key: string]: React.CSSProperties } = {
     cursor: 'pointer',
     fontSize: '13px',
     fontWeight: '600',
-  },
-  subChoiceBtnDisabled: {
-    padding: '8px 14px',
-    borderRadius: '6px',
-    border: '1px solid #1e293b',
-    backgroundColor: '#090d16',
-    color: '#475569',
-    cursor: 'not-allowed',
-    fontSize: '13px',
-    opacity: 0.6,
-  },
-  formatHelper: {
-    fontSize: '12px',
-    color: '#94a3b8',
-    lineHeight: '1.4',
   },
   modeTabs: {
     display: 'flex',
