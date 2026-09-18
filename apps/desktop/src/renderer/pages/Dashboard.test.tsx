@@ -37,6 +37,11 @@ describe('Dashboard Component', () => {
       expect(screen.getByDisplayValue('http://localhost:3000/sala/charlie-delta-7342/entrar')).toBeInTheDocument();
     });
 
+    fireEvent.click(screen.getByRole('button', { name: /Copiar Link/i }));
+    await waitFor(() => {
+      expect(screen.getByText(/Copiado!/i)).toBeInTheDocument();
+    });
+
     fireEvent.click(screen.getByRole('button', { name: /Abrir Sala de Transmissão/i }));
     expect(handleEnterRoom).toHaveBeenCalledWith({
       id: 'room-123',

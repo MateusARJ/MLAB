@@ -37,11 +37,28 @@ export const Dashboard: React.FC<DashboardProps> = ({ onEnterRoom, onLogout }) =
     }
   };
 
-  const handleCopyLink = () => {
-    if (currentRoom) {
-      navigator.clipboard.writeText(currentRoom.link);
+  const handleCopyLink = async () => {
+    if (!currentRoom?.link) return;
+    try {
+      if (window.electronAPI && typeof window.electronAPI.copyToClipboard === 'function') {
+        await window.electronAPI.copyToClipboard(currentRoom.link);
+      } else if (navigator?.clipboard?.writeText) {
+        await navigator.clipboard.writeText(currentRoom.link);
+      } else {
+        const textArea = document.createElement('textarea');
+        textArea.value = currentRoom.link;
+        textArea.style.position = 'fixed';
+        textArea.style.opacity = '0';
+        document.body.appendChild(textArea);
+        textArea.focus();
+        textArea.select();
+        document.execCommand('copy');
+        document.body.removeChild(textArea);
+      }
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
+    } catch (err) {
+      console.error('Erro ao copiar link:', err);
     }
   };
 

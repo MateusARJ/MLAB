@@ -26,6 +26,7 @@ window.electronAPI = {
     microphone: true,
     screen: true,
   }),
+  copyToClipboard: vi.fn().mockResolvedValue(true),
 };
 
 if (typeof window !== 'undefined') {

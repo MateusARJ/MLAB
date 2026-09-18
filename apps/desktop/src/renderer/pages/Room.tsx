@@ -17,6 +17,32 @@ export const Room: React.FC<RoomProps> = ({ room, onCloseRoom }) => {
   const [tentativeSource, setTentativeSource] = useState<CaptureSource | null>(null);
   const [isLiveSession, setIsLiveSession] = useState<boolean>(false);
   const [saveSuccessMsg, setSaveSuccessMsg] = useState<string | null>(null);
+  const [linkCopied, setLinkCopied] = useState<boolean>(false);
+
+  const handleCopyLink = useCallback(async () => {
+    if (!room.link) return;
+    try {
+      if (window.electronAPI && typeof window.electronAPI.copyToClipboard === 'function') {
+        await window.electronAPI.copyToClipboard(room.link);
+      } else if (navigator?.clipboard?.writeText) {
+        await navigator.clipboard.writeText(room.link);
+      } else {
+        const textArea = document.createElement('textarea');
+        textArea.value = room.link;
+        textArea.style.position = 'fixed';
+        textArea.style.opacity = '0';
+        document.body.appendChild(textArea);
+        textArea.focus();
+        textArea.select();
+        document.execCommand('copy');
+        document.body.removeChild(textArea);
+      }
+      setLinkCopied(true);
+      setTimeout(() => setLinkCopied(false), 2000);
+    } catch (err) {
+      console.error('Erro ao copiar link:', err);
+    }
+  }, [room.link]);
 
   const {
     captureMode,
@@ -130,6 +156,14 @@ export const Room: React.FC<RoomProps> = ({ room, onCloseRoom }) => {
         </div>
         <div style={styles.headerActions}>
           <button
+            type="button"
+            onClick={handleCopyLink}
+            style={linkCopied ? styles.copyBtnSuccess : styles.copyBtn}
+            title={room.link}
+          >
+            {linkCopied ? '✓ Link Copiado!' : '📋 Copiar Link'}
+          </button>
+          <button
             onClick={handleEndSession}
             style={isSaving ? styles.closeBtnDisabled : styles.closeBtn}
             disabled={isSaving}
@@ -169,7 +203,7 @@ export const Room: React.FC<RoomProps> = ({ room, onCloseRoom }) => {
         </div>
       )}
 
-      <main style={styles.mainContent}>
+      <main style={isLiveSession ? styles.mainContentLive : styles.mainContent}>
         {!isLiveSession ? (
           /* ── ETAPA DE SETUP GUIADO (PRÉ-TRANSMISSÃO) ── */
           <div style={styles.setupCard}>
@@ -346,15 +380,38 @@ export const Room: React.FC<RoomProps> = ({ room, onCloseRoom }) => {
               </div>
             </div>
 
-            {/* Pré-visualização de Vídeo */}
+            {/* Pré-visualização de Vídeo ou Imagem Estática */}
             <div style={styles.previewArea}>
-              <video
-                ref={videoRef}
-                autoPlay
-                playsInline
-                muted
-                style={{ ...styles.video, opacity: videoPaused ? 0.3 : 1 }}
-              />
+              {captureMode === 'screen' ? (
+                <div style={styles.staticPreviewBox}>
+                  {selectedSource?.thumbnail || tentativeSource?.thumbnail ? (
+                    <img
+                      src={selectedSource?.thumbnail || tentativeSource?.thumbnail}
+                      alt="Pré-visualização da Tela Cheia"
+                      style={{ ...styles.previewMedia, opacity: videoPaused ? 0.3 : 1 }}
+                    />
+                  ) : (
+                    <video
+                      ref={videoRef}
+                      autoPlay
+                      playsInline
+                      muted
+                      style={{ ...styles.previewMedia, opacity: videoPaused ? 0.3 : 1 }}
+                    />
+                  )}
+                  <div style={styles.staticOverlayBadge}>
+                    🖥️ Tela Inteira Ativa • Imagem Estática
+                  </div>
+                </div>
+              ) : (
+                <video
+                  ref={videoRef}
+                  autoPlay
+                  playsInline
+                  muted
+                  style={{ ...styles.previewMedia, opacity: videoPaused ? 0.3 : 1 }}
+                />
+              )}
             </div>
 
             {/* Barra de Controles de Transmissão */}
@@ -447,6 +504,32 @@ const styles: { [key: string]: React.CSSProperties } = {
     cursor: 'not-allowed',
     opacity: 0.7,
   },
+  copyBtn: {
+    padding: '8px 14px',
+    borderRadius: '6px',
+    border: '1px solid #334155',
+    backgroundColor: '#1e293b',
+    color: '#38bdf8',
+    fontSize: '13px',
+    fontWeight: '600',
+    cursor: 'pointer',
+    display: 'flex',
+    alignItems: 'center',
+    gap: '6px',
+  },
+  copyBtnSuccess: {
+    padding: '8px 14px',
+    borderRadius: '6px',
+    border: '1px solid #22c55e',
+    backgroundColor: 'rgba(34, 197, 94, 0.15)',
+    color: '#4ade80',
+    fontSize: '13px',
+    fontWeight: '600',
+    cursor: 'pointer',
+    display: 'flex',
+    alignItems: 'center',
+    gap: '6px',
+  },
   permissionAlert: {
     backgroundColor: 'rgba(239, 68, 68, 0.15)',
     color: '#fca5a5',
@@ -488,6 +571,16 @@ const styles: { [key: string]: React.CSSProperties } = {
     padding: '24px',
     display: 'flex',
     flexDirection: 'column',
+  },
+  mainContentLive: {
+    flex: 1,
+    overflow: 'hidden',
+    padding: '12px 20px',
+    display: 'flex',
+    flexDirection: 'column',
+    height: 'calc(100vh - 65px)',
+    minHeight: 0,
+    boxSizing: 'border-box',
   },
   setupCard: {
     maxWidth: '900px',
@@ -705,13 +798,17 @@ const styles: { [key: string]: React.CSSProperties } = {
     flex: 1,
     display: 'flex',
     flexDirection: 'column',
-    gap: '16px',
+    height: '100%',
+    minHeight: 0,
+    gap: '10px',
+    justifyContent: 'space-between',
   },
   statusBar: {
+    flexShrink: 0,
     display: 'flex',
     justifyContent: 'space-between',
     alignItems: 'center',
-    padding: '12px 20px',
+    padding: '10px 18px',
     backgroundColor: '#0f172a',
     borderRadius: '10px',
     border: '1px solid #1e293b',
@@ -848,14 +945,45 @@ const styles: { [key: string]: React.CSSProperties } = {
   },
   previewArea: {
     flex: 1,
+    minHeight: 0,
+    maxHeight: '100%',
     backgroundColor: '#020617',
-    borderRadius: '12px',
+    borderRadius: '10px',
     border: '1px solid #1e293b',
     overflow: 'hidden',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
-    minHeight: '380px',
+    position: 'relative',
+  },
+  previewMedia: {
+    maxWidth: '100%',
+    maxHeight: '100%',
+    width: 'auto',
+    height: 'auto',
+    objectFit: 'contain',
+    display: 'block',
+  },
+  staticPreviewBox: {
+    width: '100%',
+    height: '100%',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    position: 'relative',
+  },
+  staticOverlayBadge: {
+    position: 'absolute',
+    bottom: '8px',
+    right: '12px',
+    backgroundColor: 'rgba(15, 23, 42, 0.85)',
+    color: '#94a3b8',
+    fontSize: '11px',
+    fontWeight: '500',
+    padding: '4px 10px',
+    borderRadius: '6px',
+    border: '1px solid rgba(51, 65, 85, 0.6)',
+    backdropFilter: 'blur(4px)',
   },
   video: {
     width: '100%',
@@ -863,10 +991,11 @@ const styles: { [key: string]: React.CSSProperties } = {
     objectFit: 'contain',
   },
   controlsBar: {
+    flexShrink: 0,
     display: 'flex',
     justifyContent: 'center',
     gap: '14px',
-    padding: '14px',
+    padding: '10px 16px',
     backgroundColor: '#0f172a',
     borderRadius: '10px',
     border: '1px solid #1e293b',

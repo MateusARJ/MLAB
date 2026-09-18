@@ -95,7 +95,7 @@ ipcMain.handle('get-screen-sources', async (_event, type?: 'screen' | 'window') 
     const types: ('screen' | 'window')[] = type ? [type] : ['screen', 'window']
     const sources = await desktopCapturer.getSources({
       types,
-      thumbnailSize: { width: 320, height: 180 },
+      thumbnailSize: { width: 1280, height: 720 },
       fetchWindowIcons: types.includes('window')
     })
 

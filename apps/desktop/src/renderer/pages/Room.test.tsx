@@ -70,6 +70,20 @@ describe('Room Component (Desktop)', () => {
       expect(screen.getByText(/AO VIVO/i)).toBeInTheDocument();
       expect(screen.getByRole('button', { name: /Mutar Microfone/i })).toBeInTheDocument();
       expect(screen.getByRole('button', { name: /Pausar Vídeo/i })).toBeInTheDocument();
+      expect(screen.getByAltText(/Pré-visualização da Tela Cheia/i)).toBeInTheDocument();
+    });
+  });
+
+  it('deve copiar o link da sala ao clicar no botão Copiar Link do cabeçalho', async () => {
+    render(<Room room={dummyRoom} onCloseRoom={vi.fn()} />);
+
+    const copyBtn = screen.getByRole('button', { name: /Copiar Link/i });
+    expect(copyBtn).toBeInTheDocument();
+
+    fireEvent.click(copyBtn);
+
+    await waitFor(() => {
+      expect(screen.getByText(/Link Copiado!/i)).toBeInTheDocument();
     });
   });
 

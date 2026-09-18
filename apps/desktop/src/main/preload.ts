@@ -1,4 +1,4 @@
-import { contextBridge, ipcRenderer } from 'electron'
+import { contextBridge, ipcRenderer, clipboard } from 'electron'
 import type { CaptureSource, CaptureSourceType, RecordingFormat } from '@screenshare/types'
 
 /**
@@ -42,6 +42,11 @@ export interface ElectronAPI {
    * Solicita autorização de mídia ao Sistema Operacional.
    */
   requestMediaPermissions: () => Promise<{ microphone: boolean; screen: boolean }>
+
+  /**
+   * Copia texto para a área de transferência do SO de forma nativa.
+   */
+  copyToClipboard: (text: string) => Promise<boolean>
 }
 
 const api: ElectronAPI = {
@@ -49,7 +54,15 @@ const api: ElectronAPI = {
   saveRecordedVideo: (buffer, defaultName, format) =>
     ipcRenderer.invoke('save-recorded-video', { buffer, defaultName, format }),
   checkMediaPermissions: () => ipcRenderer.invoke('check-media-permissions'),
-  requestMediaPermissions: () => ipcRenderer.invoke('request-media-permissions')
+  requestMediaPermissions: () => ipcRenderer.invoke('request-media-permissions'),
+  copyToClipboard: (text: string) => {
+    try {
+      clipboard.writeText(text)
+      return Promise.resolve(true)
+    } catch {
+      return Promise.resolve(false)
+    }
+  }
 }
 
 contextBridge.exposeInMainWorld('electronAPI', api)
