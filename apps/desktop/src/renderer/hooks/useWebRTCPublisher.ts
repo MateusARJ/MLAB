@@ -251,6 +251,52 @@ export function useWebRTCPublisher({
     }
   }, [token, roomId, wsUrl, connectionState, stopPublishing]);
 
+  const changeStream = useCallback(async (newStream: MediaStream): Promise<boolean> => {
+    streamRef.current = newStream;
+    if (!pcRef.current) return false;
+
+    const senders = pcRef.current.getSenders();
+    const newVideoTrack = newStream.getVideoTracks()[0];
+    const newAudioTrack = newStream.getAudioTracks()[0];
+    let videoReplaced = false;
+
+    if (newVideoTrack) {
+      // @ts-ignore
+      newVideoTrack.contentHint = 'detail';
+      const videoSender = senders.find((s) => s.track && s.track.kind === 'video');
+      if (videoSender) {
+        try {
+          await videoSender.replaceTrack(newVideoTrack);
+          const params = videoSender.getParameters();
+          if (!params.encodings || params.encodings.length === 0) {
+            params.encodings = [{}];
+          }
+          params.encodings[0].maxBitrate = 4000000;
+          params.encodings[0].maxFramerate = 30;
+          params.encodings[0].scaleResolutionDownBy = 1.0;
+          // @ts-ignore
+          params.degradationPreference = 'maintain-resolution';
+          await videoSender.setParameters(params).catch(() => {});
+          videoReplaced = true;
+          console.log('[WebRTC Publisher] Track de vídeo substituído com sucesso via changeStream.');
+        } catch (err) {
+          console.warn('[WebRTC Publisher] Falha no replaceTrack de vídeo:', err);
+        }
+      }
+    }
+
+    if (newAudioTrack) {
+      const audioSender = senders.find((s) => s.track && s.track.kind === 'audio');
+      if (audioSender) {
+        await audioSender.replaceTrack(newAudioTrack).catch((err) => {
+          console.warn('[WebRTC Publisher] Falha no replaceTrack de áudio:', err);
+        });
+      }
+    }
+
+    return videoReplaced;
+  }, []);
+
   // Atualização dinâmica de tracks ao alterar fonte (RN-12, RN-20)
   useEffect(() => {
     if (!pcRef.current || !stream) return;
@@ -301,6 +347,7 @@ export function useWebRTCPublisher({
     connectionState,
     error,
     startPublishing,
+    changeStream,
     stopPublishing,
     endSession,
   };

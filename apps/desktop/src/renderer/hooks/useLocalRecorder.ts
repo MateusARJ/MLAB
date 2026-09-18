@@ -43,6 +43,15 @@ export function useLocalRecorder({ stream }: UseLocalRecorderOptions) {
       return;
     }
 
+    // Se já havia um gravador ativo, encerra de forma limpa antes de iniciar o novo
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
+      try {
+        mediaRecorderRef.current.stop();
+      } catch (e) {
+        console.warn('Erro ao finalizar gravador anterior:', e);
+      }
+    }
+
     try {
       chunksRef.current = [];
       setError(null);

@@ -78,6 +78,7 @@ export const Room: React.FC<RoomProps> = ({ room, onCloseRoom }) => {
     connectionState,
     error: publisherError,
     startPublishing,
+    changeStream,
     stopPublishing,
     endSession,
   } = useWebRTCPublisher({
@@ -122,9 +123,18 @@ export const Room: React.FC<RoomProps> = ({ room, onCloseRoom }) => {
       startRecording('webm', activeStream || undefined);
     }
 
-    // Inicia publicação WebRTC para a SFU Pion
-    startPublishing(activeStream || undefined);
-  }, [tentativeSource, selectSource, wantRecord, startRecording, startPublishing]);
+    if (activeStream) {
+      // Se já estiver publicando ativamente, substitui o track sem reconexão para manter os alunos conectados
+      if (isPublishing && connectionState === 'connected') {
+        const replaced = await changeStream(activeStream);
+        if (!replaced) {
+          startPublishing(activeStream);
+        }
+      } else {
+        startPublishing(activeStream);
+      }
+    }
+  }, [tentativeSource, selectSource, wantRecord, startRecording, isPublishing, connectionState, changeStream, startPublishing]);
 
   const handleEndSession = useCallback(async () => {
     if (wantRecord && recordingStatus === 'recording') {

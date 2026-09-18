@@ -98,5 +98,47 @@ describe('Room Component (Desktop)', () => {
     fireEvent.click(screen.getByRole('button', { name: /Encerrar Transmissão/i }));
     expect(handleClose).toHaveBeenCalled();
   });
+
+  it('deve permitir clicar em Alterar Modo / Fonte, escolher nova fonte e retomar a transmissão', async () => {
+    render(<Room room={dummyRoom} onCloseRoom={vi.fn()} />);
+
+    await waitFor(() => {
+      expect(screen.getByText('Tela Inteira 1')).toBeInTheDocument();
+    });
+
+    // Inicia a primeira sessão
+    fireEvent.click(screen.getByRole('button', { name: /Avançar e Iniciar Transmissão/i }));
+
+    await waitFor(() => {
+      expect(screen.getByText(/AO VIVO/i)).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: /Alterar Modo \/ Fonte/i })).toBeInTheDocument();
+    });
+
+    // Clica para alterar modo/fonte
+    fireEvent.click(screen.getByRole('button', { name: /Alterar Modo \/ Fonte/i }));
+
+    // Deve voltar ao setup de seleção
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: /Janela \/ Aba Específica/i })).toBeInTheDocument();
+    });
+
+    // Alterna para janela
+    fireEvent.click(screen.getByRole('button', { name: /Janela \/ Aba Específica/i }));
+
+    await waitFor(() => {
+      expect(screen.getByText('Google Chrome')).toBeInTheDocument();
+    });
+
+    // Seleciona a janela do Chrome
+    fireEvent.click(screen.getByText('Google Chrome'));
+
+    // Avança novamente para a transmissão
+    fireEvent.click(screen.getByRole('button', { name: /Avançar e Iniciar Transmissão/i }));
+
+    await waitFor(() => {
+      expect(screen.getByText(/AO VIVO/i)).toBeInTheDocument();
+      expect(screen.getByText(/Janela Específica/i)).toBeInTheDocument();
+    });
+  });
 });
 
