@@ -239,18 +239,20 @@ Depois de mudar um artefato upstream, todos os artefatos downstream afetados dev
 
 Todo commit e todo Pull Request no repositório devem seguir obrigatoriamente a seguinte convenção:
 
+- **Commits estritamente atômicos por feature ou fix**: É terminantemente PROIBIDO agrupar múltiplas features, fixes ou refatorações distintas em um único commit. Cada commit deve representar uma única entrega isolada e indivisível (ex: um commit para `implementa reproducao de video no aluno`, outro para `link fixo por professor`, outro para `suporte a ngrok e ip de rede`).
 - **Prefixo estritamente em inglês**: `feat`, `fix`, `docs`, `style`, `refactor`, `perf`, `test`, `build`, `ci`, `chore`.
-- **Escopo opcional entre parênteses**: ex: `(desktop)`, `(web)`, `(backend)`, `(types)`.
+- **Escopo opcional entre parênteses**: ex: `(desktop)`, `(web)`, `(backend)`, `(types)`, `(infra)`.
 - **Restante da mensagem restritamente em português**: toda a descrição, corpo explicativo e justificativa devem ser redigidos exclusivamente em português.
 
 ### Formato
 `<tipo>(<escopo>): <descrição em português no imperativo>`
 
-### Exemplos válidos
-- `feat(desktop): adiciona suporte a gravação local em .webm e .mp4`
-- `fix(backend): corrige validação de senha bcrypt no login do professor`
+### Exemplos válidos (isolados por feature/fix)
+- `feat(web): implementa reproducao de video no aluno`
+- `feat(backend): link fixo por professor`
+- `feat(network): suporte a ngrok e ip de rede`
+- `fix(desktop): corrige layout fixo sem rolagem na tela de transmissao`
 - `docs(specs): atualiza checklist de requisitos da sala de aula`
-- `test(desktop): adiciona testes para alternância de fontes de captura`
 - `chore(repo): configura templates de commit e pull request`
 
 Templates oficiais configurados no repositório:
