@@ -64,32 +64,57 @@ func (r *Room) handlePublisherOffer(publisherID, sdp string) (string, error) {
 			trackID = "audio"
 		}
 
-		localTrack, err := webrtc.NewTrackLocalStaticRTP(
-			remoteTrack.Codec().RTPCodecCapability,
-			trackID,
-			"mlab-stream",
-		)
-		if err != nil {
-			log.Printf("[SFU] Erro ao criar TrackLocalStaticRTP: %v", err)
-			return
-		}
-
 		r.mu.Lock()
+		var localTrack *webrtc.TrackLocalStaticRTP
 		if remoteTrack.Kind() == webrtc.RTPCodecTypeVideo {
-			r.videoTrack = localTrack
+			if r.videoTrack == nil {
+				var err error
+				r.videoTrack, err = webrtc.NewTrackLocalStaticRTP(
+					remoteTrack.Codec().RTPCodecCapability,
+					trackID,
+					"mlab-stream",
+				)
+				if err != nil {
+					log.Printf("[SFU] Erro ao criar TrackLocalStaticRTP de vídeo: %v", err)
+					r.mu.Unlock()
+					return
+				}
+			}
+			localTrack = r.videoTrack
 			r.publisherVideoSSRC = uint32(remoteTrack.SSRC())
 		} else if remoteTrack.Kind() == webrtc.RTPCodecTypeAudio {
-			r.audioTrack = localTrack
+			if r.audioTrack == nil {
+				var err error
+				r.audioTrack, err = webrtc.NewTrackLocalStaticRTP(
+					remoteTrack.Codec().RTPCodecCapability,
+					trackID,
+					"mlab-stream",
+				)
+				if err != nil {
+					log.Printf("[SFU] Erro ao criar TrackLocalStaticRTP de áudio: %v", err)
+					r.mu.Unlock()
+					return
+				}
+			}
+			localTrack = r.audioTrack
 		}
 		r.mu.Unlock()
 
-		// Se for track de vídeo, inicia ticker periódico para solicitar RTCP PLI (Keyframe)
-		// Isso garante que novos espectadores decodifiquem o vídeo sem tela preta
+		// Se for track de vídeo, dispara Keyframe imediato e inicia ticker periódico para solicitar RTCP PLI
 		if remoteTrack.Kind() == webrtc.RTPCodecTypeVideo {
+			r.requestKeyFrame()
+			time.AfterFunc(300*time.Millisecond, r.requestKeyFrame)
+
 			go func() {
 				ticker := time.NewTicker(2 * time.Second)
 				defer ticker.Stop()
 				for range ticker.C {
+					r.mu.RLock()
+					pubPC := r.publisherPC
+					r.mu.RUnlock()
+					if pubPC == nil || pubPC.ConnectionState() == webrtc.PeerConnectionStateClosed {
+						return
+					}
 					r.requestKeyFrame()
 				}
 			}()
