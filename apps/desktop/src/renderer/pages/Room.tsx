@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import type { CaptureSource, CaptureSourceType, RecordingFormat } from '@screenshare/types';
 import { useScreenCapture } from '../hooks/useScreenCapture';
-import { useLocalRecorder } from '../hooks/useLocalRecorder';
+import { useLocalRecorder, isMp4Supported } from '../hooks/useLocalRecorder';
 import { useWebRTCPublisher } from '../hooks/useWebRTCPublisher';
 import { getStoredToken } from '../services/auth';
 import mlabLogo from '../assets/MLAB-logo.png';
@@ -101,9 +101,13 @@ export const Room: React.FC<RoomProps> = ({ room, onCloseRoom }) => {
     startPublishing(activeStream || undefined);
   }, [tentativeSource, selectSource, wantRecord, selectedFormat, startRecording, startPublishing]);
 
-  const handleEndSession = useCallback(() => {
+  const handleEndSession = useCallback(async () => {
     if (wantRecord && recordingStatus === 'recording') {
-      stopRecording();
+      try {
+        await stopRecording();
+      } catch (err) {
+        console.warn('Erro ao aguardar gravação ser salva:', err);
+      }
     }
     endSession();
     stopCapture();
@@ -126,8 +130,12 @@ export const Room: React.FC<RoomProps> = ({ room, onCloseRoom }) => {
           </div>
         </div>
         <div style={styles.headerActions}>
-          <button onClick={handleEndSession} style={styles.closeBtn}>
-            Encerrar Transmissão
+          <button
+            onClick={handleEndSession}
+            style={isSaving ? styles.closeBtnDisabled : styles.closeBtn}
+            disabled={isSaving}
+          >
+            {isSaving ? 'Salvando Gravação...' : 'Encerrar Transmissão'}
           </button>
         </div>
       </header>
@@ -198,16 +206,35 @@ export const Room: React.FC<RoomProps> = ({ room, onCloseRoom }) => {
                       onClick={() => setSelectedFormat('webm')}
                       style={selectedFormat === 'webm' ? styles.subChoiceBtnActive : styles.subChoiceBtn}
                     >
-                      .webm (Padrão Web / Alta Compressão)
+                      ✓ .webm (Alta Fidelidade 1080p • Duração e Metadados Corrigidos)
                     </button>
                     <button
                       type="button"
-                      onClick={() => setSelectedFormat('mp4')}
-                      style={selectedFormat === 'mp4' ? styles.subChoiceBtnActive : styles.subChoiceBtn}
+                      onClick={() => {
+                        if (isMp4Supported()) setSelectedFormat('mp4');
+                      }}
+                      disabled={!isMp4Supported()}
+                      style={
+                        !isMp4Supported()
+                          ? styles.subChoiceBtnDisabled
+                          : selectedFormat === 'mp4'
+                          ? styles.subChoiceBtnActive
+                          : styles.subChoiceBtn
+                      }
+                      title={
+                        !isMp4Supported()
+                          ? 'O motor Chromium/Electron deste dispositivo não suporta container MP4 nativo no MediaRecorder. O formato .webm corrigido é o padrão compatível.'
+                          : 'Gravação em .mp4'
+                      }
                     >
-                      .mp4 (Alta Compatibilidade)
+                      {isMp4Supported() ? '.mp4 (Compatibilidade MP4)' : '🔒 .mp4 (Indisponível no Chromium/Electron)'}
                     </button>
                   </div>
+                  {!isMp4Supported() && (
+                    <span style={styles.formatHelper}>
+                      ℹ️ O motor do Electron grava nativamente em <strong>.webm</strong> de alta fidelidade com duração corrigida para reprodução universal (Windows Media Player, VLC e navegadores).
+                    </span>
+                  )}
                 </div>
               )}
             </div>
@@ -437,6 +464,17 @@ const styles: { [key: string]: React.CSSProperties } = {
     fontWeight: '600',
     cursor: 'pointer',
   },
+  closeBtnDisabled: {
+    padding: '8px 16px',
+    borderRadius: '6px',
+    border: 'none',
+    backgroundColor: '#64748b',
+    color: '#cbd5e1',
+    fontSize: '13px',
+    fontWeight: '600',
+    cursor: 'not-allowed',
+    opacity: 0.7,
+  },
   permissionAlert: {
     backgroundColor: 'rgba(239, 68, 68, 0.15)',
     color: '#fca5a5',
@@ -572,6 +610,21 @@ const styles: { [key: string]: React.CSSProperties } = {
     cursor: 'pointer',
     fontSize: '13px',
     fontWeight: '600',
+  },
+  subChoiceBtnDisabled: {
+    padding: '8px 14px',
+    borderRadius: '6px',
+    border: '1px solid #1e293b',
+    backgroundColor: '#090d16',
+    color: '#475569',
+    cursor: 'not-allowed',
+    fontSize: '13px',
+    opacity: 0.6,
+  },
+  formatHelper: {
+    fontSize: '12px',
+    color: '#94a3b8',
+    lineHeight: '1.4',
   },
   modeTabs: {
     display: 'flex',

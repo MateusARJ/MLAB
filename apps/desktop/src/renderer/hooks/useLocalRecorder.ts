@@ -1,13 +1,27 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import type { RecordingFormat, RecordingStatus } from '@screenshare/types';
+import { fixWebmDuration } from '../utils/webmFixer';
 
 export interface UseLocalRecorderOptions {
   stream: MediaStream | null;
   initialFormat?: RecordingFormat;
 }
 
+export const isMp4Supported = (): boolean => {
+  if (typeof MediaRecorder === 'undefined') return false;
+  return (
+    MediaRecorder.isTypeSupported('video/mp4;codecs=avc1') ||
+    MediaRecorder.isTypeSupported('video/mp4;codecs=h264') ||
+    MediaRecorder.isTypeSupported('video/mp4')
+  );
+};
+
 export function useLocalRecorder({ stream, initialFormat = 'webm' }: UseLocalRecorderOptions) {
-  const [format, setFormat] = useState<RecordingFormat>(initialFormat);
+  // Se MP4 não for suportado nativamente pelo Chromium/Electron, força webm como formato padrão
+  const validatedInitialFormat: RecordingFormat =
+    initialFormat === 'mp4' && !isMp4Supported() ? 'webm' : initialFormat;
+
+  const [format, setFormat] = useState<RecordingFormat>(validatedInitialFormat);
   const [status, setStatus] = useState<RecordingStatus>('idle');
   const [duration, setDuration] = useState<number>(0);
   const [isSaving, setIsSaving] = useState<boolean>(false);
@@ -17,9 +31,11 @@ export function useLocalRecorder({ stream, initialFormat = 'webm' }: UseLocalRec
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
   const timerRef = useRef<number | null>(null);
+  const durationRef = useRef<number>(0);
+  const saveResolverRef = useRef<((val: { success: boolean; filePath?: string }) => void) | null>(null);
 
-  const getBestMimeType = (requestedFormat: RecordingFormat): string => {
-    if (requestedFormat === 'mp4') {
+  const getBestMimeType = (requestedFormat: RecordingFormat): { mimeType: string; actualFormat: RecordingFormat } => {
+    if (requestedFormat === 'mp4' && isMp4Supported()) {
       const mp4Types = [
         'video/mp4;codecs=avc1,mp4a.40.2',
         'video/mp4;codecs=h264,aac',
@@ -27,11 +43,12 @@ export function useLocalRecorder({ stream, initialFormat = 'webm' }: UseLocalRec
       ];
       for (const t of mp4Types) {
         if (typeof MediaRecorder !== 'undefined' && MediaRecorder.isTypeSupported(t)) {
-          return t;
+          return { mimeType: t, actualFormat: 'mp4' };
         }
       }
     }
 
+    // Padrão de alta definição WebM (suportado universalmente pelo Electron)
     const webmTypes = [
       'video/webm;codecs=vp9,opus',
       'video/webm;codecs=vp8,opus',
@@ -39,10 +56,10 @@ export function useLocalRecorder({ stream, initialFormat = 'webm' }: UseLocalRec
     ];
     for (const t of webmTypes) {
       if (typeof MediaRecorder !== 'undefined' && MediaRecorder.isTypeSupported(t)) {
-        return t;
+        return { mimeType: t, actualFormat: 'webm' };
       }
     }
-    return '';
+    return { mimeType: '', actualFormat: 'webm' };
   };
 
   const startRecording = useCallback((overrideFormat?: RecordingFormat, directStream?: MediaStream) => {
@@ -62,7 +79,7 @@ export function useLocalRecorder({ stream, initialFormat = 'webm' }: UseLocalRec
       setError(null);
       setSavedFilePath(null);
 
-      const mimeType = getBestMimeType(targetFormat);
+      const { mimeType, actualFormat } = getBestMimeType(targetFormat);
       const options: MediaRecorderOptions = {
         ...(mimeType ? { mimeType } : {}),
         videoBitsPerSecond: 4000000, // 4 Mbps para 1080p (RF-04, RNF-01)
@@ -78,27 +95,56 @@ export function useLocalRecorder({ stream, initialFormat = 'webm' }: UseLocalRec
       recorder.onstop = async () => {
         if (chunksRef.current.length === 0) {
           setStatus('idle');
+          if (saveResolverRef.current) {
+            saveResolverRef.current({ success: false });
+            saveResolverRef.current = null;
+          }
           return;
         }
 
         setIsSaving(true);
         try {
-          const blobMime = mimeType || (targetFormat === 'mp4' ? 'video/mp4' : 'video/webm');
-          const completeBlob = new Blob(chunksRef.current, { type: blobMime });
-          const arrayBuffer = await completeBlob.arrayBuffer();
+          const blobMime = mimeType || (actualFormat === 'mp4' ? 'video/mp4' : 'video/webm');
+          const rawBlob = new Blob(chunksRef.current, { type: blobMime });
+
+          // Injeta a duração real no cabeçalho EBML para WebM, eliminando corrupção e permitindo navegação na timeline
+          let finalBlob = rawBlob;
+          if (actualFormat === 'webm') {
+            finalBlob = await fixWebmDuration(rawBlob, durationRef.current * 1000);
+          }
+          const arrayBuffer = await finalBlob.arrayBuffer();
 
           if (window.electronAPI && window.electronAPI.saveRecordedVideo) {
-            const res = await window.electronAPI.saveRecordedVideo(arrayBuffer, undefined, targetFormat);
+            const res = await window.electronAPI.saveRecordedVideo(arrayBuffer, undefined, actualFormat);
             if (res.success && res.filePath) {
               setSavedFilePath(res.filePath);
+              if (saveResolverRef.current) {
+                saveResolverRef.current({ success: true, filePath: res.filePath });
+              }
             } else if (res.error) {
               setError(res.error);
+              if (saveResolverRef.current) {
+                saveResolverRef.current({ success: false });
+              }
+            } else {
+              // Diálogo cancelado pelo usuário
+              if (saveResolverRef.current) {
+                saveResolverRef.current({ success: false });
+              }
+            }
+          } else {
+            if (saveResolverRef.current) {
+              saveResolverRef.current({ success: false });
             }
           }
         } catch (err: any) {
           console.error('Erro ao processar e salvar gravação:', err);
           setError(err.message || 'Erro ao processar gravação');
+          if (saveResolverRef.current) {
+            saveResolverRef.current({ success: false });
+          }
         } finally {
+          saveResolverRef.current = null;
           setIsSaving(false);
           setStatus('stopped');
         }
@@ -107,12 +153,14 @@ export function useLocalRecorder({ stream, initialFormat = 'webm' }: UseLocalRec
       recorder.start(1000); // chunk a cada 1s
       mediaRecorderRef.current = recorder;
       setStatus('recording');
+      durationRef.current = 0;
       setDuration(0);
 
       // Timer
       if (timerRef.current) clearInterval(timerRef.current);
       timerRef.current = window.setInterval(() => {
-        setDuration((prev) => prev + 1);
+        durationRef.current += 1;
+        setDuration(durationRef.current);
       }, 1000);
     } catch (err: any) {
       console.error('Erro ao iniciar MediaRecorder:', err);
@@ -137,19 +185,25 @@ export function useLocalRecorder({ stream, initialFormat = 'webm' }: UseLocalRec
       mediaRecorderRef.current.resume();
       setStatus('recording');
       timerRef.current = window.setInterval(() => {
-        setDuration((prev) => prev + 1);
+        durationRef.current += 1;
+        setDuration(durationRef.current);
       }, 1000);
     }
   }, []);
 
-  const stopRecording = useCallback(() => {
-    if (timerRef.current) {
-      clearInterval(timerRef.current);
-      timerRef.current = null;
-    }
-    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
-      mediaRecorderRef.current.stop();
-    }
+  const stopRecording = useCallback((): Promise<{ success: boolean; filePath?: string }> => {
+    return new Promise((resolve) => {
+      if (timerRef.current) {
+        clearInterval(timerRef.current);
+        timerRef.current = null;
+      }
+      if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
+        saveResolverRef.current = resolve;
+        mediaRecorderRef.current.stop();
+      } else {
+        resolve({ success: false });
+      }
+    });
   }, []);
 
   useEffect(() => {
