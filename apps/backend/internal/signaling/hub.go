@@ -433,10 +433,7 @@ func (h *Hub) BroadcastRoomClosed() {
 func (h *Hub) broadcastAll(msgType string, payload any) {
 	data := buildMsg(msgType, payload)
 	for _, c := range h.clients {
-		select {
-		case c.send <- data:
-		default:
-		}
+		c.safeSend(data)
 	}
 }
 
@@ -446,10 +443,7 @@ func (h *Hub) broadcastExcept(excludeID, msgType string, payload any) {
 		if id == excludeID {
 			continue
 		}
-		select {
-		case c.send <- data:
-		default:
-		}
+		c.safeSend(data)
 	}
 }
 

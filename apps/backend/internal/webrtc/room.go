@@ -90,23 +90,7 @@ func (r *Room) handlePublisherOffer(publisherID, sdp string) (string, error) {
 				ticker := time.NewTicker(2 * time.Second)
 				defer ticker.Stop()
 				for range ticker.C {
-					r.mu.RLock()
-					pubPC := r.publisherPC
-					ssrc := r.publisherVideoSSRC
-					r.mu.RUnlock()
-
-					if pubPC == nil || pubPC.ConnectionState() == webrtc.PeerConnectionStateClosed {
-						return
-					}
-					if ssrc != 0 {
-						_ = pubPC.WriteRTCP([]rtcp.Packet{
-							&rtcp.PictureLossIndication{MediaSSRC: ssrc},
-							&rtcp.ReceiverEstimatedMaximumBitrate{
-								Bitrate: 4_000_000,
-								SSRCs:   []uint32{ssrc},
-							},
-						})
-					}
+					r.requestKeyFrame()
 				}
 			}()
 		}
@@ -171,16 +155,24 @@ func (r *Room) createSubscriberOffer(subscriberID, publisherID string) (string, 
 
 	r.subscribers[subscriberID] = pc
 
+	// Escuta mudanças de estado do subscriber para disparar Keyframe (PLI) no momento exato em que a rede estabiliza
+	pc.OnConnectionStateChange(func(state webrtc.PeerConnectionState) {
+		log.Printf("[SFU] Subscriber %s mudou connectionState para: %s", subscriberID, state.String())
+		if state == webrtc.PeerConnectionStateConnected {
+			r.requestKeyFrame()
+			time.AfterFunc(300*time.Millisecond, r.requestKeyFrame)
+		}
+	})
+
+	pc.OnICEConnectionStateChange(func(state webrtc.ICEConnectionState) {
+		log.Printf("[SFU] Subscriber %s mudou iceConnectionState para: %s", subscriberID, state.String())
+		if state == webrtc.ICEConnectionStateConnected {
+			r.requestKeyFrame()
+		}
+	})
+
 	// Dispara solicitação imediata de Keyframe (RTCP PLI) e REMB para o novo aluno decodificar o vídeo em 4 Mbps
-	if r.publisherPC != nil && r.publisherVideoSSRC != 0 {
-		_ = r.publisherPC.WriteRTCP([]rtcp.Packet{
-			&rtcp.PictureLossIndication{MediaSSRC: r.publisherVideoSSRC},
-			&rtcp.ReceiverEstimatedMaximumBitrate{
-				Bitrate: 4_000_000,
-				SSRCs:   []uint32{r.publisherVideoSSRC},
-			},
-		})
-	}
+	r.requestKeyFrameLocked()
 
 	// Adiciona as tracks ativas do professor (video e audio independentes)
 	if r.videoTrack != nil {
@@ -256,7 +248,28 @@ func (r *Room) handleSubscriberAnswer(subscriberID, sdp string) error {
 		return fmt.Errorf("falha ao aplicar RemoteDescription do subscriber %s: %w", subscriberID, err)
 	}
 
+	// Dispara solicitação de Keyframe imediatamente após a aplicação da resposta remota
+	r.requestKeyFrame()
+
 	return nil
+}
+
+func (r *Room) requestKeyFrameLocked() {
+	if r.publisherPC != nil && r.publisherVideoSSRC != 0 && r.publisherPC.ConnectionState() != webrtc.PeerConnectionStateClosed {
+		_ = r.publisherPC.WriteRTCP([]rtcp.Packet{
+			&rtcp.PictureLossIndication{MediaSSRC: r.publisherVideoSSRC},
+			&rtcp.ReceiverEstimatedMaximumBitrate{
+				Bitrate: 4_000_000,
+				SSRCs:   []uint32{r.publisherVideoSSRC},
+			},
+		})
+	}
+}
+
+func (r *Room) requestKeyFrame() {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	r.requestKeyFrameLocked()
 }
 
 func (r *Room) addICECandidate(participantID, candidateStr string) error {

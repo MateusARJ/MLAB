@@ -117,13 +117,23 @@ func (c *Client) writePump() {
 	}
 }
 
+// safeSend envia dados para o canal send de forma não-bloqueante e blindada contra panics.
+func (c *Client) safeSend(data []byte) bool {
+	defer func() {
+		_ = recover()
+	}()
+	select {
+	case c.send <- data:
+		return true
+	default:
+		log.Printf("signaling: send buffer cheio para client %s, descartando mensagem", c.participantID)
+		return false
+	}
+}
+
 // sendJSON envia uma mensagem JSON ao cliente (não-bloqueante).
 func (c *Client) sendJSON(msgType string, payload any) {
-	select {
-	case c.send <- buildMsg(msgType, payload):
-	default:
-		log.Printf("signaling: send buffer cheio para client %s, descartando %s", c.participantID, msgType)
-	}
+	c.safeSend(buildMsg(msgType, payload))
 }
 
 // sendError envia uma mensagem de erro ao cliente.
