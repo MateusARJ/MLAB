@@ -111,6 +111,28 @@ export const Room: React.FC<RoomProps> = ({ token, roomInfo, onLeave }) => {
         attemptPlay();
       }
     };
+
+    const handleUnmuteTrack = () => {
+      if (videoEl && videoEl.paused) {
+        attemptPlay();
+      }
+    };
+
+    const handleResize = () => {
+      if (videoEl && videoEl.paused) {
+        attemptPlay();
+      }
+    };
+
+    videoEl.addEventListener('resize', handleResize);
+
+    const videoTracks = typeof stream.getVideoTracks === 'function' ? stream.getVideoTracks() : [];
+    videoTracks.forEach((t) => {
+      if (typeof t.addEventListener === 'function') {
+        t.addEventListener('unmute', handleUnmuteTrack);
+      }
+    });
+
     if (typeof stream.addEventListener === 'function') {
       stream.addEventListener('addtrack', handleAddTrack);
     }
@@ -119,8 +141,14 @@ export const Room: React.FC<RoomProps> = ({ token, roomInfo, onLeave }) => {
       if (typeof stream.removeEventListener === 'function') {
         stream.removeEventListener('addtrack', handleAddTrack);
       }
+      videoTracks.forEach((t) => {
+        if (typeof t.removeEventListener === 'function') {
+          t.removeEventListener('unmute', handleUnmuteTrack);
+        }
+      });
       if (videoEl) {
         videoEl.onloadedmetadata = null;
+        videoEl.removeEventListener('resize', handleResize);
       }
     };
   }, [stream]);
