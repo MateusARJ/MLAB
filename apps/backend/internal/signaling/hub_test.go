@@ -163,3 +163,51 @@ func TestHub_ChatMessage_SanitizationAndDiscard(t *testing.T) {
 		t.Fatal("timeout waiting for sanitized chat message broadcast")
 	}
 }
+
+func TestHub_Reconnection_RaceConditionPrevention(t *testing.T) {
+	hub := newHub("room-test-reconnect", nil)
+
+	// Conexão inicial do professor
+	prof1 := &Client{
+		hub:           hub,
+		send:          make(chan []byte, 10),
+		participantID: "prof-01",
+		roomID:        "room-test-reconnect",
+		role:          RoleProfessor,
+		name:          "Professor Titular",
+	}
+	hub.onRegister(prof1)
+	hub.onPublishRequest(prof1)
+
+	if hub.status != SessionPublishing {
+		t.Fatalf("expected status SessionPublishing, got %s", hub.status)
+	}
+
+	// Nova conexão do professor (reconexão ou troca de modo/fonte)
+	prof2 := &Client{
+		hub:           hub,
+		send:          make(chan []byte, 10),
+		participantID: "prof-01",
+		roomID:        "room-test-reconnect",
+		role:          RoleProfessor,
+		name:          "Professor Titular",
+	}
+	hub.onRegister(prof2)
+
+	// Simula a conexão antiga fechando APÓS a nova registrar
+	hub.onUnregister(prof1)
+
+	// A conexão ativa prof2 NÃO deve ter sido removida do hub
+	if activeClient, exists := hub.clients["prof-01"]; !exists || activeClient != prof2 {
+		t.Fatal("expected prof2 to remain registered in hub after prof1 unregister")
+	}
+
+	// O status da sala deve permanecer publishing e NÃO entrar em reconnecting/timeout
+	if hub.status != SessionPublishing {
+		t.Fatalf("expected hub status to remain SessionPublishing, got %s", hub.status)
+	}
+	if hub.publisherTimer != nil {
+		t.Fatal("expected publisherTimer to be nil, but timer was set")
+	}
+}
+

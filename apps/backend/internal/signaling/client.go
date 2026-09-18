@@ -3,6 +3,7 @@ package signaling
 import (
 	"encoding/json"
 	"log"
+	"sync"
 	"time"
 
 	"github.com/gorilla/websocket"
@@ -28,6 +29,7 @@ type Client struct {
 	roomID        string
 	role          Role
 	name          string
+	closeOnce     sync.Once
 }
 
 // newClient cria um Client e inicia os pumps em goroutines separadas.
@@ -129,7 +131,9 @@ func (c *Client) sendError(code, message string) {
 	c.sendJSON(TypeError, ErrorPayload{Code: code, Message: message})
 }
 
-// close fecha o canal send, encerrando o writePump.
+// close fecha o canal send, encerrando o writePump de forma idempotente.
 func (c *Client) close() {
-	close(c.send)
+	c.closeOnce.Do(func() {
+		close(c.send)
+	})
 }

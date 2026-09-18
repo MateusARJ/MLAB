@@ -145,14 +145,23 @@ func (h *Hub) run() {
 // ── Registro / Desregistro ────────────────────────────────────────────────────
 
 func (h *Hub) onRegister(c *Client) {
-	// Se o professor está reconectando dentro do timeout, cancela o timer.
-	if c.role == RoleProfessor && h.status == SessionReconnecting {
+	// Se já existe uma conexão anterior ativa para este participante, encerra a anterior
+	if oldClient, exists := h.clients[c.participantID]; exists && oldClient != c {
+		log.Printf("hub[%s]: substituindo conexão anterior do participante %s (%s)", h.roomID, c.role, c.participantID)
+		oldClient.close()
+	}
+
+	// Se o professor está se conectando ou reconectando, cancela timer de timeout se ativo
+	if c.role == RoleProfessor {
 		if h.publisherTimer != nil {
 			h.publisherTimer.Stop()
 			h.publisherTimer = nil
 		}
-		h.status = SessionPublishing
-		log.Printf("hub[%s]: professor reconectado, transmissão retomada", h.roomID)
+		h.publisherID = c.participantID
+		if h.status == SessionReconnecting || h.status == SessionWaiting {
+			h.status = SessionPublishing
+		}
+		log.Printf("hub[%s]: professor ativo na sala (status=%s)", h.roomID, h.status)
 	}
 
 	h.clients[c.participantID] = c
@@ -176,7 +185,10 @@ func (h *Hub) onRegister(c *Client) {
 }
 
 func (h *Hub) onUnregister(c *Client) {
-	if _, ok := h.clients[c.participantID]; !ok {
+	existing, ok := h.clients[c.participantID]
+	if !ok || existing != c {
+		// Conexão obsoleta que já foi substituída por uma mais recente do mesmo participante.
+		log.Printf("hub[%s]: ignorando unregister de conexão obsoleta do participante %s", h.roomID, c.participantID)
 		return
 	}
 
@@ -214,7 +226,8 @@ func (h *Hub) onUnregister(c *Client) {
 
 func (h *Hub) route(env *envelope) {
 	c := env.client
-	if _, ok := h.clients[c.participantID]; !ok {
+	existing, ok := h.clients[c.participantID]
+	if !ok || existing != c {
 		return
 	}
 
