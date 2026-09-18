@@ -72,22 +72,57 @@ export const Room: React.FC<RoomProps> = ({ token, roomInfo, onLeave }) => {
 
   useEffect(() => {
     const videoEl = videoRef.current;
-    if (videoEl && stream) {
-      if (videoEl.srcObject !== stream) {
-        videoEl.srcObject = stream;
-      }
+    if (!videoEl || !stream) return;
+
+    if (videoEl.srcObject !== stream) {
+      videoEl.srcObject = stream;
+    }
+
+    const attemptPlay = () => {
       videoEl
         .play()
-        .then(() => setAutoplayBlocked(false))
+        .then(() => {
+          setAutoplayBlocked(false);
+        })
         .catch((err) => {
-          // RF-21: Tratamento de Autoplay Policy dos navegadores (móveis ou desktop)
-          if (err.name === 'NotAllowedError') {
+          // RF-21: Se o navegador bloquear áudio (Autoplay Policy), muta e inicia o vídeo instantaneamente
+          if (err.name === 'NotAllowedError' || err.name === 'AbortError') {
             videoEl.muted = true;
-            videoEl.play().catch(() => {});
-            setAutoplayBlocked(true);
+            videoEl
+              .play()
+              .then(() => {
+                setAutoplayBlocked(true);
+              })
+              .catch(() => {});
           }
         });
+    };
+
+    if (videoEl.readyState >= 1) {
+      attemptPlay();
+    } else {
+      videoEl.onloadedmetadata = () => {
+        attemptPlay();
+      };
     }
+
+    const handleAddTrack = () => {
+      if (videoEl && videoEl.srcObject === stream) {
+        attemptPlay();
+      }
+    };
+    if (typeof stream.addEventListener === 'function') {
+      stream.addEventListener('addtrack', handleAddTrack);
+    }
+
+    return () => {
+      if (typeof stream.removeEventListener === 'function') {
+        stream.removeEventListener('addtrack', handleAddTrack);
+      }
+      if (videoEl) {
+        videoEl.onloadedmetadata = null;
+      }
+    };
   }, [stream]);
 
   const handleUnmuteAudio = () => {
@@ -165,33 +200,33 @@ export const Room: React.FC<RoomProps> = ({ token, roomInfo, onLeave }) => {
 
       <main style={styles.mainLayout}>
         <div style={styles.videoSection}>
-          {stream ? (
-            <div style={styles.videoWrapper}>
-              <video
-                ref={videoRef}
-                autoPlay
-                playsInline
-                muted={autoplayBlocked}
-                style={styles.video}
-              />
-              <div style={styles.videoOverlayControls}>
-                {!isChatOpen && (
-                  <button
-                    onClick={handleToggleChat}
-                    style={styles.floatingChatBtn}
-                    title="Abrir Chat"
-                  >
-                    💬 Chat
-                    {unreadCount > 0 && (
-                      <span style={styles.unreadBadgeSmall}>{unreadCount}</span>
-                    )}
-                  </button>
-                )}
-                <button onClick={handleToggleFullscreen} style={styles.overlayBtn}>Tela Cheia</button>
-                <button onClick={handleTogglePiP} style={styles.overlayBtn}>Picture-in-Picture</button>
-              </div>
+          <div style={{ ...styles.videoWrapper, display: stream ? 'flex' : 'none' }}>
+            <video
+              ref={videoRef}
+              autoPlay
+              playsInline
+              muted={autoplayBlocked}
+              style={styles.video}
+            />
+            <div style={styles.videoOverlayControls}>
+              {!isChatOpen && (
+                <button
+                  onClick={handleToggleChat}
+                  style={styles.floatingChatBtn}
+                  title="Abrir Chat"
+                >
+                  💬 Chat
+                  {unreadCount > 0 && (
+                    <span style={styles.unreadBadgeSmall}>{unreadCount}</span>
+                  )}
+                </button>
+              )}
+              <button onClick={handleToggleFullscreen} style={styles.overlayBtn}>Tela Cheia</button>
+              <button onClick={handleTogglePiP} style={styles.overlayBtn}>Picture-in-Picture</button>
             </div>
-          ) : (
+          </div>
+
+          {!stream && (
             <div style={styles.waitingStateBox}>
               <h3 style={styles.waitingTitle}>Aguardando o professor iniciar a transmissão...</h3>
               <p style={styles.waitingSub}>Você receberá o vídeo e áudio automaticamente assim que a aula começar.</p>

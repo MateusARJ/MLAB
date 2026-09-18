@@ -13,5 +13,7 @@ if (typeof window !== 'undefined') {
     getTracks() { return []; }
     getVideoTracks() { return []; }
     getAudioTracks() { return []; }
+    addEventListener = vi.fn();
+    removeEventListener = vi.fn();
   };
 }

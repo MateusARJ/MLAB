@@ -11,7 +11,19 @@ export default function App(): React.ReactElement {
     token: string
     roomInfo: any
     slug?: string
-  } | null>(null)
+  } | null>(() => {
+    if (typeof window !== 'undefined' && window.sessionStorage) {
+      const stored = sessionStorage.getItem('active_room_data')
+      if (stored) {
+        try {
+          return JSON.parse(stored)
+        } catch {
+          return null
+        }
+      }
+    }
+    return null
+  })
 
   return (
     <Routes>
@@ -43,7 +55,11 @@ function JoinRoute({ setRoomData }: { setRoomData: any }) {
   return (
     <Join 
       onJoined={(token, roomInfo) => {
-        setRoomData({ token, roomInfo, slug })
+        const data = { token, roomInfo, slug }
+        if (typeof window !== 'undefined' && window.sessionStorage) {
+          sessionStorage.setItem('active_room_data', JSON.stringify(data))
+        }
+        setRoomData(data)
         navigate(`/sala/${slug}/ao-vivo`)
       }}
     />
@@ -63,6 +79,9 @@ function RoomRoute({ roomData, setRoomData }: { roomData: any, setRoomData: any 
       token={roomData.token}
       roomInfo={roomData.roomInfo}
       onLeave={(reason?: string) => {
+        if (typeof window !== 'undefined' && window.sessionStorage) {
+          sessionStorage.removeItem('active_room_data')
+        }
         setRoomData(null)
         navigate(`/sala/${slug}/entrar`, {
           state: {

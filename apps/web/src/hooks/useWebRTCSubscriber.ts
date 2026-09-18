@@ -10,39 +10,52 @@ export function useWebRTCSubscriber(token: string, roomInfo: { room_id: string; 
   const wsRef = useRef<WebSocket | null>(null);
   const reconnectAttemptRef = useRef(0);
   const reconnectTimerRef = useRef<any>(null);
-  const hasSubscribedRef = useRef(false);
+  const hasSubscribedStateRef = useRef(false);
   const isCleanedUpRef = useRef(false);
+  const connectionStatusRef = useRef(connectionStatus);
+  connectionStatusRef.current = connectionStatus;
+
+  const roomId = roomInfo?.room_id;
+  const wsUrl = roomInfo?.ws_url;
+  const iceServers = roomInfo?.ice_servers;
 
   const connect = useCallback(() => {
     if (isCleanedUpRef.current) return;
+
+    // Evita conexões duplicadas se o WebSocket atual já estiver aberto ou conectando
+    if (wsRef.current && (wsRef.current.readyState === WebSocket.OPEN || wsRef.current.readyState === WebSocket.CONNECTING)) {
+      return;
+    }
+
     setConnectionStatus('connecting');
 
-    let finalWsUrl = roomInfo.ws_url;
+    let finalWsUrl = wsUrl;
     if (typeof window !== 'undefined' && window.location && window.location.host) {
       const wsProto = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-      finalWsUrl = `${wsProto}//${window.location.host}/ws/rooms/${roomInfo.room_id}/signal`;
+      finalWsUrl = `${wsProto}//${window.location.host}/ws/rooms/${roomId}/signal`;
     }
 
     const ws = new WebSocket(`${finalWsUrl}?token=${token}`);
     wsRef.current = ws;
 
     const pc = new RTCPeerConnection({
-      iceServers: roomInfo.ice_servers && roomInfo.ice_servers.length > 0
-        ? roomInfo.ice_servers
+      iceServers: iceServers && iceServers.length > 0
+        ? iceServers
         : [{ urls: 'stun:stun.l.google.com:19302' }],
     });
     pcRef.current = pc;
-    hasSubscribedRef.current = false;
+    hasSubscribedStateRef.current = false;
 
     pc.ontrack = (event) => {
       setStream((prev) => {
         if (!prev) {
           return new MediaStream([event.track]);
         }
-        if (!prev.getTracks().some((t) => t.id === event.track.id)) {
-          prev.addTrack(event.track);
+        if (prev.getTracks().some((t) => t.id === event.track.id)) {
+          return prev;
         }
-        return prev;
+        // Retorna nova instância de MediaStream para forçar re-render e atualizar o elemento <video>
+        return new MediaStream([...prev.getTracks(), event.track]);
       });
     };
 
@@ -72,8 +85,8 @@ export function useWebRTCSubscriber(token: string, roomInfo: { room_id: string; 
     };
 
     const requestSubscription = () => {
-      if (ws.readyState === WebSocket.OPEN && !hasSubscribedRef.current) {
-        hasSubscribedRef.current = true;
+      if (ws.readyState === WebSocket.OPEN && !hasSubscribedStateRef.current) {
+        hasSubscribedStateRef.current = true;
         ws.send(
           JSON.stringify({
             type: 'subscribe-request',
@@ -98,8 +111,12 @@ export function useWebRTCSubscriber(token: string, roomInfo: { room_id: string; 
             setStream(null);
           } else {
             setConnectionStatus(msg.payload.status);
-            if (msg.payload.status === 'publishing' && !hasSubscribedRef.current) {
-              requestSubscription();
+            if (msg.payload.status === 'publishing') {
+              if (!hasSubscribedStateRef.current) {
+                requestSubscription();
+              }
+            } else if (msg.payload.status === 'waiting' || msg.payload.status === 'reconnecting') {
+              hasSubscribedStateRef.current = false;
             }
           }
         } else if (msg.type === 'room-closed') {
@@ -169,7 +186,7 @@ export function useWebRTCSubscriber(token: string, roomInfo: { room_id: string; 
       }
 
       // Reconexão com backoff exponencial: 1s, 2s, 4s, 8s, 16s, 30s (RF-19, RN-14)
-      if (connectionStatus !== 'closed') {
+      if (connectionStatusRef.current !== 'closed') {
         setConnectionStatus('reconnecting');
         const attempts = reconnectAttemptRef.current;
         const delay = Math.min(1000 * Math.pow(2, attempts), 30000);
@@ -180,19 +197,26 @@ export function useWebRTCSubscriber(token: string, roomInfo: { room_id: string; 
         }, delay);
       }
     };
-  }, [token, roomInfo]);
+  }, [token, roomId, wsUrl, iceServers]);
 
   useEffect(() => {
     isCleanedUpRef.current = false;
     connect();
     return () => {
       isCleanedUpRef.current = true;
-      if (reconnectTimerRef.current) clearTimeout(reconnectTimerRef.current);
+      if (reconnectTimerRef.current) {
+        clearTimeout(reconnectTimerRef.current);
+        reconnectTimerRef.current = null;
+      }
       if (wsRef.current) {
         wsRef.current.onclose = null;
         wsRef.current.close();
+        wsRef.current = null;
       }
-      if (pcRef.current) pcRef.current.close();
+      if (pcRef.current) {
+        pcRef.current.close();
+        pcRef.current = null;
+      }
     };
   }, [connect]);
 
