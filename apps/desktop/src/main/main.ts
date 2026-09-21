@@ -257,6 +257,13 @@ function getBackendExecutablePath(): string | null {
 }
 
 async function startBackendServer(): Promise<void> {
+  // Se o monorepo estiver executando o backend via Turborepo (@mlab/backend com go run),
+  // o Electron não dispara server.exe para evitar conflito de bind na porta 8080.
+  if (process.env.MLAB_DEV_MONOREPO === '1') {
+    console.log('[Backend] Ambiente Turborepo detectado: backend gerenciado externamente pelo @mlab/backend.')
+    return
+  }
+
   const inUse = await isPortInUse(8080)
   if (inUse) {
     console.log('[Backend] Servidor já detectado ativo na porta 8080. Nenhuma nova instância foi iniciada.')
