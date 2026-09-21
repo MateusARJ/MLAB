@@ -1,3 +1,8 @@
+/**
+ * Componente de Login Institucional com E-mail e Senha.
+ * NOTA: Temporariamente inativo no fluxo do aplicativo a pedido do usuário.
+ * Preservado integralmente para reativação e implementação em versão futura do MLab.
+ */
 import React, { useState } from 'react';
 import { loginProfessor } from '../services/auth';
 import mlabLogo from '../assets/MLAB-logo.png';

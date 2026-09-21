@@ -26,6 +26,11 @@ type LoginRequest struct {
 	Password string `json:"password"`
 }
 
+// SessionRequest é o payload do POST /auth/session para identificação direta do professor.
+type SessionRequest struct {
+	Name string `json:"name"`
+}
+
 // LoginResponse é a resposta do POST /auth/login com sucesso.
 type LoginResponse struct {
 	Token     string `json:"token"`

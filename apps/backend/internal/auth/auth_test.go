@@ -2,8 +2,10 @@ package auth
 
 import (
 	"context"
+	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 
@@ -206,3 +208,49 @@ func TestRequireRole(t *testing.T) {
 		t.Errorf("expected 403 Forbidden for student accessing professor route, got %d", rec.Code)
 	}
 }
+
+func TestSessionEndpoint(t *testing.T) {
+	t.Setenv("JWT_SECRET", "super-secret-key-for-testing-12345")
+
+	store := NewInMemoryStore()
+	handler := NewHandler(store)
+	mux := http.NewServeMux()
+	handler.RegisterRoutes(mux)
+
+	// POST /auth/session com nome
+	body := strings.NewReader(`{"name":"Prof. Carlos Eduardo"}`)
+	req := httptest.NewRequest("POST", "/auth/session", body)
+	req.Header.Set("Content-Type", "application/json")
+	rec := httptest.NewRecorder()
+
+	mux.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200 OK, got %d: %s", rec.Code, rec.Body.String())
+	}
+
+	var resp LoginResponse
+	if err := json.NewDecoder(rec.Body).Decode(&resp); err != nil {
+		t.Fatalf("failed to decode response: %v", err)
+	}
+
+	if resp.Token == "" {
+		t.Error("expected non-empty token")
+	}
+	if resp.Name != "Prof. Carlos Eduardo" {
+		t.Errorf("expected name 'Prof. Carlos Eduardo', got '%s'", resp.Name)
+	}
+
+	// Valida se o token gerado contém papel de professor e o nome
+	claims, err := ParseToken(resp.Token)
+	if err != nil {
+		t.Fatalf("failed to parse returned token: %v", err)
+	}
+	if ClaimRole(claims) != RoleProfessor {
+		t.Errorf("expected role %s, got %s", RoleProfessor, ClaimRole(claims))
+	}
+	if claims["name"] != "Prof. Carlos Eduardo" {
+		t.Errorf("expected claim name 'Prof. Carlos Eduardo', got '%v'", claims["name"])
+	}
+}
+

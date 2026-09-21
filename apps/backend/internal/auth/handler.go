@@ -30,6 +30,34 @@ func NewHandler(store Store) *Handler {
 // RegisterRoutes registra os endpoints de auth no mux fornecido.
 func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("POST /auth/login", h.login)
+	mux.HandleFunc("POST /auth/session", h.session)
+}
+
+// session trata o POST /auth/session (identificação direta do professor sem necessidade de senha).
+func (h *Handler) session(w http.ResponseWriter, r *http.Request) {
+	var req SessionRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		req.Name = "Professor"
+	}
+
+	name := strings.TrimSpace(req.Name)
+	if name == "" {
+		name = "Professor"
+	}
+
+	profID := newID()
+	tokenStr, expiresAt, err := SignProfessorToken(profID, "professor@mlab.local", name)
+	if err != nil {
+		log.Printf("auth: SignProfessorToken: %v", err)
+		writeError(w, http.StatusInternalServerError, "erro ao gerar token")
+		return
+	}
+
+	writeJSON(w, http.StatusOK, LoginResponse{
+		Token:     tokenStr,
+		ExpiresAt: expiresAt.UTC().Format("2006-01-02T15:04:05Z"),
+		Name:      name,
+	})
 }
 
 // login trata o POST /auth/login (professor).
