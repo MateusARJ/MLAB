@@ -1,7 +1,6 @@
 /**
- * @screenshare/types
- *
- * DTOs e tipos compartilhados entre apps/desktop e apps/web.
+ * @mlab/types
+ * Pacote compartilhado de tipos TypeScript do monorepo ScreenShare. apps/desktop e apps/web.
  * Populados em T007. Este arquivo serve como ponto de entrada do scaffold.
  */
 
@@ -16,6 +15,10 @@ export type RoomStatus = 'waiting' | 'publishing' | 'closed';
 export interface Room {
   id: string;
   slug: string;
+  title?: string;
+  professorName?: string;
+  roomSlug?: string;
+  professorSlug?: string;
   status: RoomStatus;
   ownerId: string;
   maxParticipants: number;
@@ -25,6 +28,7 @@ export interface Room {
 
 export interface CreateRoomRequest {
   title?: string;
+  professor_name?: string;
   max_participants?: number;
 }
 

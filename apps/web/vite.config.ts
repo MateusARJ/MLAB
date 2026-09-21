@@ -7,12 +7,12 @@ export default defineConfig({
   resolve: {
     alias: {
       '@': resolve(__dirname, 'src'),
-      '@screenshare/types': resolve(__dirname, '../../packages/types/src/index.ts')
+      '@mlab/types': resolve(__dirname, '../../packages/types/src/index.ts')
     }
   },
   server: {
     host: true,
-    port: 3000,
+    port: 5173,
     proxy: {
       '/rooms': {
         target: 'http://localhost:8080',

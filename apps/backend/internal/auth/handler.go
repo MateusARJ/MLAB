@@ -68,7 +68,7 @@ func (h *Handler) login(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Gera JWT.
-	tokenStr, expiresAt, err := SignProfessorToken(prof.ID, prof.Email)
+	tokenStr, expiresAt, err := SignProfessorToken(prof.ID, prof.Email, prof.Name)
 	if err != nil {
 		log.Printf("auth: SignProfessorToken: %v", err)
 		writeError(w, http.StatusInternalServerError, "erro ao gerar token")
@@ -78,6 +78,7 @@ func (h *Handler) login(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, LoginResponse{
 		Token:     tokenStr,
 		ExpiresAt: expiresAt.UTC().Format("2006-01-02T15:04:05Z"),
+		Name:      prof.Name,
 	})
 }
 

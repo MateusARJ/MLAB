@@ -17,8 +17,8 @@ describe('Dashboard Component', () => {
     const handleEnterRoom = vi.fn();
     (roomService.createRoom as any).mockResolvedValueOnce({
       room_id: 'room-123',
-      slug: 'charlie-delta-7342',
-      link: 'http://localhost:3000/sala/charlie-delta-7342/entrar',
+      slug: 'algoritmos-i/professor',
+      link: 'http://localhost:5173/algoritmos-i/professor/entrar',
       status: 'waiting',
     });
 
@@ -34,7 +34,7 @@ describe('Dashboard Component', () => {
       expect(roomService.createRoom).toHaveBeenCalledWith('Algoritmos I');
       expect(screen.getByText(/Estado: Waiting/i)).toBeInTheDocument();
       expect(screen.getByRole('button', { name: /Copiar Link/i })).toBeInTheDocument();
-      expect(screen.getByDisplayValue('http://localhost:3000/sala/charlie-delta-7342/entrar')).toBeInTheDocument();
+      expect(screen.getByDisplayValue('http://localhost:5173/algoritmos-i/professor/entrar')).toBeInTheDocument();
     });
 
     fireEvent.click(screen.getByRole('button', { name: /Copiar Link/i }));
@@ -45,8 +45,8 @@ describe('Dashboard Component', () => {
     fireEvent.click(screen.getByRole('button', { name: /Abrir Sala de Transmissão/i }));
     expect(handleEnterRoom).toHaveBeenCalledWith({
       id: 'room-123',
-      slug: 'charlie-delta-7342',
-      link: 'http://localhost:3000/sala/charlie-delta-7342/entrar',
+      slug: 'algoritmos-i/professor',
+      link: 'http://localhost:5173/algoritmos-i/professor/entrar',
     });
   });
 });

@@ -7,7 +7,12 @@ interface JoinProps {
 }
 
 export const Join: React.FC<JoinProps> = ({ onJoined }) => {
-  const { slug } = useParams<{ slug: string }>();
+  const { roomName, professorName, slug } = useParams<{ roomName?: string; professorName?: string; slug?: string }>();
+  const effectiveSlug = roomName && professorName ? `${roomName}/${professorName}` : (slug || '');
+  const displayTitle = roomName && professorName
+    ? `${roomName.replace(/-/g, ' ')} (Prof. ${professorName.replace(/-/g, ' ')})`
+    : (slug || '');
+
   const location = useLocation();
   const closedMessage = (location.state as any)?.closedMessage;
   const [name, setName] = useState('');
@@ -25,14 +30,14 @@ export const Join: React.FC<JoinProps> = ({ onJoined }) => {
       return;
     }
 
-    if (!slug) {
+    if (!effectiveSlug) {
       setError('Identificador de sala inválido.');
       return;
     }
 
     setLoading(true);
     try {
-      const resp = await joinRoom(slug, {
+      const resp = await joinRoom(effectiveSlug, {
         name: name.trim(),
         student_id: studentId.trim(),
       });
@@ -54,7 +59,7 @@ export const Join: React.FC<JoinProps> = ({ onJoined }) => {
         <div style={styles.header}>
           <img src="/MLAB-logo.png" alt="MLab Logo" style={styles.logoImg} />
           <h1 style={styles.title}>MLab</h1>
-          <p style={styles.subtitle}>Entrada na Aula — Sala: <strong style={{ color: '#38bdf8' }}>{slug}</strong></p>
+          <p style={styles.subtitle}>Entrada na Aula — Sala: <strong style={{ color: '#38bdf8' }}>{displayTitle}</strong></p>
         </div>
 
         {closedMessage && <div style={styles.infoAlert}>{closedMessage}</div>}

@@ -28,6 +28,15 @@ export default function App(): React.ReactElement {
   return (
     <Routes>
       <Route
+        path="/:roomName/:professorName/entrar"
+        element={<JoinRoute setRoomData={setRoomData} />}
+      />
+      <Route
+        path="/:roomName/:professorName/ao-vivo"
+        element={<RoomRoute roomData={roomData} setRoomData={setRoomData} />}
+      />
+      {/* Retrocompatibilidade com /sala/:slug */}
+      <Route
         path="/sala/:slug/entrar"
         element={<JoinRoute setRoomData={setRoomData} />}
       />
@@ -40,7 +49,7 @@ export default function App(): React.ReactElement {
         path="/"
         element={
           <Placeholder
-            title="ScreenShare Classroom"
+            title="MLab"
             subtitle="Acesse via link fornecido pelo professor"
           />
         }
@@ -51,16 +60,19 @@ export default function App(): React.ReactElement {
 
 function JoinRoute({ setRoomData }: { setRoomData: any }) {
   const navigate = useNavigate()
-  const { slug } = useParams()
+  const { roomName, professorName, slug } = useParams()
+  const currentSlug = roomName && professorName ? `${roomName}/${professorName}` : (slug || '')
+  const livePath = roomName && professorName ? `/${roomName}/${professorName}/ao-vivo` : `/sala/${slug}/ao-vivo`
+
   return (
     <Join 
       onJoined={(token, roomInfo) => {
-        const data = { token, roomInfo, slug }
+        const data = { token, roomInfo, slug: currentSlug }
         if (typeof window !== 'undefined' && window.sessionStorage) {
           sessionStorage.setItem('active_room_data', JSON.stringify(data))
         }
         setRoomData(data)
-        navigate(`/sala/${slug}/ao-vivo`)
+        navigate(livePath)
       }}
     />
   )
@@ -68,10 +80,12 @@ function JoinRoute({ setRoomData }: { setRoomData: any }) {
 
 function RoomRoute({ roomData, setRoomData }: { roomData: any, setRoomData: any }) {
   const navigate = useNavigate()
-  const { slug } = useParams()
+  const { roomName, professorName, slug } = useParams()
+  const currentSlug = roomName && professorName ? `${roomName}/${professorName}` : (slug || '')
+  const enterPath = roomName && professorName ? `/${roomName}/${professorName}/entrar` : `/sala/${slug}/entrar`
   
-  if (!roomData || roomData.slug !== slug) {
-    return <Navigate to={`/sala/${slug}/entrar`} replace />
+  if (!roomData || roomData.slug !== currentSlug) {
+    return <Navigate to={enterPath} replace />
   }
 
   return (
@@ -83,7 +97,7 @@ function RoomRoute({ roomData, setRoomData }: { roomData: any, setRoomData: any 
           sessionStorage.removeItem('active_room_data')
         }
         setRoomData(null)
-        navigate(`/sala/${slug}/entrar`, {
+        navigate(enterPath, {
           state: {
             closedMessage: reason || 'A transmissão foi encerrada pelo professor. Por favor, insira suas credenciais para entrar novamente.'
           }

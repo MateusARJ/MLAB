@@ -36,9 +36,18 @@ func NewInMemoryStore() Store {
 	s := &inMemoryStore{
 		professors: make(map[string]*Professor),
 	}
+	defaultProf := &Professor{
+		ID:           id,
+		Email:        "professor@mlab.local",
+		Name:         "Professor",
+		PasswordHash: string(hash),
+		CreatedAt:    time.Now(),
+	}
+	s.professors["professor@mlab.local"] = defaultProf
 	s.professors["professor@screenshare.local"] = &Professor{
 		ID:           id,
 		Email:        "professor@screenshare.local",
+		Name:         "Professor",
 		PasswordHash: string(hash),
 		CreatedAt:    time.Now(),
 	}

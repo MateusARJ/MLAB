@@ -57,7 +57,12 @@ func (s *inMemoryStore) CreateRoom(_ context.Context, room *Room) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.rooms[room.ID] = room
-	s.slugIndex[room.Slug] = room.ID
+	if room.Slug != "" {
+		s.slugIndex[room.Slug] = room.ID
+	}
+	if room.RoomSlug != "" && room.ProfessorSlug != "" {
+		s.slugIndex[room.RoomSlug+"/"+room.ProfessorSlug] = room.ID
+	}
 	return nil
 }
 
@@ -75,7 +80,26 @@ func (s *inMemoryStore) GetRoomByID(_ context.Context, roomID string) (*Room, er
 func (s *inMemoryStore) GetRoomBySlug(_ context.Context, slug string) (*Room, error) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
-	id, ok := s.slugIndex[slug]
+	cleanSlug := strings.Trim(slug, "/")
+	id, ok := s.slugIndex[cleanSlug]
+	if !ok {
+		for sKey, rID := range s.slugIndex {
+			if strings.EqualFold(sKey, cleanSlug) {
+				id = rID
+				ok = true
+				break
+			}
+		}
+	}
+	if !ok {
+		for _, r := range s.rooms {
+			if strings.EqualFold(r.Slug, cleanSlug) || (r.RoomSlug != "" && strings.EqualFold(r.RoomSlug, cleanSlug)) {
+				id = r.ID
+				ok = true
+				break
+			}
+		}
+	}
 	if !ok {
 		return nil, ErrRoomNotFound
 	}
@@ -105,6 +129,12 @@ func (s *inMemoryStore) UpdateRoomStatus(_ context.Context, roomID string, statu
 	}
 	r.Status = status
 	r.ClosedAt = closedAt
+	if r.Slug != "" {
+		s.slugIndex[r.Slug] = r.ID
+	}
+	if r.RoomSlug != "" && r.ProfessorSlug != "" {
+		s.slugIndex[r.RoomSlug+"/"+r.ProfessorSlug] = r.ID
+	}
 	return nil
 }
 
@@ -152,31 +182,77 @@ func newSlug() string {
 	return fmt.Sprintf("%s-%s-%s", pick(), pick(), suffix.String())
 }
 
+// removeAccents normaliza caracteres acentuados comuns.
+func removeAccents(s string) string {
+	var b strings.Builder
+	for _, r := range s {
+		switch r {
+		case 'á', 'à', 'ã', 'â', 'ä', 'Á', 'À', 'Ã', 'Â', 'Ä':
+			b.WriteRune('a')
+		case 'é', 'è', 'ê', 'ë', 'É', 'È', 'Ê', 'Ë':
+			b.WriteRune('e')
+		case 'í', 'ì', 'î', 'ï', 'Í', 'Ì', 'Î', 'Ï':
+			b.WriteRune('i')
+		case 'ó', 'ò', 'õ', 'ô', 'ö', 'Ó', 'Ò', 'Õ', 'Ô', 'Ö':
+			b.WriteRune('o')
+		case 'ú', 'ù', 'û', 'ü', 'Ú', 'Ù', 'Û', 'Ü':
+			b.WriteRune('u')
+		case 'ç', 'Ç':
+			b.WriteRune('c')
+		case 'ñ', 'Ñ':
+			b.WriteRune('n')
+		default:
+			b.WriteRune(r)
+		}
+	}
+	return b.String()
+}
+
+// slugify transforma uma string qualquer (ex: "Algoritmos - Turma 04", "Prof. João")
+// em um slug seguro e legível para URL (ex: "algoritmos-turma-04", "prof-joao").
+func slugify(input string) string {
+	input = removeAccents(strings.TrimSpace(strings.ToLower(input)))
+	if input == "" {
+		return ""
+	}
+
+	var b strings.Builder
+	lastDash := false
+	for _, r := range input {
+		if (r >= 'a' && r <= 'z') || (r >= '0' && r <= '9') {
+			b.WriteRune(r)
+			lastDash = false
+		} else {
+			if !lastDash && b.Len() > 0 {
+				b.WriteRune('-')
+				lastDash = true
+			}
+		}
+	}
+	return strings.Trim(b.String(), "-")
+}
+
 // slugFromEmail gera um slug fixo e amigável baseado no login/email do professor.
 func slugFromEmail(email string) string {
 	email = strings.TrimSpace(strings.ToLower(email))
 	if email == "" {
-		return newSlug()
+		return "professor"
 	}
 	parts := strings.Split(email, "@")
-	user := parts[0]
-	var b strings.Builder
-	for _, r := range user {
-		if (r >= 'a' && r <= 'z') || (r >= '0' && r <= '9') {
-			b.WriteRune(r)
-		} else if r == '.' || r == '_' || r == '-' || r == '+' {
-			b.WriteRune('-')
-		}
-	}
-	clean := strings.Trim(b.String(), "-")
+	clean := slugify(parts[0])
 	if clean == "" {
-		return newSlug()
+		return "professor"
 	}
 	return clean
 }
 
 // buildLink constrói a URL pública da sala.
+// Formato esperado: http://<ip>:5173/<nome-da-sala>/<nome-do-professor>/entrar
 func buildLink(baseURL, slug string) string {
 	base := strings.TrimRight(baseURL, "/")
-	return fmt.Sprintf("%s/sala/%s/entrar", base, slug)
+	cleanSlug := strings.Trim(slug, "/")
+	if cleanSlug == "" {
+		return fmt.Sprintf("%s/sala/entrar", base)
+	}
+	return fmt.Sprintf("%s/%s/entrar", base, cleanSlug)
 }

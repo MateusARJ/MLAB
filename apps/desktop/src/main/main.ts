@@ -10,6 +10,8 @@ import {
 } from 'electron'
 import { join } from 'path'
 import { existsSync, promises as fsPromises } from 'fs'
+import { spawn, ChildProcess } from 'child_process'
+import http from 'http'
 
 // Registra o AppUserModelId no Windows para agrupar e exibir a logo na Barra de Tarefas
 if (process.platform === 'win32') {
@@ -206,9 +208,130 @@ ipcMain.handle('request-media-permissions', async () => {
   }
 })
 
+// ── Backend Process Manager (Servidor Go SFU Invisível) ──────────────────────
+
+let serverProcess: ChildProcess | null = null
+
+function isPortInUse(port = 8080): Promise<boolean> {
+  return new Promise((resolve) => {
+    const req = http.get(`http://127.0.0.1:${port}/health`, (res) => {
+      resolve(res.statusCode === 200)
+    })
+    req.on('error', () => {
+      resolve(false)
+    })
+    req.setTimeout(500, () => {
+      req.destroy()
+      resolve(false)
+    })
+  })
+}
+
+function getBackendExecutablePath(): string | null {
+  const binaryName = process.platform === 'win32' ? 'server.exe' : 'server'
+  const isDev = !app.isPackaged
+
+  const candidates = isDev
+    ? [
+        join(process.cwd(), '../backend/bin', binaryName),
+        join(process.cwd(), '../../apps/backend/bin', binaryName),
+        join(__dirname, '../../../../apps/backend/bin', binaryName),
+        join(__dirname, '../../../backend/bin', binaryName),
+        join(process.cwd(), 'apps/backend/bin', binaryName),
+        'c:\\Users\\User\\Documents\\mlab\\apps\\backend\\bin\\server.exe'
+      ]
+    : [
+        join(process.resourcesPath, 'bin', binaryName),
+        join(process.resourcesPath, binaryName),
+        join(__dirname, '../../resources/bin', binaryName),
+        join(process.cwd(), 'resources/bin', binaryName)
+      ]
+
+  for (const candidate of candidates) {
+    if (existsSync(candidate)) {
+      return candidate
+    }
+  }
+
+  return null
+}
+
+async function startBackendServer(): Promise<void> {
+  const inUse = await isPortInUse(8080)
+  if (inUse) {
+    console.log('[Backend] Servidor já detectado ativo na porta 8080. Nenhuma nova instância foi iniciada.')
+    return
+  }
+
+  const binaryPath = getBackendExecutablePath()
+  if (!binaryPath) {
+    console.warn('[Backend] Executável do backend não encontrado. O app aguardará servidor externo na porta 8080.')
+    return
+  }
+
+  console.log(`[Backend] Iniciando servidor em segundo plano de forma invisível: ${binaryPath}`)
+
+  try {
+    serverProcess = spawn(binaryPath, [], {
+      detached: false,
+      windowsHide: true,
+      stdio: ['ignore', 'pipe', 'pipe'],
+      env: {
+        ...process.env,
+        PORT: '8080',
+        WEB_PORT: '5173',
+        JWT_SECRET: process.env['JWT_SECRET'] || 'dev-secret-key-12345'
+      }
+    })
+
+    serverProcess.stdout?.on('data', (data: Buffer) => {
+      console.log(`[Backend] ${data.toString().trim()}`)
+    })
+
+    serverProcess.stderr?.on('data', (data: Buffer) => {
+      console.error(`[Backend ERR] ${data.toString().trim()}`)
+    })
+
+    serverProcess.on('error', (err) => {
+      console.error('[Backend] Falha ao iniciar processo do backend:', err)
+      serverProcess = null
+    })
+
+    serverProcess.on('exit', (code, signal) => {
+      console.log(`[Backend] Servidor finalizado (código: ${code}, sinal: ${signal})`)
+      serverProcess = null
+    })
+  } catch (err) {
+    console.error('[Backend] Erro ao disparar servidor:', err)
+  }
+}
+
+function stopBackendServer(): void {
+  if (serverProcess && serverProcess.pid) {
+    const pid = serverProcess.pid
+    console.log(`[Backend] Encerrando processo do servidor (PID: ${pid})...`)
+    try {
+      if (process.platform === 'win32') {
+        spawn('taskkill', ['/pid', pid.toString(), '/f', '/t'], {
+          windowsHide: true,
+          stdio: 'ignore'
+        })
+      } else {
+        serverProcess.kill('SIGTERM')
+      }
+    } catch (err) {
+      console.error('[Backend] Erro ao encerrar processo do servidor:', err)
+    }
+    serverProcess = null
+  }
+}
+
 // ── App lifecycle ─────────────────────────────────────────────────────────────
 
-app.whenReady().then(() => {
+app.whenReady().then(async () => {
+  // Inicia o servidor Go SFU invisível em segundo plano automaticamente
+  await startBackendServer()
+
   // Configuração explícita de permissões do Chromium para captura e áudio
   session.defaultSession.setPermissionRequestHandler((_webContents, permission, callback) => {
     const allowed = ['media', 'display-capture', 'mediaKeySystem', 'notifications']
@@ -248,8 +371,21 @@ app.whenReady().then(() => {
   })
 })
 
+app.on('before-quit', () => {
+  stopBackendServer()
+})
+
+app.on('will-quit', () => {
+  stopBackendServer()
+})
+
 app.on('window-all-closed', () => {
+  stopBackendServer()
   if (process.platform !== 'darwin') {
     app.quit()
   }
+})
+
+process.on('exit', () => {
+  stopBackendServer()
 })

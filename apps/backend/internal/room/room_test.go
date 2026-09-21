@@ -6,33 +6,42 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
-	"regexp"
 	"testing"
 	"time"
 
 	"github.com/screenshare/classroom/internal/auth"
 )
 
-func TestNewSlugFormat(t *testing.T) {
-	slugPattern := regexp.MustCompile(`^[a-z]+-[a-z]+-\d{4}$`)
-	for i := 0; i < 20; i++ {
-		slug := newSlug()
-		if !slugPattern.MatchString(slug) {
-			t.Errorf("slug %q did not match expected pattern palabra-palabra-0000", slug)
+func TestSlugify(t *testing.T) {
+	cases := []struct {
+		input    string
+		expected string
+	}{
+		{"Matemática Básica", "matematica-basica"},
+		{"Algoritmos - Turma 04", "algoritmos-turma-04"},
+		{"Prof. João Silva", "prof-joao-silva"},
+		{"Aulas & Exercícios @ 2026!", "aulas-exercicios-2026"},
+		{"", ""},
+	}
+
+	for _, c := range cases {
+		got := slugify(c.input)
+		if got != c.expected {
+			t.Errorf("slugify(%q) = %q; want %q", c.input, got, c.expected)
 		}
 	}
 }
 
 func TestBuildLink(t *testing.T) {
-	link := buildLink("http://localhost:3000", "alpha-bravo-1234")
-	expected := "http://localhost:3000/sala/alpha-bravo-1234/entrar"
+	link := buildLink("http://localhost:5173", "algoritmos-turma-04/professor")
+	expected := "http://localhost:5173/algoritmos-turma-04/professor/entrar"
 	if link != expected {
 		t.Errorf("expected %q, got %q", expected, link)
 	}
 
 	// Test trailing slash removal
-	link2 := buildLink("https://screenshare.edu.br/", "delta-echo-5678")
-	expected2 := "https://screenshare.edu.br/sala/delta-echo-5678/entrar"
+	link2 := buildLink("https://mlab.edu.br/", "matematica/prof-carlos")
+	expected2 := "https://mlab.edu.br/matematica/prof-carlos/entrar"
 	if link2 != expected2 {
 		t.Errorf("expected %q, got %q", expected2, link2)
 	}
@@ -48,13 +57,13 @@ func TestRoomLifecycle(t *testing.T) {
 	handler.RegisterRoutes(mux)
 	handler.RegisterProtectedRoutes(mux, auth.Middleware)
 
-	profToken, _, err := auth.SignProfessorToken("prof-owner", "prof@test.com")
+	profToken, _, err := auth.SignProfessorToken("prof-owner", "prof@test.com", "Professor Silva")
 	if err != nil {
 		t.Fatalf("failed to sign professor token: %v", err)
 	}
 
 	// 1. Create Room (POST /rooms)
-	createReqBody := []byte(`{"max_participants": 2}`)
+	createReqBody := []byte(`{"title": "Turma Alpha", "max_participants": 2}`)
 	req := httptest.NewRequest("POST", "/rooms", bytes.NewReader(createReqBody))
 	req.Header.Set("Authorization", "Bearer "+profToken)
 	rec := httptest.NewRecorder()
@@ -68,8 +77,9 @@ func TestRoomLifecycle(t *testing.T) {
 	if err := json.NewDecoder(rec.Body).Decode(&createResp); err != nil {
 		t.Fatalf("failed to decode CreateRoomResponse: %v", err)
 	}
-	if createResp.RoomID == "" || createResp.Slug == "" {
-		t.Fatalf("expected non-empty RoomID and Slug")
+	expectedSlug := "turma-alpha/professor-silva"
+	if createResp.RoomID == "" || createResp.Slug != expectedSlug {
+		t.Fatalf("expected Slug %q, got %q", expectedSlug, createResp.Slug)
 	}
 	if createResp.Status != StatusWaiting {
 		t.Errorf("expected status 'waiting', got %s", createResp.Status)
@@ -92,9 +102,9 @@ func TestRoomLifecycle(t *testing.T) {
 		t.Error("expected non-empty link in LinkResponse")
 	}
 
-	// 3. Student 1 Joins (POST /rooms/{roomId}/join)
+	// 3. Student 1 Joins via composite path (POST /rooms/turma-alpha/professor-silva/join)
 	joinBody := []byte(`{"name": "Aluno 1", "student_id": "RA-101"}`)
-	joinReq := httptest.NewRequest("POST", "/rooms/"+roomID+"/join", bytes.NewReader(joinBody))
+	joinReq := httptest.NewRequest("POST", "/rooms/turma-alpha/professor-silva/join", bytes.NewReader(joinBody))
 	joinRec := httptest.NewRecorder()
 	mux.ServeHTTP(joinRec, joinReq)
 
@@ -184,7 +194,9 @@ func TestJoinRoomBySlug(t *testing.T) {
 	// Cria sala diretamente no store
 	targetRoom := &Room{
 		ID:              "canon-room-uuid-123",
-		Slug:            "uniform-lima-4770",
+		Slug:            "uniform-lima-4770/prof-1",
+		RoomSlug:        "uniform-lima-4770",
+		ProfessorSlug:   "prof-1",
 		OwnerID:         "prof-1",
 		Status:          StatusWaiting,
 		MaxParticipants: 50,
@@ -194,9 +206,9 @@ func TestJoinRoomBySlug(t *testing.T) {
 		t.Fatalf("falha ao criar sala: %v", err)
 	}
 
-	// Aluno ingressa usando o SLUG na URL
+	// Aluno ingressa usando o SLUG na URL composta
 	joinBody := []byte(`{"name": "Mateus de Araujo", "student_id": "2025116tads0039"}`)
-	req := httptest.NewRequest("POST", "/rooms/uniform-lima-4770/join", bytes.NewReader(joinBody))
+	req := httptest.NewRequest("POST", "/rooms/uniform-lima-4770/prof-1/join", bytes.NewReader(joinBody))
 	rec := httptest.NewRecorder()
 	mux.ServeHTTP(rec, req)
 
@@ -274,16 +286,17 @@ func TestCreateRoomFixedSlug(t *testing.T) {
 		t.Fatalf("decode err: %v", err)
 	}
 
-	if resp.Slug != "professor" {
-		t.Errorf("esperava slug fixo 'professor', obteve %q", resp.Slug)
+	expectedSlug := "matematica/professor"
+	if resp.Slug != expectedSlug {
+		t.Errorf("esperava slug %q, obteve %q", expectedSlug, resp.Slug)
 	}
-	expectedLink := "http://localhost:3000/sala/professor/entrar"
+	expectedLink := "http://localhost:3000/matematica/professor/entrar"
 	if resp.Link != expectedLink {
 		t.Errorf("esperava Link %q, obteve %q", expectedLink, resp.Link)
 	}
 
 	// 2. Cria novamente com o mesmo professor -> deve reutilizar o mesmo slug e ID
-	req2 := httptest.NewRequest("POST", "/rooms", bytes.NewReader([]byte(`{"title":"Matemática 2"}`)))
+	req2 := httptest.NewRequest("POST", "/rooms", bytes.NewReader([]byte(`{"title":"Matemática"}`)))
 	req2.Header.Set("Authorization", "Bearer "+profToken)
 	rec2 := httptest.NewRecorder()
 	mux.ServeHTTP(rec2, req2)
@@ -300,8 +313,8 @@ func TestCreateRoomFixedSlug(t *testing.T) {
 	if resp2.RoomID != resp.RoomID {
 		t.Errorf("esperava reuso do RoomID %q, obteve %q", resp.RoomID, resp2.RoomID)
 	}
-	if resp2.Slug != "professor" {
-		t.Errorf("esperava reuso do slug 'professor', obteve %q", resp2.Slug)
+	if resp2.Slug != expectedSlug {
+		t.Errorf("esperava reuso do slug %q, obteve %q", expectedSlug, resp2.Slug)
 	}
 }
 
@@ -334,7 +347,7 @@ func TestCreateRoomNgrok(t *testing.T) {
 		t.Fatalf("decode err: %v", err)
 	}
 
-	expectedLink := "https://mlab-live.ngrok-free.app/sala/professor-silva/entrar"
+	expectedLink := "https://mlab-live.ngrok-free.app/matematica/professor-silva/entrar"
 	if resp.Link != expectedLink {
 		t.Errorf("esperava Link com ngrok %q, obteve %q", expectedLink, resp.Link)
 	}

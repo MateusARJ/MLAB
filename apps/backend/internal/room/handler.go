@@ -22,6 +22,13 @@ type Handler struct {
 	baseURL string // ex: https://screenshare.example.com
 }
 
+func getWebPort() string {
+	if p := os.Getenv("WEB_PORT"); p != "" {
+		return p
+	}
+	return "5173"
+}
+
 // NewHandler cria um Handler com o store e a URL base fornecidos.
 func NewHandler(store Store) *Handler {
 	base := os.Getenv("NGROK_URL")
@@ -32,11 +39,12 @@ func NewHandler(store Store) *Handler {
 		base = os.Getenv("BASE_URL")
 	}
 	if base == "" {
+		webPort := getWebPort()
 		ip := getOutboundIP()
 		if ip != "" && ip != "localhost" && ip != "127.0.0.1" {
-			base = fmt.Sprintf("http://%s:3000", ip)
+			base = fmt.Sprintf("http://%s:%s", ip, webPort)
 		} else {
-			base = "http://localhost:3000"
+			base = fmt.Sprintf("http://localhost:%s", webPort)
 		}
 	}
 	return &Handler{store: store, baseURL: base}
@@ -67,6 +75,7 @@ func (h *Handler) resolveBaseURL(r *http.Request) string {
 	if base := os.Getenv("BASE_URL"); base != "" {
 		return strings.TrimRight(base, "/")
 	}
+	webPort := getWebPort()
 	if r != nil && r.Host != "" && !strings.HasPrefix(r.Host, "localhost") && !strings.HasPrefix(r.Host, "127.0.0.1") {
 		hostOnly := r.Host
 		if idx := strings.Index(hostOnly, ":"); idx != -1 {
@@ -76,13 +85,13 @@ func (h *Handler) resolveBaseURL(r *http.Request) string {
 		if r.TLS != nil || r.Header.Get("X-Forwarded-Proto") == "https" {
 			proto = "https"
 		}
-		return fmt.Sprintf("%s://%s:3000", proto, hostOnly)
+		return fmt.Sprintf("%s://%s:%s", proto, hostOnly, webPort)
 	}
 	ip := getOutboundIP()
 	if ip != "" && ip != "127.0.0.1" && ip != "localhost" {
-		return fmt.Sprintf("http://%s:3000", ip)
+		return fmt.Sprintf("http://%s:%s", ip, webPort)
 	}
-	return "http://localhost:3000"
+	return fmt.Sprintf("http://localhost:%s", webPort)
 }
 
 // resolveWsURL resolve a URL do WebSocket para sinalização com base no host requisitado ou variáveis de ambiente.
@@ -119,6 +128,7 @@ func (h *Handler) resolveWsURL(r *http.Request, roomID string) string {
 // RegisterRoutes registra os endpoints públicos (sem JWT).
 func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	// Pública — aluno entra com nome + matrícula, sem JWT prévio.
+	mux.HandleFunc("POST /rooms/{roomName}/{profName}/join", h.joinRoomByPath)
 	mux.HandleFunc("POST /rooms/{roomId}/join", h.joinRoom)
 }
 
@@ -150,15 +160,40 @@ func (h *Handler) createRoom(w http.ResponseWriter, r *http.Request) {
 
 	professorID := auth.ClaimSub(claims)
 
-	// Gera slug fixo baseado no login/email do professor (ex: professor@screenshare.local -> "professor")
-	email, _ := claims["email"].(string)
-	slug := slugFromEmail(email)
+	// Extrai e normaliza o título da sala (ex: "Algoritmos - Turma 04" -> "algoritmos-turma-04")
+	req.Title = strings.TrimSpace(req.Title)
+	roomSlug := slugify(req.Title)
+	if roomSlug == "" {
+		roomSlug = "sala"
+	}
 
-	// Se o professor já possui uma sala criada, reutiliza o slug fixo e reativa a sala
+	// Extrai e normaliza o nome do professor (request > claims["name"] > claims["email"])
+	profName := strings.TrimSpace(req.ProfessorName)
+	if profName == "" {
+		if nameClaim, ok := claims["name"].(string); ok && strings.TrimSpace(nameClaim) != "" {
+			profName = strings.TrimSpace(nameClaim)
+		} else if emailClaim, ok := claims["email"].(string); ok && strings.TrimSpace(emailClaim) != "" {
+			profName = slugFromEmail(emailClaim)
+		}
+	}
+	profSlug := slugify(profName)
+	if profSlug == "" {
+		profSlug = "professor"
+	}
+
+	// Slug composto no padrão: <nome-da-sala>/<nome-do-professor>
+	slug := fmt.Sprintf("%s/%s", roomSlug, profSlug)
+
+	// Se o professor já possui uma sala criada, reutiliza o registro, atualiza títulos e reativa a sala
 	var room *Room
 	existing, err := h.store.GetRoomByOwnerID(r.Context(), professorID)
 	if err == nil && existing != nil {
 		room = existing
+		room.Title = req.Title
+		room.ProfessorName = profName
+		room.RoomSlug = roomSlug
+		room.ProfessorSlug = profSlug
+		room.Slug = slug
 		room.Status = StatusWaiting
 		room.ClosedAt = nil
 		_ = h.store.UpdateRoomStatus(r.Context(), room.ID, StatusWaiting, nil)
@@ -166,6 +201,10 @@ func (h *Handler) createRoom(w http.ResponseWriter, r *http.Request) {
 		room = &Room{
 			ID:              newID(),
 			Slug:            slug,
+			Title:           req.Title,
+			ProfessorName:   profName,
+			RoomSlug:        roomSlug,
+			ProfessorSlug:   profSlug,
 			OwnerID:         professorID,
 			Status:          StatusWaiting,
 			MaxParticipants: req.MaxParticipants,
@@ -222,11 +261,21 @@ func (h *Handler) getLink(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-// ── POST /rooms/{roomId}/join ─────────────────────────────────────────────────
+// ── POST /rooms/{roomName}/{profName}/join & POST /rooms/{roomId}/join ────────
+
+func (h *Handler) joinRoomByPath(w http.ResponseWriter, r *http.Request) {
+	roomName := r.PathValue("roomName")
+	profName := r.PathValue("profName")
+	compositeSlug := fmt.Sprintf("%s/%s", roomName, profName)
+	h.handleJoin(w, r, compositeSlug)
+}
 
 func (h *Handler) joinRoom(w http.ResponseWriter, r *http.Request) {
 	roomID := r.PathValue("roomId")
+	h.handleJoin(w, r, roomID)
+}
 
+func (h *Handler) handleJoin(w http.ResponseWriter, r *http.Request, identifier string) {
 	var req JoinRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		writeError(w, http.StatusBadRequest, "corpo da requisição inválido")
@@ -241,10 +290,10 @@ func (h *Handler) joinRoom(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// 1. Tenta buscar por ID (UUID); se não encontrar, busca por Slug (usado no link público de convite)
-	room, err := h.store.GetRoomByID(r.Context(), roomID)
+	room, err := h.store.GetRoomByID(r.Context(), identifier)
 	if err != nil {
 		if errors.Is(err, ErrRoomNotFound) {
-			room, err = h.store.GetRoomBySlug(r.Context(), roomID)
+			room, err = h.store.GetRoomBySlug(r.Context(), identifier)
 		}
 		if err != nil {
 			if errors.Is(err, ErrRoomNotFound) {

@@ -1,4 +1,4 @@
-import { JoinRoomRequest, JoinRoomResponse } from '@screenshare/types';
+import { JoinRoomRequest, JoinRoomResponse } from '@mlab/types';
 
 function getApiBaseUrl(): string {
   if (typeof import.meta !== 'undefined' && import.meta.env && import.meta.env.VITE_API_BASE_URL) {

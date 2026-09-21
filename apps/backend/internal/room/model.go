@@ -15,12 +15,16 @@ const (
 
 // Room representa uma sala de transmissão.
 type Room struct {
-	ID              string    `json:"room_id"`
-	Slug            string    `json:"slug"`
-	OwnerID         string    `json:"owner_id"`
-	Status          Status    `json:"status"`
-	MaxParticipants int       `json:"max_participants"`
-	CreatedAt       time.Time `json:"created_at"`
+	ID              string     `json:"room_id"`
+	Slug            string     `json:"slug"`
+	Title           string     `json:"title,omitempty"`
+	ProfessorName   string     `json:"professor_name,omitempty"`
+	RoomSlug        string     `json:"room_slug,omitempty"`
+	ProfessorSlug   string     `json:"professor_slug,omitempty"`
+	OwnerID         string     `json:"owner_id"`
+	Status          Status     `json:"status"`
+	MaxParticipants int        `json:"max_participants"`
+	CreatedAt       time.Time  `json:"created_at"`
 	ClosedAt        *time.Time `json:"closed_at,omitempty"`
 }
 
@@ -37,7 +41,9 @@ type Participant struct {
 
 // CreateRoomRequest é o payload de POST /rooms.
 type CreateRoomRequest struct {
-	MaxParticipants int `json:"max_participants"`
+	Title           string `json:"title,omitempty"`
+	ProfessorName   string `json:"professor_name,omitempty"`
+	MaxParticipants int    `json:"max_participants"`
 }
 
 // CreateRoomResponse é a resposta de POST /rooms (201).

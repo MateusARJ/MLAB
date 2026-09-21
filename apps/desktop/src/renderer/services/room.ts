@@ -1,17 +1,18 @@
-import { CreateRoomResponse, RoomLinkResponse } from '@screenshare/types';
+import { CreateRoomResponse, RoomLinkResponse } from '@mlab/types';
 import { getStoredToken } from './auth';
 
 const API_BASE_URL = 'http://localhost:8080';
 
-export async function createRoom(title: string): Promise<CreateRoomResponse> {
+export async function createRoom(title: string, professorName?: string): Promise<CreateRoomResponse> {
   const token = getStoredToken();
+  const profName = professorName || (typeof sessionStorage !== 'undefined' ? sessionStorage.getItem('professor_name') : null) || undefined;
   const response = await fetch(`${API_BASE_URL}/rooms`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
       'Authorization': `Bearer ${token}`,
     },
-    body: JSON.stringify({ title }),
+    body: JSON.stringify({ title, professor_name: profName }),
   });
 
   if (!response.ok) {

@@ -15,6 +15,7 @@ const (
 type Professor struct {
 	ID           string    `json:"id"`
 	Email        string    `json:"email"`
+	Name         string    `json:"name,omitempty"`
 	PasswordHash string    `json:"-"`
 	CreatedAt    time.Time `json:"created_at"`
 }
@@ -29,12 +30,14 @@ type LoginRequest struct {
 type LoginResponse struct {
 	Token     string `json:"token"`
 	ExpiresAt string `json:"expires_at"` // ISO 8601
+	Name      string `json:"name,omitempty"`
 }
 
 // Claims são os dados embutidos no JWT do professor.
 type Claims struct {
 	Role  string `json:"role"`
 	Email string `json:"email"`
+	Name  string `json:"name,omitempty"`
 }
 
 // StudentClaims são os dados embutidos no JWT do aluno.
