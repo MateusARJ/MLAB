@@ -257,11 +257,23 @@ function getBackendExecutablePath(): string | null {
 }
 
 async function startBackendServer(): Promise<void> {
-  // Se o monorepo estiver executando o backend via Turborepo (@mlab/backend com go run),
-  // o Electron não dispara server.exe para evitar conflito de bind na porta 8080.
+  // Camada 1: Flag explícita do monorepo (propagada via turbo.json globalPassThroughEnv)
   if (process.env.MLAB_DEV_MONOREPO === '1') {
-    console.log('[Backend] Ambiente Turborepo detectado: backend gerenciado externamente pelo @mlab/backend.')
+    console.log('[Backend] Ambiente Turborepo detectado (env): backend gerenciado externamente pelo @mlab/backend.')
     return
+  }
+
+  // Camada 2: Detecção por filesystem — se não empacotado E rodando sob electron-vite dev,
+  // verificamos se turbo.json existe na raiz do monorepo. Se sim, o @mlab/backend já cuida do servidor.
+  if (!app.isPackaged && process.env['ELECTRON_RENDERER_URL']) {
+    try {
+      const monorepoRoot = join(__dirname, '../../../../')
+      const turboPath = join(monorepoRoot, 'turbo.json')
+      if (existsSync(turboPath)) {
+        console.log('[Backend] Ambiente de desenvolvimento monorepo detectado (turbo.json): backend gerenciado externamente.')
+        return
+      }
+    } catch {}
   }
 
   const inUse = await isPortInUse(8080)

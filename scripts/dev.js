@@ -31,7 +31,10 @@ cleanupPort(5174);
 process.env.MLAB_DEV_MONOREPO = '1';
 
 console.log('[MLab Dev] Iniciando Turborepo em modo de desenvolvimento...');
-const child = spawn('npx', ['turbo', 'run', 'dev', '--concurrency=10'], {
+
+// No Node v24+, spawn com shell:true e args separados dispara DEP0190.
+// Passando o comando completo como string única (sem args array) evita o warning.
+const child = spawn('npx turbo run dev --concurrency=10', {
   stdio: 'inherit',
   shell: true,
   env: {
