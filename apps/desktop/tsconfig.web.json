@@ -16,7 +16,7 @@
     "baseUrl": ".",
     "paths": {
       "@renderer/*": ["src/renderer/*"],
-      "@screenshare/types": ["../../packages/types/src/index.ts"]
+      "@mlab/types": ["../../packages/types/src/index.ts"]
     }
   },
   "include": ["src/renderer/**/*"]

@@ -1,6 +1,6 @@
 {
-  "name": "@screenshare/ui",
-  "version": "0.0.1",
+  "name": "@mlab/ui",
+  "version": "1.3.5",
   "private": true,
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",

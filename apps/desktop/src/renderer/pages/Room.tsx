@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
-import type { CaptureSource, CaptureSourceType } from '@screenshare/types';
+import type { CaptureSource, CaptureSourceType } from '@mlab/types';
 import { useScreenCapture } from '../hooks/useScreenCapture';
 import { useLocalRecorder } from '../hooks/useLocalRecorder';
 import { useWebRTCPublisher } from '../hooks/useWebRTCPublisher';

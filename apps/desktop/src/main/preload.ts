@@ -1,5 +1,5 @@
 import { contextBridge, ipcRenderer, clipboard } from 'electron'
-import type { CaptureSource, CaptureSourceType, RecordingFormat } from '@screenshare/types'
+import type { CaptureSource, CaptureSourceType, RecordingFormat } from '@mlab/types'
 
 /**
  * Preload script — expõe APIs do Electron ao renderer de forma segura.

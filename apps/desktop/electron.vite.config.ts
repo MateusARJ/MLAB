@@ -25,7 +25,7 @@ export default defineConfig({
     resolve: {
       alias: {
         '@renderer': resolve(__dirname, 'src/renderer'),
-        '@screenshare/types': resolve(__dirname, '../../packages/types/src/index.ts')
+        '@mlab/types': resolve(__dirname, '../../packages/types/src/index.ts')
       }
     },
     build: {

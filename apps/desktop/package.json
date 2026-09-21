@@ -1,6 +1,8 @@
 {
-  "name": "@screenshare/desktop",
-  "version": "0.0.1",
+  "name": "@mlab/desktop",
+  "version": "1.3.5",
+  "description": "MLab - App Desktop do Professor",
+  "author": "MLab",
   "private": true,
   "main": "out/main/main.js",
   "scripts": {
@@ -14,7 +16,7 @@
     "clean": "rm -rf out dist"
   },
   "dependencies": {
-    "@screenshare/types": "*"
+    "@mlab/types": "*"
   },
   "devDependencies": {
     "@testing-library/jest-dom": "^6.4.8",
@@ -36,6 +38,7 @@
   "build": {
     "appId": "com.mlab.classroom",
     "productName": "MLab",
+    "electronVersion": "31.7.7",
     "copyright": "Copyright © 2024 MLab",
     "directories": {
       "output": "dist"
@@ -43,16 +46,36 @@
     "files": [
       "out/**/*"
     ],
+    "extraResources": [
+      {
+        "from": "../backend/bin/server.exe",
+        "to": "bin/server.exe"
+      }
+    ],
     "win": {
       "target": "nsis",
       "icon": "resources/icon-dark.ico"
     },
+    "nsis": {
+      "oneClick": true,
+      "perMachine": false,
+      "shortcutName": "MLab",
+      "uninstallDisplayName": "MLab"
+    },
     "mac": {
-      "target": "dmg",
+      "target": [
+        "dmg",
+        "zip"
+      ],
+      "category": "public.app-category.education",
       "icon": "resources/icon-dark.png"
     },
     "linux": {
-      "target": "AppImage",
+      "target": [
+        "AppImage",
+        "deb"
+      ],
+      "category": "Education",
       "icon": "resources/icon-dark.png"
     }
   }

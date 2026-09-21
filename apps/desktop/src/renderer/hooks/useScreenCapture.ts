@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import type { CaptureSource, CaptureSourceType } from '@screenshare/types';
+import type { CaptureSource, CaptureSourceType } from '@mlab/types';
 
 export type Source = CaptureSource;
 

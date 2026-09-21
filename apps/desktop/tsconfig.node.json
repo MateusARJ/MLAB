@@ -15,7 +15,7 @@
     "types": ["node"],
     "baseUrl": ".",
     "paths": {
-      "@screenshare/types": ["../../packages/types/src/index.ts"]
+      "@mlab/types": ["../../packages/types/src/index.ts"]
     }
   },
   "include": ["src/main/**/*", "electron.vite.config.ts"]

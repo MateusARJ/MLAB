@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
-import type { RecordingFormat, RecordingStatus } from '@screenshare/types';
+import type { RecordingFormat, RecordingStatus } from '@mlab/types';
 import { fixWebmDuration } from '../utils/webmFixer';
 
 export interface UseLocalRecorderOptions {
