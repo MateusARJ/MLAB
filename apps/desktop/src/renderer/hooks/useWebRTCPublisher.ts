@@ -46,6 +46,8 @@ export function useWebRTCPublisher({
     'idle' | 'connecting' | 'connected' | 'reconnecting' | 'failed' | 'closed'
   >('idle');
   const [error, setError] = useState<string | null>(null);
+  const [messages, setMessages] = useState<any[]>([]);
+  const [participants, setParticipants] = useState<any[]>([]);
 
   const pcRef = useRef<RTCPeerConnection | null>(null);
   const wsRef = useRef<WebSocket | null>(null);
@@ -224,6 +226,12 @@ export function useWebRTCPublisher({
             if (msg.payload && msg.payload.ice_servers) {
               pc.setConfiguration({ iceServers: msg.payload.ice_servers });
             }
+          } else if (msg.type === 'chat-message') {
+            setMessages((prev) => [...prev, msg.payload]);
+          } else if (msg.type === 'participants-update') {
+            if (msg.payload && Array.isArray(msg.payload.participants)) {
+              setParticipants(msg.payload.participants);
+            }
           } else if (msg.type === 'error') {
             setError(msg.payload.message || 'Erro de sinalização.');
           }
@@ -342,10 +350,36 @@ export function useWebRTCPublisher({
     };
   }, [stopPublishing]);
 
+  const sendChatMessage = useCallback((content: string, isPrivate: boolean = false, targetId?: string) => {
+    if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+      wsRef.current.send(
+        JSON.stringify({
+          type: 'chat-message',
+          payload: { content, is_private: isPrivate, target_id: targetId },
+        })
+      );
+    }
+  }, []);
+
+  const sendStreamPause = useCallback((paused: boolean) => {
+    if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+      wsRef.current.send(
+        JSON.stringify({
+          type: 'stream-pause',
+          payload: { paused },
+        })
+      );
+    }
+  }, []);
+
   return {
     isPublishing,
     connectionState,
     error,
+    messages,
+    participants,
+    sendChatMessage,
+    sendStreamPause,
     startPublishing,
     changeStream,
     stopPublishing,

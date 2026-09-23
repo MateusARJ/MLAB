@@ -7,13 +7,23 @@ interface RoomProps {
   onLeave: (reason?: string) => void;
 }
 
+function formatFileSize(bytes: number): string {
+  if (!bytes || bytes === 0) return '0 B';
+  const k = 1024;
+  const sizes = ['B', 'KB', 'MB', 'GB'];
+  const i = Math.floor(Math.log(bytes) / Math.log(k));
+  return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
+}
+
 export const Room: React.FC<RoomProps> = ({ token, roomInfo, onLeave }) => {
   const {
     stream,
     autoplayBlocked,
     setAutoplayBlocked,
     connectionStatus,
-    messages,
+    isStreamPaused = false,
+    sharedFiles = [],
+    messages = [],
     sendChatMessage,
   } = useWebRTCSubscriber(token, roomInfo);
 
@@ -27,6 +37,9 @@ export const Room: React.FC<RoomProps> = ({ token, roomInfo, onLeave }) => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const [chatInput, setChatInput] = useState('');
+  const [isPrivateChat, setIsPrivateChat] = useState<boolean>(false);
+  const [isVideoHovered, setIsVideoHovered] = useState<boolean>(false);
+  const [isFilesOpen, setIsFilesOpen] = useState<boolean>(false);
 
   const [isMobile, setIsMobile] = useState<boolean>(() => {
     if (typeof window !== 'undefined') {
@@ -186,7 +199,7 @@ export const Room: React.FC<RoomProps> = ({ token, roomInfo, onLeave }) => {
   const handleSendChat = (e: React.FormEvent) => {
     e.preventDefault();
     if (!chatInput.trim()) return;
-    sendChatMessage(chatInput);
+    sendChatMessage(chatInput.trim(), isPrivateChat);
     setChatInput('');
   };
 
@@ -199,6 +212,23 @@ export const Room: React.FC<RoomProps> = ({ token, roomInfo, onLeave }) => {
         </div>
         <div style={styles.statusBox}>
           <span style={styles.statusLabel}>Status: {connectionStatus}</span>
+
+          {/* Botão de Arquivos da Aula */}
+          <button
+            onClick={() => setIsFilesOpen((prev) => !prev)}
+            style={{
+              ...styles.headerBtn,
+              ...(isFilesOpen ? styles.headerBtnActive : {}),
+            }}
+            title="Arquivos da Aula"
+          >
+            📁 Arquivos da aula
+            {sharedFiles.length > 0 && (
+              <span style={styles.filesBadge}>{sharedFiles.length}</span>
+            )}
+          </button>
+
+          {/* Botão de Chat no Header */}
           <button
             onClick={handleToggleChat}
             style={{
@@ -212,7 +242,7 @@ export const Room: React.FC<RoomProps> = ({ token, roomInfo, onLeave }) => {
               <span style={styles.unreadBadge}>{unreadCount > 99 ? '99+' : unreadCount}</span>
             )}
           </button>
-          <button onClick={onLeave} style={styles.leaveBtn}>Sair</button>
+          <button onClick={() => onLeave()} style={styles.leaveBtn}>Sair</button>
         </div>
       </header>
 
@@ -227,34 +257,65 @@ export const Room: React.FC<RoomProps> = ({ token, roomInfo, onLeave }) => {
       )}
 
       <main style={styles.mainLayout}>
-        <div style={styles.videoSection}>
-          <div style={{ ...styles.videoWrapper, display: stream ? 'flex' : 'none' }}>
-            <video
-              ref={videoRef}
-              autoPlay
-              playsInline
-              muted={autoplayBlocked}
-              style={styles.video}
-            />
-            <div style={styles.videoOverlayControls}>
-              {!isChatOpen && (
-                <button
-                  onClick={handleToggleChat}
-                  style={styles.floatingChatBtn}
-                  title="Abrir Chat"
-                >
-                  💬 Chat
-                  {unreadCount > 0 && (
-                    <span style={styles.unreadBadgeSmall}>{unreadCount}</span>
-                  )}
-                </button>
-              )}
-              <button onClick={handleToggleFullscreen} style={styles.overlayBtn}>Tela Cheia</button>
-              <button onClick={handleTogglePiP} style={styles.overlayBtn}>Picture-in-Picture</button>
+        <div
+          style={styles.videoSection}
+          onMouseEnter={() => setIsVideoHovered(true)}
+          onMouseLeave={() => setIsVideoHovered(false)}
+        >
+          {/* Tela de Espera quando a aula for pausada pelo professor */}
+          {isStreamPaused ? (
+            <div style={styles.pausedScreen}>
+              <div style={styles.pausedIconWrapper}>
+                <span style={styles.pausedIcon}>⏸️</span>
+              </div>
+              <h3 style={styles.pausedTitle}>Aula Pausada pelo Professor</h3>
+              <p style={styles.pausedSub}>
+                A transmissão foi pausada momentaneamente. A aula retornará em instantes...
+              </p>
             </div>
-          </div>
-
-          {!stream && (
+          ) : stream ? (
+            <div style={styles.videoWrapper}>
+              <video
+                ref={videoRef}
+                autoPlay
+                playsInline
+                muted={autoplayBlocked}
+                style={styles.video}
+              />
+              {/* Controles sobre o vídeo com hover transparente */}
+              <div style={styles.videoOverlayControls}>
+                <button
+                  onClick={handleToggleFullscreen}
+                  style={{
+                    ...styles.minimalOverlayBtn,
+                    opacity: isVideoHovered ? 1 : 0,
+                    pointerEvents: isVideoHovered ? 'auto' : 'none',
+                  }}
+                  title="Tela Cheia"
+                  aria-label="Tela Cheia"
+                >
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3" />
+                  </svg>
+                </button>
+                <button
+                  onClick={handleTogglePiP}
+                  style={{
+                    ...styles.minimalOverlayBtn,
+                    opacity: isVideoHovered ? 1 : 0,
+                    pointerEvents: isVideoHovered ? 'auto' : 'none',
+                  }}
+                  title="Picture-in-Picture"
+                  aria-label="Picture-in-Picture"
+                >
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <rect x="2" y="3" width="20" height="14" rx="2" />
+                    <rect x="12" y="9" width="8" height="6" rx="1" fill="currentColor" fillOpacity="0.4" />
+                  </svg>
+                </button>
+              </div>
+            </div>
+          ) : (
             <div style={styles.waitingStateBox}>
               <h3 style={styles.waitingTitle}>Aguardando o professor iniciar a transmissão...</h3>
               <p style={styles.waitingSub}>Você receberá o vídeo e áudio automaticamente assim que a aula começar.</p>
@@ -273,6 +334,48 @@ export const Room: React.FC<RoomProps> = ({ token, roomInfo, onLeave }) => {
           )}
         </div>
 
+        {/* Modal/Gaveta de Arquivos da Aula */}
+        {isFilesOpen && (
+          <div style={styles.filesDrawer}>
+            <div style={styles.drawerHeader}>
+              <span style={styles.drawerTitle}>📁 Arquivos da Aula ({sharedFiles.length})</span>
+              <button
+                onClick={() => setIsFilesOpen(false)}
+                style={styles.closeDrawerBtn}
+                title="Fechar Arquivos"
+              >
+                ✕
+              </button>
+            </div>
+            <div style={styles.filesList}>
+              {sharedFiles.length === 0 ? (
+                <div style={styles.noFilesBox}>
+                  <p style={styles.noFilesText}>Nenhum arquivo compartilhado pelo professor até o momento.</p>
+                </div>
+              ) : (
+                sharedFiles.map((file, idx) => (
+                  <div key={file.id || idx} style={styles.fileItemCard}>
+                    <div style={styles.fileIconBox}>📄</div>
+                    <div style={styles.fileMeta}>
+                      <span style={styles.fileName} title={file.name}>{file.name}</span>
+                      <span style={styles.fileSize}>{formatFileSize(file.size)}</span>
+                    </div>
+                    <a
+                      href={file.url}
+                      download={file.name}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      style={styles.downloadBtn}
+                    >
+                      ⬇ Baixar
+                    </a>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+        )}
+
         {/* Backdrop para mobile quando a gaveta de chat estiver aberta */}
         {isMobile && isChatOpen && (
           <div style={styles.mobileBackdrop} onClick={handleToggleChat} />
@@ -289,8 +392,8 @@ export const Room: React.FC<RoomProps> = ({ token, roomInfo, onLeave }) => {
                 }
               : {
                   ...styles.chatSectionDesktop,
-                  width: isChatOpen ? '320px' : '0px',
-                  minWidth: isChatOpen ? '320px' : '0px',
+                  width: isChatOpen ? '340px' : '0px',
+                  minWidth: isChatOpen ? '340px' : '0px',
                   opacity: isChatOpen ? 1 : 0,
                   borderLeft: isChatOpen ? '1px solid #334155' : 'none',
                   pointerEvents: isChatOpen ? 'auto' : 'none',
@@ -308,25 +411,67 @@ export const Room: React.FC<RoomProps> = ({ token, roomInfo, onLeave }) => {
             </button>
           </div>
           <div style={styles.messagesList}>
-            {messages.map((m, idx) => (
-              <div key={idx} style={styles.messageCard}>
-                <span style={styles.senderInfo}>
-                  {m.sender_name} <small style={styles.roleBadge}>[{m.sender_role}]</small>
-                </span>
-                <p style={styles.msgContent}>{m.content}</p>
-              </div>
-            ))}
+            {messages.map((m, idx) => {
+              const isSenderStudent = m.role === 'aluno' || m.sender_role === 'aluno';
+              const displayName = m.name || m.sender_name || 'Participante';
+              const studentMatricula = m.student_id ? `(${m.student_id})` : '';
+              const isPrivate = !!m.is_private;
+
+              return (
+                <div
+                  key={m.message_id || idx}
+                  style={{
+                    ...styles.messageCard,
+                    ...(isPrivate ? styles.privateMessageCard : {}),
+                  }}
+                >
+                  <div style={styles.senderHeader}>
+                    <span style={styles.senderInfo}>
+                      {displayName}{' '}
+                      {studentMatricula && (
+                        <span style={styles.studentIdBadge}>{studentMatricula}</span>
+                      )}
+                      <small style={styles.roleBadge}>
+                        {' '}[{isSenderStudent ? 'aluno' : 'professor'}]
+                      </small>
+                    </span>
+                    {isPrivate && <span style={styles.privateBadge}>🔒 PRIVADO</span>}
+                  </div>
+                  <p style={styles.msgContent}>{m.content}</p>
+                </div>
+              );
+            })}
           </div>
 
           <form onSubmit={handleSendChat} style={styles.chatForm}>
-            <input
-              type="text"
-              value={chatInput}
-              onChange={(e) => setChatInput(e.target.value)}
-              placeholder="Digite sua mensagem..."
-              style={styles.chatInput}
-            />
-            <button type="submit" style={styles.sendBtn}>Enviar</button>
+            {/* Seletor de Chat Público / Privado para o Professor */}
+            <div style={styles.chatModeSelector}>
+              <button
+                type="button"
+                onClick={() => setIsPrivateChat(false)}
+                style={!isPrivateChat ? styles.modeBtnActive : styles.modeBtn}
+              >
+                🌐 Todos (Público)
+              </button>
+              <button
+                type="button"
+                onClick={() => setIsPrivateChat(true)}
+                style={isPrivateChat ? styles.modeBtnPrivateActive : styles.modeBtn}
+              >
+                🔒 Professor (Privado)
+              </button>
+            </div>
+
+            <div style={styles.chatInputRow}>
+              <input
+                type="text"
+                value={chatInput}
+                onChange={(e) => setChatInput(e.target.value)}
+                placeholder={isPrivateChat ? 'Mensagem privada ao professor...' : 'Mensagem para todos...'}
+                style={styles.chatInput}
+              />
+              <button type="submit" style={styles.sendBtn}>Enviar</button>
+            </div>
           </form>
         </aside>
       </main>
@@ -347,7 +492,7 @@ const styles: { [key: string]: React.CSSProperties } = {
     display: 'flex',
     justifyContent: 'space-between',
     alignItems: 'center',
-    padding: '14px 24px',
+    padding: '12px 24px',
     backgroundColor: '#1e293b',
     borderBottom: '1px solid #334155',
   },
@@ -370,11 +515,40 @@ const styles: { [key: string]: React.CSSProperties } = {
   statusBox: {
     display: 'flex',
     alignItems: 'center',
-    gap: '16px',
+    gap: '12px',
   },
   statusLabel: {
     fontSize: '13px',
     color: '#94a3b8',
+    marginRight: '4px',
+  },
+  headerBtn: {
+    padding: '8px 14px',
+    borderRadius: '6px',
+    border: '1px solid #475569',
+    backgroundColor: '#334155',
+    color: '#f8fafc',
+    cursor: 'pointer',
+    fontSize: '13px',
+    fontWeight: '600',
+    display: 'flex',
+    alignItems: 'center',
+    gap: '6px',
+    transition: 'background-color 0.2s',
+  },
+  headerBtnActive: {
+    backgroundColor: '#0284c7',
+    borderColor: '#38bdf8',
+    color: '#ffffff',
+  },
+  filesBadge: {
+    backgroundColor: '#38bdf8',
+    color: '#0f172a',
+    fontSize: '11px',
+    fontWeight: '700',
+    padding: '2px 6px',
+    borderRadius: '10px',
+    lineHeight: '1',
   },
   leaveBtn: {
     padding: '8px 16px',
@@ -408,6 +582,7 @@ const styles: { [key: string]: React.CSSProperties } = {
     flex: 1,
     display: 'flex',
     overflow: 'hidden',
+    position: 'relative',
   },
   videoSection: {
     flex: 1,
@@ -438,15 +613,62 @@ const styles: { [key: string]: React.CSSProperties } = {
     right: '20px',
     display: 'flex',
     gap: '10px',
+    zIndex: 10,
   },
-  overlayBtn: {
-    padding: '8px 14px',
-    borderRadius: '6px',
-    border: '1px solid rgba(255, 255, 255, 0.2)',
-    backgroundColor: 'rgba(15, 23, 42, 0.8)',
+  minimalOverlayBtn: {
+    width: '40px',
+    height: '40px',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: '8px',
+    border: '1px solid rgba(255, 255, 255, 0.18)',
+    backgroundColor: 'rgba(15, 23, 42, 0.85)',
     color: '#ffffff',
     cursor: 'pointer',
-    fontSize: '12px',
+    backdropFilter: 'blur(8px)',
+    boxShadow: '0 4px 12px rgba(0, 0, 0, 0.5)',
+    transition: 'opacity 0.25s ease, background-color 0.2s',
+  },
+  pausedScreen: {
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'center',
+    justifyContent: 'center',
+    textAlign: 'center',
+    padding: '40px',
+    backgroundColor: '#0b1120',
+    borderRadius: '16px',
+    border: '1px solid #1e293b',
+    maxWidth: '500px',
+    margin: 'auto',
+    boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.6)',
+  },
+  pausedIconWrapper: {
+    width: '72px',
+    height: '72px',
+    borderRadius: '50%',
+    backgroundColor: 'rgba(251, 191, 36, 0.12)',
+    border: '2px solid rgba(251, 191, 36, 0.4)',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: '18px',
+  },
+  pausedIcon: {
+    fontSize: '32px',
+  },
+  pausedTitle: {
+    fontSize: '22px',
+    fontWeight: '700',
+    color: '#f8fafc',
+    marginBottom: '10px',
+  },
+  pausedSub: {
+    fontSize: '14px',
+    color: '#94a3b8',
+    lineHeight: '1.5',
+    margin: 0,
   },
   waitingStateBox: {
     textAlign: 'center',
@@ -489,29 +711,6 @@ const styles: { [key: string]: React.CSSProperties } = {
     padding: '2px 6px',
     borderRadius: '10px',
     lineHeight: '1',
-  },
-  unreadBadgeSmall: {
-    backgroundColor: '#ef4444',
-    color: '#ffffff',
-    fontSize: '10px',
-    fontWeight: '700',
-    padding: '2px 5px',
-    borderRadius: '8px',
-    lineHeight: '1',
-  },
-  floatingChatBtn: {
-    padding: '8px 14px',
-    borderRadius: '6px',
-    border: '1px solid #38bdf8',
-    backgroundColor: '#0284c7',
-    color: '#ffffff',
-    cursor: 'pointer',
-    fontSize: '12px',
-    fontWeight: '600',
-    display: 'flex',
-    alignItems: 'center',
-    gap: '6px',
-    boxShadow: '0 4px 12px rgba(0,0,0,0.4)',
   },
   waitingChatBtn: {
     marginTop: '16px',
@@ -592,23 +791,94 @@ const styles: { [key: string]: React.CSSProperties } = {
     borderRadius: '8px',
     border: '1px solid #334155',
   },
+  privateMessageCard: {
+    backgroundColor: 'rgba(30, 27, 75, 0.7)',
+    border: '1px solid #818cf8',
+  },
+  senderHeader: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: '4px',
+  },
   senderInfo: {
     fontSize: '12px',
     fontWeight: '600',
     color: '#38bdf8',
   },
+  studentIdBadge: {
+    color: '#e2e8f0',
+    fontWeight: '500',
+    fontSize: '11px',
+    marginLeft: '3px',
+  },
   roleBadge: {
     color: '#94a3b8',
     fontWeight: '400',
   },
+  privateBadge: {
+    fontSize: '10px',
+    fontWeight: '700',
+    color: '#a5b4fc',
+    backgroundColor: 'rgba(99, 102, 241, 0.25)',
+    border: '1px solid #6366f1',
+    padding: '2px 6px',
+    borderRadius: '4px',
+  },
   msgContent: {
     fontSize: '13px',
     color: '#f8fafc',
-    margin: '4px 0 0 0',
+    margin: 0,
+    wordBreak: 'break-word',
   },
   chatForm: {
-    padding: '16px',
+    padding: '12px 16px',
     borderTop: '1px solid #334155',
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '8px',
+  },
+  chatModeSelector: {
+    display: 'flex',
+    gap: '6px',
+  },
+  modeBtn: {
+    flex: 1,
+    padding: '5px 8px',
+    fontSize: '11px',
+    fontWeight: '500',
+    borderRadius: '4px',
+    border: '1px solid #334155',
+    backgroundColor: '#0f172a',
+    color: '#94a3b8',
+    cursor: 'pointer',
+    textAlign: 'center',
+  },
+  modeBtnActive: {
+    flex: 1,
+    padding: '5px 8px',
+    fontSize: '11px',
+    fontWeight: '600',
+    borderRadius: '4px',
+    border: '1px solid #38bdf8',
+    backgroundColor: 'rgba(56, 189, 248, 0.15)',
+    color: '#38bdf8',
+    cursor: 'pointer',
+    textAlign: 'center',
+  },
+  modeBtnPrivateActive: {
+    flex: 1,
+    padding: '5px 8px',
+    fontSize: '11px',
+    fontWeight: '600',
+    borderRadius: '4px',
+    border: '1px solid #818cf8',
+    backgroundColor: 'rgba(99, 102, 241, 0.2)',
+    color: '#c7d2fe',
+    cursor: 'pointer',
+    textAlign: 'center',
+  },
+  chatInputRow: {
     display: 'flex',
     gap: '8px',
   },
@@ -631,5 +901,98 @@ const styles: { [key: string]: React.CSSProperties } = {
     fontSize: '13px',
     fontWeight: '600',
     cursor: 'pointer',
+  },
+  filesDrawer: {
+    position: 'absolute',
+    top: '12px',
+    right: '360px',
+    width: '320px',
+    maxHeight: '450px',
+    backgroundColor: '#1e293b',
+    borderRadius: '12px',
+    border: '1px solid #334155',
+    boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.6)',
+    zIndex: 80,
+    display: 'flex',
+    flexDirection: 'column',
+    overflow: 'hidden',
+  },
+  drawerHeader: {
+    padding: '14px 16px',
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    borderBottom: '1px solid #334155',
+    backgroundColor: '#0f172a',
+  },
+  drawerTitle: {
+    fontSize: '14px',
+    fontWeight: '700',
+    color: '#f8fafc',
+  },
+  closeDrawerBtn: {
+    background: 'transparent',
+    border: 'none',
+    color: '#94a3b8',
+    fontSize: '15px',
+    cursor: 'pointer',
+  },
+  filesList: {
+    padding: '12px',
+    overflowY: 'auto',
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '10px',
+    maxHeight: '380px',
+  },
+  noFilesBox: {
+    padding: '24px 16px',
+    textAlign: 'center',
+  },
+  noFilesText: {
+    fontSize: '13px',
+    color: '#94a3b8',
+    margin: 0,
+  },
+  fileItemCard: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '10px',
+    padding: '10px 12px',
+    backgroundColor: '#0f172a',
+    border: '1px solid #334155',
+    borderRadius: '8px',
+  },
+  fileIconBox: {
+    fontSize: '20px',
+  },
+  fileMeta: {
+    flex: 1,
+    overflow: 'hidden',
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '2px',
+  },
+  fileName: {
+    fontSize: '13px',
+    fontWeight: '600',
+    color: '#f8fafc',
+    whiteSpace: 'nowrap',
+    overflow: 'hidden',
+    textOverflow: 'ellipsis',
+  },
+  fileSize: {
+    fontSize: '11px',
+    color: '#94a3b8',
+  },
+  downloadBtn: {
+    padding: '6px 12px',
+    borderRadius: '6px',
+    backgroundColor: '#0284c7',
+    color: '#ffffff',
+    textDecoration: 'none',
+    fontSize: '12px',
+    fontWeight: '600',
+    flexShrink: 0,
   },
 };

@@ -140,5 +140,34 @@ describe('Room Component (Desktop)', () => {
       expect(screen.getByText(/Janela Específica/i)).toBeInTheDocument();
     });
   });
+
+  it('deve renderizar o link da sala diretamente abaixo do título no cabeçalho', () => {
+    render(<Room room={dummyRoom} onCloseRoom={vi.fn()} />);
+
+    expect(screen.getByText(new RegExp(dummyRoom.link, 'i'))).toBeInTheDocument();
+  });
+
+  it('deve abrir a sidebar retrátil com abas de Chat, Alunos e Arquivos ao clicar no botão de Chat', async () => {
+    render(<Room room={dummyRoom} onCloseRoom={vi.fn()} />);
+
+    await waitFor(() => {
+      expect(screen.getByText('Tela Inteira 1')).toBeInTheDocument();
+    });
+
+    // Inicia sessão ao vivo
+    fireEvent.click(screen.getByRole('button', { name: /Avançar e Iniciar Transmissão/i }));
+
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: /Chat & Turma/i })).toBeInTheDocument();
+    });
+
+    const chatBtn = screen.getByRole('button', { name: /Chat & Turma/i });
+    fireEvent.click(chatBtn);
+
+    // Deve exibir as abas na sidebar retrátil
+    expect(screen.getByRole('button', { name: /^💬 Chat$/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Alunos/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Arquivos/i })).toBeInTheDocument();
+  });
 });
 

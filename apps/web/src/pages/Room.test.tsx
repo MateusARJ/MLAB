@@ -8,6 +8,8 @@ vi.mock('../hooks/useWebRTCSubscriber', () => ({
     autoplayBlocked: true,
     setAutoplayBlocked: vi.fn(),
     connectionStatus: 'connected',
+    isStreamPaused: false,
+    sharedFiles: [],
     messages: [
       { sender_name: 'Professor Girafales', sender_role: 'professor', content: 'Bem-vindos a aula!' },
     ],

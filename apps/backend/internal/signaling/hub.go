@@ -86,16 +86,18 @@ type SFU interface {
 // Hub gerencia todos os clientes WebSocket de uma sala.
 // Todo estado interno é acessado exclusivamente pela goroutine run().
 type Hub struct {
-	roomID      string
-	clients     map[string]*Client
-	publisherID string
-	status      SessionStatus
-	chatLimits  map[string]*chatTracker
+	roomID       string
+	clients      map[string]*Client
+	publisherID  string
+	status       SessionStatus
+	chatLimits   map[string]*chatTracker
+	streamPaused bool // indica se a transmissão está pausada pelo professor
 
 	register   chan *Client
 	unregister chan *Client
 	inbound    chan *envelope
 	internal   chan signal // sinais internos (timeouts, fechamentos)
+	fileShared chan FileSharedPayload
 
 	publisherTimer *time.Timer
 	sfu            SFU // nil até T011
@@ -112,6 +114,7 @@ func newHub(roomID string, sfu SFU) *Hub {
 		unregister: make(chan *Client),
 		inbound:    make(chan *envelope, 256),
 		internal:   make(chan signal, 4),
+		fileShared: make(chan FileSharedPayload, 16),
 		sfu:        sfu,
 	}
 	go h.run()
@@ -138,6 +141,9 @@ func (h *Hub) run() {
 			case sigRoomClose:
 				h.onRoomClose()
 			}
+
+		case f := <-h.fileShared:
+			h.broadcastAll(TypeFileShared, f)
 		}
 	}
 }
@@ -171,6 +177,7 @@ func (h *Hub) onRegister(c *Client) {
 	h.broadcastExcept(c.participantID, TypeParticipantJoined, ParticipantJoinedPayload{
 		ParticipantID: c.participantID,
 		Name:          c.name,
+		StudentID:     c.studentID,
 		Role:          c.role,
 	})
 
@@ -179,6 +186,16 @@ func (h *Hub) onRegister(c *Client) {
 		Status:            h.status,
 		ParticipantsCount: len(h.clients),
 	})
+
+	// Se a transmissão estiver pausada, notifica o novo cliente.
+	if h.streamPaused {
+		c.sendJSON(TypeStreamPaused, StreamPausedPayload{
+			Paused: true,
+		})
+	}
+
+	// Atualiza lista de participantes para todos.
+	h.broadcastParticipantsUpdate()
 
 	log.Printf("hub[%s]: %s %s registrado (total=%d)",
 		h.roomID, c.role, c.participantID, len(h.clients))
@@ -199,6 +216,9 @@ func (h *Hub) onUnregister(c *Client) {
 	h.broadcastExcept(c.participantID, TypeParticipantLeft, ParticipantLeftPayload{
 		ParticipantID: c.participantID,
 	})
+
+	// Atualiza lista de participantes para todos.
+	h.broadcastParticipantsUpdate()
 
 	log.Printf("hub[%s]: %s %s desconectado (total=%d)",
 		h.roomID, c.role, c.participantID, len(h.clients))
@@ -244,6 +264,8 @@ func (h *Hub) route(env *envelope) {
 		h.onIceCandidate(c, env.msg)
 	case TypeChatMessage:
 		h.onChatMessage(c, env.msg)
+	case TypeStreamPause:
+		h.onStreamPause(c, env.msg)
 	case TypeEndSession:
 		h.onEndSession(c)
 	default:
@@ -373,13 +395,56 @@ func (h *Hub) onChatMessage(c *Client, msg WsMessage) {
 
 	sanitized := html.EscapeString(trimmed)
 
-	h.broadcastAll(TypeChatMessage, ChatRecvPayload{
+	chatPayload := ChatRecvPayload{
 		MessageID:     hubNewID(),
 		ParticipantID: c.participantID,
 		Name:          c.name,
 		Role:          c.role,
+		StudentID:     c.studentID,
 		Content:       sanitized,
+		IsPrivate:     p.IsPrivate,
 		SentAt:        time.Now().UTC().Format(time.RFC3339),
+	}
+
+	if p.IsPrivate {
+		data := buildMsg(TypeChatMessage, chatPayload)
+		// Envia de volta para o remetente para feedback imediato
+		c.safeSend(data)
+
+		if c.role == RoleAluno {
+			// Aluno mandando mensagem privada: apenas professor(es) recebem
+			for _, client := range h.clients {
+				if client.role == RoleProfessor && client.participantID != c.participantID {
+					client.safeSend(data)
+				}
+			}
+		} else if c.role == RoleProfessor {
+			// Professor enviando mensagem privada
+			if p.TargetID != "" {
+				if target, ok := h.clients[p.TargetID]; ok {
+					target.safeSend(data)
+				}
+			}
+		}
+	} else {
+		h.broadcastAll(TypeChatMessage, chatPayload)
+	}
+}
+
+func (h *Hub) onStreamPause(c *Client, msg WsMessage) {
+	if c.role != RoleProfessor {
+		c.sendError("FORBIDDEN", "apenas o professor pode pausar ou retomar a transmissão")
+		return
+	}
+	var p StreamPauseSendPayload
+	if err := json.Unmarshal(msg.Payload, &p); err != nil {
+		c.sendError("INVALID_PAYLOAD", "payload de stream-pause inválido")
+		return
+	}
+	h.streamPaused = p.Paused
+	log.Printf("hub[%s]: transmissão pausada=%v pelo professor %s", h.roomID, h.streamPaused, c.participantID)
+	h.broadcastAll(TypeStreamPaused, StreamPausedPayload{
+		Paused: h.streamPaused,
 	})
 }
 
@@ -426,6 +491,32 @@ func (h *Hub) onRoomClose() {
 // BroadcastRoomClosed é chamado externamente (ex: pelo handler REST de close).
 func (h *Hub) BroadcastRoomClosed() {
 	h.internal <- sigRoomClose
+}
+
+// BroadcastFileShared é chamado externamente quando o professor faz upload de arquivo na sala.
+func (h *Hub) BroadcastFileShared(payload FileSharedPayload) {
+	select {
+	case h.fileShared <- payload:
+	default:
+		log.Printf("hub[%s]: buffer de fileShared cheio", h.roomID)
+	}
+}
+
+// broadcastParticipantsUpdate envia a lista atualizada de participantes conectados.
+func (h *Hub) broadcastParticipantsUpdate() {
+	list := make([]ParticipantInfo, 0, len(h.clients))
+	for _, client := range h.clients {
+		list = append(list, ParticipantInfo{
+			ParticipantID: client.participantID,
+			Name:          client.name,
+			StudentID:     client.studentID,
+			Role:          client.role,
+		})
+	}
+	h.broadcastAll(TypeParticipantsUpdate, ParticipantsUpdatePayload{
+		Count:        len(list),
+		Participants: list,
+	})
 }
 
 // ── Broadcast helpers ─────────────────────────────────────────────────────────

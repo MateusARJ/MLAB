@@ -14,6 +14,7 @@ const (
 	TypeSubscribeRequest = "subscribe-request"
 	TypeChatMessage      = "chat-message"
 	TypeEndSession       = "end-session"
+	TypeStreamPause      = "stream-pause" // professor envia para pausar/retomar transmissão
 )
 
 // Mensagens que o servidor envia ao(s) cliente(s).
@@ -25,6 +26,9 @@ const (
 	TypeRoomClosed        = "room-closed"
 	TypeIceServers        = "ice-servers"
 	TypeError             = "error"
+	TypeStreamPaused      = "stream-paused"      // broadcast: transmissão pausada/retomada
+	TypeFileShared        = "file-shared"         // broadcast: novo arquivo compartilhado
+	TypeParticipantsUpdate = "participants-update" // broadcast: lista atualizada de participantes
 )
 
 // SessionStatus reflete o estado da sala de transmissão.
@@ -92,7 +96,9 @@ type SubscribeRequestPayload struct {
 }
 
 type ChatSendPayload struct {
-	Content string `json:"content"`
+	Content   string `json:"content"`
+	IsPrivate bool   `json:"is_private,omitempty"`
+	TargetID  string `json:"target_id,omitempty"` // participantID do destinatário (para chat privado)
 }
 
 // ── Payloads: Servidor → Cliente ─────────────────────────────────────────────
@@ -109,6 +115,7 @@ type PublishApprovedPayload struct {
 type ParticipantJoinedPayload struct {
 	ParticipantID string `json:"participant_id"`
 	Name          string `json:"name"`
+	StudentID     string `json:"student_id,omitempty"`
 	Role          Role   `json:"role"`
 }
 
@@ -121,7 +128,9 @@ type ChatRecvPayload struct {
 	ParticipantID string `json:"participant_id"`
 	Name          string `json:"name"`
 	Role          Role   `json:"role"`
+	StudentID     string `json:"student_id,omitempty"`
 	Content       string `json:"content"`
+	IsPrivate     bool   `json:"is_private,omitempty"`
 	SentAt        string `json:"sent_at"`
 }
 
@@ -138,4 +147,38 @@ type IceServersPayload struct {
 type ErrorPayload struct {
 	Code    string `json:"code"`
 	Message string `json:"message"`
+}
+
+// ── Payloads: Novos recursos ──────────────────────────────────────────────────
+
+// StreamPauseSendPayload é enviado pelo professor para pausar/retomar a transmissão.
+type StreamPauseSendPayload struct {
+	Paused bool `json:"paused"`
+}
+
+// StreamPausedPayload é retransmitido a todos os assinantes.
+type StreamPausedPayload struct {
+	Paused bool `json:"paused"`
+}
+
+// FileSharedPayload notifica os alunos sobre um novo arquivo compartilhado.
+type FileSharedPayload struct {
+	ID   string `json:"id"`
+	Name string `json:"name"`
+	Size int64  `json:"size"`
+	URL  string `json:"url"`
+}
+
+// ParticipantInfo descreve um participante conectado.
+type ParticipantInfo struct {
+	ParticipantID string `json:"participant_id"`
+	Name          string `json:"name"`
+	StudentID     string `json:"student_id,omitempty"`
+	Role          Role   `json:"role"`
+}
+
+// ParticipantsUpdatePayload envia a lista atualizada de participantes ao professor.
+type ParticipantsUpdatePayload struct {
+	Count        int               `json:"count"`
+	Participants []ParticipantInfo `json:"participants"`
 }

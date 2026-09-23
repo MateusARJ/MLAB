@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
-import type { CaptureSource, CaptureSourceType } from '@mlab/types';
+import type { CaptureSource } from '@mlab/types';
 import { useScreenCapture } from '../hooks/useScreenCapture';
 import { useLocalRecorder } from '../hooks/useLocalRecorder';
 import { useWebRTCPublisher } from '../hooks/useWebRTCPublisher';
@@ -11,6 +11,14 @@ interface RoomProps {
   onCloseRoom: () => void;
 }
 
+function formatFileSize(bytes: number): string {
+  if (!bytes || bytes === 0) return '0 B';
+  const k = 1024;
+  const sizes = ['B', 'KB', 'MB', 'GB'];
+  const i = Math.floor(Math.log(bytes) / Math.log(k));
+  return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
+}
+
 export const Room: React.FC<RoomProps> = ({ room, onCloseRoom }) => {
   // Configuração pré-transmissão
   const [wantRecord, setWantRecord] = useState<boolean>(true);
@@ -18,6 +26,17 @@ export const Room: React.FC<RoomProps> = ({ room, onCloseRoom }) => {
   const [isLiveSession, setIsLiveSession] = useState<boolean>(false);
   const [saveSuccessMsg, setSaveSuccessMsg] = useState<string | null>(null);
   const [linkCopied, setLinkCopied] = useState<boolean>(false);
+
+  // Estados da Sidebar retrátil, Chat, Alunos e Arquivos
+  const [isSidebarOpen, setIsSidebarOpen] = useState<boolean>(false);
+  const [sidebarTab, setSidebarTab] = useState<'chat' | 'students' | 'files'>('chat');
+  const [chatInput, setChatInput] = useState<string>('');
+  const [targetStudent, setTargetStudent] = useState<{ id: string; name: string; student_id?: string } | null>(null);
+  const [uploadedFiles, setUploadedFiles] = useState<any[]>([]);
+  const [isUploading, setIsUploading] = useState<boolean>(false);
+  const [uploadMsg, setUploadMsg] = useState<string | null>(null);
+  const [unreadCount, setUnreadCount] = useState<number>(0);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleCopyLink = useCallback(async () => {
     if (!room.link) return;
@@ -77,6 +96,10 @@ export const Room: React.FC<RoomProps> = ({ room, onCloseRoom }) => {
     isPublishing,
     connectionState,
     error: publisherError,
+    messages = [],
+    participants = [],
+    sendChatMessage,
+    sendStreamPause,
     startPublishing,
     changeStream,
     stopPublishing,
@@ -86,6 +109,32 @@ export const Room: React.FC<RoomProps> = ({ room, onCloseRoom }) => {
     stream,
     token,
   });
+
+  const prevMessagesLength = useRef(messages.length);
+
+  useEffect(() => {
+    if (!isSidebarOpen && messages.length > prevMessagesLength.current) {
+      setUnreadCount((prev) => prev + (messages.length - prevMessagesLength.current));
+    }
+    prevMessagesLength.current = messages.length;
+  }, [messages, isSidebarOpen]);
+
+  const handleToggleSidebar = () => {
+    setIsSidebarOpen((prev) => {
+      if (!prev) {
+        setUnreadCount(0);
+      }
+      return !prev;
+    });
+  };
+
+  const handleToggleVideoPause = useCallback(() => {
+    const nextPaused = !videoPaused;
+    toggleVideoPause();
+    if (typeof sendStreamPause === 'function') {
+      sendStreamPause(nextPaused);
+    }
+  }, [videoPaused, toggleVideoPause, sendStreamPause]);
 
   const videoRef = useRef<HTMLVideoElement>(null);
 
@@ -101,6 +150,19 @@ export const Room: React.FC<RoomProps> = ({ room, onCloseRoom }) => {
       setTentativeSource(sources[0]);
     }
   }, [sources, tentativeSource]);
+
+  // Carrega arquivos iniciais da sala
+  useEffect(() => {
+    if (!room?.id) return;
+    fetch(`http://localhost:8080/rooms/${room.id}/files`)
+      .then((res) => (res.ok ? res.json() : []))
+      .then((data) => {
+        if (Array.isArray(data)) {
+          setUploadedFiles(data);
+        }
+      })
+      .catch((err) => console.warn('Erro ao carregar arquivos da sala:', err));
+  }, [room?.id]);
 
   // Feedback de arquivo salvo
   useEffect(() => {
@@ -153,6 +215,56 @@ export const Room: React.FC<RoomProps> = ({ room, onCloseRoom }) => {
     setIsLiveSession(false);
   }, []);
 
+  const handleSendChat = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!chatInput.trim()) return;
+    const isPrivate = targetStudent !== null;
+    if (typeof sendChatMessage === 'function') {
+      sendChatMessage(chatInput.trim(), isPrivate, targetStudent?.id);
+    }
+    setChatInput('');
+  };
+
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+    const file = files[0];
+    setIsUploading(true);
+    setUploadMsg(null);
+
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+
+      const resp = await fetch(`http://localhost:8080/rooms/${room.id}/files`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+        body: formData,
+      });
+
+      if (!resp.ok) {
+        const errJson = await resp.json().catch(() => ({}));
+        throw new Error(errJson.error || 'Erro ao enviar arquivo');
+      }
+
+      const fileData = await resp.json();
+      setUploadedFiles((prev) => [...prev, fileData]);
+      setUploadMsg(`Arquivo "${file.name}" compartilhado com sucesso com a turma!`);
+      setTimeout(() => setUploadMsg(null), 5000);
+    } catch (err: any) {
+      setUploadMsg(`Falha no upload: ${err.message || 'Erro desconhecido'}`);
+    } finally {
+      setIsUploading(false);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+    }
+  };
+
+  const studentsOnly = participants.filter((p: any) => p.role === 'aluno');
+
   return (
     <div style={styles.container}>
       {/* Cabeçalho */}
@@ -161,6 +273,14 @@ export const Room: React.FC<RoomProps> = ({ room, onCloseRoom }) => {
           <img src={mlabLogo} alt="MLab Logo" style={styles.logoImg} />
           <div>
             <h2 style={styles.title}>MLab — Sala: {room.slug}</h2>
+            {/* Link da sala diretamente abaixo do título da sala */}
+            <div
+              onClick={handleCopyLink}
+              style={styles.roomLinkText}
+              title="Clique para copiar o link da sala"
+            >
+              🔗 {room.link}
+            </div>
             <span style={styles.subtitle}>ID: {room.id}</span>
           </div>
         </div>
@@ -331,75 +451,94 @@ export const Room: React.FC<RoomProps> = ({ room, onCloseRoom }) => {
             </div>
           </div>
         ) : (
-          /* ── SESSÃO AO VIVO (TRANSMISSÃO + GRAVAÇÃO ATIVA) ── */
+          /* ── SESSÃO AO VIVO (TRANSMISSÃO + BARRA + SIDEBAR RETRÁTIL) ── */
           <div style={styles.liveContainer}>
-            {/* Barra de Status */}
-            <div style={styles.statusBar}>
-              <div style={styles.statusLeft}>
-                <span style={styles.liveBadge}>
-                  <span style={styles.pulsingDotGreen} /> AO VIVO
-                </span>
-                <span style={styles.resolutionBadge}>
-                  1080p @ 30fps • 4 Mbps
-                </span>
-                <span style={styles.statusInfo}>
-                  Modo: {captureMode === 'screen' ? '🖥️ Tela Cheia' : '🗔 Janela Específica'} (
-                  {selectedSource?.name || 'Fonte Ativa'})
-                </span>
-              </div>
+            <div style={styles.liveContentArea}>
+              {/* Seção Principal da Transmissão */}
+              <div style={styles.liveMainSection}>
+                {/* Barra de Status */}
+                <div style={styles.statusBar}>
+                  <div style={styles.statusLeft}>
+                    <span style={styles.liveBadge}>
+                      <span style={styles.pulsingDotGreen} /> AO VIVO
+                    </span>
+                    <span style={styles.resolutionBadge}>
+                      1080p @ 30fps • 4 Mbps
+                    </span>
+                    <span style={styles.studentsBadge}>
+                      👥 {studentsOnly.length} {studentsOnly.length === 1 ? 'Aluno' : 'Alunos'}
+                    </span>
+                    <span style={styles.statusInfo}>
+                      Modo: {captureMode === 'screen' ? '🖥️ Tela Cheia' : '🗔 Janela Específica'} (
+                      {selectedSource?.name || 'Fonte Ativa'})
+                    </span>
+                  </div>
 
-              <div style={styles.statusRight}>
-                {wantRecord ? (
-                  <div style={styles.recordStatusBox}>
-                    {recordingStatus === 'recording' && (
-                      <span style={styles.recordingBadge}>
-                        <span style={styles.pulsingDotRed} /> REC {formattedDuration} (.webm)
-                      </span>
-                    )}
-                    {recordingStatus === 'paused' && (
-                      <span style={styles.pausedBadge}>⏸️ PAUSADO {formattedDuration}</span>
-                    )}
-                    {recordingStatus === 'stopped' && (
-                      <span style={styles.stoppedBadge}>⏹️ GRAVAÇÃO FINALIZADA</span>
-                    )}
+                  <div style={styles.statusRight}>
+                    {wantRecord ? (
+                      <div style={styles.recordStatusBox}>
+                        {recordingStatus === 'recording' && (
+                          <span style={styles.recordingBadge}>
+                            <span style={styles.pulsingDotRed} /> REC {formattedDuration} (.webm)
+                          </span>
+                        )}
+                        {recordingStatus === 'paused' && (
+                          <span style={styles.pausedBadge}>⏸️ PAUSADO {formattedDuration}</span>
+                        )}
+                        {recordingStatus === 'stopped' && (
+                          <span style={styles.stoppedBadge}>⏹️ GRAVAÇÃO FINALIZADA</span>
+                        )}
 
-                    {recordingStatus === 'recording' && (
-                      <button type="button" onClick={pauseRecording} style={styles.recControlBtn}>
-                        Pausar
-                      </button>
-                    )}
-                    {recordingStatus === 'paused' && (
-                      <button type="button" onClick={resumeRecording} style={styles.recControlBtn}>
-                        Retomar
-                      </button>
-                    )}
-                    {recordingStatus !== 'stopped' && (
-                      <button
-                        type="button"
-                        onClick={stopRecording}
-                        disabled={isSaving}
-                        style={styles.recSaveBtn}
-                      >
-                        {isSaving ? 'Salvando...' : 'Finalizar e Salvar'}
-                      </button>
+                        {recordingStatus === 'recording' && (
+                          <button type="button" onClick={pauseRecording} style={styles.recControlBtn}>
+                            Pausar
+                          </button>
+                        )}
+                        {recordingStatus === 'paused' && (
+                          <button type="button" onClick={resumeRecording} style={styles.recControlBtn}>
+                            Retomar
+                          </button>
+                        )}
+                        {recordingStatus !== 'stopped' && (
+                          <button
+                            type="button"
+                            onClick={stopRecording}
+                            disabled={isSaving}
+                            style={styles.recSaveBtn}
+                          >
+                            {isSaving ? 'Salvando...' : 'Finalizar e Salvar'}
+                          </button>
+                        )}
+                      </div>
+                    ) : (
+                      <span style={styles.noRecordBadge}>Modo Apenas Transmissão</span>
                     )}
                   </div>
-                ) : (
-                  <span style={styles.noRecordBadge}>Modo Apenas Transmissão</span>
-                )}
-              </div>
-            </div>
+                </div>
 
-            {/* Pré-visualização de Vídeo ou Imagem Estática */}
-            <div style={styles.previewArea}>
-              {captureMode === 'screen' ? (
-                <div style={styles.staticPreviewBox}>
-                  {selectedSource?.thumbnail || tentativeSource?.thumbnail ? (
-                    <img
-                      src={selectedSource?.thumbnail || tentativeSource?.thumbnail}
-                      alt="Pré-visualização da Tela Cheia"
-                      style={{ ...styles.previewMedia, opacity: videoPaused ? 0.3 : 1 }}
-                    />
+                {/* Pré-visualização de Vídeo ou Imagem Estática */}
+                <div style={styles.previewArea}>
+                  {captureMode === 'screen' ? (
+                    <div style={styles.staticPreviewBox}>
+                      {selectedSource?.thumbnail || tentativeSource?.thumbnail ? (
+                        <img
+                          src={selectedSource?.thumbnail || tentativeSource?.thumbnail}
+                          alt="Pré-visualização da Tela Cheia"
+                          style={{ ...styles.previewMedia, opacity: videoPaused ? 0.3 : 1 }}
+                        />
+                      ) : (
+                        <video
+                          ref={videoRef}
+                          autoPlay
+                          playsInline
+                          muted
+                          style={{ ...styles.previewMedia, opacity: videoPaused ? 0.3 : 1 }}
+                        />
+                      )}
+                      <div style={styles.staticOverlayBadge}>
+                        🖥️ Tela Inteira Ativa • Imagem Estática
+                      </div>
+                    </div>
                   ) : (
                     <video
                       ref={videoRef}
@@ -409,40 +548,259 @@ export const Room: React.FC<RoomProps> = ({ room, onCloseRoom }) => {
                       style={{ ...styles.previewMedia, opacity: videoPaused ? 0.3 : 1 }}
                     />
                   )}
-                  <div style={styles.staticOverlayBadge}>
-                    🖥️ Tela Inteira Ativa • Imagem Estática
-                  </div>
                 </div>
-              ) : (
-                <video
-                  ref={videoRef}
-                  autoPlay
-                  playsInline
-                  muted
-                  style={{ ...styles.previewMedia, opacity: videoPaused ? 0.3 : 1 }}
-                />
-              )}
-            </div>
 
-            {/* Barra de Controles de Transmissão */}
-            <div style={styles.controlsBar}>
-              <button
-                type="button"
-                onClick={toggleMicMute}
-                style={micMuted ? styles.controlBtnActive : styles.controlBtn}
+                {/* Barra de Controles de Transmissão */}
+                <div style={styles.controlsBar}>
+                  <button
+                    type="button"
+                    onClick={toggleMicMute}
+                    style={micMuted ? styles.controlBtnActive : styles.controlBtn}
+                  >
+                    {micMuted ? '🔇 Desmutar Microfone' : '🎤 Mutar Microfone'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleToggleVideoPause}
+                    style={videoPaused ? styles.controlBtnActive : styles.controlBtn}
+                  >
+                    {videoPaused ? '▶️ Retomar Vídeo' : '⏸️ Pausar Vídeo'}
+                  </button>
+                  <button type="button" onClick={handleReconfigure} style={styles.controlBtn}>
+                    ⚙️ Alterar Modo / Fonte
+                  </button>
+                  {/* Botão de Chat no Header de Baixo */}
+                  <button
+                    type="button"
+                    onClick={handleToggleSidebar}
+                    style={isSidebarOpen ? styles.controlBtnActiveChat : styles.controlBtn}
+                  >
+                    💬 Chat & Turma
+                    {unreadCount > 0 && (
+                      <span style={styles.unreadBadge}>{unreadCount}</span>
+                    )}
+                  </button>
+                </div>
+              </div>
+
+              {/* Sidebar Retrátil na Direita (Padrão de Retração) */}
+              <aside
+                style={{
+                  ...styles.sidebarDesktop,
+                  width: isSidebarOpen ? '360px' : '0px',
+                  minWidth: isSidebarOpen ? '360px' : '0px',
+                  opacity: isSidebarOpen ? 1 : 0,
+                  borderLeft: isSidebarOpen ? '1px solid #1e293b' : 'none',
+                  pointerEvents: isSidebarOpen ? 'auto' : 'none',
+                }}
               >
-                {micMuted ? '🔇 Desmutar Microfone' : '🎤 Mutar Microfone'}
-              </button>
-              <button
-                type="button"
-                onClick={toggleVideoPause}
-                style={videoPaused ? styles.controlBtnActive : styles.controlBtn}
-              >
-                {videoPaused ? '▶️ Retomar Vídeo' : '⏸️ Pausar Vídeo'}
-              </button>
-              <button type="button" onClick={handleReconfigure} style={styles.controlBtn}>
-                ⚙️ Alterar Modo / Fonte
-              </button>
+                {/* Header da Sidebar */}
+                <div style={styles.sidebarHeader}>
+                  <div style={styles.tabButtons}>
+                    <button
+                      type="button"
+                      onClick={() => setSidebarTab('chat')}
+                      style={sidebarTab === 'chat' ? styles.tabBtnActive : styles.tabBtn}
+                    >
+                      💬 Chat
+                      {unreadCount > 0 && <span style={styles.tabBadge}>{unreadCount}</span>}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setSidebarTab('students')}
+                      style={sidebarTab === 'students' ? styles.tabBtnActive : styles.tabBtn}
+                    >
+                      👥 Alunos ({studentsOnly.length})
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setSidebarTab('files')}
+                      style={sidebarTab === 'files' ? styles.tabBtnActive : styles.tabBtn}
+                    >
+                      📁 Arquivos ({uploadedFiles.length})
+                    </button>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setIsSidebarOpen(false)}
+                    style={styles.closeSidebarBtn}
+                    title="Recolher Painel"
+                  >
+                    ✕
+                  </button>
+                </div>
+
+                {/* Aba 1: Chat da Aula com Identificação e Chat Privado */}
+                {sidebarTab === 'chat' && (
+                  <div style={styles.chatTabContent}>
+                    <div style={styles.messagesList}>
+                      {messages.length === 0 ? (
+                        <div style={styles.emptyMessagesBox}>
+                          <p style={styles.emptyText}>Nenhuma mensagem no chat até o momento.</p>
+                        </div>
+                      ) : (
+                        messages.map((m: any, idx: number) => {
+                          const isStudent = m.role === 'aluno' || m.sender_role === 'aluno';
+                          const displayName = m.name || m.sender_name || 'Participante';
+                          const matricula = m.student_id ? `(${m.student_id})` : '';
+                          const isPrivate = !!m.is_private;
+
+                          return (
+                            <div
+                              key={m.message_id || idx}
+                              style={{
+                                ...styles.messageCard,
+                                ...(isPrivate ? styles.privateMessageCard : {}),
+                              }}
+                            >
+                              <div style={styles.messageHeaderRow}>
+                                <span style={styles.senderName}>
+                                  {displayName} {matricula && <span style={styles.matriculaText}>{matricula}</span>}
+                                  <small style={styles.roleTag}> [{isStudent ? 'aluno' : 'professor'}]</small>
+                                </span>
+                                {isPrivate && <span style={styles.privateTag}>🔒 PRIVADO</span>}
+                              </div>
+                              <p style={styles.messageBody}>{m.content}</p>
+
+                              {/* Ação rápida para responder privado ao aluno */}
+                              {isStudent && isPrivate && (
+                                <button
+                                  type="button"
+                                  onClick={() => setTargetStudent({ id: m.participant_id, name: displayName, student_id: m.student_id })}
+                                  style={styles.replyPrivateBtn}
+                                >
+                                  ↩ Responder em Privado
+                                </button>
+                              )}
+                            </div>
+                          );
+                        })
+                      )}
+                    </div>
+
+                    <form onSubmit={handleSendChat} style={styles.chatForm}>
+                      {/* Destinatário (Público ou Privado para Aluno Específico) */}
+                      {targetStudent ? (
+                        <div style={styles.targetIndicatorBox}>
+                          <span style={styles.targetIndicatorText}>
+                            🔒 Privado para: <strong>{targetStudent.name}</strong> {targetStudent.student_id && `(${targetStudent.student_id})`}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => setTargetStudent(null)}
+                            style={styles.clearTargetBtn}
+                            title="Voltar para Chat Público"
+                          >
+                            ✕ Cancelar
+                          </button>
+                        </div>
+                      ) : (
+                        <div style={styles.publicIndicatorText}>
+                          🌐 Enviando para: <strong>Todos os Alunos (Público)</strong>
+                        </div>
+                      )}
+
+                      <div style={styles.chatInputRow}>
+                        <input
+                          type="text"
+                          value={chatInput}
+                          onChange={(e) => setChatInput(e.target.value)}
+                          placeholder={targetStudent ? `Mensagem privada para ${targetStudent.name}...` : 'Mensagem para a turma...'}
+                          style={styles.chatInput}
+                        />
+                        <button type="submit" style={styles.sendBtn}>Enviar</button>
+                      </div>
+                    </form>
+                  </div>
+                )}
+
+                {/* Aba 2: Lista de Alunos Conectados com Nome e Matrícula */}
+                {sidebarTab === 'students' && (
+                  <div style={styles.studentsTabContent}>
+                    <div style={styles.studentsListHeader}>
+                      <span style={styles.studentsListTitle}>Alunos Presentes na Aula</span>
+                      <span style={styles.studentsCountBadge}>{studentsOnly.length} online</span>
+                    </div>
+
+                    <div style={styles.studentsList}>
+                      {studentsOnly.length === 0 ? (
+                        <div style={styles.emptyMessagesBox}>
+                          <p style={styles.emptyText}>Nenhum aluno conectado no momento.</p>
+                        </div>
+                      ) : (
+                        studentsOnly.map((s: any) => (
+                          <div key={s.participant_id} style={styles.studentCard}>
+                            <div style={styles.studentAvatar}>🎓</div>
+                            <div style={styles.studentInfoBox}>
+                              <span style={styles.studentNameText}>{s.name}</span>
+                              <span style={styles.studentMatriculaText}>
+                                Matrícula: <strong>{s.student_id || 'Não informada'}</strong>
+                              </span>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setTargetStudent({ id: s.participant_id, name: s.name, student_id: s.student_id });
+                                setSidebarTab('chat');
+                              }}
+                              style={styles.startPrivateChatBtn}
+                              title="Enviar Mensagem Privada"
+                            >
+                              🔒 Privado
+                            </button>
+                          </div>
+                        ))
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {/* Aba 3: Compartilhamento de Arquivos com os Alunos */}
+                {sidebarTab === 'files' && (
+                  <div style={styles.filesTabContent}>
+                    <div style={styles.uploadSection}>
+                      <input
+                        ref={fileInputRef}
+                        type="file"
+                        onChange={handleFileUpload}
+                        style={{ display: 'none' }}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => fileInputRef.current?.click()}
+                        disabled={isUploading}
+                        style={isUploading ? styles.uploadBtnDisabled : styles.uploadBtn}
+                      >
+                        {isUploading ? 'Enviando Arquivo...' : '📎 Compartilhar Novo Arquivo'}
+                      </button>
+
+                      {uploadMsg && (
+                        <div style={styles.uploadFeedbackBanner}>
+                          {uploadMsg}
+                        </div>
+                      )}
+                    </div>
+
+                    <div style={styles.uploadedFilesList}>
+                      <span style={styles.filesListTitle}>Arquivos Compartilhados Nesta Aula</span>
+                      {uploadedFiles.length === 0 ? (
+                        <p style={styles.emptyText}>Nenhum arquivo compartilhado até o momento.</p>
+                      ) : (
+                        uploadedFiles.map((file: any, idx: number) => (
+                          <div key={file.id || idx} style={styles.fileItemRow}>
+                            <span style={styles.fileIcon}>📄</span>
+                            <div style={styles.fileInfoColumn}>
+                              <span style={styles.fileItemName} title={file.name}>{file.name}</span>
+                              <span style={styles.fileItemSize}>{formatFileSize(file.size)}</span>
+                            </div>
+                            <span style={styles.fileSharedBadge}>✓ Enviado</span>
+                          </div>
+                        ))
+                      )}
+                    </div>
+                  </div>
+                )}
+              </aside>
             </div>
           </div>
         )}
@@ -464,14 +822,14 @@ const styles: { [key: string]: React.CSSProperties } = {
     display: 'flex',
     justifyContent: 'space-between',
     alignItems: 'center',
-    padding: '14px 24px',
+    padding: '12px 24px',
     backgroundColor: '#0f172a',
     borderBottom: '1px solid #1e293b',
   },
   headerTitleBox: {
     display: 'flex',
     alignItems: 'center',
-    gap: '12px',
+    gap: '14px',
   },
   headerActions: {
     display: 'flex',
@@ -479,18 +837,29 @@ const styles: { [key: string]: React.CSSProperties } = {
     gap: '12px',
   },
   logoImg: {
-    width: '32px',
-    height: '32px',
+    width: '34px',
+    height: '34px',
     objectFit: 'contain',
   },
   title: {
     fontSize: '17px',
     fontWeight: '700',
-    color: '#38bdf8',
+    color: '#f8fafc',
     margin: 0,
   },
-  subtitle: {
+  roomLinkText: {
     fontSize: '12px',
+    fontWeight: '600',
+    color: '#38bdf8',
+    cursor: 'pointer',
+    marginTop: '2px',
+    marginBottom: '2px',
+    display: 'flex',
+    alignItems: 'center',
+    gap: '4px',
+  },
+  subtitle: {
+    fontSize: '11px',
     color: '#94a3b8',
   },
   closeBtn: {
@@ -585,7 +954,7 @@ const styles: { [key: string]: React.CSSProperties } = {
   mainContentLive: {
     flex: 1,
     overflow: 'hidden',
-    padding: '12px 20px',
+    padding: '10px 16px',
     display: 'flex',
     flexDirection: 'column',
     height: 'calc(100vh - 65px)',
@@ -666,15 +1035,6 @@ const styles: { [key: string]: React.CSSProperties } = {
   formatLabel: {
     fontSize: '13px',
     color: '#94a3b8',
-  },
-  subChoiceBtn: {
-    padding: '8px 14px',
-    borderRadius: '6px',
-    border: '1px solid #334155',
-    backgroundColor: '#0f172a',
-    color: '#94a3b8',
-    cursor: 'pointer',
-    fontSize: '13px',
   },
   subChoiceBtnActive: {
     padding: '8px 14px',
@@ -810,7 +1170,21 @@ const styles: { [key: string]: React.CSSProperties } = {
     flexDirection: 'column',
     height: '100%',
     minHeight: 0,
+  },
+  liveContentArea: {
+    flex: 1,
+    display: 'flex',
+    gap: '12px',
+    height: '100%',
+    minHeight: 0,
+    overflow: 'hidden',
+  },
+  liveMainSection: {
+    flex: 1,
+    display: 'flex',
+    flexDirection: 'column',
     gap: '10px',
+    minWidth: 0,
     justifyContent: 'space-between',
   },
   statusBar: {
@@ -818,7 +1192,7 @@ const styles: { [key: string]: React.CSSProperties } = {
     display: 'flex',
     justifyContent: 'space-between',
     alignItems: 'center',
-    padding: '10px 18px',
+    padding: '8px 16px',
     backgroundColor: '#0f172a',
     borderRadius: '10px',
     border: '1px solid #1e293b',
@@ -826,32 +1200,41 @@ const styles: { [key: string]: React.CSSProperties } = {
   statusLeft: {
     display: 'flex',
     alignItems: 'center',
-    gap: '16px',
+    gap: '12px',
   },
   liveBadge: {
     display: 'flex',
     alignItems: 'center',
-    gap: '8px',
-    fontSize: '13px',
+    gap: '6px',
+    fontSize: '12px',
     fontWeight: '700',
     color: '#4ade80',
     backgroundColor: 'rgba(34, 197, 94, 0.1)',
-    padding: '4px 10px',
+    padding: '3px 8px',
     borderRadius: '6px',
   },
   pulsingDotGreen: {
-    width: '8px',
-    height: '8px',
+    width: '7px',
+    height: '7px',
     borderRadius: '50%',
     backgroundColor: '#22c55e',
   },
   resolutionBadge: {
-    fontSize: '12px',
+    fontSize: '11px',
     fontWeight: '600',
     color: '#38bdf8',
     backgroundColor: 'rgba(56, 189, 248, 0.1)',
     border: '1px solid rgba(56, 189, 248, 0.3)',
-    padding: '3px 8px',
+    padding: '2px 7px',
+    borderRadius: '6px',
+  },
+  studentsBadge: {
+    fontSize: '11px',
+    fontWeight: '600',
+    color: '#e2e8f0',
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    border: '1px solid #334155',
+    padding: '2px 7px',
     borderRadius: '6px',
   },
   qualityInfoBox: {
@@ -888,42 +1271,42 @@ const styles: { [key: string]: React.CSSProperties } = {
     gap: '4px',
   },
   statusInfo: {
-    fontSize: '13px',
+    fontSize: '12px',
     color: '#cbd5e1',
   },
   statusRight: {
     display: 'flex',
     alignItems: 'center',
-    gap: '12px',
+    gap: '10px',
   },
   recordStatusBox: {
     display: 'flex',
     alignItems: 'center',
-    gap: '10px',
+    gap: '8px',
   },
   recordingBadge: {
     display: 'flex',
     alignItems: 'center',
     gap: '6px',
-    fontSize: '13px',
+    fontSize: '12px',
     fontWeight: '700',
     color: '#f87171',
     backgroundColor: 'rgba(239, 68, 68, 0.12)',
-    padding: '4px 10px',
+    padding: '3px 8px',
     borderRadius: '6px',
   },
   pulsingDotRed: {
-    width: '8px',
-    height: '8px',
+    width: '7px',
+    height: '7px',
     borderRadius: '50%',
     backgroundColor: '#ef4444',
   },
   pausedBadge: {
-    fontSize: '13px',
+    fontSize: '12px',
     fontWeight: '600',
     color: '#fbbf24',
     backgroundColor: 'rgba(251, 191, 36, 0.12)',
-    padding: '4px 10px',
+    padding: '3px 8px',
     borderRadius: '6px',
   },
   stoppedBadge: {
@@ -935,21 +1318,21 @@ const styles: { [key: string]: React.CSSProperties } = {
     color: '#64748b',
   },
   recControlBtn: {
-    padding: '6px 12px',
+    padding: '5px 10px',
     borderRadius: '6px',
     border: '1px solid #334155',
     backgroundColor: '#1e293b',
     color: '#f8fafc',
-    fontSize: '12px',
+    fontSize: '11px',
     cursor: 'pointer',
   },
   recSaveBtn: {
-    padding: '6px 12px',
+    padding: '5px 10px',
     borderRadius: '6px',
     border: 'none',
     backgroundColor: '#22c55e',
     color: '#ffffff',
-    fontSize: '12px',
+    fontSize: '11px',
     fontWeight: '600',
     cursor: 'pointer',
   },
@@ -1004,14 +1387,14 @@ const styles: { [key: string]: React.CSSProperties } = {
     flexShrink: 0,
     display: 'flex',
     justifyContent: 'center',
-    gap: '14px',
+    gap: '12px',
     padding: '10px 16px',
     backgroundColor: '#0f172a',
     borderRadius: '10px',
     border: '1px solid #1e293b',
   },
   controlBtn: {
-    padding: '10px 18px',
+    padding: '9px 16px',
     borderRadius: '8px',
     border: '1px solid #334155',
     backgroundColor: '#1e293b',
@@ -1019,9 +1402,12 @@ const styles: { [key: string]: React.CSSProperties } = {
     cursor: 'pointer',
     fontSize: '13px',
     fontWeight: '500',
+    display: 'flex',
+    alignItems: 'center',
+    gap: '6px',
   },
   controlBtnActive: {
-    padding: '10px 18px',
+    padding: '9px 16px',
     borderRadius: '8px',
     border: '1px solid #ef4444',
     backgroundColor: 'rgba(239, 68, 68, 0.2)',
@@ -1029,6 +1415,410 @@ const styles: { [key: string]: React.CSSProperties } = {
     cursor: 'pointer',
     fontSize: '13px',
     fontWeight: '600',
+    display: 'flex',
+    alignItems: 'center',
+    gap: '6px',
+  },
+  controlBtnActiveChat: {
+    padding: '9px 16px',
+    borderRadius: '8px',
+    border: '1px solid #38bdf8',
+    backgroundColor: '#0284c7',
+    color: '#ffffff',
+    cursor: 'pointer',
+    fontSize: '13px',
+    fontWeight: '600',
+    display: 'flex',
+    alignItems: 'center',
+    gap: '6px',
+  },
+  unreadBadge: {
+    backgroundColor: '#ef4444',
+    color: '#ffffff',
+    fontSize: '10px',
+    fontWeight: '700',
+    padding: '2px 6px',
+    borderRadius: '10px',
+    lineHeight: '1',
+  },
+  sidebarDesktop: {
+    backgroundColor: '#0f172a',
+    borderRadius: '10px',
+    display: 'flex',
+    flexDirection: 'column',
+    overflow: 'hidden',
+    transition: 'width 0.25s ease, opacity 0.2s ease',
+  },
+  sidebarHeader: {
+    padding: '10px 12px',
+    borderBottom: '1px solid #1e293b',
+    backgroundColor: '#172033',
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    gap: '8px',
+  },
+  tabButtons: {
+    display: 'flex',
+    gap: '6px',
+    flex: 1,
+  },
+  tabBtn: {
+    flex: 1,
+    padding: '6px 8px',
+    borderRadius: '6px',
+    border: '1px solid #334155',
+    backgroundColor: '#0f172a',
+    color: '#94a3b8',
+    fontSize: '11px',
+    fontWeight: '500',
+    cursor: 'pointer',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: '4px',
+    whiteSpace: 'nowrap',
+  },
+  tabBtnActive: {
+    flex: 1,
+    padding: '6px 8px',
+    borderRadius: '6px',
+    border: '1px solid #38bdf8',
+    backgroundColor: 'rgba(56, 189, 248, 0.15)',
+    color: '#38bdf8',
+    fontSize: '11px',
+    fontWeight: '600',
+    cursor: 'pointer',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: '4px',
+    whiteSpace: 'nowrap',
+  },
+  tabBadge: {
+    backgroundColor: '#ef4444',
+    color: '#ffffff',
+    fontSize: '9px',
+    fontWeight: '700',
+    padding: '1px 5px',
+    borderRadius: '8px',
+  },
+  closeSidebarBtn: {
+    background: 'transparent',
+    border: 'none',
+    color: '#94a3b8',
+    fontSize: '14px',
+    cursor: 'pointer',
+    padding: '4px 6px',
+    borderRadius: '4px',
+  },
+  chatTabContent: {
+    flex: 1,
+    display: 'flex',
+    flexDirection: 'column',
+    overflow: 'hidden',
+  },
+  messagesList: {
+    flex: 1,
+    padding: '12px',
+    overflowY: 'auto',
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '10px',
+  },
+  emptyMessagesBox: {
+    padding: '30px 16px',
+    textAlign: 'center',
+  },
+  emptyText: {
+    fontSize: '12px',
+    color: '#64748b',
+    margin: 0,
+  },
+  messageCard: {
+    backgroundColor: '#172033',
+    padding: '10px',
+    borderRadius: '8px',
+    border: '1px solid #1e293b',
+  },
+  privateMessageCard: {
+    backgroundColor: 'rgba(49, 46, 129, 0.4)',
+    border: '1px solid #6366f1',
+  },
+  messageHeaderRow: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: '4px',
+  },
+  senderName: {
+    fontSize: '12px',
+    fontWeight: '600',
+    color: '#38bdf8',
+  },
+  matriculaText: {
+    color: '#e2e8f0',
+    fontWeight: '500',
+    fontSize: '11px',
+  },
+  roleTag: {
+    color: '#94a3b8',
+    fontWeight: '400',
+  },
+  privateTag: {
+    fontSize: '10px',
+    fontWeight: '700',
+    color: '#c7d2fe',
+    backgroundColor: 'rgba(99, 102, 241, 0.3)',
+    border: '1px solid #818cf8',
+    padding: '2px 6px',
+    borderRadius: '4px',
+  },
+  messageBody: {
+    fontSize: '13px',
+    color: '#f8fafc',
+    margin: 0,
+    wordBreak: 'break-word',
+  },
+  replyPrivateBtn: {
+    marginTop: '6px',
+    padding: '3px 8px',
+    fontSize: '10px',
+    fontWeight: '600',
+    color: '#a5b4fc',
+    backgroundColor: 'transparent',
+    border: '1px solid #6366f1',
+    borderRadius: '4px',
+    cursor: 'pointer',
+  },
+  chatForm: {
+    padding: '12px',
+    borderTop: '1px solid #1e293b',
+    backgroundColor: '#172033',
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '8px',
+  },
+  targetIndicatorBox: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    backgroundColor: 'rgba(99, 102, 241, 0.15)',
+    padding: '6px 10px',
+    borderRadius: '6px',
+    border: '1px solid #6366f1',
+  },
+  targetIndicatorText: {
+    fontSize: '11px',
+    color: '#c7d2fe',
+  },
+  clearTargetBtn: {
+    background: 'transparent',
+    border: 'none',
+    color: '#f87171',
+    fontSize: '11px',
+    cursor: 'pointer',
+    fontWeight: '600',
+  },
+  publicIndicatorText: {
+    fontSize: '11px',
+    color: '#94a3b8',
+  },
+  chatInputRow: {
+    display: 'flex',
+    gap: '8px',
+  },
+  chatInput: {
+    flex: 1,
+    padding: '8px 10px',
+    borderRadius: '6px',
+    border: '1px solid #334155',
+    backgroundColor: '#0f172a',
+    color: '#f8fafc',
+    fontSize: '12px',
+    outline: 'none',
+  },
+  sendBtn: {
+    padding: '8px 14px',
+    borderRadius: '6px',
+    border: 'none',
+    backgroundColor: '#0284c7',
+    color: '#ffffff',
+    fontSize: '12px',
+    fontWeight: '600',
+    cursor: 'pointer',
+  },
+  studentsTabContent: {
+    flex: 1,
+    display: 'flex',
+    flexDirection: 'column',
+    overflow: 'hidden',
+  },
+  studentsListHeader: {
+    padding: '12px',
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    borderBottom: '1px solid #1e293b',
+  },
+  studentsListTitle: {
+    fontSize: '13px',
+    fontWeight: '600',
+    color: '#f8fafc',
+  },
+  studentsCountBadge: {
+    fontSize: '11px',
+    color: '#4ade80',
+    backgroundColor: 'rgba(34, 197, 94, 0.1)',
+    padding: '2px 8px',
+    borderRadius: '10px',
+    fontWeight: '600',
+  },
+  studentsList: {
+    flex: 1,
+    padding: '12px',
+    overflowY: 'auto',
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '8px',
+  },
+  studentCard: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '10px',
+    padding: '10px 12px',
+    backgroundColor: '#172033',
+    borderRadius: '8px',
+    border: '1px solid #1e293b',
+  },
+  studentAvatar: {
+    fontSize: '20px',
+  },
+  studentInfoBox: {
+    flex: 1,
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '2px',
+    overflow: 'hidden',
+  },
+  studentNameText: {
+    fontSize: '13px',
+    fontWeight: '600',
+    color: '#f8fafc',
+    whiteSpace: 'nowrap',
+    overflow: 'hidden',
+    textOverflow: 'ellipsis',
+  },
+  studentMatriculaText: {
+    fontSize: '11px',
+    color: '#94a3b8',
+  },
+  startPrivateChatBtn: {
+    padding: '4px 8px',
+    borderRadius: '4px',
+    border: '1px solid #6366f1',
+    backgroundColor: 'rgba(99, 102, 241, 0.15)',
+    color: '#c7d2fe',
+    fontSize: '11px',
+    fontWeight: '600',
+    cursor: 'pointer',
+    flexShrink: 0,
+  },
+  filesTabContent: {
+    flex: 1,
+    display: 'flex',
+    flexDirection: 'column',
+    overflow: 'hidden',
+  },
+  uploadSection: {
+    padding: '14px 12px',
+    borderBottom: '1px solid #1e293b',
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '8px',
+  },
+  uploadBtn: {
+    width: '100%',
+    padding: '10px',
+    borderRadius: '6px',
+    border: '1px dashed #38bdf8',
+    backgroundColor: 'rgba(56, 189, 248, 0.08)',
+    color: '#38bdf8',
+    fontSize: '12px',
+    fontWeight: '600',
+    cursor: 'pointer',
+    textAlign: 'center',
+  },
+  uploadBtnDisabled: {
+    width: '100%',
+    padding: '10px',
+    borderRadius: '6px',
+    border: '1px dashed #475569',
+    backgroundColor: '#1e293b',
+    color: '#94a3b8',
+    fontSize: '12px',
+    cursor: 'not-allowed',
+    textAlign: 'center',
+  },
+  uploadFeedbackBanner: {
+    padding: '8px 10px',
+    borderRadius: '6px',
+    backgroundColor: 'rgba(34, 197, 94, 0.15)',
+    border: '1px solid #22c55e',
+    color: '#86efac',
+    fontSize: '11px',
+    fontWeight: '500',
+  },
+  uploadedFilesList: {
+    flex: 1,
+    padding: '12px',
+    overflowY: 'auto',
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '8px',
+  },
+  filesListTitle: {
+    fontSize: '12px',
+    fontWeight: '600',
+    color: '#94a3b8',
+    marginBottom: '4px',
+  },
+  fileItemRow: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '10px',
+    padding: '8px 10px',
+    backgroundColor: '#172033',
+    borderRadius: '6px',
+    border: '1px solid #1e293b',
+  },
+  fileIcon: {
+    fontSize: '18px',
+  },
+  fileInfoColumn: {
+    flex: 1,
+    display: 'flex',
+    flexDirection: 'column',
+    overflow: 'hidden',
+  },
+  fileItemName: {
+    fontSize: '12px',
+    fontWeight: '600',
+    color: '#f8fafc',
+    whiteSpace: 'nowrap',
+    overflow: 'hidden',
+    textOverflow: 'ellipsis',
+  },
+  fileItemSize: {
+    fontSize: '10px',
+    color: '#94a3b8',
+  },
+  fileSharedBadge: {
+    fontSize: '10px',
+    fontWeight: '600',
+    color: '#4ade80',
+    backgroundColor: 'rgba(34, 197, 94, 0.1)',
+    padding: '2px 6px',
+    borderRadius: '4px',
   },
 };
-

@@ -29,11 +29,12 @@ type Client struct {
 	roomID        string
 	role          Role
 	name          string
+	studentID     string // matrícula do aluno (vazio para professor)
 	closeOnce     sync.Once
 }
 
 // newClient cria um Client e inicia os pumps em goroutines separadas.
-func newClient(hub *Hub, conn *websocket.Conn, participantID, roomID, name string, role Role) *Client {
+func newClient(hub *Hub, conn *websocket.Conn, participantID, roomID, name, studentID string, role Role) *Client {
 	c := &Client{
 		hub:           hub,
 		conn:          conn,
@@ -42,6 +43,7 @@ func newClient(hub *Hub, conn *websocket.Conn, participantID, roomID, name strin
 		roomID:        roomID,
 		role:          role,
 		name:          name,
+		studentID:     studentID,
 	}
 	go c.writePump()
 	go c.readPump()

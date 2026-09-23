@@ -91,8 +91,14 @@ func (h *Handler) serveWS(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// 4. Extrai nome do participante.
+	// 4. Extrai nome do participante e matrícula (student_id) para alunos.
 	name := extractName(claims, role)
+	studentID := ""
+	if role == auth.RoleAluno {
+		if sid, ok := claims["student_id"].(string); ok {
+			studentID = sid
+		}
+	}
 
 	// 5. Upgrade para WebSocket.
 	conn, err := h.upgrader.Upgrade(w, r, nil)
@@ -105,7 +111,7 @@ func (h *Handler) serveWS(w http.ResponseWriter, r *http.Request) {
 	hub := h.getOrCreateHub(roomID)
 
 	// 7. Cria o cliente e o registra no hub.
-	client := newClient(hub, conn, participantID, roomID, name, Role(role))
+	client := newClient(hub, conn, participantID, roomID, name, studentID, Role(role))
 	hub.register <- client
 
 	// 8. Envia configuração de ICE servers ao novo cliente.
@@ -187,12 +193,10 @@ func turnCredentials(participantID, secret string) (username, credential string)
 
 // extractName obtém o nome do participante dos claims JWT.
 func extractName(claims map[string]interface{}, role auth.Role) string {
-	if role == auth.RoleAluno {
-		if n, ok := claims["name"].(string); ok {
-			return n
-		}
+	if n, ok := claims["name"].(string); ok && n != "" {
+		return n
 	}
-	if e, ok := claims["email"].(string); ok {
+	if e, ok := claims["email"].(string); ok && e != "" {
 		return e
 	}
 	return "Participante"

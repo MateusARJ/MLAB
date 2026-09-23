@@ -4,6 +4,8 @@ export function useWebRTCSubscriber(token: string, roomInfo: { room_id: string; 
   const [stream, setStream] = useState<MediaStream | null>(null);
   const [autoplayBlocked, setAutoplayBlocked] = useState(false);
   const [connectionStatus, setConnectionStatus] = useState<'connecting' | 'connected' | 'reconnecting' | 'closed'>('connecting');
+  const [isStreamPaused, setIsStreamPaused] = useState<boolean>(false);
+  const [sharedFiles, setSharedFiles] = useState<any[]>([]);
   const [messages, setMessages] = useState<any[]>([]);
 
   const pcRef = useRef<RTCPeerConnection | null>(null);
@@ -105,6 +107,15 @@ export function useWebRTCSubscriber(token: string, roomInfo: { room_id: string; 
         const msg = JSON.parse(evt.data);
         if (msg.type === 'chat-message') {
           setMessages((prev) => [...prev, msg.payload]);
+        } else if (msg.type === 'stream-paused') {
+          setIsStreamPaused(!!msg.payload?.paused);
+        } else if (msg.type === 'file-shared') {
+          if (msg.payload) {
+            setSharedFiles((prev) => {
+              if (prev.some((f) => f.id === msg.payload.id)) return prev;
+              return [...prev, msg.payload];
+            });
+          }
         } else if (msg.type === 'session-state') {
           if (msg.payload && msg.payload.status === 'closed') {
             setConnectionStatus('closed');
@@ -220,12 +231,25 @@ export function useWebRTCSubscriber(token: string, roomInfo: { room_id: string; 
     };
   }, [connect]);
 
-  const sendChatMessage = useCallback((text: string) => {
+  // Carrega lista inicial de arquivos compartilhados
+  useEffect(() => {
+    if (!roomId) return;
+    fetch(`/rooms/${roomId}/files`)
+      .then((res) => (res.ok ? res.json() : []))
+      .then((data) => {
+        if (Array.isArray(data)) {
+          setSharedFiles(data);
+        }
+      })
+      .catch((err) => console.warn('Erro ao carregar arquivos da sala:', err));
+  }, [roomId]);
+
+  const sendChatMessage = useCallback((text: string, isPrivate: boolean = false) => {
     if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
       wsRef.current.send(
         JSON.stringify({
           type: 'chat-message',
-          payload: { content: text },
+          payload: { content: text, is_private: isPrivate },
         })
       );
     }
@@ -236,6 +260,8 @@ export function useWebRTCSubscriber(token: string, roomInfo: { room_id: string; 
     autoplayBlocked,
     setAutoplayBlocked,
     connectionStatus,
+    isStreamPaused,
+    sharedFiles,
     messages,
     sendChatMessage,
   };

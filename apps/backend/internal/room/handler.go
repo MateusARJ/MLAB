@@ -18,8 +18,10 @@ const defaultMaxParticipants = 50
 
 // Handler agrupa os endpoints HTTP do módulo room.
 type Handler struct {
-	store   Store
-	baseURL string // ex: https://screenshare.example.com
+	store           Store
+	baseURL         string // ex: https://screenshare.example.com
+	fileStore       *FileStore
+	fileBroadcaster FileBroadcasterFunc
 }
 
 func getWebPort() string {
@@ -47,7 +49,16 @@ func NewHandler(store Store) *Handler {
 			base = fmt.Sprintf("http://localhost:%s", webPort)
 		}
 	}
-	return &Handler{store: store, baseURL: base}
+	return &Handler{
+		store:     store,
+		baseURL:   base,
+		fileStore: newFileStore(),
+	}
+}
+
+// SetFileBroadcaster define a função de notificação WebSocket quando um arquivo é enviado.
+func (h *Handler) SetFileBroadcaster(fn FileBroadcasterFunc) {
+	h.fileBroadcaster = fn
 }
 
 // getOutboundIP descobre o endereço IP de saída da interface de rede primária.
@@ -130,6 +141,8 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	// Pública — aluno entra com nome + matrícula, sem JWT prévio.
 	mux.HandleFunc("POST /rooms/{roomName}/{profName}/join", h.joinRoomByPath)
 	mux.HandleFunc("POST /rooms/{roomId}/join", h.joinRoom)
+	mux.HandleFunc("GET /rooms/{roomId}/files", h.listFiles)
+	mux.HandleFunc("GET /rooms/{roomId}/files/{fileId}/download", h.downloadFile)
 }
 
 // RegisterProtectedRoutes registra os endpoints que exigem JWT de professor,
@@ -138,6 +151,7 @@ func (h *Handler) RegisterProtectedRoutes(mux *http.ServeMux, mw func(http.Handl
 	mux.Handle("POST /rooms", mw(http.HandlerFunc(h.createRoom)))
 	mux.Handle("GET /rooms/{roomId}/link", mw(http.HandlerFunc(h.getLink)))
 	mux.Handle("POST /rooms/{roomId}/close", mw(http.HandlerFunc(h.closeRoom)))
+	mux.Handle("POST /rooms/{roomId}/files", mw(http.HandlerFunc(h.uploadFile)))
 }
 
 // ── POST /rooms ───────────────────────────────────────────────────────────────

@@ -42,6 +42,17 @@ func main() {
 	roomHandler := room.NewHandler(roomStore)
 	sigHandler := signaling.NewHandler(roomStore, sfuService)
 
+	// Conecta o broadcaster de arquivos da sala ao hub de sinalização
+	roomHandler.SetFileBroadcaster(func(roomID, id, name string, size int64, url string) {
+		if hub := sigHandler.GetHub(roomID); hub != nil {
+			hub.BroadcastFileShared(signaling.FileSharedPayload{
+				ID:   id,
+				Name: name,
+				Size: size,
+				URL:  url,
+			})
+		}
+	})
 
 	// ── Roteador ──────────────────────────────────────────────────────────────
 	mux := http.NewServeMux()
