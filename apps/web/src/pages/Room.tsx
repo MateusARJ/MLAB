@@ -56,7 +56,21 @@ export const Room: React.FC<RoomProps> = ({ token, roomInfo, onLeave }) => {
   });
 
   const [unreadCount, setUnreadCount] = useState<number>(0);
+  const [isFullscreen, setIsFullscreen] = useState<boolean>(false);
+  const [isHeaderHovered, setIsHeaderHovered] = useState<boolean>(false);
   const prevMessagesLength = useRef(messages.length);
+
+  useEffect(() => {
+    const handleFsChange = () => {
+      const fs = !!document.fullscreenElement;
+      setIsFullscreen(fs);
+      if (!fs) {
+        setIsHeaderHovered(false);
+      }
+    };
+    document.addEventListener('fullscreenchange', handleFsChange);
+    return () => document.removeEventListener('fullscreenchange', handleFsChange);
+  }, []);
 
   useEffect(() => {
     const handleResize = () => {
@@ -205,7 +219,27 @@ export const Room: React.FC<RoomProps> = ({ token, roomInfo, onLeave }) => {
 
   return (
     <div ref={containerRef} style={styles.container}>
-      <header style={styles.header}>
+      {/* Zona de ativação do cabeçalho retrátil em tela cheia */}
+      {isFullscreen && (
+        <div
+          onMouseEnter={() => setIsHeaderHovered(true)}
+          style={styles.fullscreenTriggerZone}
+        />
+      )}
+
+      <header
+        onMouseEnter={() => isFullscreen && setIsHeaderHovered(true)}
+        onMouseLeave={() => isFullscreen && setIsHeaderHovered(false)}
+        style={{
+          ...styles.header,
+          ...(isFullscreen
+            ? {
+                ...styles.headerFullscreen,
+                transform: isHeaderHovered ? 'translateY(0)' : 'translateY(-100%)',
+              }
+            : {}),
+        }}
+      >
         <div style={styles.brandBox}>
           <img src="/MLAB-logo.png" alt="MLab Logo" style={styles.logoImg} />
           <h2 style={styles.title}>MLab — Aula ao Vivo</h2>
@@ -336,7 +370,13 @@ export const Room: React.FC<RoomProps> = ({ token, roomInfo, onLeave }) => {
 
         {/* Modal/Gaveta de Arquivos da Aula */}
         {isFilesOpen && (
-          <div style={styles.filesDrawer}>
+          <div
+            style={{
+              ...styles.filesDrawer,
+              top: isFullscreen ? '65px' : '12px',
+              right: isChatOpen ? '360px' : '20px',
+            }}
+          >
             <div style={styles.drawerHeader}>
               <span style={styles.drawerTitle}>📁 Arquivos da Aula ({sharedFiles.length})</span>
               <button
@@ -495,6 +535,25 @@ const styles: { [key: string]: React.CSSProperties } = {
     padding: '12px 24px',
     backgroundColor: '#1e293b',
     borderBottom: '1px solid #334155',
+  },
+  fullscreenTriggerZone: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    height: '18px',
+    zIndex: 60,
+  },
+  headerFullscreen: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    zIndex: 55,
+    backgroundColor: 'rgba(15, 23, 42, 0.94)',
+    backdropFilter: 'blur(12px)',
+    boxShadow: '0 4px 20px rgba(0, 0, 0, 0.6)',
+    transition: 'transform 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
   },
   brandBox: {
     display: 'flex',

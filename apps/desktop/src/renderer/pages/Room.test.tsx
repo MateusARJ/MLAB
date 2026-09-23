@@ -141,10 +141,26 @@ describe('Room Component (Desktop)', () => {
     });
   });
 
-  it('deve renderizar o link da sala diretamente abaixo do título no cabeçalho', () => {
+  it('deve renderizar o link da sala diretamente abaixo do título no cabeçalho e não exibir ID', () => {
     render(<Room room={dummyRoom} onCloseRoom={vi.fn()} />);
 
     expect(screen.getByText(new RegExp(dummyRoom.link, 'i'))).toBeInTheDocument();
+    expect(screen.queryByText(/ID:/i)).not.toBeInTheDocument();
+  });
+
+  it('deve exibir o badge de resolução 1080p @ 30fps sem 4 Mbps na sessão ao vivo', async () => {
+    render(<Room room={dummyRoom} onCloseRoom={vi.fn()} />);
+
+    await waitFor(() => {
+      expect(screen.getByText('Tela Inteira 1')).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: /Avançar e Iniciar Transmissão/i }));
+
+    await waitFor(() => {
+      expect(screen.getByText('1080p @ 30fps')).toBeInTheDocument();
+      expect(screen.queryByText(/4 Mbps/i)).not.toBeInTheDocument();
+    });
   });
 
   it('deve abrir a sidebar retrátil com abas de Chat, Alunos e Arquivos ao clicar no botão de Chat', async () => {

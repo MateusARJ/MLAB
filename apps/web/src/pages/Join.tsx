@@ -85,9 +85,9 @@ export const Join: React.FC<JoinProps> = ({ onJoined }) => {
               id="studentId"
               type="text"
               value={studentId}
-              maxLength={12}
-              onChange={(e) => setStudentId(e.target.value.toUpperCase().slice(0, 12))}
-              placeholder="Ex: 2025TADS0000"
+              maxLength={15}
+              onChange={(e) => setStudentId(e.target.value.toUpperCase().slice(0, 15))}
+              placeholder="Ex: 2025116TADS0000"
               style={{ ...styles.input, textTransform: 'uppercase' }}
               required
             />

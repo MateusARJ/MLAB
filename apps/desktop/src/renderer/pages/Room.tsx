@@ -273,15 +273,7 @@ export const Room: React.FC<RoomProps> = ({ room, onCloseRoom }) => {
           <img src={mlabLogo} alt="MLab Logo" style={styles.logoImg} />
           <div>
             <h2 style={styles.title}>MLab — Sala: {room.slug}</h2>
-            {/* Link da sala diretamente abaixo do título da sala */}
-            <div
-              onClick={handleCopyLink}
-              style={styles.roomLinkText}
-              title="Clique para copiar o link da sala"
-            >
-              🔗 {room.link}
-            </div>
-            <span style={styles.subtitle}>ID: {room.id}</span>
+            <div style={styles.roomLinkStatic}>{room.link}</div>
           </div>
         </div>
         <div style={styles.headerActions}>
@@ -463,7 +455,7 @@ export const Room: React.FC<RoomProps> = ({ room, onCloseRoom }) => {
                       <span style={styles.pulsingDotGreen} /> AO VIVO
                     </span>
                     <span style={styles.resolutionBadge}>
-                      1080p @ 30fps • 4 Mbps
+                      1080p @ 30fps
                     </span>
                     <span style={styles.studentsBadge}>
                       👥 {studentsOnly.length} {studentsOnly.length === 1 ? 'Aluno' : 'Alunos'}
@@ -847,20 +839,12 @@ const styles: { [key: string]: React.CSSProperties } = {
     color: '#f8fafc',
     margin: 0,
   },
-  roomLinkText: {
+  roomLinkStatic: {
     fontSize: '12px',
-    fontWeight: '600',
-    color: '#38bdf8',
-    cursor: 'pointer',
-    marginTop: '2px',
-    marginBottom: '2px',
-    display: 'flex',
-    alignItems: 'center',
-    gap: '4px',
-  },
-  subtitle: {
-    fontSize: '11px',
     color: '#94a3b8',
+    marginTop: '3px',
+    userSelect: 'text',
+    cursor: 'default',
   },
   closeBtn: {
     padding: '8px 16px',
