@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useParams, useLocation } from 'react-router-dom';
-import { joinRoom } from '../services/api';
+import { joinRoom, getRoomInfo } from '../services/api';
 
 interface JoinProps {
   onJoined: (token: string, roomInfo: any) => void;
@@ -9,9 +9,38 @@ interface JoinProps {
 export const Join: React.FC<JoinProps> = ({ onJoined }) => {
   const { roomName, professorName, slug } = useParams<{ roomName?: string; professorName?: string; slug?: string }>();
   const effectiveSlug = roomName && professorName ? `${roomName}/${professorName}` : (slug || '');
-  const displayTitle = roomName && professorName
-    ? `${roomName.replace(/-/g, ' ')} (Prof. ${professorName.replace(/-/g, ' ')})`
-    : (slug || '');
+  const [roomDetails, setRoomDetails] = useState<{ title?: string; professor_name?: string } | null>(null);
+
+  // Busca os dados da sala no backend para exibir o nome exato digitado pelo professor
+  useEffect(() => {
+    if (!effectiveSlug) return;
+    getRoomInfo(effectiveSlug).then((data) => {
+      if (data) {
+        setRoomDetails(data);
+      }
+    });
+  }, [effectiveSlug]);
+
+  const cleanProfName = (rawName?: string) => {
+    if (!rawName) return '';
+    // Remove sufixo hexadecimal aleatório da sala descartável (ex: -e1d7, -4a9b)
+    const withoutSuffix = rawName.replace(/-[0-9a-fA-F]{4}$/, '');
+    return withoutSuffix
+      .split('-')
+      .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+      .join(' ');
+  };
+
+  const profDisplay = roomDetails?.professor_name
+    ? roomDetails.professor_name
+    : (professorName ? cleanProfName(professorName) : '');
+  const roomTitleDisplay = roomDetails?.title
+    ? roomDetails.title
+    : (roomName ? roomName.replace(/-/g, ' ') : '');
+
+  const displayTitle = profDisplay
+    ? `${roomTitleDisplay || 'Aula'} (Prof. ${profDisplay})`
+    : (effectiveSlug || '');
 
   const location = useLocation();
   const closedMessage = (location.state as any)?.closedMessage;
@@ -46,6 +75,8 @@ export const Join: React.FC<JoinProps> = ({ onJoined }) => {
         room_id: resp.room_id,
         ws_url: resp.ws_url,
         ice_servers: resp.ice_servers,
+        professor_name: resp.professor_name || roomDetails?.professor_name || profDisplay,
+        room_title: resp.room_title || roomDetails?.title || roomTitleDisplay,
       });
     } catch (err: any) {
       setLoading(false);
@@ -71,6 +102,8 @@ export const Join: React.FC<JoinProps> = ({ onJoined }) => {
             <input
               id="studentName"
               type="text"
+              inputMode="text"
+              autoCapitalize="words"
               value={name}
               onChange={(e) => setName(e.target.value)}
               placeholder="Ex: Carlos Eduardo Silva"
@@ -84,6 +117,8 @@ export const Join: React.FC<JoinProps> = ({ onJoined }) => {
             <input
               id="studentId"
               type="text"
+              inputMode="text"
+              autoCapitalize="characters"
               value={studentId}
               maxLength={15}
               onChange={(e) => setStudentId(e.target.value.toUpperCase().slice(0, 15))}
@@ -108,14 +143,15 @@ export const Join: React.FC<JoinProps> = ({ onJoined }) => {
 
 const styles: { [key: string]: React.CSSProperties } = {
   container: {
-    minHeight: '100vh',
+    minHeight: '100dvh',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: '#0f172a',
     color: '#f8fafc',
     fontFamily: 'Inter, system-ui, sans-serif',
-    padding: '20px',
+    padding: '16px',
+    boxSizing: 'border-box',
   },
   card: {
     width: '100%',
@@ -124,18 +160,19 @@ const styles: { [key: string]: React.CSSProperties } = {
     backdropFilter: 'blur(16px)',
     border: '1px solid rgba(255, 255, 255, 0.1)',
     borderRadius: '16px',
-    padding: '36px 32px',
+    padding: '28px 20px',
     boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.5)',
+    boxSizing: 'border-box',
   },
   header: {
     textAlign: 'center',
-    marginBottom: '28px',
+    marginBottom: '24px',
   },
   logoImg: {
-    width: '96px',
-    height: '96px',
+    width: '76px',
+    height: '76px',
     objectFit: 'contain',
-    marginBottom: '12px',
+    marginBottom: '10px',
   },
   title: {
     fontSize: '24px',

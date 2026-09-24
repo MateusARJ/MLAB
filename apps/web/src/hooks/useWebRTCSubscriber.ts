@@ -14,6 +14,7 @@ export function useWebRTCSubscriber(token: string, roomInfo: { room_id: string; 
   const reconnectTimerRef = useRef<any>(null);
   const hasSubscribedStateRef = useRef(false);
   const isCleanedUpRef = useRef(false);
+  const isClosedRef = useRef(false);
   const connectionStatusRef = useRef(connectionStatus);
   connectionStatusRef.current = connectionStatus;
 
@@ -22,7 +23,7 @@ export function useWebRTCSubscriber(token: string, roomInfo: { room_id: string; 
   const iceServers = roomInfo?.ice_servers;
 
   const connect = useCallback(() => {
-    if (isCleanedUpRef.current) return;
+    if (isCleanedUpRef.current || isClosedRef.current) return;
 
     // Evita conexões duplicadas se o WebSocket atual já estiver aberto ou conectando
     if (wsRef.current && (wsRef.current.readyState === WebSocket.OPEN || wsRef.current.readyState === WebSocket.CONNECTING)) {
@@ -99,7 +100,8 @@ export function useWebRTCSubscriber(token: string, roomInfo: { room_id: string; 
     };
 
     ws.onopen = () => {
-      // Aguarda recebimento do session-state antes de enviar subscribe-request
+      // Solicita a transmissão imediatamente ao abrir a conexão WebSocket
+      requestSubscription();
     };
 
     ws.onmessage = async (evt) => {
@@ -118,8 +120,23 @@ export function useWebRTCSubscriber(token: string, roomInfo: { room_id: string; 
           }
         } else if (msg.type === 'session-state') {
           if (msg.payload && msg.payload.status === 'closed') {
+            isClosedRef.current = true;
+            connectionStatusRef.current = 'closed';
             setConnectionStatus('closed');
             setStream(null);
+            if (reconnectTimerRef.current) {
+              clearTimeout(reconnectTimerRef.current);
+              reconnectTimerRef.current = null;
+            }
+            if (pcRef.current) {
+              pcRef.current.close();
+              pcRef.current = null;
+            }
+            if (wsRef.current) {
+              wsRef.current.onclose = null;
+              wsRef.current.close(1000, 'Session closed');
+              wsRef.current = null;
+            }
           } else {
             setConnectionStatus(msg.payload.status);
             if (msg.payload.status === 'publishing') {
@@ -131,6 +148,8 @@ export function useWebRTCSubscriber(token: string, roomInfo: { room_id: string; 
             }
           }
         } else if (msg.type === 'room-closed') {
+          isClosedRef.current = true;
+          connectionStatusRef.current = 'closed';
           setConnectionStatus('closed');
           setStream(null);
           if (reconnectTimerRef.current) {
@@ -142,7 +161,8 @@ export function useWebRTCSubscriber(token: string, roomInfo: { room_id: string; 
             pcRef.current = null;
           }
           if (wsRef.current) {
-            wsRef.current.close();
+            wsRef.current.onclose = null;
+            wsRef.current.close(1000, 'Room closed');
             wsRef.current = null;
           }
         } else if (msg.type === 'offer') {
@@ -190,8 +210,16 @@ export function useWebRTCSubscriber(token: string, roomInfo: { room_id: string; 
     ws.onclose = (evt) => {
       if (isCleanedUpRef.current) return;
 
-      // Trata encerramento por sessão duplicada (RN-04 / erro 4001)
-      if (evt.code === 4001) {
+      // Trata encerramento intencional da sala pelo professor ou sessão duplicada (RN-04 / erro 4001 / 4004 / 1000)
+      if (
+        isClosedRef.current ||
+        connectionStatusRef.current === 'closed' ||
+        evt.code === 1000 ||
+        evt.code === 4001 ||
+        evt.code === 4004
+      ) {
+        isClosedRef.current = true;
+        connectionStatusRef.current = 'closed';
         setConnectionStatus('closed');
         return;
       }

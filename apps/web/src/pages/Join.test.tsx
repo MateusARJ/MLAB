@@ -6,6 +6,7 @@ import * as apiService from '../services/api';
 
 vi.mock('../services/api', () => ({
   joinRoom: vi.fn(),
+  getRoomInfo: vi.fn().mockResolvedValue(null),
 }));
 
 describe('Join Component (Web)', () => {

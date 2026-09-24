@@ -7,6 +7,10 @@
 }
 
 :root {
+  --sat: env(safe-area-inset-top, 0px);
+  --sar: env(safe-area-inset-right, 0px);
+  --sab: env(safe-area-inset-bottom, 0px);
+  --sal: env(safe-area-inset-left, 0px);
   --color-bg: #0f172a;
   --color-surface: #1e293b;
   --color-border: #334155;
@@ -25,6 +29,8 @@
 html {
   font-size: 16px;
   -webkit-text-size-adjust: 100%;
+  overflow-x: hidden;
+  touch-action: manipulation;
 }
 
 body {
@@ -33,6 +39,14 @@ body {
   color: var(--color-text);
   line-height: 1.5;
   min-height: 100vh;
+  min-height: 100dvh;
+  overflow-x: hidden;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Previne zoom automático indesejado no iOS ao focar inputs */
+input, select, textarea {
+  font-size: 16px;
 }
 
 /* Scrollbar */
