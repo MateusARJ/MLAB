@@ -81,6 +81,7 @@ type SFU interface {
 	AddICECandidate(roomID, participantID, candidate string) error
 	PublisherDisconnected(roomID, participantID string) error
 	RoomClosed(roomID string) error
+	RequestKeyFrame(roomID string) error
 }
 
 // Hub gerencia todos os clientes WebSocket de uma sala.
@@ -194,6 +195,11 @@ func (h *Hub) onRegister(c *Client) {
 		})
 	}
 
+	// Se for aluno conectando/reconectando e o professor já estiver transmitindo, solicita Keyframe imediato
+	if c.role == RoleAluno && h.status == SessionPublishing && h.sfu != nil {
+		_ = h.sfu.RequestKeyFrame(h.roomID)
+	}
+
 	// Atualiza lista de participantes para todos.
 	h.broadcastParticipantsUpdate()
 
@@ -266,6 +272,10 @@ func (h *Hub) route(env *envelope) {
 		h.onChatMessage(c, env.msg)
 	case TypeStreamPause:
 		h.onStreamPause(c, env.msg)
+	case TypeRequestKeyFrame:
+		if h.sfu != nil {
+			_ = h.sfu.RequestKeyFrame(h.roomID)
+		}
 	case TypeEndSession:
 		h.onEndSession(c)
 	default:
@@ -323,6 +333,7 @@ func (h *Hub) onSubscribeRequest(c *Client, msg WsMessage) {
 		return
 	}
 	c.sendJSON(TypeOffer, SDPPayload{SDP: offerSDP})
+	_ = h.sfu.RequestKeyFrame(h.roomID)
 }
 
 func (h *Hub) onOffer(c *Client, msg WsMessage) {
@@ -395,6 +406,11 @@ func (h *Hub) onChatMessage(c *Client, msg WsMessage) {
 
 	sanitized := html.EscapeString(trimmed)
 
+	targetID := p.TargetID
+	if p.IsPrivate && targetID == "" && c.role == RoleAluno {
+		targetID = h.publisherID
+	}
+
 	chatPayload := ChatRecvPayload{
 		MessageID:     hubNewID(),
 		ParticipantID: c.participantID,
@@ -403,6 +419,7 @@ func (h *Hub) onChatMessage(c *Client, msg WsMessage) {
 		StudentID:     c.studentID,
 		Content:       sanitized,
 		IsPrivate:     p.IsPrivate,
+		TargetID:      targetID,
 		SentAt:        time.Now().UTC().Format(time.RFC3339),
 	}
 
@@ -446,6 +463,9 @@ func (h *Hub) onStreamPause(c *Client, msg WsMessage) {
 	h.broadcastAll(TypeStreamPaused, StreamPausedPayload{
 		Paused: h.streamPaused,
 	})
+	if !h.streamPaused && h.sfu != nil {
+		_ = h.sfu.RequestKeyFrame(h.roomID)
+	}
 }
 
 func (h *Hub) onEndSession(c *Client) {

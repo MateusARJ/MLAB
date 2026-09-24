@@ -15,6 +15,7 @@ const (
 	TypeChatMessage      = "chat-message"
 	TypeEndSession       = "end-session"
 	TypeStreamPause      = "stream-pause" // professor envia para pausar/retomar transmissão
+	TypeRequestKeyFrame  = "request-keyframe" // publisher solicita keyframe imediato (ex: após troca de fonte)
 )
 
 // Mensagens que o servidor envia ao(s) cliente(s).
@@ -130,7 +131,8 @@ type ChatRecvPayload struct {
 	Role          Role   `json:"role"`
 	StudentID     string `json:"student_id,omitempty"`
 	Content       string `json:"content"`
-	IsPrivate     bool   `json:"is_private,omitempty"`
+	IsPrivate     bool   `json:"is_private"`
+	TargetID      string `json:"target_id,omitempty"`
 	SentAt        string `json:"sent_at"`
 }
 

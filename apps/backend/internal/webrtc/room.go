@@ -184,15 +184,14 @@ func (r *Room) createSubscriberOffer(subscriberID, publisherID string) (string, 
 	pc.OnConnectionStateChange(func(state webrtc.PeerConnectionState) {
 		log.Printf("[SFU] Subscriber %s mudou connectionState para: %s", subscriberID, state.String())
 		if state == webrtc.PeerConnectionStateConnected {
-			r.requestKeyFrame()
-			time.AfterFunc(300*time.Millisecond, r.requestKeyFrame)
+			r.RequestKeyFrame()
 		}
 	})
 
 	pc.OnICEConnectionStateChange(func(state webrtc.ICEConnectionState) {
 		log.Printf("[SFU] Subscriber %s mudou iceConnectionState para: %s", subscriberID, state.String())
 		if state == webrtc.ICEConnectionStateConnected {
-			r.requestKeyFrame()
+			r.RequestKeyFrame()
 		}
 	})
 
@@ -274,7 +273,7 @@ func (r *Room) handleSubscriberAnswer(subscriberID, sdp string) error {
 	}
 
 	// Dispara solicitação de Keyframe imediatamente após a aplicação da resposta remota
-	r.requestKeyFrame()
+	r.RequestKeyFrame()
 
 	return nil
 }
@@ -295,6 +294,13 @@ func (r *Room) requestKeyFrame() {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 	r.requestKeyFrameLocked()
+}
+
+// RequestKeyFrame solicita um RTCP PLI (Keyframe) e REMB com pulsos sucessivos para garantir sincronização rápida.
+func (r *Room) RequestKeyFrame() {
+	r.requestKeyFrame()
+	time.AfterFunc(200*time.Millisecond, r.requestKeyFrame)
+	time.AfterFunc(600*time.Millisecond, r.requestKeyFrame)
 }
 
 func (r *Room) addICECandidate(participantID, candidateStr string) error {

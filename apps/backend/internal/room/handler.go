@@ -16,19 +16,29 @@ import (
 
 const defaultMaxParticipants = 50
 
+// RoomCloseBroadcasterFunc define a assinatura da função de broadcast para encerramento de sala.
+type RoomCloseBroadcasterFunc func(roomID string)
+
 // Handler agrupa os endpoints HTTP do módulo room.
 type Handler struct {
-	store           Store
-	baseURL         string // ex: https://screenshare.example.com
-	fileStore       *FileStore
-	fileBroadcaster FileBroadcasterFunc
+	store                Store
+	baseURL              string // ex: https://screenshare.example.com
+	fileStore            *FileStore
+	fileBroadcaster      FileBroadcasterFunc
+	roomCloseBroadcaster RoomCloseBroadcasterFunc
 }
 
 func getWebPort() string {
 	if p := os.Getenv("WEB_PORT"); p != "" {
 		return p
 	}
-	return "5173"
+	if os.Getenv("MLAB_DEV_MONOREPO") == "1" {
+		return "5173"
+	}
+	if p := os.Getenv("PORT"); p != "" {
+		return p
+	}
+	return "8080"
 }
 
 // NewHandler cria um Handler com o store e a URL base fornecidos.
@@ -61,18 +71,53 @@ func (h *Handler) SetFileBroadcaster(fn FileBroadcasterFunc) {
 	h.fileBroadcaster = fn
 }
 
+// SetRoomCloseBroadcaster define a função de notificação WebSocket quando a sala é encerrada.
+func (h *Handler) SetRoomCloseBroadcaster(fn RoomCloseBroadcasterFunc) {
+	h.roomCloseBroadcaster = fn
+}
+
 // getOutboundIP descobre o endereço IP de saída da interface de rede primária.
 func getOutboundIP() string {
 	conn, err := net.Dial("udp", "8.8.8.8:80")
-	if err != nil {
-		return "localhost"
+	if err == nil {
+		defer conn.Close()
+		if localAddr, ok := conn.LocalAddr().(*net.UDPAddr); ok {
+			ip := localAddr.IP.String()
+			if ip != "" && ip != "127.0.0.1" && ip != "localhost" {
+				return ip
+			}
+		}
 	}
-	defer conn.Close()
-	localAddr, ok := conn.LocalAddr().(*net.UDPAddr)
-	if !ok {
-		return "localhost"
+
+	// Fallback para redes locais offline ou sem saída externa (ex: sem rota para 8.8.8.8):
+	// Itera sobre as interfaces ativas buscando um IPv4 válido (não loopback e não APIPA 169.254.x.x)
+	ifaces, err := net.Interfaces()
+	if err == nil {
+		for _, iface := range ifaces {
+			if iface.Flags&net.FlagUp == 0 || iface.Flags&net.FlagLoopback != 0 {
+				continue
+			}
+			addrs, err := iface.Addrs()
+			if err != nil {
+				continue
+			}
+			for _, addr := range addrs {
+				var ip net.IP
+				switch v := addr.(type) {
+				case *net.IPNet:
+					ip = v.IP
+				case *net.IPAddr:
+					ip = v.IP
+				}
+				if ip == nil || ip.IsLoopback() || ip.To4() == nil || ip.IsLinkLocalUnicast() {
+					continue
+				}
+				return ip.To4().String()
+			}
+		}
 	}
-	return localAddr.IP.String()
+
+	return "localhost"
 }
 
 // resolveBaseURL resolve a URL base a ser apresentada no link da sala (ngrok > PUBLIC_URL > BASE_URL > IP de rede > localhost).
@@ -141,6 +186,8 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	// Pública — aluno entra com nome + matrícula, sem JWT prévio.
 	mux.HandleFunc("POST /rooms/{roomName}/{profName}/join", h.joinRoomByPath)
 	mux.HandleFunc("POST /rooms/{roomId}/join", h.joinRoom)
+	mux.HandleFunc("GET /rooms/{roomName}/{profName}/info", h.getRoomInfoByPath)
+	mux.HandleFunc("GET /rooms/{roomId}/info", h.getRoomInfo)
 	mux.HandleFunc("GET /rooms/{roomId}/files", h.listFiles)
 	mux.HandleFunc("GET /rooms/{roomId}/files/{fileId}/download", h.downloadFile)
 }
@@ -195,41 +242,31 @@ func (h *Handler) createRoom(w http.ResponseWriter, r *http.Request) {
 		profSlug = "professor"
 	}
 
-	// Slug composto no padrão: <nome-da-sala>/<nome-do-professor>
+	// Invalida e remove permanentemente transmissões anteriores deste professor para que links passados não funcionem
+	if existing, err := h.store.GetRoomByOwnerID(r.Context(), professorID); err == nil && existing != nil {
+		_ = h.store.UpdateRoomStatus(r.Context(), existing.ID, StatusClosed, nil)
+		_ = h.store.DeleteRoom(r.Context(), existing.ID)
+	}
+
 	slug := fmt.Sprintf("%s/%s", roomSlug, profSlug)
 
-	// Se o professor já possui uma sala criada, reutiliza o registro, atualiza títulos e reativa a sala
-	var room *Room
-	existing, err := h.store.GetRoomByOwnerID(r.Context(), professorID)
-	if err == nil && existing != nil {
-		room = existing
-		room.Title = req.Title
-		room.ProfessorName = profName
-		room.RoomSlug = roomSlug
-		room.ProfessorSlug = profSlug
-		room.Slug = slug
-		room.Status = StatusWaiting
-		room.ClosedAt = nil
-		_ = h.store.UpdateRoomStatus(r.Context(), room.ID, StatusWaiting, nil)
-	} else {
-		room = &Room{
-			ID:              newID(),
-			Slug:            slug,
-			Title:           req.Title,
-			ProfessorName:   profName,
-			RoomSlug:        roomSlug,
-			ProfessorSlug:   profSlug,
-			OwnerID:         professorID,
-			Status:          StatusWaiting,
-			MaxParticipants: req.MaxParticipants,
-			CreatedAt:       time.Now().UTC(),
-		}
+	room := &Room{
+		ID:              newID(),
+		Slug:            slug,
+		Title:           req.Title,
+		ProfessorName:   profName,
+		RoomSlug:        roomSlug,
+		ProfessorSlug:   profSlug,
+		OwnerID:         professorID,
+		Status:          StatusWaiting,
+		MaxParticipants: req.MaxParticipants,
+		CreatedAt:       time.Now().UTC(),
+	}
 
-		if err := h.store.CreateRoom(r.Context(), room); err != nil {
-			log.Printf("room: CreateRoom: %v", err)
-			writeError(w, http.StatusInternalServerError, "erro ao criar sala")
-			return
-		}
+	if err := h.store.CreateRoom(r.Context(), room); err != nil {
+		log.Printf("room: CreateRoom: %v", err)
+		writeError(w, http.StatusInternalServerError, "erro ao criar sala")
+		return
 	}
 
 	baseURL := h.resolveBaseURL(r)
@@ -272,6 +309,50 @@ func (h *Handler) getLink(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, LinkResponse{
 		RoomID: room.ID,
 		Link:   buildLink(baseURL, room.Slug),
+	})
+}
+
+// ── GET /rooms/{roomName}/{profName}/info & GET /rooms/{roomId}/info ──────────
+
+func (h *Handler) getRoomInfoByPath(w http.ResponseWriter, r *http.Request) {
+	roomName := r.PathValue("roomName")
+	profName := r.PathValue("profName")
+	compositeSlug := fmt.Sprintf("%s/%s", roomName, profName)
+	h.handleGetRoomInfo(w, r, compositeSlug)
+}
+
+func (h *Handler) getRoomInfo(w http.ResponseWriter, r *http.Request) {
+	roomID := r.PathValue("roomId")
+	h.handleGetRoomInfo(w, r, roomID)
+}
+
+func (h *Handler) handleGetRoomInfo(w http.ResponseWriter, r *http.Request, identifier string) {
+	room, err := h.store.GetRoomByID(r.Context(), identifier)
+	if err != nil {
+		if errors.Is(err, ErrRoomNotFound) {
+			room, err = h.store.GetRoomBySlug(r.Context(), identifier)
+		}
+		if err != nil {
+			if errors.Is(err, ErrRoomNotFound) {
+				writeError(w, http.StatusNotFound, "sala não encontrada")
+				return
+			}
+			writeError(w, http.StatusInternalServerError, "erro ao buscar sala")
+			return
+		}
+	}
+
+	if room.Status == StatusClosed {
+		writeError(w, http.StatusNotFound, "esta transmissão já foi encerrada")
+		return
+	}
+
+	writeJSON(w, http.StatusOK, RoomInfoResponse{
+		RoomID:        room.ID,
+		Slug:          room.Slug,
+		Title:         room.Title,
+		ProfessorName: room.ProfessorName,
+		Status:        room.Status,
 	})
 }
 
@@ -320,7 +401,7 @@ func (h *Handler) handleJoin(w http.ResponseWriter, r *http.Request, identifier 
 	}
 
 	if room.Status == StatusClosed {
-		writeError(w, http.StatusConflict, "sala já encerrada")
+		writeError(w, http.StatusNotFound, "esta transmissão já foi encerrada e o link não está mais disponível")
 		return
 	}
 
@@ -370,6 +451,8 @@ func (h *Handler) handleJoin(w http.ResponseWriter, r *http.Request, identifier 
 		RoomID:        room.ID,
 		WsURL:         wsURL,
 		IceServers:    []IceServer{{URLs: []string{"stun:stun.l.google.com:19302"}}},
+		ProfessorName: room.ProfessorName,
+		RoomTitle:     room.Title,
 	})
 }
 
@@ -409,6 +492,10 @@ func (h *Handler) closeRoom(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusInternalServerError, "erro ao encerrar sala")
 		return
 	}
+	if h.roomCloseBroadcaster != nil {
+		h.roomCloseBroadcaster(roomID)
+	}
+	_ = h.store.DeleteRoom(r.Context(), roomID)
 
 	writeJSON(w, http.StatusOK, CloseResponse{
 		Status:   StatusClosed,

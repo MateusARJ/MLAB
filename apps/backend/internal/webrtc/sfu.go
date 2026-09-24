@@ -50,9 +50,42 @@ func NewSFUService(cfg Config) (*SFUService, error) {
 		conn, err := net.Dial("udp", "8.8.8.8:80")
 		if err == nil {
 			if localAddr, ok := conn.LocalAddr().(*net.UDPAddr); ok {
-				natIP = localAddr.IP.String()
+				ip := localAddr.IP.String()
+				if ip != "" && ip != "127.0.0.1" && ip != "localhost" {
+					natIP = ip
+				}
 			}
 			_ = conn.Close()
+		}
+
+		// Fallback para redes locais sem acesso à internet ou offline
+		if natIP == "" {
+			if ifaces, err := net.Interfaces(); err == nil {
+				for _, iface := range ifaces {
+					if iface.Flags&net.FlagUp == 0 || iface.Flags&net.FlagLoopback != 0 {
+						continue
+					}
+					if addrs, err := iface.Addrs(); err == nil {
+						for _, addr := range addrs {
+							var ip net.IP
+							switch v := addr.(type) {
+							case *net.IPNet:
+								ip = v.IP
+							case *net.IPAddr:
+								ip = v.IP
+							}
+							if ip == nil || ip.IsLoopback() || ip.To4() == nil || ip.IsLinkLocalUnicast() {
+								continue
+							}
+							natIP = ip.To4().String()
+							break
+						}
+					}
+					if natIP != "" {
+						break
+					}
+				}
+			}
 		}
 	}
 	if natIP != "" && natIP != "127.0.0.1" && natIP != "localhost" {
@@ -149,5 +182,15 @@ func (s *SFUService) RoomClosed(roomID string) error {
 	if exists {
 		room.close()
 	}
+	return nil
+}
+
+// RequestKeyFrame envia uma solicitação de Keyframe (RTCP PLI) para o publisher da sala.
+func (s *SFUService) RequestKeyFrame(roomID string) error {
+	room, exists := s.getRoom(roomID)
+	if !exists {
+		return fmt.Errorf("sala nao encontrada: %s", roomID)
+	}
+	room.RequestKeyFrame()
 	return nil
 }

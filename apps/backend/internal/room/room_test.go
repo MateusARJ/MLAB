@@ -77,9 +77,8 @@ func TestRoomLifecycle(t *testing.T) {
 	if err := json.NewDecoder(rec.Body).Decode(&createResp); err != nil {
 		t.Fatalf("failed to decode CreateRoomResponse: %v", err)
 	}
-	expectedSlug := "turma-alpha/professor-silva"
-	if createResp.RoomID == "" || createResp.Slug != expectedSlug {
-		t.Fatalf("expected Slug %q, got %q", expectedSlug, createResp.Slug)
+	if createResp.RoomID == "" || createResp.Slug != "turma-alpha/professor-silva" {
+		t.Fatalf("expected Slug %q, got %q", "turma-alpha/professor-silva", createResp.Slug)
 	}
 	if createResp.Status != StatusWaiting {
 		t.Errorf("expected status 'waiting', got %s", createResp.Status)
@@ -102,9 +101,9 @@ func TestRoomLifecycle(t *testing.T) {
 		t.Error("expected non-empty link in LinkResponse")
 	}
 
-	// 3. Student 1 Joins via composite path (POST /rooms/turma-alpha/professor-silva/join)
+	// 3. Student 1 Joins via composite path (POST /rooms/{roomSlug}/{profSlug}/join)
 	joinBody := []byte(`{"name": "Aluno 1", "student_id": "RA-101"}`)
-	joinReq := httptest.NewRequest("POST", "/rooms/turma-alpha/professor-silva/join", bytes.NewReader(joinBody))
+	joinReq := httptest.NewRequest("POST", "/rooms/"+createResp.Slug+"/join", bytes.NewReader(joinBody))
 	joinRec := httptest.NewRecorder()
 	mux.ServeHTTP(joinRec, joinReq)
 
@@ -145,12 +144,12 @@ func TestRoomLifecycle(t *testing.T) {
 		t.Fatalf("expected 200 OK for closeRoom, got %d: %s", closeRec.Code, closeRec.Body.String())
 	}
 
-	// 7. Student tries to join closed room -> 409 Conflict
+	// 7. Student tries to join closed room -> 404 Not Found (link descartado)
 	joinReqClosed := httptest.NewRequest("POST", "/rooms/"+roomID+"/join", bytes.NewReader(joinBody))
 	joinRecClosed := httptest.NewRecorder()
 	mux.ServeHTTP(joinRecClosed, joinReqClosed)
-	if joinRecClosed.Code != http.StatusConflict {
-		t.Errorf("expected 409 Conflict when joining closed room, got %d", joinRecClosed.Code)
+	if joinRecClosed.Code != http.StatusNotFound {
+		t.Errorf("expected 404 NotFound when joining closed room, got %d", joinRecClosed.Code)
 	}
 }
 
@@ -295,7 +294,7 @@ func TestCreateRoomFixedSlug(t *testing.T) {
 		t.Errorf("esperava Link %q, obteve %q", expectedLink, resp.Link)
 	}
 
-	// 2. Cria novamente com o mesmo professor -> deve reutilizar o mesmo slug e ID
+	// 2. Cria novamente com o mesmo professor -> invalida a anterior e cria uma nova sessão
 	req2 := httptest.NewRequest("POST", "/rooms", bytes.NewReader([]byte(`{"title":"Matemática"}`)))
 	req2.Header.Set("Authorization", "Bearer "+profToken)
 	rec2 := httptest.NewRecorder()
@@ -310,11 +309,17 @@ func TestCreateRoomFixedSlug(t *testing.T) {
 		t.Fatalf("decode err: %v", err)
 	}
 
-	if resp2.RoomID != resp.RoomID {
-		t.Errorf("esperava reuso do RoomID %q, obteve %q", resp.RoomID, resp2.RoomID)
+	if resp2.RoomID == resp.RoomID {
+		t.Errorf("esperava novo RoomID exclusivo, obteve reuso de %q", resp.RoomID)
 	}
 	if resp2.Slug != expectedSlug {
-		t.Errorf("esperava reuso do slug %q, obteve %q", expectedSlug, resp2.Slug)
+		t.Errorf("esperava slug limpo %q, obteve %q", expectedSlug, resp2.Slug)
+	}
+
+	// 3. Garante que a sala anterior pelo ID foi deletada ou fechada
+	oldRoom, errOld := store.GetRoomByID(context.Background(), resp.RoomID)
+	if errOld == nil && oldRoom != nil {
+		t.Errorf("esperava sala anterior removida do store, mas foi encontrada: %v", oldRoom)
 	}
 }
 
@@ -349,6 +354,6 @@ func TestCreateRoomNgrok(t *testing.T) {
 
 	expectedLink := "https://mlab-live.ngrok-free.app/matematica/professor-silva/entrar"
 	if resp.Link != expectedLink {
-		t.Errorf("esperava Link com ngrok %q, obteve %q", expectedLink, resp.Link)
+		t.Errorf("esperava Link com ngrok e link %q, obteve %q", expectedLink, resp.Link)
 	}
 }

@@ -29,6 +29,7 @@ type Store interface {
 	GetRoomBySlug(ctx context.Context, slug string) (*Room, error)
 	GetRoomByOwnerID(ctx context.Context, ownerID string) (*Room, error)
 	UpdateRoomStatus(ctx context.Context, roomID string, status Status, closedAt *time.Time) error
+	DeleteRoom(ctx context.Context, roomID string) error
 
 	// Participantes
 	AddParticipant(ctx context.Context, p *Participant) error
@@ -129,12 +130,40 @@ func (s *inMemoryStore) UpdateRoomStatus(_ context.Context, roomID string, statu
 	}
 	r.Status = status
 	r.ClosedAt = closedAt
+	if status == StatusClosed {
+		// Ao encerrar a sala, remove imediatamente dos índices para que o link antigo dê 404
+		if r.Slug != "" {
+			delete(s.slugIndex, r.Slug)
+		}
+		if r.RoomSlug != "" && r.ProfessorSlug != "" {
+			delete(s.slugIndex, r.RoomSlug+"/"+r.ProfessorSlug)
+		}
+	} else {
+		if r.Slug != "" {
+			s.slugIndex[r.Slug] = r.ID
+		}
+		if r.RoomSlug != "" && r.ProfessorSlug != "" {
+			s.slugIndex[r.RoomSlug+"/"+r.ProfessorSlug] = r.ID
+		}
+	}
+	return nil
+}
+
+func (s *inMemoryStore) DeleteRoom(_ context.Context, roomID string) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	r, ok := s.rooms[roomID]
+	if !ok {
+		return nil
+	}
 	if r.Slug != "" {
-		s.slugIndex[r.Slug] = r.ID
+		delete(s.slugIndex, r.Slug)
 	}
 	if r.RoomSlug != "" && r.ProfessorSlug != "" {
-		s.slugIndex[r.RoomSlug+"/"+r.ProfessorSlug] = r.ID
+		delete(s.slugIndex, r.RoomSlug+"/"+r.ProfessorSlug)
 	}
+	delete(s.rooms, roomID)
+	delete(s.participants, roomID)
 	return nil
 }
 
@@ -152,6 +181,15 @@ func (s *inMemoryStore) CountParticipants(_ context.Context, roomID string) (int
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
+
+// newShortSuffix gera um sufixo curto aleatório de 4 caracteres para links descartáveis.
+func newShortSuffix() string {
+	b := make([]byte, 2)
+	if _, err := rand.Read(b); err != nil {
+		return "101"
+	}
+	return hex.EncodeToString(b)
+}
 
 // newID gera um ID hexadecimal aleatório de 16 bytes.
 func newID() string {

@@ -81,6 +81,17 @@ type JoinResponse struct {
 	RoomID        string      `json:"room_id"`
 	WsURL         string      `json:"ws_url"`
 	IceServers    []IceServer `json:"ice_servers"`
+	ProfessorName string      `json:"professor_name,omitempty"`
+	RoomTitle     string      `json:"room_title,omitempty"`
+}
+
+// RoomInfoResponse é a resposta de GET /rooms/{identifier}/info (200).
+type RoomInfoResponse struct {
+	RoomID        string `json:"room_id"`
+	Slug          string `json:"slug"`
+	Title         string `json:"title"`
+	ProfessorName string `json:"professor_name"`
+	Status        Status `json:"status"`
 }
 
 // CloseResponse é a resposta de POST /rooms/{id}/close (200).
@@ -88,3 +99,4 @@ type CloseResponse struct {
 	Status   Status `json:"status"`
 	ClosedAt string `json:"closed_at"`
 }
+
