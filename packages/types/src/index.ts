@@ -78,6 +78,20 @@ export interface AuthResponse {
   expiresAt: string;
 }
 
+export interface LoginRequest {
+  email?: string;
+  password?: string;
+  name?: string;
+}
+
+export interface LoginResponse {
+  token: string;
+  expiresAt?: string;
+  name?: string;
+  user_id?: string;
+  role?: Role;
+}
+
 export interface JoinRequest {
   name: string;
   studentId: string;
@@ -92,6 +106,8 @@ export interface JoinResponse {
   room_id?: string;
   ws_url?: string;
   ice_servers?: any[];
+  professor_name?: string;
+  room_title?: string;
 }
 
 export type JoinRoomRequest = {
@@ -107,6 +123,8 @@ export type JoinRoomResponse = {
   room_id: string;
   ws_url: string;
   ice_servers: any[];
+  professor_name?: string;
+  room_title?: string;
 };
 
 // ── WebSocket Events (Signaling + Chat) ──────────────────────────────────────
@@ -140,12 +158,21 @@ export interface SessionStatePayload {
 }
 
 export interface ChatMessagePayload {
-  messageId: string;
-  participantId: string;
+  messageId?: string;
+  message_id?: string;
+  participantId?: string;
+  participant_id?: string;
   name: string;
   role: Role;
+  studentId?: string;
+  student_id?: string;
   content: string;
-  sentAt: string;
+  isPrivate?: boolean;
+  is_private?: boolean;
+  targetId?: string;
+  target_id?: string;
+  sentAt?: string;
+  sent_at?: string;
 }
 
 export interface IceServer {
