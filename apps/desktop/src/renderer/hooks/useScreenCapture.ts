@@ -8,7 +8,7 @@ export function useScreenCapture(initialMode: CaptureSourceType = 'screen') {
   const [sources, setSources] = useState<CaptureSource[]>([]);
   const [selectedSource, setSelectedSource] = useState<CaptureSource | null>(null);
   const [stream, setStream] = useState<MediaStream | null>(null);
-  const [micMuted, setMicMuted] = useState(false);
+  const [micMuted, setMicMuted] = useState(true);
   const [videoPaused, setVideoPaused] = useState(false);
   const [hasPermissions, setHasPermissions] = useState<boolean | null>(null);
 
@@ -108,11 +108,6 @@ export function useScreenCapture(initialMode: CaptureSourceType = 'screen') {
         });
       } catch (err) {
         console.warn('Microfone não disponível ou permissão não concedida:', err);
-      }
-
-      // Para tracks anteriores se houver troca de fonte (RN-12, RN-20)
-      if (stream) {
-        stream.getVideoTracks().forEach((t) => t.stop());
       }
 
       setStream(mediaStream);

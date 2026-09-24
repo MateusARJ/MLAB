@@ -9,20 +9,41 @@ import {
   systemPreferences
 } from 'electron'
 import { join } from 'path'
-import { existsSync, promises as fsPromises } from 'fs'
+import { existsSync, appendFileSync, mkdirSync, promises as fsPromises } from 'fs'
 import { spawn, ChildProcess } from 'child_process'
 import http from 'http'
+
 
 // Registra o AppUserModelId no Windows para agrupar e exibir a logo na Barra de Tarefas
 if (process.platform === 'win32') {
   app.setAppUserModelId('com.mlab.classroom')
 }
 
+function logApp(msg: string): void {
+  try {
+    const logDir = join(app.getPath('userData'), 'logs')
+    if (!existsSync(logDir)) {
+      mkdirSync(logDir, { recursive: true })
+    }
+    const logFile = join(logDir, 'mlab-main.log')
+    appendFileSync(logFile, `[${new Date().toISOString()}] ${msg}\n`)
+  } catch {}
+  console.log(msg)
+}
+
+process.on('uncaughtException', (err) => {
+  logApp(`[UncaughtException] ${err.stack || err}`)
+})
+
+process.on('unhandledRejection', (reason) => {
+  logApp(`[UnhandledRejection] ${reason}`)
+})
+
 function getAppIcon(): string | Electron.NativeImage {
-  const icoPath = join(__dirname, '../../resources/icon-dark.ico')
-  const pngPath = join(__dirname, '../../resources/icon-dark.png')
-  const devIcoPath = join(process.cwd(), 'resources/icon-dark.ico')
-  const devPngPath = join(process.cwd(), 'resources/icon-dark.png')
+  const icoPath = join(__dirname, '../../resources/icon.ico')
+  const pngPath = join(__dirname, '../../resources/icon.png')
+  const devIcoPath = join(process.cwd(), 'resources/icon.ico')
+  const devPngPath = join(process.cwd(), 'resources/icon.png')
 
   const candidates = process.platform === 'win32'
     ? [icoPath, devIcoPath, pngPath, devPngPath]
@@ -55,6 +76,7 @@ function getPreloadPath(): string {
 }
 
 function createWindow(): void {
+  logApp('[Main] createWindow iniciado...')
   const appIcon = getAppIcon()
 
   const win = new BrowserWindow({
@@ -74,19 +96,50 @@ function createWindow(): void {
     show: false
   })
 
-  // Garante que o ícone seja definido na janela (barra de título / menu) no Windows
-  win.setIcon(appIcon)
+  // Garante que o ícone seja definido na janela de forma segura
+  try {
+    if (appIcon) {
+      win.setIcon(appIcon)
+    }
+  } catch (err) {
+    logApp(`[Main] Falha ao definir ícone da janela: ${err}`)
+  }
 
-  win.on('ready-to-show', () => {
+  // Previne captura recursiva e oculta a janela e cursor do MLab ao compartilhar tela inteira (WDA_EXCLUDEFROMCAPTURE)
+  try {
+    win.setContentProtection(true)
+  } catch (err) {
+    logApp(`[Main] Falha ao ativar setContentProtection: ${err}`)
+  }
+
+  win.once('ready-to-show', () => {
+    logApp('[Main] ready-to-show disparado: exibindo janela')
     win.show()
+  })
+
+  // Fallback garantido: caso ready-to-show atrase ou não dispare, abre a janela
+  setTimeout(() => {
+    if (!win.isDestroyed() && !win.isVisible()) {
+      logApp('[Main] Fallback de exibição ativado: forçando win.show()')
+      win.show()
+    }
+  }, 1500)
+
+  win.webContents.on('did-fail-load', (_event, errorCode, errorDescription, validatedURL) => {
+    logApp(`[Main WebContents DID-FAIL-LOAD] code=${errorCode}, desc=${errorDescription}, url=${validatedURL}`)
   })
 
   // Desenvolvimento: carrega do servidor Vite
   // Produção: carrega o HTML compilado
   if (process.env['ELECTRON_RENDERER_URL']) {
+    logApp(`[Main] Carregando dev URL: ${process.env['ELECTRON_RENDERER_URL']}`)
     win.loadURL(process.env['ELECTRON_RENDERER_URL'])
   } else {
-    win.loadFile(join(__dirname, '../renderer/index.html'))
+    const htmlPath = join(__dirname, '../renderer/index.html')
+    logApp(`[Main] Carregando HTML de produção: ${htmlPath}`)
+    win.loadFile(htmlPath).catch((err) => {
+      logApp(`[Main] Erro fatal no win.loadFile: ${err}`)
+    })
   }
 }
 
@@ -141,7 +194,7 @@ ipcMain.handle(
       const now = new Date()
       const dateStr = now.toISOString().slice(0, 10)
       const timeStr = now.toTimeString().slice(0, 5).replace(':', '')
-      const ext = 'webm'
+      const ext = format || 'webm'
       const suggestedName = defaultName || `aula-mlab-${dateStr}-${timeStr}.${ext}`
 
       const filters = [
@@ -291,36 +344,49 @@ async function startBackendServer(): Promise<void> {
   console.log(`[Backend] Iniciando servidor em segundo plano de forma invisível: ${binaryPath}`)
 
   try {
+    const webDir = app.isPackaged
+      ? join(process.resourcesPath, 'web')
+      : join(process.cwd(), '../web/dist')
+
     serverProcess = spawn(binaryPath, [], {
+      cwd: app.getPath('userData'),
       detached: false,
       windowsHide: true,
       stdio: ['ignore', 'pipe', 'pipe'],
       env: {
         ...process.env,
         PORT: '8080',
-        WEB_PORT: '5173',
+        WEB_PORT: '8080',
+        WEB_DIR: webDir,
         JWT_SECRET: process.env['JWT_SECRET'] || 'dev-secret-key-12345'
       }
     })
 
     serverProcess.stdout?.on('data', (data: Buffer) => {
-      console.log(`[Backend] ${data.toString().trim()}`)
+      const msg = data.toString().trim()
+      logApp(`[Backend] ${msg}`)
+      console.log(`[Backend] ${msg}`)
     })
 
     serverProcess.stderr?.on('data', (data: Buffer) => {
-      console.error(`[Backend ERR] ${data.toString().trim()}`)
+      const msg = data.toString().trim()
+      logApp(`[Backend ERR] ${msg}`)
+      console.error(`[Backend ERR] ${msg}`)
     })
 
     serverProcess.on('error', (err) => {
+      logApp(`[Backend] Falha ao iniciar processo do backend: ${err}`)
       console.error('[Backend] Falha ao iniciar processo do backend:', err)
       serverProcess = null
     })
 
     serverProcess.on('exit', (code, signal) => {
+      logApp(`[Backend] Servidor finalizado (código: ${code}, sinal: ${signal})`)
       console.log(`[Backend] Servidor finalizado (código: ${code}, sinal: ${signal})`)
       serverProcess = null
     })
   } catch (err) {
+    logApp(`[Backend] Erro ao disparar servidor: ${err}`)
     console.error('[Backend] Erro ao disparar servidor:', err)
   }
 }
@@ -328,6 +394,7 @@ async function startBackendServer(): Promise<void> {
 function stopBackendServer(): void {
   if (serverProcess && serverProcess.pid) {
     const pid = serverProcess.pid
+    logApp(`[Backend] Encerrando processo do servidor (PID: ${pid})...`)
     console.log(`[Backend] Encerrando processo do servidor (PID: ${pid})...`)
     try {
       if (process.platform === 'win32') {
@@ -347,9 +414,8 @@ function stopBackendServer(): void {
 
 // ── App lifecycle ─────────────────────────────────────────────────────────────
 
-app.whenReady().then(async () => {
-  // Inicia o servidor Go SFU invisível em segundo plano automaticamente
-  await startBackendServer()
+app.whenReady().then(() => {
+  logApp('[Main] app.whenReady disparado. Configurando sessão e abrindo janela...')
 
   // Configuração explícita de permissões do Chromium para captura e áudio
   session.defaultSession.setPermissionRequestHandler((_webContents, permission, callback) => {
@@ -362,7 +428,7 @@ app.whenReady().then(async () => {
   })
 
   session.defaultSession.setPermissionCheckHandler((_webContents, permission) => {
-    return permission === 'media' || permission === 'display-capture'
+    return (permission as string) === 'media' || (permission as string) === 'display-capture'
   })
 
   session.defaultSession.setDisplayMediaRequestHandler((_request, callback) => {
@@ -376,12 +442,18 @@ app.whenReady().then(async () => {
         }
       })
       .catch((err) => {
-        console.error('Erro no displayMediaRequestHandler:', err)
+        logApp(`[Main] Erro no displayMediaRequestHandler: ${err}`)
         callback({ video: null as any })
       })
   })
 
+  // 1. Cria a janela do professor IMEDIATAMENTE (sem travar à espera do servidor Go)
   createWindow()
+
+  // 2. Inicia o servidor Go SFU invisível em segundo plano de forma assíncrona
+  startBackendServer().catch((err) => {
+    logApp(`[Backend] Erro ao iniciar servidor em background: ${err}`)
+  })
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) {
@@ -408,3 +480,4 @@ app.on('window-all-closed', () => {
 process.on('exit', () => {
   stopBackendServer()
 })
+

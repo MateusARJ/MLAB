@@ -80,7 +80,9 @@ export function useWebRTCPublisher({
         console.warn('Erro ao enviar sinal de end-session:', e);
       }
     }
-    stopPublishing();
+    setTimeout(() => {
+      stopPublishing();
+    }, 100);
   }, [stopPublishing]);
 
   const startPublishing = useCallback(async (directStream?: MediaStream) => {
@@ -271,10 +273,19 @@ export function useWebRTCPublisher({
     if (newVideoTrack) {
       // @ts-ignore
       newVideoTrack.contentHint = 'detail';
-      const videoSender = senders.find((s) => s.track && s.track.kind === 'video');
+      const videoSender = senders.find(
+        (s) => (s.track && s.track.kind === 'video') ||
+               (!s.track && pcRef.current?.getTransceivers().find((t) => t.sender === s)?.receiver.track?.kind === 'video')
+      ) || senders[0];
+
       if (videoSender) {
         try {
+          const oldTrack = videoSender.track;
           await videoSender.replaceTrack(newVideoTrack);
+          if (oldTrack && oldTrack !== newVideoTrack) {
+            oldTrack.stop();
+          }
+
           const params = videoSender.getParameters();
           if (!params.encodings || params.encodings.length === 0) {
             params.encodings = [{}];
@@ -287,6 +298,16 @@ export function useWebRTCPublisher({
           await videoSender.setParameters(params).catch(() => {});
           videoReplaced = true;
           console.log('[WebRTC Publisher] Track de vídeo substituído com sucesso via changeStream.');
+
+          // Solicita Keyframe imediato ao SFU para propagação instantânea aos alunos sem F5
+          const requestKeyFrame = () => {
+            if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+              wsRef.current.send(JSON.stringify({ type: 'request-keyframe', payload: {} }));
+            }
+          };
+          requestKeyFrame();
+          setTimeout(requestKeyFrame, 150);
+          setTimeout(requestKeyFrame, 400);
         } catch (err) {
           console.warn('[WebRTC Publisher] Falha no replaceTrack de vídeo:', err);
         }
@@ -294,9 +315,17 @@ export function useWebRTCPublisher({
     }
 
     if (newAudioTrack) {
-      const audioSender = senders.find((s) => s.track && s.track.kind === 'audio');
+      const audioSender = senders.find(
+        (s) => (s.track && s.track.kind === 'audio') ||
+               (!s.track && pcRef.current?.getTransceivers().find((t) => t.sender === s)?.receiver.track?.kind === 'audio')
+      );
       if (audioSender) {
-        await audioSender.replaceTrack(newAudioTrack).catch((err) => {
+        const oldAudio = audioSender.track;
+        await audioSender.replaceTrack(newAudioTrack).then(() => {
+          if (oldAudio && oldAudio !== newAudioTrack) {
+            oldAudio.stop();
+          }
+        }).catch((err) => {
           console.warn('[WebRTC Publisher] Falha no replaceTrack de áudio:', err);
         });
       }

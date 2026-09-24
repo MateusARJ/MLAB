@@ -4,6 +4,7 @@ import { useScreenCapture } from '../hooks/useScreenCapture';
 import { useLocalRecorder } from '../hooks/useLocalRecorder';
 import { useWebRTCPublisher } from '../hooks/useWebRTCPublisher';
 import { getStoredToken } from '../services/auth';
+import { closeRoom } from '../services/room';
 import mlabLogo from '../assets/MLAB-logo.png';
 
 interface RoomProps {
@@ -27,16 +28,23 @@ export const Room: React.FC<RoomProps> = ({ room, onCloseRoom }) => {
   const [saveSuccessMsg, setSaveSuccessMsg] = useState<string | null>(null);
   const [linkCopied, setLinkCopied] = useState<boolean>(false);
 
+  // Imagem estática atual para o modo Tela Cheia
+  const [currentThumbnail, setCurrentThumbnail] = useState<string | null>(null);
+
   // Estados da Sidebar retrátil, Chat, Alunos e Arquivos
   const [isSidebarOpen, setIsSidebarOpen] = useState<boolean>(false);
   const [sidebarTab, setSidebarTab] = useState<'chat' | 'students' | 'files'>('chat');
-  const [chatInput, setChatInput] = useState<string>('');
+  const [publicChatInput, setPublicChatInput] = useState<string>('');
+  const [privateChatInput, setPrivateChatInput] = useState<string>('');
   const [targetStudent, setTargetStudent] = useState<{ id: string; name: string; student_id?: string } | null>(null);
   const [uploadedFiles, setUploadedFiles] = useState<any[]>([]);
   const [isUploading, setIsUploading] = useState<boolean>(false);
   const [uploadMsg, setUploadMsg] = useState<string | null>(null);
   const [unreadCount, setUnreadCount] = useState<number>(0);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Sub-aba de Chat: público vs privado
+  const [chatSubTab, setChatSubTab] = useState<'public' | 'private'>('public');
 
   const handleCopyLink = useCallback(async () => {
     if (!room.link) return;
@@ -102,7 +110,6 @@ export const Room: React.FC<RoomProps> = ({ room, onCloseRoom }) => {
     sendStreamPause,
     startPublishing,
     changeStream,
-    stopPublishing,
     endSession,
   } = useWebRTCPublisher({
     roomId: room.id,
@@ -141,6 +148,7 @@ export const Room: React.FC<RoomProps> = ({ room, onCloseRoom }) => {
   useEffect(() => {
     if (videoRef.current && stream) {
       videoRef.current.srcObject = stream;
+      videoRef.current.play().catch(() => {});
     }
   }, [stream]);
 
@@ -150,6 +158,57 @@ export const Room: React.FC<RoomProps> = ({ room, onCloseRoom }) => {
       setTentativeSource(sources[0]);
     }
   }, [sources, tentativeSource]);
+
+  useEffect(() => {
+    const thumb = selectedSource?.thumbnail || tentativeSource?.thumbnail;
+    if (thumb) {
+      setCurrentThumbnail(thumb);
+    }
+  }, [selectedSource?.thumbnail, tentativeSource?.thumbnail]);
+
+  const handleRefreshScreenCapture = useCallback(async () => {
+    try {
+      if (window.electronAPI && typeof window.electronAPI.getScreenSources === 'function') {
+        const freshSources = await window.electronAPI.getScreenSources('screen');
+        const activeId = selectedSource?.id || tentativeSource?.id;
+        const matched = freshSources.find((s) => s.id === activeId) || freshSources[0];
+        if (matched?.thumbnail) {
+          setCurrentThumbnail(matched.thumbnail);
+        }
+      }
+    } catch (err) {
+      console.error('Erro ao atualizar captura de tela:', err);
+    }
+  }, [selectedSource?.id, tentativeSource?.id]);
+
+  useEffect(() => {
+    if (!isLiveSession || captureMode !== 'screen') return;
+
+    const handleWindowFocus = () => {
+      handleRefreshScreenCapture();
+    };
+
+    window.addEventListener('focus', handleWindowFocus);
+    return () => window.removeEventListener('focus', handleWindowFocus);
+  }, [isLiveSession, captureMode, handleRefreshScreenCapture]);
+
+  // Identifica telas/monitores disponíveis para alternância rápida
+  const screenSources = sources.filter((s) => s.type === 'screen' || s.id.startsWith('screen'));
+
+  const handleSwitchScreen = useCallback(async (source: CaptureSource) => {
+    const newStream = await selectSource(source);
+    if (source.thumbnail) {
+      setCurrentThumbnail(source.thumbnail);
+    }
+    if (newStream) {
+      if (micMuted) {
+        newStream.getAudioTracks().forEach((t) => {
+          t.enabled = false;
+        });
+      }
+      await changeStream(newStream);
+    }
+  }, [selectSource, micMuted, changeStream]);
 
   // Carrega arquivos iniciais da sala
   useEffect(() => {
@@ -177,8 +236,19 @@ export const Room: React.FC<RoomProps> = ({ room, onCloseRoom }) => {
   const handleStartSession = useCallback(async () => {
     if (!tentativeSource) return;
 
+    if (tentativeSource.thumbnail) {
+      setCurrentThumbnail(tentativeSource.thumbnail);
+    }
+
     const activeStream = await selectSource(tentativeSource);
     setIsLiveSession(true);
+
+    // Quando o professor começa a transmitir a tela, o microfone deve ficar desligado por padrão
+    if (activeStream) {
+      activeStream.getAudioTracks().forEach((track) => {
+        track.enabled = false;
+      });
+    }
 
     // Se optou por gravar, inicia gravação local
     if (wantRecord) {
@@ -206,23 +276,56 @@ export const Room: React.FC<RoomProps> = ({ room, onCloseRoom }) => {
         console.warn('Erro ao aguardar gravação ser salva:', err);
       }
     }
+    if (room?.id) {
+      closeRoom(room.id).catch((err) => {
+        console.warn('Erro ao encerrar sala na API:', err);
+      });
+    }
     endSession();
     stopCapture();
     onCloseRoom();
-  }, [wantRecord, recordingStatus, stopRecording, endSession, stopCapture, onCloseRoom]);
+  }, [wantRecord, recordingStatus, stopRecording, endSession, stopCapture, onCloseRoom, room?.id]);
 
   const handleReconfigure = useCallback(() => {
     setIsLiveSession(false);
   }, []);
 
-  const handleSendChat = (e: React.FormEvent) => {
+  const handleSendPublicChat = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!chatInput.trim()) return;
-    const isPrivate = targetStudent !== null;
+    if (!publicChatInput.trim()) return;
     if (typeof sendChatMessage === 'function') {
-      sendChatMessage(chatInput.trim(), isPrivate, targetStudent?.id);
+      sendChatMessage(publicChatInput.trim(), false, undefined);
     }
-    setChatInput('');
+    setPublicChatInput('');
+  };
+
+  const handleSendPrivateChat = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!privateChatInput.trim()) return;
+
+    let target = targetStudent;
+    if (!target) {
+      if (studentsOnly.length === 1) {
+        const onlyStudent = studentsOnly[0];
+        target = {
+          id: onlyStudent.participant_id || onlyStudent.id,
+          name: onlyStudent.name,
+          student_id: onlyStudent.student_id,
+        };
+        setTargetStudent(target);
+      } else if (studentsOnly.length > 1) {
+        alert('Por favor, selecione qual aluno receberá esta mensagem privada no menu acima.');
+        return;
+      } else {
+        alert('Nenhum aluno conectado no momento para receber a mensagem privada.');
+        return;
+      }
+    }
+
+    if (typeof sendChatMessage === 'function' && target) {
+      sendChatMessage(privateChatInput.trim(), true, target.id);
+    }
+    setPrivateChatInput('');
   };
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -264,6 +367,7 @@ export const Room: React.FC<RoomProps> = ({ room, onCloseRoom }) => {
   };
 
   const studentsOnly = participants.filter((p: any) => p.role === 'aluno');
+  const professorName = typeof window !== 'undefined' ? sessionStorage.getItem('professor_name') : null;
 
   return (
     <div style={styles.container}>
@@ -272,7 +376,7 @@ export const Room: React.FC<RoomProps> = ({ room, onCloseRoom }) => {
         <div style={styles.headerTitleBox}>
           <img src={mlabLogo} alt="MLab Logo" style={styles.logoImg} />
           <div>
-            <h2 style={styles.title}>MLab — Sala: {room.slug}</h2>
+            <h2 style={styles.title}>{professorName ? `MLab — Prof. ${professorName}` : `MLab — Sala: ${room.slug}`}</h2>
             <div style={styles.roomLinkStatic}>{room.link}</div>
           </div>
         </div>
@@ -508,37 +612,52 @@ export const Room: React.FC<RoomProps> = ({ room, onCloseRoom }) => {
                   </div>
                 </div>
 
-                {/* Pré-visualização de Vídeo ou Imagem Estática */}
+                {/* Pré-visualização Estática no Modo Tela Cheia (Anti-Espelho sem botões) */}
                 <div style={styles.previewArea}>
                   {captureMode === 'screen' ? (
                     <div style={styles.staticPreviewBox}>
-                      {selectedSource?.thumbnail || tentativeSource?.thumbnail ? (
+                      {currentThumbnail || selectedSource?.thumbnail || tentativeSource?.thumbnail ? (
                         <img
-                          src={selectedSource?.thumbnail || tentativeSource?.thumbnail}
+                          src={currentThumbnail || selectedSource?.thumbnail || tentativeSource?.thumbnail}
                           alt="Pré-visualização da Tela Cheia"
                           style={{ ...styles.previewMedia, opacity: videoPaused ? 0.3 : 1 }}
                         />
                       ) : (
-                        <video
-                          ref={videoRef}
-                          autoPlay
-                          playsInline
-                          muted
-                          style={{ ...styles.previewMedia, opacity: videoPaused ? 0.3 : 1 }}
-                        />
+                        <div style={styles.screenShieldCard}>
+                          <span style={styles.screenShieldIcon}>🖥️</span>
+                          <h3 style={styles.screenShieldTitle}>Sua Tela Inteira está Sendo Transmitida</h3>
+                          <p style={styles.screenShieldSubtitle}>
+                            A transmissão está ativa e os alunos estão assistindo em tempo real.
+                          </p>
+                        </div>
                       )}
+
+                      {/* Badge Informativo Estático */}
                       <div style={styles.staticOverlayBadge}>
-                        🖥️ Tela Inteira Ativa • Imagem Estática
+                        <span>🖥️ Tela Inteira Ativa • Imagem Estática</span>
                       </div>
+
+                      {videoPaused && (
+                        <div style={styles.pausedOverlayBadge}>
+                          ⏸️ Transmissão Pausada
+                        </div>
+                      )}
                     </div>
                   ) : (
-                    <video
-                      ref={videoRef}
-                      autoPlay
-                      playsInline
-                      muted
-                      style={{ ...styles.previewMedia, opacity: videoPaused ? 0.3 : 1 }}
-                    />
+                    <div style={styles.videoContainer}>
+                      <video
+                        ref={videoRef}
+                        autoPlay
+                        playsInline
+                        muted
+                        style={{ ...styles.previewMedia, opacity: videoPaused ? 0.3 : 1 }}
+                      />
+                      {videoPaused && (
+                        <div style={styles.pausedOverlayBadge}>
+                          ⏸️ Transmissão Pausada
+                        </div>
+                      )}
+                    </div>
                   )}
                 </div>
 
@@ -561,6 +680,20 @@ export const Room: React.FC<RoomProps> = ({ room, onCloseRoom }) => {
                   <button type="button" onClick={handleReconfigure} style={styles.controlBtn}>
                     ⚙️ Alterar Modo / Fonte
                   </button>
+                  {/* Alternância rápida entre monitores se houver mais de uma tela detectada */}
+                  {captureMode === 'screen' && screenSources.length > 1 && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const nextSource = screenSources.find((s) => s.id !== selectedSource?.id) || screenSources[0];
+                        handleSwitchScreen(nextSource);
+                      }}
+                      style={styles.controlBtn}
+                      title="Alternar rapidamente o monitor sendo transmitido"
+                    >
+                      🖥️ Alternar Monitor
+                    </button>
+                  )}
                   {/* Botão de Chat no Header de Baixo */}
                   <button
                     type="button"
@@ -622,87 +755,263 @@ export const Room: React.FC<RoomProps> = ({ room, onCloseRoom }) => {
                   </button>
                 </div>
 
-                {/* Aba 1: Chat da Aula com Identificação e Chat Privado */}
+                {/* Aba 1: Chat da Aula com Abas Separadas: Público vs Privado */}
                 {sidebarTab === 'chat' && (
                   <div style={styles.chatTabContent}>
-                    <div style={styles.messagesList}>
-                      {messages.length === 0 ? (
-                        <div style={styles.emptyMessagesBox}>
-                          <p style={styles.emptyText}>Nenhuma mensagem no chat até o momento.</p>
-                        </div>
-                      ) : (
-                        messages.map((m: any, idx: number) => {
-                          const isStudent = m.role === 'aluno' || m.sender_role === 'aluno';
-                          const displayName = m.name || m.sender_name || 'Participante';
-                          const matricula = m.student_id ? `(${m.student_id})` : '';
-                          const isPrivate = !!m.is_private;
-
-                          return (
-                            <div
-                              key={m.message_id || idx}
-                              style={{
-                                ...styles.messageCard,
-                                ...(isPrivate ? styles.privateMessageCard : {}),
-                              }}
-                            >
-                              <div style={styles.messageHeaderRow}>
-                                <span style={styles.senderName}>
-                                  {displayName} {matricula && <span style={styles.matriculaText}>{matricula}</span>}
-                                  <small style={styles.roleTag}> [{isStudent ? 'aluno' : 'professor'}]</small>
-                                </span>
-                                {isPrivate && <span style={styles.privateTag}>🔒 PRIVADO</span>}
-                              </div>
-                              <p style={styles.messageBody}>{m.content}</p>
-
-                              {/* Ação rápida para responder privado ao aluno */}
-                              {isStudent && isPrivate && (
-                                <button
-                                  type="button"
-                                  onClick={() => setTargetStudent({ id: m.participant_id, name: displayName, student_id: m.student_id })}
-                                  style={styles.replyPrivateBtn}
-                                >
-                                  ↩ Responder em Privado
-                                </button>
-                              )}
-                            </div>
-                          );
-                        })
-                      )}
+                    {/* Seletor de Sub-aba: Chat Público vs Chat Privado */}
+                    <div style={styles.chatSubTabRow}>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setChatSubTab('public');
+                        }}
+                        style={chatSubTab === 'public' ? styles.chatSubTabActive : styles.chatSubTab}
+                      >
+                        🌐 Turma (Público)
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setChatSubTab('private')}
+                        style={chatSubTab === 'private' ? styles.chatSubTabActivePrivate : styles.chatSubTab}
+                      >
+                        🔒 Dúvidas Privadas
+                        {messages.filter((m: any) => m.is_private === true).length > 0 && (
+                          <span style={styles.privateTabBadge}>
+                            {messages.filter((m: any) => m.is_private === true).length}
+                          </span>
+                        )}
+                      </button>
                     </div>
 
-                    <form onSubmit={handleSendChat} style={styles.chatForm}>
-                      {/* Destinatário (Público ou Privado para Aluno Específico) */}
-                      {targetStudent ? (
-                        <div style={styles.targetIndicatorBox}>
-                          <span style={styles.targetIndicatorText}>
-                            🔒 Privado para: <strong>{targetStudent.name}</strong> {targetStudent.student_id && `(${targetStudent.student_id})`}
-                          </span>
-                          <button
-                            type="button"
-                            onClick={() => setTargetStudent(null)}
-                            style={styles.clearTargetBtn}
-                            title="Voltar para Chat Público"
-                          >
-                            ✕ Cancelar
-                          </button>
-                        </div>
-                      ) : (
-                        <div style={styles.publicIndicatorText}>
-                          🌐 Enviando para: <strong>Todos os Alunos (Público)</strong>
-                        </div>
-                      )}
+                    {chatSubTab === 'public' ? (
+                      // ── ABA PÚBLICA ──────────────────────────────────
+                      <>
+                        <div style={styles.messagesList}>
+                          {messages.filter((m: any) => m.is_private !== true).length === 0 ? (
+                            <div style={styles.emptyMessagesBox}>
+                              <p style={styles.emptyText}>Nenhuma mensagem pública no chat até o momento.</p>
+                            </div>
+                          ) : (
+                            messages.filter((m: any) => m.is_private !== true).map((m: any, idx: number) => {
+                              const isStudent = m.role === 'aluno' || m.sender_role === 'aluno';
+                              const displayName = m.name || m.sender_name || 'Participante';
+                              const matricula = m.student_id ? `(${m.student_id})` : '';
 
-                      <div style={styles.chatInputRow}>
-                        <input
-                          type="text"
-                          value={chatInput}
-                          onChange={(e) => setChatInput(e.target.value)}
-                          placeholder={targetStudent ? `Mensagem privada para ${targetStudent.name}...` : 'Mensagem para a turma...'}
-                          style={styles.chatInput}
-                        />
-                        <button type="submit" style={styles.sendBtn}>Enviar</button>
-                      </div>
-                    </form>
+                              return (
+                                <div key={m.message_id || idx} style={styles.messageCard}>
+                                  <div style={styles.messageHeaderRow}>
+                                    <span style={styles.senderName}>
+                                      {displayName} {matricula && <span style={styles.matriculaText}>{matricula}</span>}
+                                      <small style={styles.roleTag}> [{isStudent ? 'aluno' : 'professor'}]</small>
+                                    </span>
+                                    <span style={styles.publicTag}>🌐 TURMA</span>
+                                  </div>
+                                  <p style={styles.messageBody}>{m.content}</p>
+                                </div>
+                              );
+                            })
+                          )}
+                        </div>
+
+                        {/* Formulário exclusivo do Chat Público */}
+                        <form onSubmit={handleSendPublicChat} style={styles.chatForm}>
+                          <div style={styles.publicIndicatorText}>
+                            🌐 Enviando para: <strong>Toda a Turma (Público)</strong>
+                          </div>
+                          <div style={styles.chatInputRow}>
+                            <input
+                              type="text"
+                              value={publicChatInput}
+                              onChange={(e) => setPublicChatInput(e.target.value)}
+                              placeholder="Mensagem pública para toda a turma..."
+                              style={styles.chatInput}
+                            />
+                            <button
+                              type="submit"
+                              disabled={!publicChatInput.trim()}
+                              style={{
+                                ...styles.sendBtn,
+                                opacity: !publicChatInput.trim() ? 0.5 : 1,
+                              }}
+                            >
+                              Enviar
+                            </button>
+                          </div>
+                        </form>
+                      </>
+                    ) : (
+                      // ── ABA PRIVADA ──────────────────────────────────
+                      <>
+                        {/* Seletor rápido de alunos conectados no topo da aba privada */}
+                        <div style={styles.privateHeaderBox}>
+                          <label style={styles.privateSelectLabel}>Conversar com o Aluno:</label>
+                          <select
+                            value={targetStudent?.id || ''}
+                            onChange={(e) => {
+                              const found = studentsOnly.find((s: any) => (s.participant_id || s.id) === e.target.value);
+                              if (found) {
+                                setTargetStudent({
+                                  id: found.participant_id || found.id,
+                                  name: found.name,
+                                  student_id: found.student_id,
+                                });
+                              } else {
+                                setTargetStudent(null);
+                              }
+                            }}
+                            style={styles.studentSelect}
+                          >
+                            <option value="">-- Selecione um aluno online ({studentsOnly.length}) --</option>
+                            {studentsOnly.map((s: any) => (
+                              <option key={s.participant_id || s.id} value={s.participant_id || s.id}>
+                                {s.name} {s.student_id ? `(${s.student_id})` : ''}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+
+                        <div style={styles.messagesList}>
+                          {targetStudent ? (
+                            // Conversa privada filtrada para o aluno selecionado
+                            (() => {
+                              const studentMsgs = messages.filter((m: any) =>
+                                m.is_private === true &&
+                                (m.participant_id === targetStudent.id || m.target_id === targetStudent.id)
+                              );
+
+                              return studentMsgs.length === 0 ? (
+                                <div style={styles.emptyMessagesBox}>
+                                  <p style={styles.emptyText}>
+                                    Nenhuma mensagem trocada ainda com <strong>{targetStudent.name}</strong>.
+                                  </p>
+                                  <p style={{ ...styles.emptyText, fontSize: '11px', color: '#64748b' }}>
+                                    Envie uma mensagem abaixo para iniciar a conversa privada.
+                                  </p>
+                                </div>
+                              ) : (
+                                studentMsgs.map((m: any, idx: number) => {
+                                  const isStudent = m.role === 'aluno' || m.sender_role === 'aluno';
+                                  const displayName = m.name || m.sender_name || 'Participante';
+                                  const matricula = m.student_id ? `(${m.student_id})` : '';
+
+                                  return (
+                                    <div
+                                      key={m.message_id || idx}
+                                      style={{ ...styles.messageCard, ...styles.privateMessageCard }}
+                                    >
+                                      <div style={styles.messageHeaderRow}>
+                                        <span style={styles.senderName}>
+                                          {displayName} {matricula && <span style={styles.matriculaText}>{matricula}</span>}
+                                          <small style={styles.roleTag}> [{isStudent ? 'aluno' : 'professor'}]</small>
+                                        </span>
+                                        <span style={styles.privateTag}>🔒 PRIVADO</span>
+                                      </div>
+                                      <p style={styles.messageBody}>{m.content}</p>
+                                    </div>
+                                  );
+                                })
+                              );
+                            })()
+                          ) : (
+                            // Visão geral de todas as dúvidas privadas recebidas dos alunos
+                            (() => {
+                              const allPrivate = messages.filter((m: any) => m.is_private === true);
+
+                              return allPrivate.length === 0 ? (
+                                <div style={styles.emptyMessagesBox}>
+                                  <p style={styles.emptyText}>Nenhuma dúvida privada recebida até o momento.</p>
+                                  <p style={{ ...styles.emptyText, fontSize: '11px', color: '#64748b' }}>
+                                    Selecione um aluno no menu acima para iniciar uma conversa.
+                                  </p>
+                                </div>
+                              ) : (
+                                allPrivate.map((m: any, idx: number) => {
+                                  const isStudent = m.role === 'aluno' || m.sender_role === 'aluno';
+                                  const displayName = m.name || m.sender_name || 'Participante';
+                                  const matricula = m.student_id ? `(${m.student_id})` : '';
+
+                                  return (
+                                    <div
+                                      key={m.message_id || idx}
+                                      style={{ ...styles.messageCard, ...styles.privateMessageCard }}
+                                    >
+                                      <div style={styles.messageHeaderRow}>
+                                        <span style={styles.senderName}>
+                                          {displayName} {matricula && <span style={styles.matriculaText}>{matricula}</span>}
+                                          <small style={styles.roleTag}> [{isStudent ? 'aluno' : 'professor'}]</small>
+                                        </span>
+                                        <span style={styles.privateTag}>🔒 PRIVADO</span>
+                                      </div>
+                                      <p style={styles.messageBody}>{m.content}</p>
+                                      {isStudent && (
+                                        <button
+                                          type="button"
+                                          onClick={() => setTargetStudent({ id: m.participant_id, name: displayName, student_id: m.student_id })}
+                                          style={styles.replyPrivateBtn}
+                                        >
+                                          ↩ Responder a {displayName}
+                                        </button>
+                                      )}
+                                    </div>
+                                  );
+                                })
+                              );
+                            })()
+                          )}
+                        </div>
+
+                        {/* Formulário exclusivo do Chat Privado — Sempre visível sem exigir clique prévio no aluno */}
+                        <form onSubmit={handleSendPrivateChat} style={styles.chatForm}>
+                          {targetStudent ? (
+                            <div style={styles.targetIndicatorBox}>
+                              <span style={styles.targetIndicatorText}>
+                                🔒 Respondendo em privado para: <strong>{targetStudent.name}</strong> {targetStudent.student_id && `(${targetStudent.student_id})`}
+                              </span>
+                              <button
+                                type="button"
+                                onClick={() => setTargetStudent(null)}
+                                style={styles.clearTargetBtn}
+                                title="Voltar para todas as dúvidas"
+                              >
+                                ✕ Ver Todas
+                              </button>
+                            </div>
+                          ) : (
+                            <div style={styles.targetIndicatorBoxMuted}>
+                              <span style={styles.targetIndicatorTextMuted}>
+                                🔒 Chat Privado: {studentsOnly.length === 1 ? `Mensagem direta para ${studentsOnly[0].name}` : 'Selecione um aluno acima ou digite para responder'}
+                              </span>
+                            </div>
+                          )}
+
+                          <div style={styles.chatInputRow}>
+                            <input
+                              type="text"
+                              value={privateChatInput}
+                              onChange={(e) => setPrivateChatInput(e.target.value)}
+                              placeholder={
+                                targetStudent
+                                  ? `Mensagem privada para ${targetStudent.name}...`
+                                  : studentsOnly.length === 1
+                                  ? `Mensagem privada para ${studentsOnly[0].name}...`
+                                  : 'Mensagem privada para o aluno...'
+                              }
+                              style={styles.chatInput}
+                            />
+                            <button
+                              type="submit"
+                              disabled={!privateChatInput.trim()}
+                              style={{
+                                ...styles.sendPrivateBtn,
+                                opacity: !privateChatInput.trim() ? 0.5 : 1,
+                              }}
+                            >
+                              Enviar Privado
+                            </button>
+                          </div>
+                        </form>
+                      </>
+                    )}
                   </div>
                 )}
 
@@ -733,6 +1042,7 @@ export const Room: React.FC<RoomProps> = ({ room, onCloseRoom }) => {
                               type="button"
                               onClick={() => {
                                 setTargetStudent({ id: s.participant_id, name: s.name, student_id: s.student_id });
+                                setChatSubTab('private');
                                 setSidebarTab('chat');
                               }}
                               style={styles.startPrivateChatBtn}
@@ -1351,16 +1661,117 @@ const styles: { [key: string]: React.CSSProperties } = {
   },
   staticOverlayBadge: {
     position: 'absolute',
-    bottom: '8px',
+    bottom: '12px',
     right: '12px',
-    backgroundColor: 'rgba(15, 23, 42, 0.85)',
+    backgroundColor: 'rgba(15, 23, 42, 0.90)',
     color: '#94a3b8',
     fontSize: '11px',
     fontWeight: '500',
+    padding: '6px 12px',
+    borderRadius: '8px',
+    border: '1px solid rgba(51, 65, 85, 0.7)',
+    backdropFilter: 'blur(6px)',
+    display: 'flex',
+    alignItems: 'center',
+    gap: '10px',
+  },
+  refreshCaptureBtn: {
     padding: '4px 10px',
     borderRadius: '6px',
-    border: '1px solid rgba(51, 65, 85, 0.6)',
-    backdropFilter: 'blur(4px)',
+    border: '1px solid #38bdf8',
+    backgroundColor: 'rgba(56, 189, 248, 0.15)',
+    color: '#38bdf8',
+    fontSize: '11px',
+    fontWeight: '600',
+    cursor: 'pointer',
+    display: 'flex',
+    alignItems: 'center',
+    gap: '4px',
+  },
+  toggleLiveVideoBtn: {
+    padding: '4px 10px',
+    borderRadius: '6px',
+    border: '1px solid #64748b',
+    backgroundColor: '#1e293b',
+    color: '#cbd5e1',
+    fontSize: '11px',
+    cursor: 'pointer',
+  },
+  liveMirrorWarningBadge: {
+    position: 'absolute',
+    bottom: '12px',
+    right: '12px',
+    backgroundColor: 'rgba(239, 68, 68, 0.90)',
+    color: '#ffffff',
+    fontSize: '11px',
+    fontWeight: '600',
+    padding: '6px 12px',
+    borderRadius: '8px',
+    border: '1px solid rgba(239, 68, 68, 0.9)',
+    backdropFilter: 'blur(6px)',
+    display: 'flex',
+    alignItems: 'center',
+    gap: '10px',
+  },
+  shieldActivateBtn: {
+    padding: '4px 10px',
+    borderRadius: '6px',
+    border: '1px solid #ffffff',
+    backgroundColor: 'rgba(255, 255, 255, 0.25)',
+    color: '#ffffff',
+    fontSize: '11px',
+    fontWeight: '700',
+    cursor: 'pointer',
+  },
+  videoContainer: {
+    width: '100%',
+    height: '100%',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    position: 'relative',
+  },
+  screenShieldCard: {
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: '30px',
+    textAlign: 'center',
+  },
+  screenShieldIcon: {
+    fontSize: '48px',
+    marginBottom: '12px',
+  },
+  screenShieldTitle: {
+    fontSize: '18px',
+    fontWeight: '700',
+    color: '#f8fafc',
+    margin: '0 0 8px 0',
+  },
+  screenShieldSubtitle: {
+    fontSize: '14px',
+    color: '#94a3b8',
+    margin: 0,
+    maxWidth: '400px',
+  },
+  pausedOverlayBadge: {
+    position: 'absolute',
+    top: '50%',
+    left: '50%',
+    transform: 'translate(-50%, -50%)',
+    backgroundColor: 'rgba(15, 23, 42, 0.92)',
+    color: '#fbbf24',
+    fontSize: '16px',
+    fontWeight: '700',
+    padding: '12px 24px',
+    borderRadius: '10px',
+    border: '1px solid rgba(251, 191, 36, 0.5)',
+    boxShadow: '0 8px 30px rgba(0, 0, 0, 0.6)',
+    display: 'flex',
+    alignItems: 'center',
+    gap: '10px',
+    zIndex: 10,
   },
   video: {
     width: '100%',
@@ -1502,6 +1913,75 @@ const styles: { [key: string]: React.CSSProperties } = {
     flexDirection: 'column',
     overflow: 'hidden',
   },
+  chatSubTabRow: {
+    display: 'flex',
+    gap: '6px',
+    padding: '8px 12px',
+    backgroundColor: '#0f172a',
+    borderBottom: '1px solid #1e293b',
+  },
+  chatSubTab: {
+    flex: 1,
+    padding: '6px 10px',
+    borderRadius: '6px',
+    border: '1px solid #334155',
+    backgroundColor: '#1e293b',
+    color: '#94a3b8',
+    fontSize: '11px',
+    fontWeight: '500',
+    cursor: 'pointer',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: '6px',
+  },
+  chatSubTabActive: {
+    flex: 1,
+    padding: '6px 10px',
+    borderRadius: '6px',
+    border: '1px solid #38bdf8',
+    backgroundColor: 'rgba(56, 189, 248, 0.15)',
+    color: '#38bdf8',
+    fontSize: '11px',
+    fontWeight: '700',
+    cursor: 'pointer',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: '6px',
+  },
+  chatSubTabActivePrivate: {
+    flex: 1,
+    padding: '6px 10px',
+    borderRadius: '6px',
+    border: '1px solid #a855f7',
+    backgroundColor: 'rgba(168, 85, 247, 0.15)',
+    color: '#c084fc',
+    fontSize: '11px',
+    fontWeight: '700',
+    cursor: 'pointer',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: '6px',
+  },
+  privateTabBadge: {
+    backgroundColor: '#a855f7',
+    color: '#ffffff',
+    fontSize: '9px',
+    fontWeight: '700',
+    padding: '1px 5px',
+    borderRadius: '8px',
+  },
+  privateSelectPromptText: {
+    padding: '6px 10px',
+    fontSize: '11px',
+    color: '#c084fc',
+    backgroundColor: 'rgba(168, 85, 247, 0.1)',
+    borderRadius: '6px',
+    border: '1px dashed rgba(168, 85, 247, 0.4)',
+    textAlign: 'center',
+  },
   messagesList: {
     flex: 1,
     padding: '12px',
@@ -1548,6 +2028,15 @@ const styles: { [key: string]: React.CSSProperties } = {
   roleTag: {
     color: '#94a3b8',
     fontWeight: '400',
+  },
+  publicTag: {
+    fontSize: '10px',
+    fontWeight: '700',
+    color: '#38bdf8',
+    backgroundColor: 'rgba(56, 189, 248, 0.15)',
+    border: '1px solid #38bdf8',
+    padding: '2px 6px',
+    borderRadius: '4px',
   },
   privateTag: {
     fontSize: '10px',
@@ -1631,6 +2120,60 @@ const styles: { [key: string]: React.CSSProperties } = {
     fontSize: '12px',
     fontWeight: '600',
     cursor: 'pointer',
+  },
+  sendPrivateBtn: {
+    padding: '8px 14px',
+    borderRadius: '6px',
+    border: 'none',
+    backgroundColor: '#6366f1',
+    color: '#ffffff',
+    fontSize: '12px',
+    fontWeight: '600',
+    cursor: 'pointer',
+  },
+  privateHeaderBox: {
+    padding: '10px 12px',
+    backgroundColor: '#111c30',
+    borderBottom: '1px solid #1e293b',
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '4px',
+  },
+  privateSelectLabel: {
+    fontSize: '11px',
+    color: '#a5b4fc',
+    fontWeight: '600',
+  },
+  studentSelect: {
+    padding: '6px 8px',
+    borderRadius: '6px',
+    border: '1px solid #475569',
+    backgroundColor: '#1e293b',
+    color: '#f8fafc',
+    fontSize: '12px',
+    outline: 'none',
+    cursor: 'pointer',
+  },
+  privatePromptNotice: {
+    padding: '12px',
+    fontSize: '12px',
+    color: '#94a3b8',
+    textAlign: 'center',
+    backgroundColor: '#111c30',
+    borderTop: '1px solid #1e293b',
+  },
+  targetIndicatorBoxMuted: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    backgroundColor: 'rgba(99, 102, 241, 0.08)',
+    padding: '6px 10px',
+    borderRadius: '6px',
+    border: '1px dashed rgba(99, 102, 241, 0.3)',
+  },
+  targetIndicatorTextMuted: {
+    fontSize: '11px',
+    color: '#a5b4fc',
   },
   studentsTabContent: {
     flex: 1,
@@ -1805,4 +2348,99 @@ const styles: { [key: string]: React.CSSProperties } = {
     padding: '2px 6px',
     borderRadius: '4px',
   },
+  // Privacy Shield Styles
+  privacyConfigBox: {
+    backgroundColor: '#0d1526',
+    border: '1px solid #1e293b',
+    borderRadius: '8px',
+    padding: '12px 16px',
+    marginTop: '14px',
+  },
+  privacyConfigHeader: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: '6px',
+  },
+  privacyTitle: {
+    fontSize: '13px',
+    fontWeight: '600',
+    color: '#f8fafc',
+  },
+  privacyConfigureBtn: {
+    backgroundColor: '#1e293b',
+    color: '#38bdf8',
+    border: '1px solid #334155',
+    borderRadius: '6px',
+    padding: '4px 10px',
+    fontSize: '12px',
+    cursor: 'pointer',
+    fontWeight: '500',
+  },
+  privacySubtitle: {
+    fontSize: '12px',
+    color: '#94a3b8',
+    margin: '0 0 10px 0',
+  },
+  privacyChipsRow: {
+    display: 'flex',
+    flexWrap: 'wrap',
+    gap: '8px',
+  },
+  privacyChip: {
+    backgroundColor: '#172033',
+    color: '#94a3b8',
+    border: '1px solid #1e293b',
+    borderRadius: '16px',
+    padding: '4px 12px',
+    fontSize: '12px',
+    cursor: 'pointer',
+  },
+  privacyChipActive: {
+    backgroundColor: 'rgba(239, 68, 68, 0.15)',
+    color: '#f87171',
+    border: '1px solid #ef4444',
+    borderRadius: '16px',
+    padding: '4px 12px',
+    fontSize: '12px',
+    cursor: 'pointer',
+    fontWeight: '600',
+  },
+  controlBtnActivePrivacy: {
+    backgroundColor: '#dc2626',
+    color: '#ffffff',
+    border: '1px solid #ef4444',
+    borderRadius: '6px',
+    padding: '8px 14px',
+    fontSize: '13px',
+    fontWeight: '600',
+    cursor: 'pointer',
+  },
+  privacyAlertBanner: {
+    backgroundColor: 'rgba(220, 38, 38, 0.95)',
+    color: '#ffffff',
+    padding: '10px 16px',
+    borderRadius: '8px',
+    fontSize: '13px',
+    fontWeight: '600',
+    marginBottom: '12px',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    boxShadow: '0 4px 12px rgba(220, 38, 38, 0.3)',
+  },
+  privacyAlertText: {
+    flex: 1,
+  },
+  privacyBannerResumeBtn: {
+    backgroundColor: '#ffffff',
+    color: '#dc2626',
+    border: 'none',
+    borderRadius: '6px',
+    padding: '6px 14px',
+    fontSize: '12px',
+    fontWeight: '700',
+    cursor: 'pointer',
+  },
 };
+
