@@ -283,6 +283,35 @@ describe('Room Component (Desktop)', () => {
     const restoredPrivateInput = screen.getByPlaceholderText(/Mensagem privada para o aluno/i);
     expect((restoredPrivateInput as HTMLInputElement).value).toBe('Resposta confidencial');
   });
+
+  it('deve garantir que o elemento de video de preview local tenha muted ativado no DOM para evitar microfonia interna', async () => {
+    render(<Room room={dummyRoom} onCloseRoom={vi.fn()} />);
+
+    await waitFor(() => {
+      expect(screen.getByText('Tela Inteira 1')).toBeInTheDocument();
+    });
+
+    // Alterna para modo Janela para renderizar a tag <video> ao invés de imagem estática
+    const windowTab = screen.getByRole('button', { name: /Janela \/ Aba Específica/i });
+    fireEvent.click(windowTab);
+
+    await waitFor(() => {
+      expect(screen.getByText('Google Chrome')).toBeInTheDocument();
+    });
+
+    // Inicia sessão ao vivo
+    fireEvent.click(screen.getByRole('button', { name: /Avançar e Iniciar Transmissão/i }));
+
+    await waitFor(() => {
+      expect(screen.getByText(/AO VIVO/i)).toBeInTheDocument();
+    });
+
+    const videoEl = document.querySelector('video') as HTMLVideoElement;
+    if (videoEl) {
+      expect(videoEl.muted).toBe(true);
+      expect(videoEl.volume).toBe(0);
+    }
+  });
 });
 
 

@@ -147,10 +147,15 @@ export const Room: React.FC<RoomProps> = ({ room, onCloseRoom }) => {
 
   useEffect(() => {
     if (videoRef.current && stream) {
+      videoRef.current.muted = true;
+      videoRef.current.volume = 0;
       videoRef.current.srcObject = stream;
-      videoRef.current.play().catch(() => {});
+      const playPromise = videoRef.current.play();
+      if (playPromise && typeof playPromise.catch === 'function') {
+        playPromise.catch(() => {});
+      }
     }
-  }, [stream]);
+  }, [stream, isLiveSession]);
 
   // Se o usuário selecionou uma fonte nas miniaturas da lista
   useEffect(() => {

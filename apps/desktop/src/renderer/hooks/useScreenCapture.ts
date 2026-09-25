@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import type { CaptureSource, CaptureSourceType } from '@mlab/types';
 
 export type Source = CaptureSource;
@@ -11,6 +11,9 @@ export function useScreenCapture(initialMode: CaptureSourceType = 'screen') {
   const [micMuted, setMicMuted] = useState(true);
   const [videoPaused, setVideoPaused] = useState(false);
   const [hasPermissions, setHasPermissions] = useState<boolean | null>(null);
+
+  const audioContextRef = useRef<AudioContext | null>(null);
+  const rawAudioStreamRef = useRef<MediaStream | null>(null);
 
   const loadSources = useCallback(async (mode: CaptureSourceType) => {
     if (window.electronAPI && window.electronAPI.getScreenSources) {
@@ -94,18 +97,94 @@ export function useScreenCapture(initialMode: CaptureSourceType = 'screen') {
         console.log(`[Capture] Resolução capturada: ${settings.width}x${settings.height} @ ${settings.frameRate}fps`);
       }
 
-      // Tenta anexar microfone do professor se disponível (RF-10, RN-10)
+      // Tenta anexar microfone do professor com processamento DSP anti-microfonia (RF-10, RN-10)
       try {
-        const audioStream = await navigator.mediaDevices.getUserMedia({
-          audio: {
-            echoCancellation: true,
-            noiseSuppression: true,
-          },
+        const audioConstraints: MediaTrackConstraints = {
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: true,
+          channelCount: 1, // Mono para voz elimina defasagem de fase e realimentação estéreo
+          sampleRate: 48000,
+          // @ts-ignore
+          googEchoCancellation: true,
+          googAutoGainControl: true,
+          googNoiseSuppression: true,
+          googHighpassFilter: true, // Filtra frequências graves de ressonância mecânica
+          googTypingNoiseDetection: true,
+        };
+
+        const rawAudioStream = await navigator.mediaDevices.getUserMedia({
+          audio: audioConstraints,
         });
-        audioStream.getAudioTracks().forEach((track) => {
-          track.enabled = !micMuted;
-          mediaStream.addTrack(track);
-        });
+        rawAudioStreamRef.current = rawAudioStream;
+
+        let finalAudioTrack: MediaStreamTrack | null = null;
+
+        // Processamento Web Audio API: Highpass 85Hz + Lowpass 7.5kHz + DynamicsCompressor (Hard Limiter Anti-Howling)
+        const AudioCtxClass =
+          typeof window !== 'undefined'
+            ? window.AudioContext || (window as any).webkitAudioContext
+            : null;
+
+        if (AudioCtxClass && typeof AudioCtxClass === 'function') {
+          try {
+            if (audioContextRef.current) {
+              audioContextRef.current.close().catch(() => {});
+            }
+            const audioCtx = new AudioCtxClass();
+            audioContextRef.current = audioCtx;
+
+            if (audioCtx.state === 'suspended') {
+              audioCtx.resume().catch(() => {});
+            }
+
+            if (
+              typeof audioCtx.createMediaStreamSource === 'function' &&
+              typeof audioCtx.createBiquadFilter === 'function' &&
+              typeof audioCtx.createDynamicsCompressor === 'function' &&
+              typeof audioCtx.createMediaStreamDestination === 'function'
+            ) {
+              const sourceNode = audioCtx.createMediaStreamSource(rawAudioStream);
+
+              // 1. Filtro Passa-Alta (Highpass): remove ressonâncias subgraves (< 85 Hz)
+              const highpass = audioCtx.createBiquadFilter();
+              highpass.type = 'highpass';
+              highpass.frequency.value = 85;
+
+              // 2. Filtro Passa-Baixa (Lowpass): elimina apitos agudos de microfonia (> 7500 Hz)
+              const lowpass = audioCtx.createBiquadFilter();
+              lowpass.type = 'lowpass';
+              lowpass.frequency.value = 7500;
+
+              // 3. Hard Limiter Dinâmico: trava o ganho em -6 dBFS em 1 ms, impedindo o loop de Barkhausen
+              const limiter = audioCtx.createDynamicsCompressor();
+              limiter.threshold.value = -6;
+              limiter.knee.value = 3;
+              limiter.ratio.value = 20; // 20:1 limiter
+              limiter.attack.value = 0.001; // 1 ms de ataque imediato
+              limiter.release.value = 0.15; // 150 ms de recuperação suave
+
+              const destination = audioCtx.createMediaStreamDestination();
+              sourceNode.connect(highpass);
+              highpass.connect(lowpass);
+              lowpass.connect(limiter);
+              limiter.connect(destination);
+
+              const processedTracks = destination.stream.getAudioTracks();
+              if (processedTracks.length > 0) {
+                finalAudioTrack = processedTracks[0];
+              }
+            }
+          } catch (dspErr) {
+            console.warn('[Capture] Falha ao inicializar Web Audio limiter, utilizando faixa bruta:', dspErr);
+          }
+        }
+
+        const trackToAdd = finalAudioTrack || rawAudioStream.getAudioTracks()[0];
+        if (trackToAdd) {
+          trackToAdd.enabled = !micMuted;
+          mediaStream.addTrack(trackToAdd);
+        }
       } catch (err) {
         console.warn('Microfone não disponível ou permissão não concedida:', err);
       }
@@ -124,6 +203,11 @@ export function useScreenCapture(initialMode: CaptureSourceType = 'screen') {
       audioTracks.forEach((track) => {
         track.enabled = micMuted; // inverte estado
       });
+      if (rawAudioStreamRef.current) {
+        rawAudioStreamRef.current.getAudioTracks().forEach((track) => {
+          track.enabled = micMuted;
+        });
+      }
       setMicMuted(!micMuted);
     }
   }, [stream, micMuted]);
@@ -143,6 +227,14 @@ export function useScreenCapture(initialMode: CaptureSourceType = 'screen') {
       stream.getTracks().forEach((t) => t.stop());
       setStream(null);
       setSelectedSource(null);
+    }
+    if (rawAudioStreamRef.current) {
+      rawAudioStreamRef.current.getTracks().forEach((t) => t.stop());
+      rawAudioStreamRef.current = null;
+    }
+    if (audioContextRef.current) {
+      audioContextRef.current.close().catch(() => {});
+      audioContextRef.current = null;
     }
   }, [stream]);
 

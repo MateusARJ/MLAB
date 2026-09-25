@@ -11,7 +11,7 @@ export interface UseWebRTCPublisherProps {
  * Injeta diretivas no SDP para cravar a taxa de transmissão em alta qualidade (1080p @ 4 Mbps)
  * Força o motor Chromium WebRTC a iniciar imediatamente em 4000 kbps via x-google-start-bitrate
  */
-function enforceHighBitrateSDP(sdp: string, bitrateKbps: number = 4000): string {
+export function enforceHighBitrateSDP(sdp: string, bitrateKbps: number = 4000): string {
   let result = sdp.replace(/m=video ([^\r\n]+)\r\n/g, (match) => {
     return `${match}b=AS:${bitrateKbps}\r\nb=TIAS:${bitrateKbps * 1000}\r\n`;
   });
@@ -32,6 +32,30 @@ function enforceHighBitrateSDP(sdp: string, bitrateKbps: number = 4000): string 
       );
     }
   }
+
+  // Otimiza o codec Opus para áudio de voz anti-microfonia:
+  // usedtx=1: Desativa transmissão contínua em momentos de silêncio (quebra o loop de microfonia durante pausas)
+  // stereo=0 / sprop-stereo=0: Força saída mono para eliminar defasagem estéreo
+  const opusRegex = /a=rtpmap:(\d+) opus\/48000\/2/i;
+  const opusMatch = opusRegex.exec(result);
+  if (opusMatch) {
+    const pt = opusMatch[1];
+    const fmtpRegex = new RegExp(`a=fmtp:${pt} (.*)\r\n`);
+    if (fmtpRegex.test(result)) {
+      result = result.replace(fmtpRegex, (_m, existing) => {
+        let updated = existing;
+        if (!updated.includes('usedtx')) updated += ';usedtx=1';
+        if (!updated.includes('stereo=')) updated += ';stereo=0;sprop-stereo=0';
+        return `a=fmtp:${pt} ${updated}\r\n`;
+      });
+    } else {
+      result = result.replace(
+        `a=rtpmap:${pt} opus/48000/2\r\n`,
+        `a=rtpmap:${pt} opus/48000/2\r\na=fmtp:${pt} minptime=10;useinbandfec=1;usedtx=1;stereo=0;sprop-stereo=0\r\n`
+      );
+    }
+  }
+
   return result;
 }
 
