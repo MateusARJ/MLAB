@@ -1,6 +1,6 @@
 {
   "name": "mlab",
-  "version": "1.4.7",
+  "version": "1.4.8",
   "private": true,
   "packageManager": "npm@11.13.0",
   "workspaces": [

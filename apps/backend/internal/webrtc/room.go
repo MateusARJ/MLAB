@@ -28,13 +28,16 @@ type Room struct {
 	audioTrack *webrtc.TrackLocalStaticRTP
 
 	subscribers map[string]*webrtc.PeerConnection
+
+	onTrackReady func(roomID string)
 }
 
-func newRoom(id string, api *webrtc.API) *Room {
+func newRoom(id string, api *webrtc.API, onTrackReady func(roomID string)) *Room {
 	return &Room{
-		id:          id,
-		api:         api,
-		subscribers: make(map[string]*webrtc.PeerConnection),
+		id:           id,
+		api:          api,
+		subscribers:  make(map[string]*webrtc.PeerConnection),
+		onTrackReady: onTrackReady,
 	}
 }
 
@@ -104,6 +107,13 @@ func (r *Room) handlePublisherOffer(publisherID, sdp string) (string, error) {
 		if remoteTrack.Kind() == webrtc.RTPCodecTypeVideo {
 			r.requestKeyFrame()
 			time.AfterFunc(300*time.Millisecond, r.requestKeyFrame)
+
+			r.mu.RLock()
+			readyCb := r.onTrackReady
+			r.mu.RUnlock()
+			if readyCb != nil {
+				go readyCb(r.id)
+			}
 
 			go func() {
 				ticker := time.NewTicker(2 * time.Second)

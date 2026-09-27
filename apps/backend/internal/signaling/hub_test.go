@@ -211,3 +211,156 @@ func TestHub_Reconnection_RaceConditionPrevention(t *testing.T) {
 	}
 }
 
+func TestHub_ChatHistory_StoredAndSentOnRegister(t *testing.T) {
+	hub := newHub("room-test-chathistory", nil)
+
+	prof := &Client{
+		hub:           hub,
+		send:          make(chan []byte, 10),
+		participantID: "prof-01",
+		roomID:        "room-test-chathistory",
+		role:          RoleProfessor,
+		name:          "Professor",
+	}
+	hub.onRegister(prof)
+
+	// 1. Professor envia mensagem pública
+	pubMsg := WsMessage{
+		Type:    TypeChatMessage,
+		Payload: []byte(`{"content":"Olá turma, sejam bem-vindos!","is_private":false}`),
+	}
+	hub.onChatMessage(prof, pubMsg)
+
+	// 2. Professor envia mensagem privada para alguém
+	privMsg := WsMessage{
+		Type:    TypeChatMessage,
+		Payload: []byte(`{"content":"Mensagem privada de teste","is_private":true,"target_id":"student-99"}`),
+	}
+	hub.onChatMessage(prof, privMsg)
+
+	// O histórico deve conter apenas a mensagem pública
+	if len(hub.chatHistory) != 1 {
+		t.Fatalf("expected 1 message in hub.chatHistory, got %d", len(hub.chatHistory))
+	}
+	if hub.chatHistory[0].Content != "Olá turma, sejam bem-vindos!" {
+		t.Errorf("unexpected content in chatHistory: %s", hub.chatHistory[0].Content)
+	}
+
+	// 3. Novo aluno entra na sala depois das mensagens
+	student := &Client{
+		hub:           hub,
+		send:          make(chan []byte, 10),
+		participantID: "student-02",
+		roomID:        "room-test-chathistory",
+		role:          RoleAluno,
+		name:          "Aluno Novo",
+	}
+	hub.onRegister(student)
+
+	// O aluno novo deve receber TypeChatHistory no canal send
+	var receivedChatHistory bool
+	for len(student.send) > 0 {
+		msgBytes := <-student.send
+		var wsMsg WsMessage
+		_ = json.Unmarshal(msgBytes, &wsMsg)
+		if wsMsg.Type == TypeChatHistory {
+			receivedChatHistory = true
+			var historyPayload ChatHistoryPayload
+			_ = json.Unmarshal(wsMsg.Payload, &historyPayload)
+			if len(historyPayload.Messages) != 1 {
+				t.Errorf("expected 1 message in ChatHistoryPayload, got %d", len(historyPayload.Messages))
+			}
+			if historyPayload.Messages[0].Content != "Olá turma, sejam bem-vindos!" {
+				t.Errorf("unexpected message in ChatHistoryPayload: %s", historyPayload.Messages[0].Content)
+			}
+		}
+	}
+
+	if !receivedChatHistory {
+		t.Fatal("expected student to receive TypeChatHistory on register")
+	}
+}
+
+func TestHub_FilesHistory_StoredAndSentOnRegister(t *testing.T) {
+	hub := newHub("room-test-fileshistory", nil)
+
+	// 1. Simula arquivo compartilhado na sala
+	hub.sharedFiles = append(hub.sharedFiles, FileSharedPayload{
+		ID:   "file-123",
+		Name: "aula1.pdf",
+		Size: 1024,
+		URL:  "/rooms/room-test-fileshistory/files/file-123/download",
+	})
+
+	// 2. Novo aluno entra na sala
+	student := &Client{
+		hub:           hub,
+		send:          make(chan []byte, 10),
+		participantID: "student-files-01",
+		roomID:        "room-test-fileshistory",
+		role:          RoleAluno,
+		name:          "Aluno Arquivos",
+	}
+	hub.onRegister(student)
+
+	// O aluno deve receber TypeFilesHistory
+	var receivedFilesHistory bool
+	for len(student.send) > 0 {
+		msgBytes := <-student.send
+		var wsMsg WsMessage
+		_ = json.Unmarshal(msgBytes, &wsMsg)
+		if wsMsg.Type == TypeFilesHistory {
+			receivedFilesHistory = true
+			var filesPayload FilesHistoryPayload
+			_ = json.Unmarshal(wsMsg.Payload, &filesPayload)
+			if len(filesPayload.Files) != 1 {
+				t.Fatalf("expected 1 file in FilesHistoryPayload, got %d", len(filesPayload.Files))
+			}
+			if filesPayload.Files[0].ID != "file-123" || filesPayload.Files[0].Name != "aula1.pdf" {
+				t.Errorf("unexpected file in FilesHistoryPayload: %+v", filesPayload.Files[0])
+			}
+		}
+	}
+
+	if !receivedFilesHistory {
+		t.Fatal("expected student to receive TypeFilesHistory on register")
+	}
+}
+
+func TestHub_StreamStarted_Broadcast(t *testing.T) {
+	hub := newHub("room-test-streamstarted", nil)
+
+	student := &Client{
+		hub:           hub,
+		send:          make(chan []byte, 10),
+		participantID: "student-stream-01",
+		roomID:        "room-test-streamstarted",
+		role:          RoleAluno,
+		name:          "Aluno Stream",
+	}
+	hub.clients[student.participantID] = student
+
+	// Dispara OnStreamStarted
+	hub.onStreamStarted()
+
+	if hub.status != SessionPublishing {
+		t.Errorf("expected hub status SessionPublishing, got %s", hub.status)
+	}
+
+	// Aluno deve ter recebido stream-started
+	var receivedStreamStarted bool
+	for len(student.send) > 0 {
+		msgBytes := <-student.send
+		var wsMsg WsMessage
+		_ = json.Unmarshal(msgBytes, &wsMsg)
+		if wsMsg.Type == TypeStreamStarted {
+			receivedStreamStarted = true
+		}
+	}
+
+	if !receivedStreamStarted {
+		t.Fatal("expected student to receive TypeStreamStarted")
+	}
+}
+
+

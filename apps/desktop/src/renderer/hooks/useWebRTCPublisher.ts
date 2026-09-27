@@ -254,6 +254,10 @@ export function useWebRTCPublisher({
             }
           } else if (msg.type === 'chat-message') {
             setMessages((prev) => [...prev, msg.payload]);
+          } else if (msg.type === 'chat-history') {
+            if (msg.payload && Array.isArray(msg.payload.messages)) {
+              setMessages(msg.payload.messages);
+            }
           } else if (msg.type === 'participants-update') {
             if (msg.payload && Array.isArray(msg.payload.participants)) {
               setParticipants(msg.payload.participants);

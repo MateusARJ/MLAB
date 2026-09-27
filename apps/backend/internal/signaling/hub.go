@@ -34,6 +34,7 @@ type signal int
 const (
 	sigPublisherTimeout signal = iota
 	sigRoomClose
+	sigStreamStarted
 )
 
 // chatTracker controla o rate limit de chat por participante.
@@ -94,10 +95,13 @@ type Hub struct {
 	chatLimits   map[string]*chatTracker
 	streamPaused bool // indica se a transmissão está pausada pelo professor
 
+	chatHistory []ChatRecvPayload   // mensagens públicas da turma mantidas em memória na sessão
+	sharedFiles []FileSharedPayload // arquivos compartilhados pelo professor mantidos em memória na sessão
+
 	register   chan *Client
 	unregister chan *Client
 	inbound    chan *envelope
-	internal   chan signal // sinais internos (timeouts, fechamentos)
+	internal   chan signal // sinais internos (timeouts, fechamentos, streamStarted)
 	fileShared chan FileSharedPayload
 
 	publisherTimer *time.Timer
@@ -107,16 +111,18 @@ type Hub struct {
 // newHub cria e inicia um Hub para a sala especificada.
 func newHub(roomID string, sfu SFU) *Hub {
 	h := &Hub{
-		roomID:     roomID,
-		clients:    make(map[string]*Client),
-		chatLimits: make(map[string]*chatTracker),
-		status:     SessionWaiting,
-		register:   make(chan *Client),
-		unregister: make(chan *Client),
-		inbound:    make(chan *envelope, 256),
-		internal:   make(chan signal, 4),
-		fileShared: make(chan FileSharedPayload, 16),
-		sfu:        sfu,
+		roomID:      roomID,
+		clients:     make(map[string]*Client),
+		chatLimits:  make(map[string]*chatTracker),
+		chatHistory: make([]ChatRecvPayload, 0, 50),
+		sharedFiles: make([]FileSharedPayload, 0, 10),
+		status:      SessionWaiting,
+		register:    make(chan *Client),
+		unregister:  make(chan *Client),
+		inbound:     make(chan *envelope, 256),
+		internal:    make(chan signal, 8),
+		fileShared:  make(chan FileSharedPayload, 16),
+		sfu:         sfu,
 	}
 	go h.run()
 	return h
@@ -141,9 +147,12 @@ func (h *Hub) run() {
 				h.onPublisherTimeout()
 			case sigRoomClose:
 				h.onRoomClose()
+			case sigStreamStarted:
+				h.onStreamStarted()
 			}
 
 		case f := <-h.fileShared:
+			h.sharedFiles = append(h.sharedFiles, f)
 			h.broadcastAll(TypeFileShared, f)
 		}
 	}
@@ -192,6 +201,20 @@ func (h *Hub) onRegister(c *Client) {
 	if h.streamPaused {
 		c.sendJSON(TypeStreamPaused, StreamPausedPayload{
 			Paused: true,
+		})
+	}
+
+	// Envia histórico de mensagens públicas do chat ao novo cliente
+	if len(h.chatHistory) > 0 {
+		c.sendJSON(TypeChatHistory, ChatHistoryPayload{
+			Messages: h.chatHistory,
+		})
+	}
+
+	// Envia histórico de arquivos compartilhados pelo professor ao novo cliente
+	if len(h.sharedFiles) > 0 {
+		c.sendJSON(TypeFilesHistory, FilesHistoryPayload{
+			Files: h.sharedFiles,
 		})
 	}
 
@@ -444,6 +467,10 @@ func (h *Hub) onChatMessage(c *Client, msg WsMessage) {
 			}
 		}
 	} else {
+		h.chatHistory = append(h.chatHistory, chatPayload)
+		if len(h.chatHistory) > 200 {
+			h.chatHistory = h.chatHistory[len(h.chatHistory)-200:]
+		}
 		h.broadcastAll(TypeChatMessage, chatPayload)
 	}
 }
@@ -506,6 +533,26 @@ func (h *Hub) onRoomClose() {
 	if h.sfu != nil {
 		_ = h.sfu.RoomClosed(h.roomID)
 	}
+}
+
+func (h *Hub) onStreamStarted() {
+	h.status = SessionPublishing
+	log.Printf("hub[%s]: faixa de vídeo ativa — disparando stream-started para todos os participantes", h.roomID)
+	h.broadcastAll(TypeStreamStarted, StreamStartedPayload{
+		PublisherID: h.publisherID,
+	})
+	h.broadcastAll(TypeSessionState, SessionStatePayload{
+		Status:            SessionPublishing,
+		ParticipantsCount: len(h.clients),
+	})
+	if h.sfu != nil {
+		_ = h.sfu.RequestKeyFrame(h.roomID)
+	}
+}
+
+// BroadcastStreamStarted é chamado externamente quando o SFU inicializa a track de vídeo do professor.
+func (h *Hub) BroadcastStreamStarted() {
+	h.internal <- sigStreamStarted
 }
 
 // BroadcastRoomClosed é chamado externamente (ex: pelo handler REST de close).

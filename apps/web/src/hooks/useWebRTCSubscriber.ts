@@ -41,56 +41,62 @@ export function useWebRTCSubscriber(token: string, roomInfo: { room_id: string; 
     const ws = new WebSocket(`${finalWsUrl}?token=${token}`);
     wsRef.current = ws;
 
-    const pc = new RTCPeerConnection({
-      iceServers: iceServers && iceServers.length > 0
-        ? iceServers
-        : [{ urls: 'stun:stun.l.google.com:19302' }],
-    });
-    pcRef.current = pc;
-    hasSubscribedStateRef.current = false;
-
-    pc.ontrack = (event) => {
-      setStream((prev) => {
-        if (!prev) {
-          return new MediaStream([event.track]);
-        }
-        if (prev.getTracks().some((t) => t.id === event.track.id)) {
-          return prev;
-        }
-        // Retorna nova instância de MediaStream para forçar re-render e atualizar o elemento <video>
-        return new MediaStream([...prev.getTracks(), event.track]);
-      });
-    };
-
-    pc.onicecandidate = (event) => {
-      if (event.candidate && ws.readyState === WebSocket.OPEN) {
-        ws.send(
-          JSON.stringify({
-            type: 'ice-candidate',
-            payload: { candidate: JSON.stringify(event.candidate) },
-          })
-        );
-      }
-    };
-
-    // Monitoramento de ICE Connection State (RF-25: ICE Restart em falha)
-    pc.oniceconnectionstatechange = () => {
-      if (pc.iceConnectionState === 'connected' || pc.iceConnectionState === 'completed') {
-        setConnectionStatus('connected');
-      } else if (pc.iceConnectionState === 'failed' || pc.iceConnectionState === 'disconnected') {
-        console.warn('Conexão ICE falhou/desconectou. Tentando ICE Restart...');
+    const setupPeerConnectionAndSubscribe = (targetWs: WebSocket) => {
+      if (pcRef.current) {
         try {
-          pc.restartIce();
-        } catch (e) {
-          console.warn('Falha no restartIce:', e);
-        }
+          pcRef.current.close();
+        } catch {}
+        pcRef.current = null;
       }
-    };
 
-    const requestSubscription = () => {
-      if (ws.readyState === WebSocket.OPEN && !hasSubscribedStateRef.current) {
-        hasSubscribedStateRef.current = true;
-        ws.send(
+      const pc = new RTCPeerConnection({
+        iceServers: iceServers && iceServers.length > 0
+          ? iceServers
+          : [{ urls: 'stun:stun.l.google.com:19302' }],
+      });
+      pcRef.current = pc;
+      hasSubscribedStateRef.current = true;
+
+      pc.ontrack = (event) => {
+        setStream((prev) => {
+          if (!prev) {
+            return new MediaStream([event.track]);
+          }
+          if (prev.getTracks().some((t) => t.id === event.track.id)) {
+            return prev;
+          }
+          // Retorna nova instância de MediaStream para forçar re-render e atualizar o elemento <video>
+          return new MediaStream([...prev.getTracks(), event.track]);
+        });
+      };
+
+      pc.onicecandidate = (event) => {
+        if (event.candidate && targetWs.readyState === WebSocket.OPEN) {
+          targetWs.send(
+            JSON.stringify({
+              type: 'ice-candidate',
+              payload: { candidate: JSON.stringify(event.candidate) },
+            })
+          );
+        }
+      };
+
+      // Monitoramento de ICE Connection State (RF-25: ICE Restart em falha)
+      pc.oniceconnectionstatechange = () => {
+        if (pc.iceConnectionState === 'connected' || pc.iceConnectionState === 'completed') {
+          setConnectionStatus('connected');
+        } else if (pc.iceConnectionState === 'failed' || pc.iceConnectionState === 'disconnected') {
+          console.warn('Conexão ICE falhou/desconectou. Tentando ICE Restart...');
+          try {
+            pc.restartIce();
+          } catch (e) {
+            console.warn('Falha no restartIce:', e);
+          }
+        }
+      };
+
+      if (targetWs.readyState === WebSocket.OPEN) {
+        targetWs.send(
           JSON.stringify({
             type: 'subscribe-request',
             payload: {},
@@ -100,8 +106,8 @@ export function useWebRTCSubscriber(token: string, roomInfo: { room_id: string; 
     };
 
     ws.onopen = () => {
-      // Solicita a transmissão imediatamente ao abrir a conexão WebSocket
-      requestSubscription();
+      // Solicita a transmissão ao abrir a conexão WebSocket
+      setupPeerConnectionAndSubscribe(ws);
     };
 
     ws.onmessage = async (evt) => {
@@ -109,6 +115,10 @@ export function useWebRTCSubscriber(token: string, roomInfo: { room_id: string; 
         const msg = JSON.parse(evt.data);
         if (msg.type === 'chat-message') {
           setMessages((prev) => [...prev, msg.payload]);
+        } else if (msg.type === 'chat-history') {
+          if (msg.payload && Array.isArray(msg.payload.messages)) {
+            setMessages(msg.payload.messages);
+          }
         } else if (msg.type === 'stream-paused') {
           setIsStreamPaused(!!msg.payload?.paused);
         } else if (msg.type === 'file-shared') {
@@ -118,6 +128,14 @@ export function useWebRTCSubscriber(token: string, roomInfo: { room_id: string; 
               return [...prev, msg.payload];
             });
           }
+        } else if (msg.type === 'files-history') {
+          if (msg.payload && Array.isArray(msg.payload.files)) {
+            setSharedFiles(msg.payload.files);
+          }
+        } else if (msg.type === 'stream-started') {
+          // O professor iniciou a transmissão com vídeo pronto: reinicializa PeerConnection e conecta sem F5
+          setConnectionStatus('publishing');
+          setupPeerConnectionAndSubscribe(ws);
         } else if (msg.type === 'session-state') {
           if (msg.payload && msg.payload.status === 'closed') {
             isClosedRef.current = true;
@@ -140,8 +158,8 @@ export function useWebRTCSubscriber(token: string, roomInfo: { room_id: string; 
           } else {
             setConnectionStatus(msg.payload.status);
             if (msg.payload.status === 'publishing') {
-              if (!hasSubscribedStateRef.current) {
-                requestSubscription();
+              if (!hasSubscribedStateRef.current || !pcRef.current) {
+                setupPeerConnectionAndSubscribe(ws);
               }
             } else if (msg.payload.status === 'waiting' || msg.payload.status === 'reconnecting') {
               hasSubscribedStateRef.current = false;
@@ -166,19 +184,20 @@ export function useWebRTCSubscriber(token: string, roomInfo: { room_id: string; 
             wsRef.current = null;
           }
         } else if (msg.type === 'offer') {
-          if (msg.payload && msg.payload.sdp) {
-            if (pc.signalingState !== 'stable' && pc.signalingState !== 'have-local-offer') {
-              console.warn('Ignorando offer fora de estado estável:', pc.signalingState);
+          const currentPc = pcRef.current;
+          if (currentPc && msg.payload && msg.payload.sdp) {
+            if (currentPc.signalingState !== 'stable' && currentPc.signalingState !== 'have-local-offer') {
+              console.warn('Ignorando offer fora de estado estável:', currentPc.signalingState);
               return;
             }
-            await pc.setRemoteDescription(
+            await currentPc.setRemoteDescription(
               new RTCSessionDescription({
                 type: 'offer',
                 sdp: msg.payload.sdp,
               })
             );
-            const answer = await pc.createAnswer();
-            await pc.setLocalDescription(answer);
+            const answer = await currentPc.createAnswer();
+            await currentPc.setLocalDescription(answer);
             if (ws.readyState === WebSocket.OPEN) {
               ws.send(
                 JSON.stringify({
@@ -189,17 +208,19 @@ export function useWebRTCSubscriber(token: string, roomInfo: { room_id: string; 
             }
           }
         } else if (msg.type === 'ice-candidate') {
-          if (msg.payload && msg.payload.candidate) {
+          const currentPc = pcRef.current;
+          if (currentPc && msg.payload && msg.payload.candidate) {
             try {
               const candInit = JSON.parse(msg.payload.candidate);
-              await pc.addIceCandidate(new RTCIceCandidate(candInit));
+              await currentPc.addIceCandidate(new RTCIceCandidate(candInit));
             } catch {
-              await pc.addIceCandidate(new RTCIceCandidate({ candidate: msg.payload.candidate }));
+              await currentPc.addIceCandidate(new RTCIceCandidate({ candidate: msg.payload.candidate }));
             }
           }
         } else if (msg.type === 'ice-servers') {
-          if (msg.payload && msg.payload.ice_servers) {
-            pc.setConfiguration({ iceServers: msg.payload.ice_servers });
+          const currentPc = pcRef.current;
+          if (currentPc && msg.payload && msg.payload.ice_servers) {
+            currentPc.setConfiguration({ iceServers: msg.payload.ice_servers });
           }
         }
       } catch (err) {
@@ -272,7 +293,12 @@ export function useWebRTCSubscriber(token: string, roomInfo: { room_id: string; 
       .then((res) => (res.ok ? res.json() : []))
       .then((data) => {
         if (Array.isArray(data)) {
-          setSharedFiles(data);
+          setSharedFiles((prev) => {
+            const map = new Map();
+            prev.forEach((f) => map.set(f.id, f));
+            data.forEach((f) => map.set(f.id, f));
+            return Array.from(map.values());
+          });
         }
       })
       .catch((err) => console.warn('Erro ao carregar arquivos da sala:', err));

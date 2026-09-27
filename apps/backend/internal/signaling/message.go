@@ -30,6 +30,9 @@ const (
 	TypeStreamPaused      = "stream-paused"      // broadcast: transmissão pausada/retomada
 	TypeFileShared        = "file-shared"         // broadcast: novo arquivo compartilhado
 	TypeParticipantsUpdate = "participants-update" // broadcast: lista atualizada de participantes
+	TypeChatHistory       = "chat-history"       // unicast: histórico de chat público para novo participante
+	TypeFilesHistory      = "files-history"      // unicast: lista de arquivos já compartilhados para novo participante
+	TypeStreamStarted     = "stream-started"     // broadcast: professor iniciou a transmissão e a mídia está pronta
 )
 
 // SessionStatus reflete o estado da sala de transmissão.
@@ -183,4 +186,19 @@ type ParticipantInfo struct {
 type ParticipantsUpdatePayload struct {
 	Count        int               `json:"count"`
 	Participants []ParticipantInfo `json:"participants"`
+}
+
+// ChatHistoryPayload envia as mensagens públicas acumuladas durante a sessão.
+type ChatHistoryPayload struct {
+	Messages []ChatRecvPayload `json:"messages"`
+}
+
+// FilesHistoryPayload envia a lista de arquivos compartilhados acumulados durante a sessão.
+type FilesHistoryPayload struct {
+	Files []FileSharedPayload `json:"files"`
+}
+
+// StreamStartedPayload notifica os alunos de que o professor iniciou a transmissão e a mídia está disponível.
+type StreamStartedPayload struct {
+	PublisherID string `json:"publisher_id"`
 }
