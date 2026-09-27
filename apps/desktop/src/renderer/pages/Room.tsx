@@ -295,6 +295,9 @@ export const Room: React.FC<RoomProps> = ({ room, onCloseRoom }) => {
       closeRoom(room.id).catch((err) => {
         console.warn('Erro ao encerrar sala na API:', err);
       });
+      if (window.electronAPI && typeof window.electronAPI.setActiveRoom === 'function') {
+        window.electronAPI.setActiveRoom(null);
+      }
     }
     endSession();
     stopCapture();

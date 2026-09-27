@@ -47,6 +47,11 @@ export interface ElectronAPI {
    * Copia texto para a área de transferência do SO de forma nativa.
    */
   copyToClipboard: (text: string) => Promise<boolean>
+
+  /**
+   * Registra ou desregistra a sala ativa atual no processo principal para encerramento automático ao fechar a janela.
+   */
+  setActiveRoom: (room: { id: string; token?: string } | null) => Promise<void>
 }
 
 const api: ElectronAPI = {
@@ -62,7 +67,8 @@ const api: ElectronAPI = {
     } catch {
       return Promise.resolve(false)
     }
-  }
+  },
+  setActiveRoom: (room) => ipcRenderer.invoke('set-active-room', room)
 }
 
 contextBridge.exposeInMainWorld('electronAPI', api)

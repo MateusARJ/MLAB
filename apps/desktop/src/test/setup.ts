@@ -27,6 +27,7 @@ window.electronAPI = {
     screen: true,
   }),
   copyToClipboard: vi.fn().mockResolvedValue(true),
+  setActiveRoom: vi.fn().mockResolvedValue(undefined),
 };
 
 if (typeof window !== 'undefined') {

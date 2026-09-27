@@ -225,16 +225,22 @@ export function useWebRTCSubscriber(token: string, roomInfo: { room_id: string; 
       }
 
       // Reconexão com backoff exponencial: 1s, 2s, 4s, 8s, 16s, 30s (RF-19, RN-14)
-      if (connectionStatusRef.current !== 'closed') {
-        setConnectionStatus('reconnecting');
-        const attempts = reconnectAttemptRef.current;
-        const delay = Math.min(1000 * Math.pow(2, attempts), 30000);
-        reconnectAttemptRef.current += 1;
-
-        reconnectTimerRef.current = setTimeout(() => {
-          connect();
-        }, delay);
+      if (reconnectAttemptRef.current >= 4) {
+        // Se o servidor/app do professor foi fechado e não responde após 4 tentativas (~15s), encerra a sessão
+        isClosedRef.current = true;
+        connectionStatusRef.current = 'closed';
+        setConnectionStatus('closed');
+        return;
       }
+
+      setConnectionStatus('reconnecting');
+      const attempts = reconnectAttemptRef.current;
+      const delay = Math.min(1000 * Math.pow(2, attempts), 30000);
+      reconnectAttemptRef.current += 1;
+
+      reconnectTimerRef.current = setTimeout(() => {
+        connect();
+      }, delay);
     };
   }, [token, roomId, wsUrl, iceServers]);
 

@@ -139,6 +139,21 @@ function createWindow(): void {
     }
   }, 1500)
 
+  // Encerramento gracioso ao clicar no 'X' da janela: notifica alunos se houver sala ativa
+  let isWindowClosing = false
+  win.on('close', async (event) => {
+    if (isWindowClosing) return
+
+    if (activeRoom && activeRoom.id) {
+      event.preventDefault()
+      isWindowClosing = true
+      await closeActiveRoomGracefully()
+      if (!win.isDestroyed()) {
+        win.destroy()
+      }
+    }
+  })
+
   win.webContents.on('did-fail-load', (_event, errorCode, errorDescription, validatedURL) => {
     logApp(`[Main WebContents DID-FAIL-LOAD] code=${errorCode}, desc=${errorDescription}, url=${validatedURL}`)
   })
@@ -284,6 +299,48 @@ ipcMain.handle('request-media-permissions', async () => {
     screen: true
   }
 })
+
+// ── Gerenciamento da sala ativa para encerramento gracioso ao fechar o app ────
+
+let activeRoom: { id: string; token?: string } | null = null
+
+ipcMain.handle('set-active-room', (_event, room: { id: string; token?: string } | null) => {
+  activeRoom = room
+  logApp(`[Main] activeRoom atualizada: ${room ? room.id : 'nenhuma'}`)
+})
+
+async function closeActiveRoomGracefully(): Promise<void> {
+  if (!activeRoom || !activeRoom.id) return
+
+  const roomToClose = activeRoom
+  activeRoom = null
+
+  logApp(`[Main] Encerrando sala ativa (${roomToClose.id}) antes de finalizar o aplicativo...`)
+
+  try {
+    const headers: Record<string, string> = { 'Content-Type': 'application/json' }
+    if (roomToClose.token) {
+      headers['Authorization'] = `Bearer ${roomToClose.token}`
+    }
+
+    const controller = new AbortController()
+    const timer = setTimeout(() => controller.abort(), 1200)
+
+    await fetch(`http://127.0.0.1:8080/rooms/${roomToClose.id}/close`, {
+      method: 'POST',
+      headers,
+      signal: controller.signal
+    }).catch((err) => {
+      logApp(`[Main] Aviso ao enviar closeRoom na saída: ${err}`)
+    })
+    clearTimeout(timer)
+  } catch (err) {
+    logApp(`[Main] Erro ao disparar closeRoom na saída: ${err}`)
+  }
+
+  // Aguarda 400ms para permitir que os frames WebSocket cheguem aos alunos conectados
+  await new Promise((resolve) => setTimeout(resolve, 400))
+}
 
 // ── Backend Process Manager (Servidor Go SFU Invisível) ──────────────────────
 
@@ -494,8 +551,23 @@ app.whenReady().then(() => {
   })
 })
 
-app.on('before-quit', () => {
-  stopBackendServer()
+let isAppQuitting = false
+
+app.on('before-quit', async (event) => {
+  if (isAppQuitting) {
+    stopBackendServer()
+    return
+  }
+
+  if (activeRoom && activeRoom.id) {
+    event.preventDefault()
+    isAppQuitting = true
+    await closeActiveRoomGracefully()
+    stopBackendServer()
+    app.quit()
+  } else {
+    stopBackendServer()
+  }
 })
 
 app.on('will-quit', () => {
