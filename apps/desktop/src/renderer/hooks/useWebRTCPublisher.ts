@@ -5,13 +5,18 @@ export interface UseWebRTCPublisherProps {
   stream: MediaStream | null;
   token: string | null;
   wsUrl?: string;
+  targetFps?: 30 | 60;
 }
 
 /**
- * Injeta diretivas no SDP para cravar a taxa de transmissão em alta qualidade (1080p @ 4 Mbps)
- * Força o motor Chromium WebRTC a iniciar imediatamente em 4000 kbps via x-google-start-bitrate
+ * Injeta diretivas no SDP para cravar a taxa de transmissão em alta qualidade (1080p @ 4 Mbps para 30fps ou 6 Mbps para 60fps)
+ * Força o motor Chromium WebRTC a iniciar imediatamente no bitrate pretendido via x-google-start-bitrate e max-fr
  */
-export function enforceHighBitrateSDP(sdp: string, bitrateKbps: number = 4000): string {
+export function enforceHighBitrateSDP(
+  sdp: string,
+  bitrateKbps: number = 4000,
+  maxFramerate: number = 30
+): string {
   let result = sdp.replace(/m=video ([^\r\n]+)\r\n/g, (match) => {
     return `${match}b=AS:${bitrateKbps}\r\nb=TIAS:${bitrateKbps * 1000}\r\n`;
   });
@@ -22,7 +27,7 @@ export function enforceHighBitrateSDP(sdp: string, bitrateKbps: number = 4000): 
     const pt = match[1];
     const codec = match[2];
     const fmtpRegex = new RegExp(`a=fmtp:${pt} (.*)\r\n`);
-    const params = `x-google-min-bitrate=${bitrateKbps - 500};x-google-start-bitrate=${bitrateKbps};x-google-max-bitrate=${bitrateKbps + 1000}`;
+    const params = `x-google-min-bitrate=${bitrateKbps - 500};x-google-start-bitrate=${bitrateKbps};x-google-max-bitrate=${bitrateKbps + 1000};max-fr=${maxFramerate}`;
     if (fmtpRegex.test(result)) {
       result = result.replace(fmtpRegex, `a=fmtp:${pt} $1;${params}\r\n`);
     } else {
@@ -64,6 +69,7 @@ export function useWebRTCPublisher({
   stream,
   token,
   wsUrl,
+  targetFps = 30,
 }: UseWebRTCPublisherProps) {
   const [isPublishing, setIsPublishing] = useState<boolean>(false);
   const [connectionState, setConnectionState] = useState<
@@ -77,6 +83,12 @@ export function useWebRTCPublisher({
   const wsRef = useRef<WebSocket | null>(null);
   const streamRef = useRef<MediaStream | null>(stream);
   streamRef.current = stream;
+
+  const targetFpsRef = useRef<30 | 60>(targetFps);
+  targetFpsRef.current = targetFps;
+
+  const currentBitrateKbps = targetFps === 60 ? 6000 : 4000;
+  const currentFramerate = targetFps === 60 ? 60 : 30;
 
   const stopPublishing = useCallback(() => {
     if (pcRef.current) {
@@ -135,7 +147,7 @@ export function useWebRTCPublisher({
       });
       pcRef.current = pc;
 
-      const applyVideoSenderParameters = async () => {
+      const applyVideoSenderParameters = async (overrideFps?: number) => {
         if (!pcRef.current) return;
         const videoSender = pcRef.current.getSenders().find((s) => s.track && s.track.kind === 'video');
         if (videoSender) {
@@ -143,14 +155,16 @@ export function useWebRTCPublisher({
           if (!params.encodings || params.encodings.length === 0) {
             params.encodings = [{}];
           }
-          params.encodings[0].maxBitrate = 4000000; // 4 Mbps para 1080p (RF-04, RNF-01)
-          params.encodings[0].maxFramerate = 30; // 30 fps
+          const fps = overrideFps || targetFpsRef.current || 30;
+          const bitrate = fps === 60 ? 6000000 : 4000000;
+          params.encodings[0].maxBitrate = bitrate;
+          params.encodings[0].maxFramerate = fps;
           params.encodings[0].scaleResolutionDownBy = 1.0;
           // @ts-ignore
           params.degradationPreference = 'maintain-resolution';
           try {
             await videoSender.setParameters(params);
-            console.log('[WebRTC Publisher] 1080p@30fps 4Mbps maintain-resolution aplicado ao videoSender.');
+            console.log(`[WebRTC Publisher] 1080p@${fps}fps ${bitrate / 1000000}Mbps maintain-resolution aplicado ao videoSender.`);
           } catch (e) {
             console.warn('[WebRTC Publisher] Erro ao aplicar parâmetros no RTCRtpSender:', e);
           }
@@ -213,7 +227,9 @@ export function useWebRTCPublisher({
           if (msg.type === 'publish-approved') {
             // Cria a oferta SDP após aprovação do hub com diretivas estritas de alta taxa
             const offer = await pc.createOffer();
-            const sdp = offer.sdp ? enforceHighBitrateSDP(offer.sdp, 4000) : offer.sdp;
+            const sdp = offer.sdp
+              ? enforceHighBitrateSDP(offer.sdp, currentBitrateKbps, currentFramerate)
+              : offer.sdp;
             const modifiedOffer = new RTCSessionDescription({
               type: 'offer',
               sdp: sdp || offer.sdp,
@@ -231,7 +247,11 @@ export function useWebRTCPublisher({
             }
           } else if (msg.type === 'answer') {
             if (msg.payload && msg.payload.sdp) {
-              const answerSdp = enforceHighBitrateSDP(msg.payload.sdp, 4000);
+              const answerSdp = enforceHighBitrateSDP(
+                msg.payload.sdp,
+                currentBitrateKbps,
+                currentFramerate
+              );
               await pc.setRemoteDescription({
                 type: 'answer',
                 sdp: answerSdp,
@@ -318,14 +338,16 @@ export function useWebRTCPublisher({
           if (!params.encodings || params.encodings.length === 0) {
             params.encodings = [{}];
           }
-          params.encodings[0].maxBitrate = 4000000;
-          params.encodings[0].maxFramerate = 30;
+          const fps = targetFpsRef.current || 30;
+          const bitrate = fps === 60 ? 6000000 : 4000000;
+          params.encodings[0].maxBitrate = bitrate;
+          params.encodings[0].maxFramerate = fps;
           params.encodings[0].scaleResolutionDownBy = 1.0;
           // @ts-ignore
           params.degradationPreference = 'maintain-resolution';
           await videoSender.setParameters(params).catch(() => {});
           videoReplaced = true;
-          console.log('[WebRTC Publisher] Track de vídeo substituído com sucesso via changeStream.');
+          console.log(`[WebRTC Publisher] Track de vídeo substituído com sucesso via changeStream (1080p@${fps}fps ${bitrate / 1000000}Mbps).`);
 
           // Solicita Keyframe imediato ao SFU para propagação instantânea aos alunos sem F5
           const requestKeyFrame = () => {
@@ -380,8 +402,10 @@ export function useWebRTCPublisher({
           if (!params.encodings || params.encodings.length === 0) {
             params.encodings = [{}];
           }
-          params.encodings[0].maxBitrate = 4000000;
-          params.encodings[0].maxFramerate = 30;
+          const fps = targetFpsRef.current || 30;
+          const bitrate = fps === 60 ? 6000000 : 4000000;
+          params.encodings[0].maxBitrate = bitrate;
+          params.encodings[0].maxFramerate = fps;
           params.encodings[0].scaleResolutionDownBy = 1.0;
           // @ts-ignore
           params.degradationPreference = 'maintain-resolution';
@@ -400,6 +424,28 @@ export function useWebRTCPublisher({
       });
     }
   }, [stream]);
+
+  // Atualização dinâmica de bitrate e framerate caso o targetFps mude durante a sessão
+  useEffect(() => {
+    if (!pcRef.current) return;
+    const videoSender = pcRef.current.getSenders().find((s) => s.track && s.track.kind === 'video');
+    if (videoSender) {
+      const params = videoSender.getParameters();
+      if (!params.encodings || params.encodings.length === 0) {
+        params.encodings = [{}];
+      }
+      const fps = targetFps;
+      const bitrate = fps === 60 ? 6000000 : 4000000;
+      params.encodings[0].maxBitrate = bitrate;
+      params.encodings[0].maxFramerate = fps;
+      params.encodings[0].scaleResolutionDownBy = 1.0;
+      // @ts-ignore
+      params.degradationPreference = 'maintain-resolution';
+      videoSender.setParameters(params).catch((err) => {
+        console.warn('[WebRTC Publisher] Erro ao atualizar parâmetros de vídeo para targetFps:', err);
+      });
+    }
+  }, [targetFps]);
 
   useEffect(() => {
     return () => {

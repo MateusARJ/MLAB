@@ -30,6 +30,7 @@ type Room struct {
 	subscribers map[string]*webrtc.PeerConnection
 
 	onTrackReady func(roomID string)
+	lastPLI      time.Time
 }
 
 func newRoom(id string, api *webrtc.API, onTrackReady func(roomID string)) *Room {
@@ -103,7 +104,7 @@ func (r *Room) handlePublisherOffer(publisherID, sdp string) (string, error) {
 		}
 		r.mu.Unlock()
 
-		// Se for track de vídeo, dispara Keyframe imediato e inicia ticker periódico para solicitar RTCP PLI
+		// Se for track de vídeo, notifica que a mídia está pronta no SFU
 		if remoteTrack.Kind() == webrtc.RTPCodecTypeVideo {
 			r.requestKeyFrame()
 			time.AfterFunc(300*time.Millisecond, r.requestKeyFrame)
@@ -114,20 +115,6 @@ func (r *Room) handlePublisherOffer(publisherID, sdp string) (string, error) {
 			if readyCb != nil {
 				go readyCb(r.id)
 			}
-
-			go func() {
-				ticker := time.NewTicker(2 * time.Second)
-				defer ticker.Stop()
-				for range ticker.C {
-					r.mu.RLock()
-					pubPC := r.publisherPC
-					r.mu.RUnlock()
-					if pubPC == nil || pubPC.ConnectionState() == webrtc.PeerConnectionStateClosed {
-						return
-					}
-					r.requestKeyFrame()
-				}
-			}()
 		}
 
 		// Repasse de pacotes RTP em memória (Zero gravação em disco, RNF-15 / RNF-16)
@@ -254,7 +241,7 @@ func (r *Room) createSubscriberOffer(subscriberID, publisherID string) (string, 
 
 	subSDP := pc.LocalDescription().SDP
 	re := regexp.MustCompile(`(m=video [^\r\n]+)\r\n`)
-	subSDP = re.ReplaceAllString(subSDP, "$1\r\nb=AS:4000\r\nb=TIAS:4000000\r\n")
+	subSDP = re.ReplaceAllString(subSDP, "$1\r\nb=AS:8000\r\nb=TIAS:8000000\r\n")
 	return subSDP, nil
 }
 
@@ -289,11 +276,17 @@ func (r *Room) handleSubscriberAnswer(subscriberID, sdp string) error {
 }
 
 func (r *Room) requestKeyFrameLocked() {
+	now := time.Now()
+	if !r.lastPLI.IsZero() && now.Sub(r.lastPLI) < 1500*time.Millisecond {
+		return // Rate limit para consolidar múltiplos pedidos de keyframe e evitar congelamentos no encoder
+	}
+	r.lastPLI = now
+
 	if r.publisherPC != nil && r.publisherVideoSSRC != 0 && r.publisherPC.ConnectionState() != webrtc.PeerConnectionStateClosed {
 		_ = r.publisherPC.WriteRTCP([]rtcp.Packet{
 			&rtcp.PictureLossIndication{MediaSSRC: r.publisherVideoSSRC},
 			&rtcp.ReceiverEstimatedMaximumBitrate{
-				Bitrate: 4_000_000,
+				Bitrate: 8_000_000, // REMB amplo de até 8 Mbps para dar vazão plena a 1080p 60fps sem estrangulamento
 				SSRCs:   []uint32{r.publisherVideoSSRC},
 			},
 		})
@@ -301,16 +294,14 @@ func (r *Room) requestKeyFrameLocked() {
 }
 
 func (r *Room) requestKeyFrame() {
-	r.mu.RLock()
-	defer r.mu.RUnlock()
+	r.mu.Lock()
+	defer r.mu.Unlock()
 	r.requestKeyFrameLocked()
 }
 
-// RequestKeyFrame solicita um RTCP PLI (Keyframe) e REMB com pulsos sucessivos para garantir sincronização rápida.
+// RequestKeyFrame solicita um RTCP PLI (Keyframe) e REMB de forma controlada.
 func (r *Room) RequestKeyFrame() {
 	r.requestKeyFrame()
-	time.AfterFunc(200*time.Millisecond, r.requestKeyFrame)
-	time.AfterFunc(600*time.Millisecond, r.requestKeyFrame)
 }
 
 func (r *Room) addICECandidate(participantID, candidateStr string) error {

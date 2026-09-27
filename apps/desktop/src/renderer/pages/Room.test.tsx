@@ -329,6 +329,38 @@ describe('Room Component (Desktop)', () => {
       expect(videoEl.volume).toBe(0);
     }
   });
+
+  it('deve exibir as opções de qualidade 1080p 30fps e 1080p 60fps e permitir alternar', async () => {
+    render(<Room room={dummyRoom} onCloseRoom={vi.fn()} />);
+
+    // Verifica a presença de ambas as opções
+    expect(screen.getByText(/📺 1080p Full HD @ 30 fps/i)).toBeInTheDocument();
+    expect(screen.getByText(/🚀 1080p Full HD @ 60 fps/i)).toBeInTheDocument();
+
+    // 30 fps deve iniciar selecionado por padrão
+    expect(screen.getByText(/4\.0 Mbps/i)).toBeInTheDocument();
+    expect(screen.getByText(/6\.0 Mbps/i)).toBeInTheDocument();
+
+    // Clica na opção de 60 fps
+    const card60 = screen.getByText(/🚀 1080p Full HD @ 60 fps/i).closest('div');
+    if (card60) {
+      fireEvent.click(card60);
+    }
+
+    await waitFor(() => {
+      expect(screen.getByText('Tela Inteira 1')).toBeInTheDocument();
+    });
+
+    // Avança para a transmissão ao vivo
+    fireEvent.click(screen.getByRole('button', { name: /Avançar e Iniciar Transmissão/i }));
+
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: /Alterar Modo \/ Fonte/i })).toBeInTheDocument();
+    });
+
+    // Deve exibir badge de 1080p @ 60fps na barra de status
+    expect(screen.getByText('1080p @ 60fps')).toBeInTheDocument();
+  });
 });
 
 
