@@ -1,0 +1,42 @@
+# <tipo>(<escopo opcional>): <descrição da feature ou fix em português>
+#
+# ─── REGRA OBRIGATÓRIA: COMMITS ATÔMICOS POR FEATURE / FIX ────────────────────
+# ⚠️ ATENÇÃO: NUNCA misture múltiplas features ou alterações distintas em um só commit!
+# Cada commit DEVE isolar estritamente UMA única feature ou UM único fix.
+#
+# Se você desenvolveu várias funcionalidades, divida-as em commits separados:
+#   Exemplo 1: feat(web): implementa reproducao de video no aluno
+#   Exemplo 2: feat(backend): link fixo por professor
+#   Exemplo 3: feat(network): suporte a ngrok e ip de rede
+# ──────────────────────────────────────────────────────────────────────────────
+#
+# ─── PADRÃO DE FORMATAÇÃO ─────────────────────────────────────────────────────
+# 1. O prefixo DEVE ser estritamente em inglês (Conventional Commits):
+#      feat:     Nova funcionalidade única
+#      fix:      Correção de bug único
+#      docs:     Alterações em documentação e specs
+#      style:    Formatação, espaçamento, ponto e vírgula
+#      refactor: Refatoração de código sem alteração de funcionalidade
+#      perf:     Melhoria isolada de desempenho
+#      test:     Adição ou correção de testes automatizados
+#      build:    Alterações no sistema de build e dependências (turbo, vite, go)
+#      ci:       Arquivos e configurações de CI/CD
+#      chore:    Tarefas de manutenção geral
+#
+# 2. O escopo entre parênteses é opcional, ex: (desktop), (web), (backend), (types).
+# 3. Todo o restante do assunto e do corpo da mensagem DEVE ser RESTRITAMENTE em português.
+#
+# Exemplos válidos (isolados por feature/fix):
+#   feat(web): implementa reproducao de video no aluno
+#   feat(backend): link fixo por professor
+#   feat(network): suporte a ngrok e ip de rede
+#   fix(desktop): corrige layout fixo sem rolagem na tela de transmissao
+#   chore(turbo): atualiza dependencias do monorepo
+# ──────────────────────────────────────────────────────────────────────────────
+#
+# Detalhes da feature/fix (opcional):
+# - Descreva o que foi implementado especificamente nesta feature ou fix
+# - Motivação e detalhes técnicos
+#
+# Tarefas relacionadas / Spec-Kit (opcional):
+# Ref: T022, T023, RF-026

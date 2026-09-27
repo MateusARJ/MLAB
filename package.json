@@ -1,0 +1,30 @@
+{
+  "name": "mlab",
+  "version": "1.4.6",
+  "private": true,
+  "packageManager": "npm@11.13.0",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "build": "turbo run build",
+    "dev": "node ./scripts/dev.js",
+    "lint": "turbo run lint",
+    "test": "turbo run test",
+    "clean": "turbo run clean",
+    "make": "npm --prefix apps/desktop run make",
+    "make:win": "npm --prefix apps/desktop run make:win",
+    "make:linux": "npm --prefix apps/desktop run make:linux",
+    "make:linux:appimage": "npm --prefix apps/desktop run make:linux:appimage",
+    "make:linux:deb": "npm --prefix apps/desktop run make:linux:deb",
+    "make:all": "npm --prefix apps/desktop run make"
+  },
+  "devDependencies": {
+    "turbo": "^2.3.0"
+  },
+  "engines": {
+    "node": ">=20.0.0",
+    "npm": ">=10.0.0"
+  }
+}

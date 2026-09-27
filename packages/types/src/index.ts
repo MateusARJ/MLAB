@@ -1,0 +1,227 @@
+/**
+ * @mlab/types
+ * Pacote compartilhado de tipos TypeScript do monorepo ScreenShare. apps/desktop e apps/web.
+ * Populados em T007. Este arquivo serve como ponto de entrada do scaffold.
+ */
+
+// ── Roles ────────────────────────────────────────────────────────────────────
+
+export type Role = 'professor' | 'aluno';
+
+// ── Room ─────────────────────────────────────────────────────────────────────
+
+export type RoomStatus = 'waiting' | 'publishing' | 'closed';
+
+export interface Room {
+  id: string;
+  slug: string;
+  title?: string;
+  professorName?: string;
+  roomSlug?: string;
+  professorSlug?: string;
+  status: RoomStatus;
+  ownerId: string;
+  maxParticipants: number;
+  createdAt: string;
+  closedAt?: string;
+}
+
+export interface CreateRoomRequest {
+  title?: string;
+  professor_name?: string;
+  max_participants?: number;
+}
+
+export interface CreateRoomResponse {
+  room_id: string;
+  slug: string;
+  link: string;
+  status: RoomStatus;
+  created_at: string;
+  id?: string;
+  join_url?: string;
+}
+
+export interface RoomLinkResponse {
+  room_id: string;
+  link: string;
+}
+
+// ── Participant ───────────────────────────────────────────────────────────────
+
+export interface Participant {
+  id: string;
+  roomId: string;
+  role: Role;
+  name: string;
+  studentId?: string; // obrigatório quando role === 'aluno'
+  joinedAt: string;
+  leftAt?: string;
+}
+
+// ── ChatMessage ───────────────────────────────────────────────────────────────
+
+export interface ChatMessage {
+  id: string;
+  roomId: string;
+  participantId: string;
+  name: string;
+  role: Role;
+  content: string;
+  sentAt: string;
+}
+
+// ── Auth ─────────────────────────────────────────────────────────────────────
+
+export interface AuthResponse {
+  token: string;
+  expiresAt: string;
+}
+
+export interface LoginRequest {
+  email?: string;
+  password?: string;
+  name?: string;
+}
+
+export interface LoginResponse {
+  token: string;
+  expiresAt?: string;
+  name?: string;
+  user_id?: string;
+  role?: Role;
+}
+
+export interface JoinRequest {
+  name: string;
+  studentId: string;
+  student_id?: string;
+}
+
+export interface JoinResponse {
+  token: string;
+  expiresAt: string;
+  participantId: string;
+  roomStatus: RoomStatus;
+  room_id?: string;
+  ws_url?: string;
+  ice_servers?: any[];
+  professor_name?: string;
+  room_title?: string;
+}
+
+export type JoinRoomRequest = {
+  name: string;
+  student_id: string;
+};
+
+export type JoinRoomResponse = {
+  token: string;
+  expires_at: string;
+  participant_id: string;
+  room_status: RoomStatus;
+  room_id: string;
+  ws_url: string;
+  ice_servers: any[];
+  professor_name?: string;
+  room_title?: string;
+};
+
+// ── WebSocket Events (Signaling + Chat) ──────────────────────────────────────
+
+export type WsMessageType =
+  | 'join'
+  | 'offer'
+  | 'answer'
+  | 'ice-candidate'
+  | 'publish-request'
+  | 'publish-approved'
+  | 'subscribe-request'
+  | 'session-state'
+  | 'participant-joined'
+  | 'participant-left'
+  | 'room-closed'
+  | 'chat-message'
+  | 'ice-servers'
+  | 'error';
+
+export interface WsMessage<T = unknown> {
+  type: WsMessageType;
+  payload: T;
+}
+
+export type SessionStatus = 'waiting' | 'publishing' | 'reconnecting' | 'closed';
+
+export interface SessionStatePayload {
+  status: SessionStatus;
+  participantsCount?: number;
+}
+
+export interface ChatMessagePayload {
+  messageId?: string;
+  message_id?: string;
+  participantId?: string;
+  participant_id?: string;
+  name: string;
+  role: Role;
+  studentId?: string;
+  student_id?: string;
+  content: string;
+  isPrivate?: boolean;
+  is_private?: boolean;
+  targetId?: string;
+  target_id?: string;
+  sentAt?: string;
+  sent_at?: string;
+}
+
+export interface IceServer {
+  urls: string[];
+  username?: string;
+  credential?: string;
+}
+
+export interface IceServersPayload {
+  iceServers: IceServer[];
+}
+
+export interface ErrorPayload {
+  code: string;
+  message: string;
+}
+
+// ── Session Metrics ───────────────────────────────────────────────────────────
+
+export interface SessionMetrics {
+  fps?: number;
+  bitrateKbps?: number;
+  rttMs?: number;
+  packetLossPct?: number;
+  firstFrameAt?: string;
+  transportState: 'connecting' | 'connected' | 'disconnected' | 'failed';
+}
+
+// ── Capture & Recording ──────────────────────────────────────────────────────
+
+export type CaptureSourceType = 'screen' | 'window';
+
+export interface CaptureSource {
+  id: string;
+  name: string;
+  thumbnail: string;
+  type: CaptureSourceType;
+}
+
+export type RecordingFormat = 'webm';
+
+export type RecordingStatus = 'idle' | 'recording' | 'paused' | 'stopped';
+
+// ── Media Permissions ────────────────────────────────────────────────────────
+
+export type MediaPermissionStatus = 'granted' | 'denied' | 'prompt' | 'not-determined' | 'unknown';
+
+export interface SystemMediaPermissions {
+  microphone: MediaPermissionStatus;
+  screen: MediaPermissionStatus;
+}
+

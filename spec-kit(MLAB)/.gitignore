@@ -1,0 +1,21 @@
+# Runtime secrets
+.env
+.env.*
+!.env.example
+
+# Go
+bin/
+*.test
+coverage.out
+
+# Node
+node_modules/
+dist/
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db

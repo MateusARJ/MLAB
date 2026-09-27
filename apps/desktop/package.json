@@ -1,0 +1,126 @@
+{
+  "name": "@mlab/desktop",
+  "version": "1.4.6",
+  "description": "MLab - App Desktop do Professor",
+  "homepage": "https://mlab.com",
+  "author": {
+    "name": "MLab",
+    "email": "contato@mlab.com"
+  },
+  "private": true,
+  "main": "out/main/main.js",
+  "scripts": {
+    "dev": "electron-vite dev",
+    "build:web": "npm --prefix ../web run build",
+    "build:backend": "node ../../scripts/build-backend.js all",
+    "build:backend:win": "node ../../scripts/build-backend.js win",
+    "build:backend:linux": "node ../../scripts/build-backend.js linux",
+    "build": "electron-vite build",
+    "preview": "electron-vite preview",
+    "start": "electron .",
+    "premake": "npm version patch --no-git-tag-version && node ../../scripts/sync-version.js",
+    "make": "npm run build:web && npm run build:backend && npm run build && electron-builder --win && node ../../scripts/build-linux-wsl.js all",
+    "make:win": "npm run build:web && npm run build:backend:win && npm run build && electron-builder --win",
+    "make:linux": "npm run build:web && npm run build:backend:linux && npm run build && node ../../scripts/build-linux-wsl.js all",
+    "make:linux:appimage": "npm run build:web && npm run build:backend:linux && npm run build && node ../../scripts/build-linux-wsl.js AppImage",
+    "make:linux:deb": "npm run build:web && npm run build:backend:linux && npm run build && node ../../scripts/build-linux-wsl.js deb",
+    "make:all": "npm run make",
+    "lint": "tsc --noEmit",
+    "test": "vitest run",
+    "clean": "rm -rf out dist"
+  },
+  "dependencies": {
+    "@mlab/types": "*"
+  },
+  "devDependencies": {
+    "@testing-library/jest-dom": "^6.4.8",
+    "@testing-library/react": "^16.0.0",
+    "@types/node": "^20.0.0",
+    "@types/react": "^18.0.0",
+    "@types/react-dom": "^18.0.0",
+    "@vitejs/plugin-react": "^4.3.0",
+    "electron": "^31.0.0",
+    "electron-builder": "^24.13.0",
+    "electron-vite": "^2.3.0",
+    "jsdom": "^24.1.1",
+    "react": "^18.3.0",
+    "react-dom": "^18.3.0",
+    "typescript": "^5.5.0",
+    "vite": "^5.3.0",
+    "vitest": "^2.0.5"
+  },
+  "build": {
+    "appId": "com.mlab.classroom",
+    "productName": "MLab",
+    "electronVersion": "31.7.7",
+    "copyright": "Copyright © 2024 MLab",
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "out/**/*",
+      "resources/**/*"
+    ],
+    "extraResources": [
+      {
+        "from": "../web/dist",
+        "to": "web"
+      }
+    ],
+    "win": {
+      "target": "nsis",
+      "icon": "resources/icon-dark.ico",
+      "artifactName": "${productName}-Setup-${version}.${ext}",
+      "publisherName": "MLab Team",
+      "requestedExecutionLevel": "asInvoker",
+      "extraResources": [
+        {
+          "from": "../backend/bin/server.exe",
+          "to": "bin/server.exe"
+        }
+      ]
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": true,
+      "allowToChangeInstallationDirectory": true,
+      "shortcutName": "MLab",
+      "uninstallDisplayName": "MLab",
+      "deleteAppDataOnUninstall": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true
+    },
+    "mac": {
+      "target": [
+        "dmg",
+        "zip"
+      ],
+      "category": "public.app-category.education",
+      "icon": "resources/icon.png"
+    },
+    "linux": {
+      "target": [
+        "AppImage",
+        "deb",
+        "tar.gz"
+      ],
+      "category": "Education",
+      "icon": "resources/icon-dark.png",
+      "artifactName": "${productName}-Linux-${version}.${ext}",
+      "maintainer": "MLab Team <contato@mlab.com>",
+      "synopsis": "MLab Classroom - Aplicativo Desktop do Professor",
+      "description": "Sistema de Transmissão e Interação de Salas de Aula MLab",
+      "desktop": {
+        "Name": "MLab",
+        "Type": "Application",
+        "Categories": "Education;AudioVideo;"
+      },
+      "extraResources": [
+        {
+          "from": "../backend/bin/server",
+          "to": "bin/server"
+        }
+      ]
+    }
+  }
+}
