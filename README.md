@@ -19,40 +19,50 @@ Professor (Desktop Electron) ────► Servidor SFU (Go / Pion) ───�
                                                             └──► Aluno 40+ (Navegador Web)
 ```
 
-- **App Desktop (Professor):** Aplicação instalável desenvolvida em **Electron + React + TypeScript + Vite**. O professor realiza login, cria a sala de aula, escolhe a fonte de captura (tela inteira ou janela específica via `desktopCapturer`), inicia a transmissão upstream via WebRTC, pode gravar a aula localmente em 1080p com correção de metadados WebM e alterar fontes dinamicamente sem interromper a transmissão.
-- **Backend (SFU, REST e Sinalização):** Servidor em **Go** utilizando a biblioteca **Pion WebRTC**. A SFU recebe o fluxo do professor e o repassa em memória para todos os alunos conectados, mantendo o consumo de upload do professor constante (entre 3 e 6 Mbps), independentemente da quantidade de alunos. Inclui WebSocket Hub thread-safe, emissão automática de keyframes RTCP PLI para alunos recém-chegados, rate limit de chat (5 mensagens a cada 5 segundos) e credenciais efêmeras TURN (HMAC-SHA1).
-- **App Web (Aluno):** Interface web moderna em **React + Vite** (porta **`:3000`**), acessível diretamente por qualquer navegador moderno sem necessidade de plugins. O aluno acessa pelo link único da sala, informa Nome Completo e Matrícula, assiste à aula instantaneamente (sem necessidade de atualizar a página) e interage pelo chat em tempo real.
+- **App Desktop (Professor):** Aplicação instalável desenvolvida em **Electron + React + TypeScript + Vite**. O professor realiza login, cria a sala de aula, escolhe a fonte de captura (tela inteira ou janela específica via `desktopCapturer`), seleciona a resolução e taxa de quadros (1080p @ 30fps ou 1080p @ 60fps), inicia a transmissão upstream via WebRTC, pode gravar a aula localmente em 1080p com correção de metadados WebM, compartilhar arquivos, gerenciar dúvidas privadas e alterar fontes dinamicamente sem interromper a transmissão.
+- **Backend (SFU, REST e Sinalização):** Servidor em **Go** utilizando a biblioteca **Pion WebRTC**. A SFU recebe o fluxo do professor e o repassa em memória para todos os alunos conectados, mantendo o consumo de upload do professor constante (entre 4 e 6 Mbps), independentemente da quantidade de alunos. Inclui WebSocket Hub thread-safe, Keyframe Controller com agendamento inteligente de RTCP PLI para evitar sobrecarga no encoder e eliminar telas pretas, persistência em memória do histórico de chat e arquivos da sessão, rate limit de chat (5 mensagens a cada 5 segundos) e credenciais efêmeras TURN (HMAC-SHA1).
+- **App Web (Aluno):** Interface web moderna em **React + Vite** (porta **`:3000`**), acessível diretamente por qualquer navegador moderno (desktop e mobile) sem necessidade de plugins. O aluno acessa pelo link único da sala, informa Nome Completo e Matrícula, assiste à aula instantaneamente (mesmo se entrar antes do professor iniciar a transmissão, sem necessidade de F5), baixa arquivos compartilhados pelo professor e interage pelo chat público da turma ou dúvidas privadas.
 - **Packages Compartilhados:** `@mlab/types` compartilha DTOs, payloads de sinalização e interfaces TypeScript entre todas as aplicações; `@mlab/ui` provê componentes visuais reutilizáveis.
 
 ---
 
 ## 2. Diferenciais Técnicos e Funcionalidades Recentes
 
+### 📺 Perfis de Resolução e Qualidade (1080p 30fps e 60fps)
+Na tela de setup da sala, o professor pode selecionar o perfil ideal para a aula:
+- **📺 1080p Full HD @ 30 fps (4.0 Mbps):** Otimizado para máxima nitidez de leitura em textos, slides e código-fonte, com menor consumo de rede.
+- **🚀 1080p Full HD @ 60 fps (6.0 Mbps):** Máxima fluidez para vídeos, animações e simulações com 60 quadros por segundo contínuos.
+- **Nitidez Permanente:** Diretivas `contentHint = 'detail'` e `degradationPreference = 'maintain-resolution'` ativas, impedindo o rebaixamento espacial de resolução para manter linhas de código e textos 100% nítidos.
+
+### 🛡️ Keyframe Controller Não-Destrutivo (Zero Travamentos e Zero Tela Preta)
+- **Eliminação de Sobrecarga no Encoder:** Remoção do envio em rajadas periódicas contínuas que forçava o encoder Chromium a descartar quadros (*frame skipping* severo).
+- **Agendamento Inteligente (`pendingPLI`):** Se um pedido de RTCP PLI chegar dentro da janela de cooldown (1.2s), ele não é descartado: o SFU agenda o disparo para o momento exato em que o cooldown termina, garantindo que **100% dos novos alunos recebam o IDR frame inicial** e eliminando telas pretas.
+- **Liveness Keyframe Espaçado:** Ticker seguro a cada 8 segundos que assegura recuperação automática da transmissão em redes com perda transitória de pacotes.
+- **REMB Ampliado:** Teto de REMB do SFU configurado para 8 Mbps para dar vazão plena a 60 fps sem estrangulamento.
+
+### 🚀 Conexão Instantânea e Sincronização sem F5
+- **Espera Amigável:** O aluno pode acessar o link da sala antes do professor iniciar a transmissão, acompanhando o status na tela de espera.
+- **Início Automático:** Quando o professor clica em iniciar a aula, o sinal `stream-started` é disparado e todos os alunos conectados recebem o vídeo automaticamente, sem necessidade de atualizar a página (F5).
+- **Reset de Faixas Órfãs:** O player do aluno descarta faixas encerradas (`readyState === 'ended'`) para evitar que conexões antigas interfiram na reprodução.
+- **Encerramento Sincronizado:** Se o professor encerrar a aula ou fechar o aplicativo desktop, todos os alunos são imediatamente notificados e redirecionados para o início com aviso claro.
+
+### 💬 Chat e Arquivos Persistentes na Transmissão
+- **Histórico Automático da Sessão:** Mensagens do chat público e arquivos compartilhados pelo professor ficam salvos na memória da sessão do Hub. Alunos que entram durante a aula recebem todo o histórico imediatamente (`chat-history` e `files-history`).
+- **Isolamento de Canais:** Separação estrita entre o formulário do **Chat da Turma** (público) e **Dúvidas Privadas** (confidencial aluno-professor).
+
 ### ⚡ Troca Dinâmica de Modo e Fonte (`replaceTrack`)
 O professor pode alterar o modo de transmissão ("Tela Inteira" ou "Janela do Aplicativo") e escolher outra janela ou tela a qualquer momento durante a aula ao vivo.
 - A aplicação utiliza `RTCRtpSender.replaceTrack` para atualizar o fluxo de vídeo mantendo a mesma conexão WebRTC ativa (sem quedas ou necessidade de renegociação SDP).
 - O backend SFU reaproveita a mesma instância de `TrackLocalStaticRTP`, encaminhando os pacotes RTP para os alunos de forma ininterrupta.
-- O player web dos alunos detecta automaticamente as novas dimensões e aspect ratio da fonte via eventos de mídia (`resize` e `unmute`), evitando congelamentos ou tela preta.
-
-### 🚀 Entrega Imediata ao Aluno sem Recarregar (Zero-F5)
-Quando um aluno entra em uma sala onde a aula já está em andamento:
-- A SFU vincula o aluno imediatamente ao fluxo ativo.
-- O servidor despacha instantaneamente um pacote **RTCP PLI (Picture Loss Indication)** ao encoder do professor, forçando a geração imediata de um I-Frame (keyframe).
-- O decodificador do navegador do aluno começa a renderizar o vídeo no mesmo instante, eliminando o problema de tela preta e a necessidade de pressionar F5.
 
 ### 🎥 Gravação Local em 1080p com Correção de Duração EBML
-- Permite gravar a aula diretamente no computador do professor em formato WebM 1080p a 30 FPS via `MediaRecorder`.
+- Permite gravar a aula diretamente no computador do professor em formato WebM 1080p via `MediaRecorder`.
 - Corrige a limitação nativa do formato WebM gerado por navegadores/Electron (onde o cabeçalho não possui duração, impedindo o seek e a barra de progresso) através da injeção de metadados EBML (`Duration`) diretamente no blob antes do salvamento.
 - Arquivo final 100% navegável e compatível com reprodutores de vídeo como VLC, Windows Media Player e navegadores web.
 
 ### 🔊 Resiliência a Políticas de Autoplay de Áudio
 - Tratamento nativo para restrições de reprodução de áudio dos navegadores (Autoplay Policy).
 - Caso o navegador do aluno bloqueie o som por falta de interação prévia, o vídeo continua tocando e um banner elegante é exibido permitindo desmutar o áudio com um clique ("Clique para ativar o áudio").
-
-### 💬 Chat em Tempo Real com Rate Limiting e Sanitização XSS
-- Comunicação instantânea via WebSocket com controle de presença e lista de alunos online.
-- Proteção contra spam com limite de taxa (máximo de 5 mensagens a cada 5 segundos por participante).
-- Sanitização rigorosa de texto no backend e frontend para proteção contra Cross-Site Scripting (XSS).
 
 ---
 
@@ -61,7 +71,7 @@ Quando um aluno entra em uma sala onde a aula já está em andamento:
 Para executar o projeto localmente:
 
 1. **Node.js:** Versão 20.0.0 ou superior (com `npm` 10+).
-2. **Go:** Versão 1.22 ou superior (testado e homologado com Go 1.27).
+2. **Go:** Versão 1.22 ou superior (testado e homologado com Go 1.24/1.27).
 3. **Sistema Operacional:** Windows 10/11, macOS ou Linux.
 4. **Navegador Web:** Google Chrome, Microsoft Edge, Mozilla Firefox ou compatível com WebRTC.
 
@@ -140,7 +150,7 @@ Gera o instalador NSIS e a versão portátil:
 cd c:\Users\User\Documents\mlab\apps\desktop
 npm run make
 ```
-* **Instalador NSIS:** `dist/MLab Setup 1.3.5.exe` (~78 MB)
+* **Instalador NSIS:** `dist/MLab Setup 1.4.8.exe`
 * **Versão Portátil:** `dist/win-unpacked/MLab.exe`
 
 #### 🍏 No macOS:
@@ -150,8 +160,8 @@ cd apps/desktop
 npm run build
 npx electron-builder --mac
 ```
-* **Imagem de Disco:** `dist/MLab-1.3.5.dmg` (arrastar para Aplicativos)
-* **Arquivo Compactado:** `dist/MLab-1.3.5-mac.zip`
+* **Imagem de Disco:** `dist/MLab-1.4.8.dmg` (arrastar para Aplicativos)
+* **Arquivo Compactado:** `dist/MLab-1.4.8-mac.zip`
 
 #### 🐧 No Linux:
 Em uma máquina Linux (Ubuntu, Debian, Fedora, Arch) ou via WSL2:
@@ -160,14 +170,14 @@ cd apps/desktop
 npm run build
 npx electron-builder --linux AppImage deb
 ```
-* **Executável Universal:** `dist/MLab-1.3.5.AppImage` (basta dar permissão `chmod +x` e rodar)
-* **Pacote Debian/Ubuntu:** `dist/MLab_1.3.5_amd64.deb` (`sudo dpkg -i ...`)
+* **Executável Universal:** `dist/MLab-1.4.8.AppImage` (basta dar permissão `chmod +x` e rodar)
+* **Pacote Debian/Ubuntu:** `dist/MLab_1.4.8_amd64.deb` (`sudo dpkg -i ...`)
 
 ---
 
 ### 6.2 Build Automático na Nuvem via GitHub Actions (Windows + Mac + Linux de uma vez)
 
-Como o macOS exige ferramentas nativas da Apple (`hdiutil`) para gerar o arquivo `.dmg`, o repositório já inclui um fluxo de automação em [`.github/workflows/build-all.yml`](file:///c:/Users/User/Documents/mlab/.github/workflows/build-all.yml).
+Como o macOS exige ferramentas nativas da Apple (`hdiutil`) para gerar o arquivo `.dmg`, o repositório já inclui um fluxo de automação em [`.github/workflows/build-all.yml`](.github/workflows/build-all.yml).
 
 Sempre que você subir o código para o GitHub:
 1. Vá até a aba **Actions** no GitHub.
@@ -214,23 +224,6 @@ npm run build
 
 ---
 
-### 6.6 Guia de Distribuição para os Professores
-
-Ao enviar o **`MLab Setup 1.3.5.exe`** para os professores:
-
-1. **Instalação:**
-   * O professor executa o arquivo `MLab Setup 1.3.5.exe`.
-   * Caso o Windows Defender SmartScreen exiba o aviso *"O Windows protegeu o seu computador"* (comum em executáveis sem certificado pago EV):
-     * Clicar em **"Mais informações"**.
-     * Clicar em **"Executar assim mesmo"**.
-   * O instalador cria automaticamente o atalho na Área de Trabalho e no Menu Iniciar.
-2. **Primeiro Acesso:**
-   * Login padrão de homologação: `professor@screenshare.local` (ou configurado no backend).
-   * Senha: `professor123`.
-   * Criar a sala e compartilhar o link com os alunos.
-
----
-
 ## 7. Fluxo de Uso e Transmissão
 
 ### Fluxo do Professor (Desktop):
@@ -242,25 +235,32 @@ Ao enviar o **`MLab Setup 1.3.5.exe`** para os professores:
    - Copie o link de convite dos alunos (ex: `http://localhost:3000/sala/alpha-bravo-1234/entrar`).
    - Clique em **Entrar na Sala como Professor**.
 3. **Configuração e Transmissão:**
-   - Escolha o modo de captura: **Tela Inteira** ou **Janela do Aplicativo**.
-   - Selecione a tela ou janela desejada e marque a opção de gravação local caso deseje salvar a aula.
-   - Clique em **Iniciar Transmissão**.
-4. **Troca de Fonte durante a Aula:**
-   - Clique em **Alterar Modo / Fonte** no painel do professor.
-   - Selecione a nova tela ou janela e confirme. A transmissão será atualizada instantaneamente para todos os alunos sem interrupções.
+   - **1. Gravação:** Escolha se deseja gravar a aula localmente (`.webm`).
+   - **2. Captura:** Escolha o modo de captura: **Tela Inteira** ou **Janela / Aba Específica**.
+   - **3. Resolução e Qualidade:** Selecione entre **1080p @ 30 fps** (padrão nítido) ou **1080p @ 60 fps** (alta fluidez).
+   - Clique em **Avançar e Iniciar Transmissão**.
+4. **Durante a Aula:**
+   - **Troca de Fonte:** Clique em **Alterar Modo / Fonte** no painel do professor para trocar de tela/janela sem quedas.
+   - **Compartilhar Arquivos:** Envie materiais pela gaveta de arquivos.
+   - **Dúvidas Privadas:** Responda alunos individualmente com total sigilo em relação à turma.
+   - **Microfone:** Controle o mute/unmute com processamento anti-microfonia.
 
 ### Fluxo do Aluno (Web):
 1. O aluno acessa no navegador o link fornecido pelo professor:
    `http://localhost:3000/sala/{slug}/entrar`
 2. Preenche seu **Nome Completo** e **Matrícula** e clica em **Entrar na Aula**.
-3. O player WebRTC conecta-se à SFU como receptor (*subscribe-only*), exibindo o vídeo e reproduzindo o áudio imediatamente.
-4. O aluno pode usar os controles de **Tela Cheia (Fullscreen)**, **Picture-in-Picture (PiP)** e participar do **Chat** em tempo real.
+3. **Entrada Antes do Início:** O aluno vê a mensagem amigável de espera e recebe o vídeo automaticamente assim que o professor inicia, sem precisar recarregar (zero F5).
+4. **Durante a Aula:**
+   - Visualiza a tela nítida em tempo real.
+   - Acessa o histórico completo do chat da turma e arquivos compartilhados.
+   - Envia dúvidas privadas para o professor ou participa do chat geral.
+   - Utiliza os controles de **Tela Cheia (Fullscreen)** e **Picture-in-Picture (PiP)**.
 
 ---
 
 ## 8. Testes Automatizados e Qualidade
 
-A aplicação conta com uma suíte de **38 testes automatizados**, cobrindo o backend em Go, a aplicação desktop e o frontend web:
+A aplicação conta com uma ampla suíte de **70 testes automatizados**, cobrindo o backend em Go, a aplicação desktop e o frontend web:
 
 ### Executar Todos os Testes:
 ```powershell
@@ -272,17 +272,20 @@ npm run test
   - `auth`: Autenticação JWT, geração e validação de tokens, criptografia bcrypt de senhas.
   - `chat`: Rate limit de mensagens (5 msgs / 5s), sanitização contra XSS e persistência em memória.
   - `room`: Criação, isolamento de salas por proprietário e expiração.
-  - `signaling`: WebSocket Hub thread-safe, concorrência de mensagens e broadcast.
-  - `webrtc`: Pipeline SFU Pion, criação de PeerConnections e manipulação de faixas de mídia.
-- **App Desktop Electron (5 arquivos / 19 testes Vitest):**
-  - `webmFixer.test.ts`: Testes unitários do parser de tags EBML e injeção de duração em vídeos WebM.
+  - `signaling`: WebSocket Hub thread-safe, concorrência de mensagens, broadcast de arquivos e histórico.
+  - `webrtc`: Pipeline SFU Pion, criação de PeerConnections, Keyframe Controller com agendamento inteligente (`pendingPLI`), liveness ticker e isolamento entre salas.
+- **App Desktop Electron (7 arquivos / 37 testes Vitest):**
+  - `Room.test.tsx`: Setup guiado, seleção de qualidade (1080p 30fps e 60fps), gravação local WebM, troca dinâmica de fontes, isolamento de chats público e privado, e prevenção de microfonia local.
+  - `useScreenCapture.test.ts`: Supressão de realimentação acústica (DSP anti-microfonia), captura flexível e constraints de taxa de quadros (30/60 fps).
+  - `webmFixer.test.ts`: Parser de tags EBML e injeção de duração em vídeos WebM.
   - `Permissions.test.tsx`: Verificação de permissões do sistema operacional e fluxo de concessão.
   - `Dashboard.test.tsx`: Listagem e criação de salas pelo professor.
-  - `Room.test.tsx`: Configuração de captura, gravação local e troca dinâmica de fontes em tempo de execução.
   - `Login.test.tsx`: Validação de credenciais e controle de sessão do professor.
-- **App Web Aluno (2 arquivos / 6 testes Vitest):**
-  - `Join.test.tsx`: Validação de campos obrigatórios (Nome e Matrícula) e redirecionamento.
-  - `Room.test.tsx`: Conexão WebRTC de assinante, manipulação de Autoplay Policy e controles do player.
+  - `ProfessorEntry.test.tsx`: Fluxo de entrada do professor na sala.
+- **App Web Aluno (3 arquivos / 20 testes Vitest):**
+  - `useWebRTCSubscriber.test.ts`: Handshake WebRTC com SFU, auto-reconexão sem F5 ao receber `stream-started`, solicitação de Keyframe imediato, recepção de histórico de mensagens e arquivos.
+  - `Join.test.tsx`: Validação de campos obrigatórios (Nome e Matrícula) e redirecionamento de rotas.
+  - `Room.test.tsx`: Conexão WebRTC de assinante, manipulação de Autoplay Policy, layout responsivo e controles do player.
 
 ---
 
@@ -297,16 +300,22 @@ mlab/
 │   ├── desktop/          # Aplicação Electron + React (Professor)
 │   │   ├── src/main/     # Processo principal do Electron e handlers IPC
 │   │   ├── src/preload/  # Bridge segura de APIs nativas para o renderer
-│   │   └── src/renderer/ # Interface React, captura de mídia, WebM fixer e chat
+│   │   └── src/renderer/ # Interface React, captura de mídia (30/60fps), WebM fixer e chat
 │   └── web/              # Aplicação React + Vite na porta 3000 (Aluno)
+│       ├── src/hooks/    # Hook WebRTC subscriber com auto-keyframe e sync sem F5
 │       └── src/pages/    # Páginas de entrada (Join) e sala de aula (Room)
 ├── packages/
 │   ├── types/            # Tipos TypeScript, DTOs e contratos de sinalização
 │   └── ui/               # Componentes de interface compartilhados
 ├── spec-kit(MLAB)/       # Especificações de requisitos, arquitetura e ADRs
 ├── docs/                 # Documentações complementares e relatórios
-├── MLAB-logo.png         # Logotipo oficial do MLab (width 200)
+├── MLAB-logo.png         # Logotipo oficial do MLab
 ├── package.json          # Orquestração do workspace raiz
 └── turbo.json            # Configuração de pipelines do Turborepo
 ```
 
+---
+
+## 📄 Licença
+
+Este projeto é desenvolvido para uso educacional e corporativo sob licença proprietária/MIT conforme especificado pelos mantenedores.
