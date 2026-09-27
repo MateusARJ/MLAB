@@ -20,7 +20,7 @@ const desktopDir = path.resolve(__dirname, '../apps/desktop');
 if (process.platform === 'linux') {
   console.log(`[build-linux] Ambiente Linux nativo detectado (CI/CD). Empacotando alvos: ${targets}...`);
   const targetList = targets.split(' ').filter(Boolean);
-  const result = spawnSync('npx', ['electron-builder', '--linux', ...targetList], {
+  const result = spawnSync('npx', ['electron-builder', '--linux', ...targetList, '--publish', 'never'], {
     cwd: desktopDir,
     stdio: 'inherit',
     env: process.env
@@ -43,7 +43,7 @@ if (process.platform === 'linux') {
 // Se estiver no Windows host, utiliza o WSL com caminho dinâmico
 const desktopNormalized = desktopDir.replace(/\\/g, '/');
 const wslDesktopPath = desktopNormalized.replace(/^([A-Za-z]):/, (_, drive) => `/mnt/${drive.toLowerCase()}`);
-const bashCmd = `export PATH="$HOME/.local/node/bin:$PATH"; cd "${wslDesktopPath}" && npx electron-builder --linux ${targets}`;
+const bashCmd = `export PATH="$HOME/.local/node/bin:$PATH"; cd "${wslDesktopPath}" && npx electron-builder --linux ${targets} --publish never`;
 
 console.log(`[build-linux-wsl] Empacotando alvos para Linux (${targets}) via WSL...`);
 const result = spawnSync('wsl', ['-e', 'bash', '-c', bashCmd], {

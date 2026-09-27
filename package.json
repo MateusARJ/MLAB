@@ -1,7 +1,11 @@
 {
   "name": "mlab",
-  "version": "1.4.8",
+  "version": "1.4.9",
   "private": true,
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/MateusARJ/MLAB.git"
+  },
   "packageManager": "npm@11.13.0",
   "workspaces": [
     "apps/*",
