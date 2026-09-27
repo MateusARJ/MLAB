@@ -27,20 +27,26 @@ describe('Room Component (Desktop)', () => {
     });
   });
 
-  it('deve exibir o botão de formato .webm em Alta Fidelidade em 1080p e não conter .mp4', async () => {
+  it('deve iniciar com gravação desligada por padrão e exibir o botão .webm somente ao ativar gravação', async () => {
     render(<Room room={dummyRoom} onCloseRoom={vi.fn()} />);
 
     await waitFor(() => {
       expect(screen.getByText('Tela Inteira 1')).toBeInTheDocument();
     });
 
+    // Por padrão a gravação vem desligada: botão .webm não deve estar visível
+    expect(screen.queryByRole('button', { name: /\.webm \(Alta Fidelidade em 1080p\)/i })).not.toBeInTheDocument();
+
+    // Ao clicar em 'Sim, Gravar Aula', as opções de gravação aparecem
+    const wantRecordBtn = screen.getByRole('button', { name: /Sim, Gravar Aula/i });
+    fireEvent.click(wantRecordBtn);
+
     const webmBtn = screen.getByRole('button', { name: /\.webm \(Alta Fidelidade em 1080p\)/i });
     expect(webmBtn).toBeInTheDocument();
-
     expect(screen.queryByRole('button', { name: /\.mp4/i })).not.toBeInTheDocument();
   });
 
-  it('deve alternar para modo Janela e carregar fontes filtradas', async () => {
+  it('deve alternar para modo Janela, exibir dica de janelas abertas e permitir clicar em Atualizar Janelas', async () => {
     render(<Room room={dummyRoom} onCloseRoom={vi.fn()} />);
 
     await waitFor(() => {
@@ -53,6 +59,16 @@ describe('Room Component (Desktop)', () => {
     await waitFor(() => {
       expect(window.electronAPI.getScreenSources).toHaveBeenCalledWith('window');
       expect(screen.getByText('Google Chrome')).toBeInTheDocument();
+      expect(screen.getByText(/Certifique-se de que a janela ou navegador esteja aberto/i)).toBeInTheDocument();
+    });
+
+    // Botão de atualizar janelas
+    const refreshBtn = screen.getByRole('button', { name: /Atualizar Janelas/i });
+    expect(refreshBtn).toBeInTheDocument();
+    fireEvent.click(refreshBtn);
+
+    await waitFor(() => {
+      expect(window.electronAPI.getScreenSources).toHaveBeenCalled();
     });
   });
 

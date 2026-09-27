@@ -6,8 +6,6 @@ import { enforceHighBitrateSDP } from './useWebRTCPublisher';
 describe('useScreenCapture & Audio Feedback Suppression (Anti-Microfonia)', () => {
   let originalAudioContext: any;
   let mockSourceNode: any;
-  let mockHighpassFilter: any;
-  let mockLowpassFilter: any;
   let mockCompressorNode: any;
   let mockDestinationNode: any;
   let mockRawTrack: any;
@@ -231,6 +229,29 @@ describe('useScreenCapture & Audio Feedback Suppression (Anti-Microfonia)', () =
 
     expect(result.current.stream).toBeNull();
     expect(mockRawTrack.stop).toHaveBeenCalled();
+  });
+
+  it('deve reconhecer abas e janelas legítimas mesmo que contenham mlab no título', async () => {
+    const customSources = [
+      { id: 'window:10', name: 'GitHub - mlab-project - Google Chrome', type: 'window' as const, thumbnail: 'thumb-1' },
+      { id: 'window:11', name: 'MLab Student Portal - Edge', type: 'window' as const, thumbnail: 'thumb-2' },
+      { id: 'window:12', name: 'Visual Studio Code', type: 'window' as const, thumbnail: 'thumb-3' },
+    ];
+
+    vi.spyOn(window.electronAPI, 'getScreenSources').mockResolvedValue(customSources);
+
+    const { result } = renderHook(() => useScreenCapture('window'));
+
+    await act(async () => {
+      await result.current.refreshSources();
+    });
+
+    expect(result.current.sources).toHaveLength(3);
+    expect(result.current.sources.map((s) => s.name)).toEqual([
+      'GitHub - mlab-project - Google Chrome',
+      'MLab Student Portal - Edge',
+      'Visual Studio Code',
+    ]);
   });
 });
 

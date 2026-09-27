@@ -22,7 +22,7 @@ function formatFileSize(bytes: number): string {
 
 export const Room: React.FC<RoomProps> = ({ room, onCloseRoom }) => {
   // Configuração pré-transmissão
-  const [wantRecord, setWantRecord] = useState<boolean>(true);
+  const [wantRecord, setWantRecord] = useState<boolean>(false);
   const [tentativeSource, setTentativeSource] = useState<CaptureSource | null>(null);
   const [isLiveSession, setIsLiveSession] = useState<boolean>(false);
   const [saveSuccessMsg, setSaveSuccessMsg] = useState<string | null>(null);
@@ -81,11 +81,21 @@ export const Room: React.FC<RoomProps> = ({ room, onCloseRoom }) => {
     videoPaused,
     hasPermissions,
     loadSources,
+    refreshSources,
     selectSource,
     toggleMicMute,
     toggleVideoPause,
     stopCapture,
   } = useScreenCapture('screen');
+
+  // Atualiza periodicamente as janelas durante o setup pré-transmissão quando no modo janela
+  useEffect(() => {
+    if (isLiveSession || captureMode !== 'window') return;
+    const interval = setInterval(() => {
+      refreshSources();
+    }, 3000);
+    return () => clearInterval(interval);
+  }, [isLiveSession, captureMode, refreshSources]);
 
   const {
     status: recordingStatus,
@@ -478,7 +488,17 @@ export const Room: React.FC<RoomProps> = ({ room, onCloseRoom }) => {
 
             {/* 2. Modo de Transmissão de Tela */}
             <div style={styles.sectionBox}>
-              <h4 style={styles.sectionTitle}>2. Escolha o modo de captura de tela</h4>
+              <div style={styles.sectionHeaderRow}>
+                <h4 style={styles.sectionTitle}>2. Escolha o modo de captura de tela</h4>
+                <button
+                  type="button"
+                  onClick={refreshSources}
+                  style={styles.refreshSourcesBtn}
+                  title="Atualizar lista de janelas e telas abertas"
+                >
+                  🔄 Atualizar Janelas
+                </button>
+              </div>
               <div style={styles.modeTabs}>
                 <button
                   type="button"
@@ -501,6 +521,12 @@ export const Room: React.FC<RoomProps> = ({ room, onCloseRoom }) => {
                   🗔 Janela / Aba Específica (Isola a Aplicação)
                 </button>
               </div>
+
+              {captureMode === 'window' && (
+                <div style={styles.windowHintBox}>
+                  💡 <strong>Dica:</strong> Certifique-se de que a janela ou navegador esteja aberto na Área de Trabalho (não minimizado na barra de tarefas) para que seja listado.
+                </div>
+              )}
 
               <div style={styles.sourceGrid}>
                 {sources.length === 0 ? (
@@ -1129,7 +1155,7 @@ const styles: { [key: string]: React.CSSProperties } = {
     display: 'flex',
     justifyContent: 'space-between',
     alignItems: 'center',
-    padding: '12px 24px',
+    padding: '10px 24px',
     backgroundColor: '#0f172a',
     borderBottom: '1px solid #1e293b',
   },
@@ -1144,12 +1170,12 @@ const styles: { [key: string]: React.CSSProperties } = {
     gap: '12px',
   },
   logoImg: {
-    width: '34px',
-    height: '34px',
+    width: '46px',
+    height: '46px',
     objectFit: 'contain',
   },
   title: {
-    fontSize: '17px',
+    fontSize: '18px',
     fontWeight: '700',
     color: '#f8fafc',
     margin: 0,
@@ -1297,6 +1323,36 @@ const styles: { [key: string]: React.CSSProperties } = {
     fontWeight: '600',
     color: '#e2e8f0',
     margin: 0,
+  },
+  sectionHeaderRow: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    gap: '12px',
+    flexWrap: 'wrap',
+  },
+  refreshSourcesBtn: {
+    padding: '6px 12px',
+    borderRadius: '6px',
+    border: '1px solid #334155',
+    backgroundColor: '#0f172a',
+    color: '#38bdf8',
+    cursor: 'pointer',
+    fontSize: '12px',
+    fontWeight: '600',
+    display: 'flex',
+    alignItems: 'center',
+    gap: '6px',
+    transition: 'all 0.2s',
+  },
+  windowHintBox: {
+    padding: '10px 14px',
+    borderRadius: '8px',
+    backgroundColor: 'rgba(56, 189, 248, 0.08)',
+    border: '1px solid rgba(56, 189, 248, 0.25)',
+    color: '#93c5fd',
+    fontSize: '13px',
+    lineHeight: '1.4',
   },
   buttonGroup: {
     display: 'flex',

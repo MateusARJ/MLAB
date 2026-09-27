@@ -9,7 +9,7 @@ import {
   systemPreferences
 } from 'electron'
 import { join } from 'path'
-import { existsSync, appendFileSync, mkdirSync, promises as fsPromises } from 'fs'
+import { existsSync, appendFileSync, mkdirSync, chmodSync, promises as fsPromises } from 'fs'
 import { spawn, ChildProcess } from 'child_process'
 import http from 'http'
 
@@ -40,10 +40,10 @@ process.on('unhandledRejection', (reason) => {
 })
 
 function getAppIcon(): string | Electron.NativeImage {
-  const icoPath = join(__dirname, '../../resources/icon.ico')
-  const pngPath = join(__dirname, '../../resources/icon.png')
-  const devIcoPath = join(process.cwd(), 'resources/icon.ico')
-  const devPngPath = join(process.cwd(), 'resources/icon.png')
+  const icoPath = join(__dirname, '../../resources/icon-dark.ico')
+  const pngPath = join(__dirname, '../../resources/icon-dark.png')
+  const devIcoPath = join(process.cwd(), 'resources/icon-dark.ico')
+  const devPngPath = join(process.cwd(), 'resources/icon-dark.png')
 
   const candidates = process.platform === 'win32'
     ? [icoPath, devIcoPath, pngPath, devPngPath]
@@ -78,10 +78,21 @@ function getPreloadPath(): string {
 function createWindow(): void {
   logApp('[Main] createWindow iniciado...')
   const appIcon = getAppIcon()
+  if (process.platform === 'darwin' && app.dock && appIcon) {
+    app.dock.setIcon(appIcon)
+  }
+  
+  // Ícone transparente de 1x1 pixel para manter a barra nativa do Windows sem logo
+  const transparentIcon = nativeImage.createFromBuffer(
+    Buffer.from(
+      'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=',
+      'base64'
+    )
+  )
 
   const win = new BrowserWindow({
-    title: 'MLab',
-    icon: appIcon,
+    title: ' ',
+    icon: transparentIcon,
     width: 1280,
     height: 800,
     minWidth: 900,
@@ -96,11 +107,14 @@ function createWindow(): void {
     show: false
   })
 
-  // Garante que o ícone seja definido na janela de forma segura
+  // Previne que tags <title> do HTML exibam texto na barra de título nativa
+  win.on('page-title-updated', (event) => {
+    event.preventDefault()
+  })
+
+  // Mantém a titlebar nativa sem logo visível
   try {
-    if (appIcon) {
-      win.setIcon(appIcon)
-    }
+    win.setIcon(transparentIcon)
   } catch (err) {
     logApp(`[Main] Falha ao definir ícone da janela: ${err}`)
   }
@@ -145,29 +159,39 @@ function createWindow(): void {
 
 // ── IPC: desktopCapturer (acesso seguro via contextBridge) ────────────────────
 
-ipcMain.handle('get-screen-sources', async (_event, type?: 'screen' | 'window') => {
+ipcMain.handle('get-screen-sources', async (event, type?: 'screen' | 'window') => {
   try {
     const types: ('screen' | 'window')[] = type ? [type] : ['screen', 'window']
+    const selfWin = BrowserWindow.fromWebContents(event.sender)
+    const selfMediaSourceId =
+      selfWin && typeof selfWin.getMediaSourceId === 'function' ? selfWin.getMediaSourceId() : null
+
     const sources = await desktopCapturer.getSources({
       types,
-      thumbnailSize: { width: 1280, height: 720 },
+      thumbnailSize: { width: 480, height: 270 },
       fetchWindowIcons: types.includes('window')
     })
 
     return sources
       .filter((source) => {
-        // No modo janela, ignora janelas internas sem título
-        if (type === 'window' && (!source.name || source.name.trim() === '')) {
+        // Exclui a própria janela do MLab para evitar espelho infinito
+        if (selfMediaSourceId && source.id === selfMediaSourceId) {
           return false
         }
         return true
       })
-      .map((source) => ({
-        id: source.id,
-        name: source.name,
-        thumbnail: source.thumbnail.toDataURL(),
-        type: source.id.startsWith('screen') ? ('screen' as const) : ('window' as const)
-      }))
+      .map((source) => {
+        let cleanName = source.name ? source.name.trim() : ''
+        if (!cleanName) {
+          cleanName = source.id.startsWith('screen') ? 'Tela Inteira' : 'Janela do Aplicativo'
+        }
+        return {
+          id: source.id,
+          name: cleanName,
+          thumbnail: source.thumbnail.toDataURL(),
+          type: source.id.startsWith('screen') ? ('screen' as const) : ('window' as const)
+        }
+      })
   } catch (err) {
     console.error('Erro ao listar fontes no desktopCapturer:', err)
     return []
@@ -339,6 +363,14 @@ async function startBackendServer(): Promise<void> {
   if (!binaryPath) {
     console.warn('[Backend] Executável do backend não encontrado. O app aguardará servidor externo na porta 8080.')
     return
+  }
+
+  if (process.platform !== 'win32') {
+    try {
+      chmodSync(binaryPath, 0o755)
+    } catch (err) {
+      console.warn('[Backend] Aviso ao definir permissão de execução:', err)
+    }
   }
 
   console.log(`[Backend] Iniciando servidor em segundo plano de forma invisível: ${binaryPath}`)

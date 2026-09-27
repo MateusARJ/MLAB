@@ -19,15 +19,10 @@ export function useScreenCapture(initialMode: CaptureSourceType = 'screen') {
     if (window.electronAPI && window.electronAPI.getScreenSources) {
       try {
         const srcs = await window.electronAPI.getScreenSources(mode);
-        // Filtra janelas do próprio MLab para evitar captura em espelho recursivo
-        const filtered = srcs.filter((s) => {
-          if (mode === 'window') {
-            const name = s.name.toLowerCase();
-            return !name.includes('mlab') && s.name.trim().length > 0;
-          }
-          return true;
-        });
-        setSources(filtered);
+        // O main process já exclui a janela própria do MLab via selfMediaSourceId.
+        // Aceita todas as fontes válidas retornadas sem descartar janelas ou abas com a palavra mlab.
+        const validSources = srcs.filter((s) => s.id && s.name && s.name.trim().length > 0);
+        setSources(validSources);
         setHasPermissions(true);
       } catch (err) {
         console.error('Erro ao buscar fontes de captura:', err);
@@ -39,8 +34,23 @@ export function useScreenCapture(initialMode: CaptureSourceType = 'screen') {
     }
   }, []);
 
+  const refreshSources = useCallback(() => {
+    loadSources(captureMode);
+  }, [captureMode, loadSources]);
+
   useEffect(() => {
     loadSources(captureMode);
+
+    // Quando o usuário volta do navegador ou outra aplicação para o MLab,
+    // atualiza as fontes automaticamente para reconhecer abas ou janelas recém-abertas
+    const handleFocus = () => {
+      loadSources(captureMode);
+    };
+
+    window.addEventListener('focus', handleFocus);
+    return () => {
+      window.removeEventListener('focus', handleFocus);
+    };
   }, [captureMode, loadSources]);
 
   const changeCaptureMode = useCallback((mode: CaptureSourceType) => {
@@ -248,6 +258,7 @@ export function useScreenCapture(initialMode: CaptureSourceType = 'screen') {
     videoPaused,
     hasPermissions,
     loadSources,
+    refreshSources,
     selectSource,
     toggleMicMute,
     toggleVideoPause,
