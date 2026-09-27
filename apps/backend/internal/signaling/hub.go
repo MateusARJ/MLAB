@@ -351,6 +351,14 @@ func (h *Hub) onSubscribeRequest(c *Client, msg WsMessage) {
 	}
 	offerSDP, err := h.sfu.CreateSubscriberOffer(h.roomID, c.participantID, publisherID)
 	if err != nil {
+		if h.status == SessionWaiting || h.status == SessionReconnecting {
+			// Professor ainda não começou a transmitir — notifica estado de espera amigável
+			c.sendJSON(TypeSessionState, SessionStatePayload{
+				Status:            h.status,
+				ParticipantsCount: len(h.clients),
+			})
+			return
+		}
 		log.Printf("hub[%s]: CreateSubscriberOffer: %v", h.roomID, err)
 		c.sendError("SFU_ERROR", "erro ao criar oferta")
 		return

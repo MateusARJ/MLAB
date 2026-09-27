@@ -27,7 +27,7 @@ export function enforceHighBitrateSDP(
     const pt = match[1];
     const codec = match[2];
     const fmtpRegex = new RegExp(`a=fmtp:${pt} (.*)\r\n`);
-    const params = `x-google-min-bitrate=${bitrateKbps - 500};x-google-start-bitrate=${bitrateKbps};x-google-max-bitrate=${bitrateKbps + 1000};max-fr=${maxFramerate}`;
+    const params = `x-google-min-bitrate=${bitrateKbps - 500};x-google-start-bitrate=${bitrateKbps};x-google-max-bitrate=${bitrateKbps + 1000}`;
     if (fmtpRegex.test(result)) {
       result = result.replace(fmtpRegex, `a=fmtp:${pt} $1;${params}\r\n`);
     } else {

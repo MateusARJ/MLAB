@@ -31,15 +31,20 @@ type Room struct {
 
 	onTrackReady func(roomID string)
 	lastPLI      time.Time
+	pendingPLI   bool
+	closeCh      chan struct{}
 }
 
 func newRoom(id string, api *webrtc.API, onTrackReady func(roomID string)) *Room {
-	return &Room{
+	r := &Room{
 		id:           id,
 		api:          api,
 		subscribers:  make(map[string]*webrtc.PeerConnection),
 		onTrackReady: onTrackReady,
+		closeCh:      make(chan struct{}),
 	}
+	r.startLivenessKeyFrameTicker()
+	return r
 }
 
 func (r *Room) handlePublisherOffer(publisherID, sdp string) (string, error) {
@@ -275,14 +280,52 @@ func (r *Room) handleSubscriberAnswer(subscriberID, sdp string) error {
 	return nil
 }
 
+func (r *Room) startLivenessKeyFrameTicker() {
+	go func() {
+		ticker := time.NewTicker(8 * time.Second)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-r.closeCh:
+				return
+			case <-ticker.C:
+				r.mu.RLock()
+				hasSubs := len(r.subscribers) > 0
+				pubActive := r.publisherPC != nil && r.publisherPC.ConnectionState() != webrtc.PeerConnectionStateClosed
+				r.mu.RUnlock()
+				if hasSubs && pubActive {
+					r.RequestKeyFrame()
+				}
+			}
+		}
+	}()
+}
+
 func (r *Room) requestKeyFrameLocked() {
 	now := time.Now()
-	if !r.lastPLI.IsZero() && now.Sub(r.lastPLI) < 1500*time.Millisecond {
-		return // Rate limit para consolidar múltiplos pedidos de keyframe e evitar congelamentos no encoder
-	}
-	r.lastPLI = now
+	cooldown := 1200 * time.Millisecond
 
+	if !r.lastPLI.IsZero() && now.Sub(r.lastPLI) < cooldown {
+		// Se já houve um PLI recente, agenda para o término do cooldown para não perder o IDR do novo assinante
+		if !r.pendingPLI {
+			r.pendingPLI = true
+			remaining := cooldown - now.Sub(r.lastPLI)
+			time.AfterFunc(remaining, func() {
+				r.mu.Lock()
+				defer r.mu.Unlock()
+				r.pendingPLI = false
+				r.sendPLILocked()
+			})
+		}
+		return
+	}
+
+	r.sendPLILocked()
+}
+
+func (r *Room) sendPLILocked() {
 	if r.publisherPC != nil && r.publisherVideoSSRC != 0 && r.publisherPC.ConnectionState() != webrtc.PeerConnectionStateClosed {
+		r.lastPLI = time.Now()
 		_ = r.publisherPC.WriteRTCP([]rtcp.Packet{
 			&rtcp.PictureLossIndication{MediaSSRC: r.publisherVideoSSRC},
 			&rtcp.ReceiverEstimatedMaximumBitrate{
@@ -340,6 +383,12 @@ func (r *Room) publisherDisconnected(participantID string) error {
 func (r *Room) close() {
 	r.mu.Lock()
 	defer r.mu.Unlock()
+
+	select {
+	case <-r.closeCh:
+	default:
+		close(r.closeCh)
+	}
 
 	if r.publisherPC != nil {
 		_ = r.publisherPC.Close()

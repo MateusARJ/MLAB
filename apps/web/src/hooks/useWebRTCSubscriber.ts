@@ -48,6 +48,7 @@ export function useWebRTCSubscriber(token: string, roomInfo: { room_id: string; 
         } catch {}
         pcRef.current = null;
       }
+      setStream(null);
 
       const pc = new RTCPeerConnection({
         iceServers: iceServers && iceServers.length > 0
@@ -59,14 +60,12 @@ export function useWebRTCSubscriber(token: string, roomInfo: { room_id: string; 
 
       pc.ontrack = (event) => {
         setStream((prev) => {
-          if (!prev) {
-            return new MediaStream([event.track]);
-          }
-          if (prev.getTracks().some((t) => t.id === event.track.id)) {
+          const activePrevTracks = prev ? prev.getTracks().filter((t) => t.readyState === 'live') : [];
+          if (activePrevTracks.some((t) => t.id === event.track.id)) {
             return prev;
           }
-          // Retorna nova instância de MediaStream para forçar re-render e atualizar o elemento <video>
-          return new MediaStream([...prev.getTracks(), event.track]);
+          // Retorna nova instância de MediaStream contendo apenas faixas ativas para atualizar o elemento <video>
+          return new MediaStream([...activePrevTracks, event.track]);
         });
       };
 
@@ -81,10 +80,26 @@ export function useWebRTCSubscriber(token: string, roomInfo: { room_id: string; 
         }
       };
 
+      const requestKeyframeImmediate = () => {
+        if (targetWs.readyState === WebSocket.OPEN) {
+          targetWs.send(JSON.stringify({ type: 'request-keyframe', payload: {} }));
+        }
+      };
+
+      // Dispara solicitação de Keyframe assim que a conexão de rede WebRTC for estabelecida
+      pc.onconnectionstatechange = () => {
+        if (pc.connectionState === 'connected') {
+          setConnectionStatus('connected');
+          requestKeyframeImmediate();
+          setTimeout(requestKeyframeImmediate, 300);
+        }
+      };
+
       // Monitoramento de ICE Connection State (RF-25: ICE Restart em falha)
       pc.oniceconnectionstatechange = () => {
         if (pc.iceConnectionState === 'connected' || pc.iceConnectionState === 'completed') {
           setConnectionStatus('connected');
+          requestKeyframeImmediate();
         } else if (pc.iceConnectionState === 'failed' || pc.iceConnectionState === 'disconnected') {
           console.warn('Conexão ICE falhou/desconectou. Tentando ICE Restart...');
           try {
