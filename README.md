@@ -309,4 +309,3 @@ mlab/
 ├── package.json          # Orquestração do workspace raiz
 └── turbo.json            # Configuração de pipelines do Turborepo
 ```
-
