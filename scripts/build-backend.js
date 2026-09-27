@@ -30,6 +30,11 @@ function build(targetOS, binaryName, arch = 'amd64') {
       env,
       stdio: 'inherit'
     });
+    try {
+      if (targetOS !== 'windows') {
+        fs.chmodSync(outPath, 0o755);
+      }
+    } catch {}
     console.log(`[build-backend] ✔ Sucesso: ${relativeOut}`);
   } catch (err) {
     console.error(`[build-backend] ✖ Erro ao compilar para ${targetOS} (${arch}):`, err.message || err);
@@ -38,8 +43,8 @@ function build(targetOS, binaryName, arch = 'amd64') {
 }
 
 function buildMac(binaryName) {
-  const arm64Path = path.join(binDir, `${binaryName}-darwin-arm64`);
-  const amd64Path = path.join(binDir, `${binaryName}-darwin-amd64`);
+  const arm64Path = path.join(binDir, `${binaryName}-arm64`);
+  const amd64Path = path.join(binDir, `${binaryName}-amd64`);
   const outPath = path.join(binDir, binaryName);
 
   console.log(`[build-backend] Compilando backend Go para macOS (arm64 e amd64)...`);
@@ -70,6 +75,9 @@ function buildMac(binaryName) {
       fs.copyFileSync(arm64Path, outPath);
       try { fs.unlinkSync(arm64Path); fs.unlinkSync(amd64Path); } catch {}
     }
+    try {
+      fs.chmodSync(outPath, 0o755);
+    } catch {}
     console.log(`[build-backend] ✔ Sucesso: ${path.relative(rootDir, outPath)} (macOS)`);
   } catch (err) {
     console.error(`[build-backend] ✖ Erro ao compilar para macOS:`, err.message || err);
@@ -91,9 +99,23 @@ if (buildWin) {
 }
 
 if (buildLinux) {
-  build('linux', 'server', 'amd64');
+  // Gera binário dedicado server-linux para evitar sobrescrita pela compilação Darwin
+  build('linux', 'server-linux', 'amd64');
+  if (target === 'linux') {
+    try {
+      fs.copyFileSync(path.join(binDir, 'server-linux'), path.join(binDir, 'server'));
+      fs.chmodSync(path.join(binDir, 'server'), 0o755);
+    } catch {}
+  }
 }
 
 if (buildMacTarget) {
-  buildMac('server');
+  // Gera binário dedicado server-darwin para evitar sobrescrita da compilação Linux
+  buildMac('server-darwin');
+  if (target === 'mac' || target === 'darwin') {
+    try {
+      fs.copyFileSync(path.join(binDir, 'server-darwin'), path.join(binDir, 'server'));
+      fs.chmodSync(path.join(binDir, 'server'), 0o755);
+    } catch {}
+  }
 }

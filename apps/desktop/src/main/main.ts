@@ -362,24 +362,43 @@ function isPortInUse(port = 8080): Promise<boolean> {
 }
 
 function getBackendExecutablePath(): string | null {
-  const binaryName = process.platform === 'win32' ? 'server.exe' : 'server'
   const isDev = !app.isPackaged
+  const platformBin =
+    process.platform === 'win32'
+      ? 'server.exe'
+      : process.platform === 'darwin'
+      ? 'server-darwin'
+      : 'server-linux'
+  const genericBin = process.platform === 'win32' ? 'server.exe' : 'server'
 
-  const candidates = isDev
-    ? [
-        join(process.cwd(), '../backend/bin', binaryName),
-        join(process.cwd(), '../../apps/backend/bin', binaryName),
-        join(__dirname, '../../../../apps/backend/bin', binaryName),
-        join(__dirname, '../../../backend/bin', binaryName),
-        join(process.cwd(), 'apps/backend/bin', binaryName),
-        'c:\\Users\\User\\Documents\\mlab\\apps\\backend\\bin\\server.exe'
-      ]
-    : [
-        join(process.resourcesPath, 'bin', binaryName),
-        join(process.resourcesPath, binaryName),
-        join(__dirname, '../../resources/bin', binaryName),
-        join(process.cwd(), 'resources/bin', binaryName)
-      ]
+  const binaryNames = platformBin === genericBin ? [genericBin] : [platformBin, genericBin]
+
+  const candidates: string[] = []
+
+  if (isDev) {
+    const devDirs = [
+      join(process.cwd(), '../backend/bin'),
+      join(process.cwd(), '../../apps/backend/bin'),
+      join(__dirname, '../../../../apps/backend/bin'),
+      join(__dirname, '../../../backend/bin'),
+      join(process.cwd(), 'apps/backend/bin')
+    ]
+    for (const dir of devDirs) {
+      for (const b of binaryNames) {
+        candidates.push(join(dir, b))
+      }
+    }
+    if (process.platform === 'win32') {
+      candidates.push('c:\\Users\\User\\Documents\\mlab\\apps\\backend\\bin\\server.exe')
+    }
+  } else {
+    for (const b of binaryNames) {
+      candidates.push(join(process.resourcesPath, 'bin', b))
+      candidates.push(join(process.resourcesPath, b))
+      candidates.push(join(__dirname, '../../resources/bin', b))
+      candidates.push(join(process.cwd(), 'resources/bin', b))
+    }
+  }
 
   for (const candidate of candidates) {
     if (existsSync(candidate)) {

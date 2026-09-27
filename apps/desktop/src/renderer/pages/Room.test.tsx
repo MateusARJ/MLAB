@@ -80,6 +80,9 @@ describe('Room Component (Desktop)', () => {
     });
 
     const advanceBtn = screen.getByRole('button', { name: /Avançar e Iniciar Transmissão/i });
+    await waitFor(() => {
+      expect(advanceBtn).toBeEnabled();
+    });
     fireEvent.click(advanceBtn);
 
     await waitFor(() => {
@@ -103,6 +106,9 @@ describe('Room Component (Desktop)', () => {
     });
 
     const advanceBtn = screen.getByRole('button', { name: /Avançar e Iniciar Transmissão/i });
+    await waitFor(() => {
+      expect(advanceBtn).toBeEnabled();
+    });
     fireEvent.click(advanceBtn);
 
     await waitFor(() => {
@@ -155,7 +161,11 @@ describe('Room Component (Desktop)', () => {
     });
 
     // Inicia a primeira sessão
-    fireEvent.click(screen.getByRole('button', { name: /Avançar e Iniciar Transmissão/i }));
+    const advanceBtn = screen.getByRole('button', { name: /Avançar e Iniciar Transmissão/i });
+    await waitFor(() => {
+      expect(advanceBtn).toBeEnabled();
+    });
+    fireEvent.click(advanceBtn);
 
     await waitFor(() => {
       expect(screen.getByRole('button', { name: /Alterar Modo \/ Fonte/i })).toBeInTheDocument();
@@ -181,7 +191,11 @@ describe('Room Component (Desktop)', () => {
     fireEvent.click(screen.getByText('Google Chrome'));
 
     // Avança novamente para a transmissão
-    fireEvent.click(screen.getByRole('button', { name: /Avançar e Iniciar Transmissão/i }));
+    const advanceBtn2 = screen.getByRole('button', { name: /Avançar e Iniciar Transmissão/i });
+    await waitFor(() => {
+      expect(advanceBtn2).toBeEnabled();
+    });
+    fireEvent.click(advanceBtn2);
 
     await waitFor(() => {
       expect(screen.getByRole('button', { name: /Alterar Modo \/ Fonte/i })).toBeInTheDocument();
@@ -189,11 +203,15 @@ describe('Room Component (Desktop)', () => {
     });
   });
 
-  it('deve renderizar o link da sala diretamente abaixo do título no cabeçalho e não exibir ID', () => {
+  it('deve renderizar o link da sala diretamente abaixo do título no cabeçalho e não exibir ID', async () => {
     render(<Room room={dummyRoom} onCloseRoom={vi.fn()} />);
 
     expect(screen.getByText(new RegExp(dummyRoom.link, 'i'))).toBeInTheDocument();
     expect(screen.queryByText(/ID:/i)).not.toBeInTheDocument();
+
+    await waitFor(() => {
+      expect(screen.getByText('Tela Inteira 1')).toBeInTheDocument();
+    });
   });
 
   it('deve exibir o badge de resolução 1080p @ 30fps sem 4 Mbps na sessão ao vivo', async () => {
@@ -203,7 +221,11 @@ describe('Room Component (Desktop)', () => {
       expect(screen.getByText('Tela Inteira 1')).toBeInTheDocument();
     });
 
-    fireEvent.click(screen.getByRole('button', { name: /Avançar e Iniciar Transmissão/i }));
+    const advanceBtn = screen.getByRole('button', { name: /Avançar e Iniciar Transmissão/i });
+    await waitFor(() => {
+      expect(advanceBtn).toBeEnabled();
+    });
+    fireEvent.click(advanceBtn);
 
     await waitFor(() => {
       expect(screen.getByRole('button', { name: /Alterar Modo \/ Fonte/i })).toBeInTheDocument();
@@ -220,7 +242,11 @@ describe('Room Component (Desktop)', () => {
     });
 
     // Inicia sessão ao vivo
-    fireEvent.click(screen.getByRole('button', { name: /Avançar e Iniciar Transmissão/i }));
+    const advanceBtn = screen.getByRole('button', { name: /Avançar e Iniciar Transmissão/i });
+    await waitFor(() => {
+      expect(advanceBtn).toBeEnabled();
+    });
+    fireEvent.click(advanceBtn);
 
     await waitFor(() => {
       expect(screen.getByRole('button', { name: /Chat & Turma/i })).toBeInTheDocument();
@@ -243,7 +269,11 @@ describe('Room Component (Desktop)', () => {
     });
 
     // Inicia sessão ao vivo
-    fireEvent.click(screen.getByRole('button', { name: /Avançar e Iniciar Transmissão/i }));
+    const advanceBtn = screen.getByRole('button', { name: /Avançar e Iniciar Transmissão/i });
+    await waitFor(() => {
+      expect(advanceBtn).toBeEnabled();
+    });
+    fireEvent.click(advanceBtn);
 
     await waitFor(() => {
       expect(screen.getByRole('button', { name: /Alterar Modo \/ Fonte/i })).toBeInTheDocument();
@@ -262,7 +292,11 @@ describe('Room Component (Desktop)', () => {
       expect(screen.getByText('Tela Inteira 1')).toBeInTheDocument();
     });
 
-    fireEvent.click(screen.getByRole('button', { name: /Avançar e Iniciar Transmissão/i }));
+    const advanceBtn = screen.getByRole('button', { name: /Avançar e Iniciar Transmissão/i });
+    await waitFor(() => {
+      expect(advanceBtn).toBeEnabled();
+    });
+    fireEvent.click(advanceBtn);
 
     await waitFor(() => {
       expect(screen.getByRole('button', { name: /Alterar Modo \/ Fonte/i })).toBeInTheDocument();
@@ -317,7 +351,11 @@ describe('Room Component (Desktop)', () => {
     });
 
     // Inicia sessão ao vivo
-    fireEvent.click(screen.getByRole('button', { name: /Avançar e Iniciar Transmissão/i }));
+    const advanceBtn = screen.getByRole('button', { name: /Avançar e Iniciar Transmissão/i });
+    await waitFor(() => {
+      expect(advanceBtn).toBeEnabled();
+    });
+    fireEvent.click(advanceBtn);
 
     await waitFor(() => {
       expect(screen.getByRole('button', { name: /Alterar Modo \/ Fonte/i })).toBeInTheDocument();
@@ -352,7 +390,11 @@ describe('Room Component (Desktop)', () => {
     });
 
     // Avança para a transmissão ao vivo
-    fireEvent.click(screen.getByRole('button', { name: /Avançar e Iniciar Transmissão/i }));
+    const advanceBtn = screen.getByRole('button', { name: /Avançar e Iniciar Transmissão/i });
+    await waitFor(() => {
+      expect(advanceBtn).toBeEnabled();
+    });
+    fireEvent.click(advanceBtn);
 
     await waitFor(() => {
       expect(screen.getByRole('button', { name: /Alterar Modo \/ Fonte/i })).toBeInTheDocument();

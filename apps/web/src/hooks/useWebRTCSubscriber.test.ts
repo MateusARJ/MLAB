@@ -75,12 +75,12 @@ describe('useWebRTCSubscriber Hook', () => {
     ice_servers: [{ urls: 'stun:stun.l.google.com:19302' }],
   };
 
-  it('deve enviar subscribe-request ao abrir conexão WebSocket', () => {
+  it('deve enviar subscribe-request ao abrir conexão WebSocket', async () => {
     renderHook(() => useWebRTCSubscriber(dummyToken, dummyRoomInfo));
 
     expect(mockWsInstance).toBeDefined();
 
-    act(() => {
+    await act(async () => {
       if (mockWsInstance.onopen) {
         mockWsInstance.onopen();
       }
@@ -94,7 +94,7 @@ describe('useWebRTCSubscriber Hook', () => {
     );
   });
 
-  it('deve armazenar mensagens anteriores ao receber evento chat-history', () => {
+  it('deve armazenar mensagens anteriores ao receber evento chat-history', async () => {
     const { result } = renderHook(() => useWebRTCSubscriber(dummyToken, dummyRoomInfo));
 
     const historicalMessages = [
@@ -102,7 +102,7 @@ describe('useWebRTCSubscriber Hook', () => {
       { message_id: 'm2', name: 'Aluno 1', content: 'Boa tarde professor!', is_private: false },
     ];
 
-    act(() => {
+    await act(async () => {
       if (mockWsInstance.onmessage) {
         mockWsInstance.onmessage({
           data: JSON.stringify({
@@ -118,14 +118,14 @@ describe('useWebRTCSubscriber Hook', () => {
     expect(result.current.messages[1].content).toBe('Boa tarde professor!');
   });
 
-  it('deve armazenar arquivos compartilhados ao receber evento files-history', () => {
+  it('deve armazenar arquivos compartilhados ao receber evento files-history', async () => {
     const { result } = renderHook(() => useWebRTCSubscriber(dummyToken, dummyRoomInfo));
 
     const historicalFiles = [
       { id: 'f1', name: 'ementa.pdf', size: 2048, url: '/rooms/room-abc/files/f1/download' },
     ];
 
-    act(() => {
+    await act(async () => {
       if (mockWsInstance.onmessage) {
         mockWsInstance.onmessage({
           data: JSON.stringify({
@@ -140,13 +140,13 @@ describe('useWebRTCSubscriber Hook', () => {
     expect(result.current.sharedFiles[0].name).toBe('ementa.pdf');
   });
 
-  it('deve recriar PeerConnection e reenviar subscribe-request ao receber stream-started (sem F5)', () => {
+  it('deve recriar PeerConnection e reenviar subscribe-request ao receber stream-started (sem F5)', async () => {
     const { result } = renderHook(() => useWebRTCSubscriber(dummyToken, dummyRoomInfo));
 
     const initialPCCount = mockPcInstances.length;
     mockWsInstance.send.mockClear();
 
-    act(() => {
+    await act(async () => {
       if (mockWsInstance.onmessage) {
         mockWsInstance.onmessage({
           data: JSON.stringify({

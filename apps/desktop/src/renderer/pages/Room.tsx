@@ -91,6 +91,9 @@ export const Room: React.FC<RoomProps> = ({ room, onCloseRoom }) => {
     setTargetFps,
   } = useScreenCapture('screen');
 
+  // Fonte ativa no setup derivada sincronamente para evitar condição de corrida em testes/CI
+  const currentSource = tentativeSource || (sources.length > 0 ? sources[0] : null);
+
   const handleSelectQuality = useCallback((profile: '1080p_30' | '1080p_60') => {
     setQualityProfile(profile);
     const fps = profile === '1080p_60' ? 60 : 30;
@@ -185,17 +188,17 @@ export const Room: React.FC<RoomProps> = ({ room, onCloseRoom }) => {
   }, [sources, tentativeSource]);
 
   useEffect(() => {
-    const thumb = selectedSource?.thumbnail || tentativeSource?.thumbnail;
+    const thumb = selectedSource?.thumbnail || currentSource?.thumbnail;
     if (thumb) {
       setCurrentThumbnail(thumb);
     }
-  }, [selectedSource?.thumbnail, tentativeSource?.thumbnail]);
+  }, [selectedSource?.thumbnail, currentSource?.thumbnail]);
 
   const handleRefreshScreenCapture = useCallback(async () => {
     try {
       if (window.electronAPI && typeof window.electronAPI.getScreenSources === 'function') {
         const freshSources = await window.electronAPI.getScreenSources('screen');
-        const activeId = selectedSource?.id || tentativeSource?.id;
+        const activeId = selectedSource?.id || currentSource?.id;
         const matched = freshSources.find((s) => s.id === activeId) || freshSources[0];
         if (matched?.thumbnail) {
           setCurrentThumbnail(matched.thumbnail);
@@ -204,7 +207,7 @@ export const Room: React.FC<RoomProps> = ({ room, onCloseRoom }) => {
     } catch (err) {
       console.error('Erro ao atualizar captura de tela:', err);
     }
-  }, [selectedSource?.id, tentativeSource?.id]);
+  }, [selectedSource?.id, currentSource?.id]);
 
   useEffect(() => {
     if (!isLiveSession || captureMode !== 'screen') return;
@@ -260,14 +263,15 @@ export const Room: React.FC<RoomProps> = ({ room, onCloseRoom }) => {
 
   // Avançar e Iniciar Transmissão
   const handleStartSession = useCallback(async () => {
-    if (!tentativeSource) return;
+    const sourceToUse = currentSource;
+    if (!sourceToUse) return;
 
-    if (tentativeSource.thumbnail) {
-      setCurrentThumbnail(tentativeSource.thumbnail);
+    if (sourceToUse.thumbnail) {
+      setCurrentThumbnail(sourceToUse.thumbnail);
     }
 
     const fps = qualityProfile === '1080p_60' ? 60 : 30;
-    const activeStream = await selectSource(tentativeSource, fps);
+    const activeStream = await selectSource(sourceToUse, fps);
     setIsLiveSession(true);
 
     // Quando o professor começa a transmitir a tela, o microfone deve ficar desligado por padrão
@@ -293,7 +297,7 @@ export const Room: React.FC<RoomProps> = ({ room, onCloseRoom }) => {
         startPublishing(activeStream);
       }
     }
-  }, [tentativeSource, selectSource, qualityProfile, wantRecord, startRecording, isPublishing, connectionState, changeStream, startPublishing]);
+  }, [currentSource, selectSource, qualityProfile, wantRecord, startRecording, isPublishing, connectionState, changeStream, startPublishing]);
 
   const handleEndSession = useCallback(async () => {
     if (wantRecord && recordingStatus === 'recording') {
@@ -548,7 +552,7 @@ export const Room: React.FC<RoomProps> = ({ room, onCloseRoom }) => {
                   <p style={styles.noSources}>Nenhuma fonte detectada para este modo.</p>
                 ) : (
                   sources.map((src) => {
-                    const isSelected = tentativeSource?.id === src.id;
+                    const isSelected = currentSource?.id === src.id;
                     return (
                       <div
                         key={src.id}
@@ -610,8 +614,8 @@ export const Room: React.FC<RoomProps> = ({ room, onCloseRoom }) => {
               <button
                 type="button"
                 onClick={handleStartSession}
-                disabled={!tentativeSource}
-                style={tentativeSource ? styles.advanceBtn : styles.advanceBtnDisabled}
+                disabled={!currentSource}
+                style={currentSource ? styles.advanceBtn : styles.advanceBtnDisabled}
               >
                 Avançar e Iniciar Transmissão {wantRecord ? '(Com Gravação)' : ''} →
               </button>

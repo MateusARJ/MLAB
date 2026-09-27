@@ -102,7 +102,7 @@
       "artifactName": "${productName}-Mac-${version}.${ext}",
       "extraResources": [
         {
-          "from": "../backend/bin/server",
+          "from": "../backend/bin/server-darwin",
           "to": "bin/server"
         }
       ]
@@ -126,7 +126,7 @@
       },
       "extraResources": [
         {
-          "from": "../backend/bin/server",
+          "from": "../backend/bin/server-linux",
           "to": "bin/server"
         }
       ]
