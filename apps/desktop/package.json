@@ -15,6 +15,7 @@
     "build:backend": "node ../../scripts/build-backend.js all",
     "build:backend:win": "node ../../scripts/build-backend.js win",
     "build:backend:linux": "node ../../scripts/build-backend.js linux",
+    "build:backend:mac": "node ../../scripts/build-backend.js mac",
     "build": "electron-vite build",
     "preview": "electron-vite preview",
     "start": "electron .",
@@ -24,6 +25,7 @@
     "make:linux": "npm run build:web && npm run build:backend:linux && npm run build && node ../../scripts/build-linux-wsl.js all",
     "make:linux:appimage": "npm run build:web && npm run build:backend:linux && npm run build && node ../../scripts/build-linux-wsl.js AppImage",
     "make:linux:deb": "npm run build:web && npm run build:backend:linux && npm run build && node ../../scripts/build-linux-wsl.js deb",
+    "make:mac": "npm run build:web && npm run build:backend:mac && npm run build && electron-builder --mac",
     "make:all": "npm run make",
     "lint": "tsc --noEmit",
     "test": "vitest run",
@@ -96,7 +98,14 @@
         "zip"
       ],
       "category": "public.app-category.education",
-      "icon": "resources/icon.png"
+      "icon": "resources/icon.png",
+      "artifactName": "${productName}-Mac-${version}.${ext}",
+      "extraResources": [
+        {
+          "from": "../backend/bin/server",
+          "to": "bin/server"
+        }
+      ]
     },
     "linux": {
       "target": [

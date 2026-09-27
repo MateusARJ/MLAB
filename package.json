@@ -18,6 +18,7 @@
     "make:linux": "npm --prefix apps/desktop run make:linux",
     "make:linux:appimage": "npm --prefix apps/desktop run make:linux:appimage",
     "make:linux:deb": "npm --prefix apps/desktop run make:linux:deb",
+    "make:mac": "npm --prefix apps/desktop run make:mac",
     "make:all": "npm --prefix apps/desktop run make"
   },
   "devDependencies": {
