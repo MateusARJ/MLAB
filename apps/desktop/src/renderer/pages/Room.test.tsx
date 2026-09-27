@@ -83,7 +83,7 @@ describe('Room Component (Desktop)', () => {
     fireEvent.click(advanceBtn);
 
     await waitFor(() => {
-      expect(screen.getByText(/AO VIVO/i)).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: /Alterar Modo \/ Fonte/i })).toBeInTheDocument();
     });
 
     // Microfone deve iniciar desligado por padrão (exibindo 'Desmutar Microfone')
@@ -106,7 +106,7 @@ describe('Room Component (Desktop)', () => {
     fireEvent.click(advanceBtn);
 
     await waitFor(() => {
-      expect(screen.getByText(/AO VIVO/i)).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: /Alterar Modo \/ Fonte/i })).toBeInTheDocument();
     });
 
     // Abre o painel lateral de chat
@@ -158,7 +158,7 @@ describe('Room Component (Desktop)', () => {
     fireEvent.click(screen.getByRole('button', { name: /Avançar e Iniciar Transmissão/i }));
 
     await waitFor(() => {
-      expect(screen.getByText(/AO VIVO/i)).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: /Alterar Modo \/ Fonte/i })).toBeInTheDocument();
     });
     expect(screen.getByRole('button', { name: /Alterar Modo \/ Fonte/i })).toBeInTheDocument();
 
@@ -184,7 +184,7 @@ describe('Room Component (Desktop)', () => {
     fireEvent.click(screen.getByRole('button', { name: /Avançar e Iniciar Transmissão/i }));
 
     await waitFor(() => {
-      expect(screen.getByText(/AO VIVO/i)).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: /Alterar Modo \/ Fonte/i })).toBeInTheDocument();
       expect(screen.getByText(/Janela Específica/i)).toBeInTheDocument();
     });
   });
@@ -206,6 +206,7 @@ describe('Room Component (Desktop)', () => {
     fireEvent.click(screen.getByRole('button', { name: /Avançar e Iniciar Transmissão/i }));
 
     await waitFor(() => {
+      expect(screen.getByRole('button', { name: /Alterar Modo \/ Fonte/i })).toBeInTheDocument();
       expect(screen.getByText('1080p @ 30fps')).toBeInTheDocument();
       expect(screen.queryByText(/4 Mbps/i)).not.toBeInTheDocument();
     });
@@ -245,7 +246,7 @@ describe('Room Component (Desktop)', () => {
     fireEvent.click(screen.getByRole('button', { name: /Avançar e Iniciar Transmissão/i }));
 
     await waitFor(() => {
-      expect(screen.getByText(/AO VIVO/i)).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: /Alterar Modo \/ Fonte/i })).toBeInTheDocument();
     });
 
     // Deve exibir badge de imagem estática e NÃO possuir botões na área de captura
@@ -264,7 +265,7 @@ describe('Room Component (Desktop)', () => {
     fireEvent.click(screen.getByRole('button', { name: /Avançar e Iniciar Transmissão/i }));
 
     await waitFor(() => {
-      expect(screen.getByText(/AO VIVO/i)).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: /Alterar Modo \/ Fonte/i })).toBeInTheDocument();
     });
 
     // Abre painel lateral de chat
@@ -319,7 +320,7 @@ describe('Room Component (Desktop)', () => {
     fireEvent.click(screen.getByRole('button', { name: /Avançar e Iniciar Transmissão/i }));
 
     await waitFor(() => {
-      expect(screen.getByText(/AO VIVO/i)).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: /Alterar Modo \/ Fonte/i })).toBeInTheDocument();
     });
 
     const videoEl = document.querySelector('video') as HTMLVideoElement;

@@ -90,5 +90,17 @@ if (typeof window !== 'undefined') {
   }
   // @ts-ignore
   navigator.mediaDevices.getUserMedia = vi.fn().mockResolvedValue(new globalThis.MediaStream());
+
+  // Mock global de fetch para evitar ECONNREFUSED em testes ao acessar endpoints locais
+  // @ts-ignore
+  globalThis.fetch = vi.fn().mockImplementation(() =>
+    Promise.resolve({
+      ok: true,
+      status: 200,
+      json: () => Promise.resolve([]),
+      text: () => Promise.resolve(''),
+    })
+  );
 }
+
 
