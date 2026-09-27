@@ -313,8 +313,8 @@ const styles: { [key: string]: React.CSSProperties } = {
     gap: '12px',
   },
   logoImg: {
-    width: '36px',
-    height: '36px',
+    width: '46px',
+    height: '46px',
     objectFit: 'contain',
   },
   logo: {
