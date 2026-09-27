@@ -1,19 +1,30 @@
 {
   "name": "@mlab/desktop",
-  "version": "1.3.9",
+  "version": "1.4.6",
   "description": "MLab - App Desktop do Professor",
-  "author": "MLab",
+  "homepage": "https://mlab.com",
+  "author": {
+    "name": "MLab",
+    "email": "contato@mlab.com"
+  },
   "private": true,
   "main": "out/main/main.js",
   "scripts": {
     "dev": "electron-vite dev",
     "build:web": "npm --prefix ../web run build",
-    "build:backend": "go build -C ../backend -o ./bin/server.exe ./cmd/server",
+    "build:backend": "node ../../scripts/build-backend.js all",
+    "build:backend:win": "node ../../scripts/build-backend.js win",
+    "build:backend:linux": "node ../../scripts/build-backend.js linux",
     "build": "electron-vite build",
     "preview": "electron-vite preview",
     "start": "electron .",
-    "premake": "npm version patch --no-git-tag-version",
-    "make": "npm run build:web && npm run build:backend && npm run build && electron-builder",
+    "premake": "npm version patch --no-git-tag-version && node ../../scripts/sync-version.js",
+    "make": "npm run build:web && npm run build:backend && npm run build && electron-builder --win && node ../../scripts/build-linux-wsl.js all",
+    "make:win": "npm run build:web && npm run build:backend:win && npm run build && electron-builder --win",
+    "make:linux": "npm run build:web && npm run build:backend:linux && npm run build && node ../../scripts/build-linux-wsl.js all",
+    "make:linux:appimage": "npm run build:web && npm run build:backend:linux && npm run build && node ../../scripts/build-linux-wsl.js AppImage",
+    "make:linux:deb": "npm run build:web && npm run build:backend:linux && npm run build && node ../../scripts/build-linux-wsl.js deb",
+    "make:all": "npm run make",
     "lint": "tsc --noEmit",
     "test": "vitest run",
     "clean": "rm -rf out dist"
@@ -52,20 +63,22 @@
     ],
     "extraResources": [
       {
-        "from": "../backend/bin/server.exe",
-        "to": "bin/server.exe"
-      },
-      {
         "from": "../web/dist",
         "to": "web"
       }
     ],
     "win": {
       "target": "nsis",
-      "icon": "resources/icon.ico",
+      "icon": "resources/icon-dark.ico",
       "artifactName": "${productName}-Setup-${version}.${ext}",
       "publisherName": "MLab Team",
-      "requestedExecutionLevel": "asInvoker"
+      "requestedExecutionLevel": "asInvoker",
+      "extraResources": [
+        {
+          "from": "../backend/bin/server.exe",
+          "to": "bin/server.exe"
+        }
+      ]
     },
     "nsis": {
       "oneClick": false,
@@ -88,10 +101,26 @@
     "linux": {
       "target": [
         "AppImage",
-        "deb"
+        "deb",
+        "tar.gz"
       ],
       "category": "Education",
-      "icon": "resources/icon.png"
+      "icon": "resources/icon-dark.png",
+      "artifactName": "${productName}-Linux-${version}.${ext}",
+      "maintainer": "MLab Team <contato@mlab.com>",
+      "synopsis": "MLab Classroom - Aplicativo Desktop do Professor",
+      "description": "Sistema de Transmissão e Interação de Salas de Aula MLab",
+      "desktop": {
+        "Name": "MLab",
+        "Type": "Application",
+        "Categories": "Education;AudioVideo;"
+      },
+      "extraResources": [
+        {
+          "from": "../backend/bin/server",
+          "to": "bin/server"
+        }
+      ]
     }
   }
 }
