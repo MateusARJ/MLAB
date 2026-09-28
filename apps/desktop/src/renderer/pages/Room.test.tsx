@@ -80,10 +80,13 @@ describe('Room Component (Desktop)', () => {
     });
 
     const advanceBtn = screen.getByRole('button', { name: /Avançar e Iniciar Transmissão/i });
+    await waitFor(() => {
+      expect(advanceBtn).toBeEnabled();
+    });
     fireEvent.click(advanceBtn);
 
     await waitFor(() => {
-      expect(screen.getByText(/AO VIVO/i)).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: /Alterar Modo \/ Fonte/i })).toBeInTheDocument();
     });
 
     // Microfone deve iniciar desligado por padrão (exibindo 'Desmutar Microfone')
@@ -103,10 +106,13 @@ describe('Room Component (Desktop)', () => {
     });
 
     const advanceBtn = screen.getByRole('button', { name: /Avançar e Iniciar Transmissão/i });
+    await waitFor(() => {
+      expect(advanceBtn).toBeEnabled();
+    });
     fireEvent.click(advanceBtn);
 
     await waitFor(() => {
-      expect(screen.getByText(/AO VIVO/i)).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: /Alterar Modo \/ Fonte/i })).toBeInTheDocument();
     });
 
     // Abre o painel lateral de chat
@@ -155,10 +161,14 @@ describe('Room Component (Desktop)', () => {
     });
 
     // Inicia a primeira sessão
-    fireEvent.click(screen.getByRole('button', { name: /Avançar e Iniciar Transmissão/i }));
+    const advanceBtn = screen.getByRole('button', { name: /Avançar e Iniciar Transmissão/i });
+    await waitFor(() => {
+      expect(advanceBtn).toBeEnabled();
+    });
+    fireEvent.click(advanceBtn);
 
     await waitFor(() => {
-      expect(screen.getByText(/AO VIVO/i)).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: /Alterar Modo \/ Fonte/i })).toBeInTheDocument();
     });
     expect(screen.getByRole('button', { name: /Alterar Modo \/ Fonte/i })).toBeInTheDocument();
 
@@ -181,19 +191,27 @@ describe('Room Component (Desktop)', () => {
     fireEvent.click(screen.getByText('Google Chrome'));
 
     // Avança novamente para a transmissão
-    fireEvent.click(screen.getByRole('button', { name: /Avançar e Iniciar Transmissão/i }));
+    const advanceBtn2 = screen.getByRole('button', { name: /Avançar e Iniciar Transmissão/i });
+    await waitFor(() => {
+      expect(advanceBtn2).toBeEnabled();
+    });
+    fireEvent.click(advanceBtn2);
 
     await waitFor(() => {
-      expect(screen.getByText(/AO VIVO/i)).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: /Alterar Modo \/ Fonte/i })).toBeInTheDocument();
       expect(screen.getByText(/Janela Específica/i)).toBeInTheDocument();
     });
   });
 
-  it('deve renderizar o link da sala diretamente abaixo do título no cabeçalho e não exibir ID', () => {
+  it('deve renderizar o link da sala diretamente abaixo do título no cabeçalho e não exibir ID', async () => {
     render(<Room room={dummyRoom} onCloseRoom={vi.fn()} />);
 
     expect(screen.getByText(new RegExp(dummyRoom.link, 'i'))).toBeInTheDocument();
     expect(screen.queryByText(/ID:/i)).not.toBeInTheDocument();
+
+    await waitFor(() => {
+      expect(screen.getByText('Tela Inteira 1')).toBeInTheDocument();
+    });
   });
 
   it('deve exibir o badge de resolução 1080p @ 30fps sem 4 Mbps na sessão ao vivo', async () => {
@@ -203,9 +221,14 @@ describe('Room Component (Desktop)', () => {
       expect(screen.getByText('Tela Inteira 1')).toBeInTheDocument();
     });
 
-    fireEvent.click(screen.getByRole('button', { name: /Avançar e Iniciar Transmissão/i }));
+    const advanceBtn = screen.getByRole('button', { name: /Avançar e Iniciar Transmissão/i });
+    await waitFor(() => {
+      expect(advanceBtn).toBeEnabled();
+    });
+    fireEvent.click(advanceBtn);
 
     await waitFor(() => {
+      expect(screen.getByRole('button', { name: /Alterar Modo \/ Fonte/i })).toBeInTheDocument();
       expect(screen.getByText('1080p @ 30fps')).toBeInTheDocument();
       expect(screen.queryByText(/4 Mbps/i)).not.toBeInTheDocument();
     });
@@ -219,7 +242,11 @@ describe('Room Component (Desktop)', () => {
     });
 
     // Inicia sessão ao vivo
-    fireEvent.click(screen.getByRole('button', { name: /Avançar e Iniciar Transmissão/i }));
+    const advanceBtn = screen.getByRole('button', { name: /Avançar e Iniciar Transmissão/i });
+    await waitFor(() => {
+      expect(advanceBtn).toBeEnabled();
+    });
+    fireEvent.click(advanceBtn);
 
     await waitFor(() => {
       expect(screen.getByRole('button', { name: /Chat & Turma/i })).toBeInTheDocument();
@@ -242,10 +269,14 @@ describe('Room Component (Desktop)', () => {
     });
 
     // Inicia sessão ao vivo
-    fireEvent.click(screen.getByRole('button', { name: /Avançar e Iniciar Transmissão/i }));
+    const advanceBtn = screen.getByRole('button', { name: /Avançar e Iniciar Transmissão/i });
+    await waitFor(() => {
+      expect(advanceBtn).toBeEnabled();
+    });
+    fireEvent.click(advanceBtn);
 
     await waitFor(() => {
-      expect(screen.getByText(/AO VIVO/i)).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: /Alterar Modo \/ Fonte/i })).toBeInTheDocument();
     });
 
     // Deve exibir badge de imagem estática e NÃO possuir botões na área de captura
@@ -261,10 +292,14 @@ describe('Room Component (Desktop)', () => {
       expect(screen.getByText('Tela Inteira 1')).toBeInTheDocument();
     });
 
-    fireEvent.click(screen.getByRole('button', { name: /Avançar e Iniciar Transmissão/i }));
+    const advanceBtn = screen.getByRole('button', { name: /Avançar e Iniciar Transmissão/i });
+    await waitFor(() => {
+      expect(advanceBtn).toBeEnabled();
+    });
+    fireEvent.click(advanceBtn);
 
     await waitFor(() => {
-      expect(screen.getByText(/AO VIVO/i)).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: /Alterar Modo \/ Fonte/i })).toBeInTheDocument();
     });
 
     // Abre painel lateral de chat
@@ -316,10 +351,14 @@ describe('Room Component (Desktop)', () => {
     });
 
     // Inicia sessão ao vivo
-    fireEvent.click(screen.getByRole('button', { name: /Avançar e Iniciar Transmissão/i }));
+    const advanceBtn = screen.getByRole('button', { name: /Avançar e Iniciar Transmissão/i });
+    await waitFor(() => {
+      expect(advanceBtn).toBeEnabled();
+    });
+    fireEvent.click(advanceBtn);
 
     await waitFor(() => {
-      expect(screen.getByText(/AO VIVO/i)).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: /Alterar Modo \/ Fonte/i })).toBeInTheDocument();
     });
 
     const videoEl = document.querySelector('video') as HTMLVideoElement;
@@ -327,6 +366,42 @@ describe('Room Component (Desktop)', () => {
       expect(videoEl.muted).toBe(true);
       expect(videoEl.volume).toBe(0);
     }
+  });
+
+  it('deve exibir as opções de qualidade 1080p 30fps e 1080p 60fps e permitir alternar', async () => {
+    render(<Room room={dummyRoom} onCloseRoom={vi.fn()} />);
+
+    // Verifica a presença de ambas as opções
+    expect(screen.getByText(/📺 1080p Full HD @ 30 fps/i)).toBeInTheDocument();
+    expect(screen.getByText(/🚀 1080p Full HD @ 60 fps/i)).toBeInTheDocument();
+
+    // 30 fps deve iniciar selecionado por padrão
+    expect(screen.getByText(/4\.0 Mbps/i)).toBeInTheDocument();
+    expect(screen.getByText(/6\.0 Mbps/i)).toBeInTheDocument();
+
+    // Clica na opção de 60 fps
+    const card60 = screen.getByText(/🚀 1080p Full HD @ 60 fps/i).closest('div');
+    if (card60) {
+      fireEvent.click(card60);
+    }
+
+    await waitFor(() => {
+      expect(screen.getByText('Tela Inteira 1')).toBeInTheDocument();
+    });
+
+    // Avança para a transmissão ao vivo
+    const advanceBtn = screen.getByRole('button', { name: /Avançar e Iniciar Transmissão/i });
+    await waitFor(() => {
+      expect(advanceBtn).toBeEnabled();
+    });
+    fireEvent.click(advanceBtn);
+
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: /Alterar Modo \/ Fonte/i })).toBeInTheDocument();
+    });
+
+    // Deve exibir badge de 1080p @ 60fps na barra de status
+    expect(screen.getByText('1080p @ 60fps')).toBeInTheDocument();
   });
 });
 

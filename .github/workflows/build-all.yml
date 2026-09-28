@@ -1,22 +1,45 @@
 name: Build & Release Multiplataforma (Windows, macOS, Linux)
 
 on:
-  workflow_dispatch: # Permite disparar o build manualmente no GitHub
+  workflow_dispatch: # Permite disparar manualmente na aba Actions do GitHub
   push:
+    branches:
+      - master
+      - main
     tags:
-      - 'v*' # Dispara automaticamente ao criar uma tag de versao (ex: v0.0.1)
+      - 'v*' # Dispara automaticamente ao criar uma tag de versão (ex: v1.4.6)
 
 jobs:
   build:
-    name: Build para ${{ matrix.os }}
+    name: Build ${{ matrix.platform }} (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
-        os: [windows-latest, macos-latest, ubuntu-latest]
+        include:
+          - os: windows-latest
+            platform: windows
+            build_cmd: npm --prefix apps/desktop run make:win
+            artifact_name: mlab-windows
+            artifact_path: apps/desktop/dist/*.exe*
+          - os: ubuntu-latest
+            platform: linux
+            build_cmd: npm --prefix apps/desktop run make:linux
+            artifact_name: mlab-linux
+            artifact_path: |
+              apps/desktop/dist/*.AppImage
+              apps/desktop/dist/*.deb
+              apps/desktop/dist/*.tar.gz
+          - os: macos-latest
+            platform: macos
+            build_cmd: npm --prefix apps/desktop run make:mac
+            artifact_name: mlab-macos
+            artifact_path: |
+              apps/desktop/dist/*.dmg
+              apps/desktop/dist/*.zip
 
     steps:
-      - name: Checkout do codigo
+      - name: Checkout do código
         uses: actions/checkout@v4
 
       - name: Configurar Node.js 20
@@ -25,27 +48,62 @@ jobs:
           node-version: 20
           cache: 'npm'
 
-      - name: Instalar dependencias do monorepo
+      - name: Configurar Go 1.23
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.23'
+          check-latest: true
+          cache-dependency-path: apps/backend/go.sum
+
+      - name: Instalar dependências do monorepo
         run: npm install
+
+      - name: Instalar dependências de sistema para Linux (Ubuntu)
+        if: matrix.os == 'ubuntu-latest'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libarchive-tools desktop-file-utils
 
       - name: Compilar pacotes compartilhados (@mlab/types)
         run: npm run build
 
-      - name: Build do instalador nativo (${{ matrix.os }})
-        working-directory: apps/desktop
+      - name: Executar testes automatizados
+        run: npm run test
+
+      - name: Build do instalador nativo (${{ matrix.platform }})
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          npm run build
-          npx electron-builder --publish never
+        run: ${{ matrix.build_cmd }}
 
-      - name: Fazer upload dos instaladores gerados
+      - name: Fazer upload dos instaladores (Artifacts)
         uses: actions/upload-artifact@v4
         with:
-          name: mlab-desktop-${{ matrix.os }}
-          path: |
-            apps/desktop/dist/*.exe
-            apps/desktop/dist/*.dmg
-            apps/desktop/dist/*.zip
-            apps/desktop/dist/*.AppImage
-            apps/desktop/dist/*.deb
+          name: ${{ matrix.artifact_name }}
+          path: ${{ matrix.artifact_path }}
+          if-no-files-found: error
+
+  release:
+    name: Criar GitHub Release
+    needs: build
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Download de todos os artefatos
+        uses: actions/download-artifact@v4
+        with:
+          path: dist-release
+
+      - name: Publicar Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            dist-release/**/*.exe
+            dist-release/**/*.blockmap
+            dist-release/**/*.AppImage
+            dist-release/**/*.deb
+            dist-release/**/*.tar.gz
+            dist-release/**/*.dmg
+            dist-release/**/*.zip
+          generate_release_notes: true

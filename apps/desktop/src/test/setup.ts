@@ -27,15 +27,40 @@ window.electronAPI = {
     screen: true,
   }),
   copyToClipboard: vi.fn().mockResolvedValue(true),
+  setActiveRoom: vi.fn().mockResolvedValue(undefined),
 };
 
 if (typeof window !== 'undefined') {
+  if (typeof window.HTMLMediaElement !== 'undefined') {
+    window.HTMLMediaElement.prototype.play = vi.fn().mockImplementation(() => Promise.resolve());
+    window.HTMLMediaElement.prototype.pause = vi.fn();
+  }
+
   // @ts-ignore
   globalThis.MediaStream = class MockMediaStream {
-    getTracks() { return []; }
-    getVideoTracks() { return []; }
-    getAudioTracks() { return []; }
-    addTrack() {}
+    private _tracks: any[] = [];
+    constructor() {
+      const mockVideoTrack = {
+        kind: 'video',
+        id: 'mock-video-track',
+        enabled: true,
+        contentHint: '',
+        stop: vi.fn(),
+        getSettings: () => ({ width: 1920, height: 1080, frameRate: 30 }),
+      };
+      const mockAudioTrack = {
+        kind: 'audio',
+        id: 'mock-audio-track',
+        enabled: true,
+        stop: vi.fn(),
+        getSettings: () => ({ sampleRate: 48000, channelCount: 1 }),
+      };
+      this._tracks = [mockVideoTrack, mockAudioTrack];
+    }
+    getTracks() { return this._tracks; }
+    getVideoTracks() { return this._tracks.filter((t) => t.kind === 'video'); }
+    getAudioTracks() { return this._tracks.filter((t) => t.kind === 'audio'); }
+    addTrack(track: any) { this._tracks.push(track); }
   };
 
   // @ts-ignore
@@ -90,5 +115,17 @@ if (typeof window !== 'undefined') {
   }
   // @ts-ignore
   navigator.mediaDevices.getUserMedia = vi.fn().mockResolvedValue(new globalThis.MediaStream());
+
+  // Mock global de fetch para evitar ECONNREFUSED em testes ao acessar endpoints locais
+  // @ts-ignore
+  globalThis.fetch = vi.fn().mockImplementation(() =>
+    Promise.resolve({
+      ok: true,
+      status: 200,
+      json: () => Promise.resolve([]),
+      text: () => Promise.resolve(''),
+    })
+  );
 }
+
 

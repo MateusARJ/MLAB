@@ -147,6 +147,13 @@ func (h *Handler) GetHub(roomID string) *Hub {
 	return h.hubs[roomID]
 }
 
+// OnTrackReady é invocado quando a primeira track de vídeo do professor fica pronta no SFU.
+func (h *Handler) OnTrackReady(roomID string) {
+	if hub := h.GetHub(roomID); hub != nil {
+		hub.BroadcastStreamStarted()
+	}
+}
+
 // ── ICE Servers / TURN credentials ───────────────────────────────────────────
 
 // buildIceServers constrói a lista de ICE servers com credenciais TURN temporárias.

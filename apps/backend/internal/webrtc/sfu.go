@@ -17,9 +17,17 @@ type Config struct {
 
 // SFUService gerencia as salas e conexões WebRTC via Pion SFU.
 type SFUService struct {
-	api   *webrtc.API
-	rooms map[string]*Room
-	mu    sync.RWMutex
+	api          *webrtc.API
+	rooms        map[string]*Room
+	mu           sync.RWMutex
+	onTrackReady func(roomID string)
+}
+
+// SetOnTrackReady define a função executada quando a primeira track de vídeo de um publisher fica ativa no SFU.
+func (s *SFUService) SetOnTrackReady(fn func(roomID string)) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.onTrackReady = fn
 }
 
 // NewSFUService cria uma nova instância do SFUService configurada com a faixa de portas UDP especificada.
@@ -114,7 +122,7 @@ func (s *SFUService) getOrCreateRoom(roomID string) *Room {
 
 	room, exists := s.rooms[roomID]
 	if !exists {
-		room = newRoom(roomID, s.api)
+		room = newRoom(roomID, s.api, s.onTrackReady)
 		s.rooms[roomID] = room
 	}
 	return room

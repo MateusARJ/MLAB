@@ -4,7 +4,7 @@ import { ProfessorEntry } from './pages/ProfessorEntry'
 import { Permissions } from './pages/Permissions'
 import { Dashboard } from './pages/Dashboard'
 import { Room } from './pages/Room'
-import { logout } from './services/auth'
+import { logout, getStoredToken } from './services/auth'
 
 type AppState = 'identify' | 'permissions' | 'dashboard' | 'room'
 
@@ -36,9 +36,18 @@ export default function App(): React.ReactElement {
   const handleEnterRoom = (roomData: { id: string; slug: string; link: string }) => {
     setRoom(roomData)
     setState('room')
+    if (window.electronAPI && typeof window.electronAPI.setActiveRoom === 'function') {
+      window.electronAPI.setActiveRoom({
+        id: roomData.id,
+        token: getStoredToken() || undefined
+      })
+    }
   }
   
   const handleCloseRoom = () => {
+    if (window.electronAPI && typeof window.electronAPI.setActiveRoom === 'function') {
+      window.electronAPI.setActiveRoom(null)
+    }
     setRoom(null)
     setState('dashboard')
   }

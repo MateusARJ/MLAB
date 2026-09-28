@@ -23,6 +23,7 @@ function formatFileSize(bytes: number): string {
 export const Room: React.FC<RoomProps> = ({ room, onCloseRoom }) => {
   // Configuração pré-transmissão
   const [wantRecord, setWantRecord] = useState<boolean>(false);
+  const [qualityProfile, setQualityProfile] = useState<'1080p_30' | '1080p_60'>('1080p_30');
   const [tentativeSource, setTentativeSource] = useState<CaptureSource | null>(null);
   const [isLiveSession, setIsLiveSession] = useState<boolean>(false);
   const [saveSuccessMsg, setSaveSuccessMsg] = useState<string | null>(null);
@@ -86,7 +87,18 @@ export const Room: React.FC<RoomProps> = ({ room, onCloseRoom }) => {
     toggleMicMute,
     toggleVideoPause,
     stopCapture,
+    targetFps,
+    setTargetFps,
   } = useScreenCapture('screen');
+
+  // Fonte ativa no setup derivada sincronamente para evitar condição de corrida em testes/CI
+  const currentSource = tentativeSource || (sources.length > 0 ? sources[0] : null);
+
+  const handleSelectQuality = useCallback((profile: '1080p_30' | '1080p_60') => {
+    setQualityProfile(profile);
+    const fps = profile === '1080p_60' ? 60 : 30;
+    setTargetFps(fps);
+  }, [setTargetFps]);
 
   // Atualiza periodicamente as janelas durante o setup pré-transmissão quando no modo janela
   useEffect(() => {
@@ -125,6 +137,7 @@ export const Room: React.FC<RoomProps> = ({ room, onCloseRoom }) => {
     roomId: room.id,
     stream,
     token,
+    targetFps: qualityProfile === '1080p_60' ? 60 : 30,
   });
 
   const prevMessagesLength = useRef(messages.length);
@@ -175,17 +188,17 @@ export const Room: React.FC<RoomProps> = ({ room, onCloseRoom }) => {
   }, [sources, tentativeSource]);
 
   useEffect(() => {
-    const thumb = selectedSource?.thumbnail || tentativeSource?.thumbnail;
+    const thumb = selectedSource?.thumbnail || currentSource?.thumbnail;
     if (thumb) {
       setCurrentThumbnail(thumb);
     }
-  }, [selectedSource?.thumbnail, tentativeSource?.thumbnail]);
+  }, [selectedSource?.thumbnail, currentSource?.thumbnail]);
 
   const handleRefreshScreenCapture = useCallback(async () => {
     try {
       if (window.electronAPI && typeof window.electronAPI.getScreenSources === 'function') {
         const freshSources = await window.electronAPI.getScreenSources('screen');
-        const activeId = selectedSource?.id || tentativeSource?.id;
+        const activeId = selectedSource?.id || currentSource?.id;
         const matched = freshSources.find((s) => s.id === activeId) || freshSources[0];
         if (matched?.thumbnail) {
           setCurrentThumbnail(matched.thumbnail);
@@ -194,7 +207,7 @@ export const Room: React.FC<RoomProps> = ({ room, onCloseRoom }) => {
     } catch (err) {
       console.error('Erro ao atualizar captura de tela:', err);
     }
-  }, [selectedSource?.id, tentativeSource?.id]);
+  }, [selectedSource?.id, currentSource?.id]);
 
   useEffect(() => {
     if (!isLiveSession || captureMode !== 'screen') return;
@@ -211,7 +224,8 @@ export const Room: React.FC<RoomProps> = ({ room, onCloseRoom }) => {
   const screenSources = sources.filter((s) => s.type === 'screen' || s.id.startsWith('screen'));
 
   const handleSwitchScreen = useCallback(async (source: CaptureSource) => {
-    const newStream = await selectSource(source);
+    const fps = qualityProfile === '1080p_60' ? 60 : 30;
+    const newStream = await selectSource(source, fps);
     if (source.thumbnail) {
       setCurrentThumbnail(source.thumbnail);
     }
@@ -223,7 +237,7 @@ export const Room: React.FC<RoomProps> = ({ room, onCloseRoom }) => {
       }
       await changeStream(newStream);
     }
-  }, [selectSource, micMuted, changeStream]);
+  }, [selectSource, micMuted, changeStream, qualityProfile]);
 
   // Carrega arquivos iniciais da sala
   useEffect(() => {
@@ -249,13 +263,15 @@ export const Room: React.FC<RoomProps> = ({ room, onCloseRoom }) => {
 
   // Avançar e Iniciar Transmissão
   const handleStartSession = useCallback(async () => {
-    if (!tentativeSource) return;
+    const sourceToUse = currentSource;
+    if (!sourceToUse) return;
 
-    if (tentativeSource.thumbnail) {
-      setCurrentThumbnail(tentativeSource.thumbnail);
+    if (sourceToUse.thumbnail) {
+      setCurrentThumbnail(sourceToUse.thumbnail);
     }
 
-    const activeStream = await selectSource(tentativeSource);
+    const fps = qualityProfile === '1080p_60' ? 60 : 30;
+    const activeStream = await selectSource(sourceToUse, fps);
     setIsLiveSession(true);
 
     // Quando o professor começa a transmitir a tela, o microfone deve ficar desligado por padrão
@@ -281,7 +297,7 @@ export const Room: React.FC<RoomProps> = ({ room, onCloseRoom }) => {
         startPublishing(activeStream);
       }
     }
-  }, [tentativeSource, selectSource, wantRecord, startRecording, isPublishing, connectionState, changeStream, startPublishing]);
+  }, [currentSource, selectSource, qualityProfile, wantRecord, startRecording, isPublishing, connectionState, changeStream, startPublishing]);
 
   const handleEndSession = useCallback(async () => {
     if (wantRecord && recordingStatus === 'recording') {
@@ -295,6 +311,9 @@ export const Room: React.FC<RoomProps> = ({ room, onCloseRoom }) => {
       closeRoom(room.id).catch((err) => {
         console.warn('Erro ao encerrar sala na API:', err);
       });
+      if (window.electronAPI && typeof window.electronAPI.setActiveRoom === 'function') {
+        window.electronAPI.setActiveRoom(null);
+      }
     }
     endSession();
     stopCapture();
@@ -533,7 +552,7 @@ export const Room: React.FC<RoomProps> = ({ room, onCloseRoom }) => {
                   <p style={styles.noSources}>Nenhuma fonte detectada para este modo.</p>
                 ) : (
                   sources.map((src) => {
-                    const isSelected = tentativeSource?.id === src.id;
+                    const isSelected = currentSource?.id === src.id;
                     return (
                       <div
                         key={src.id}
@@ -553,14 +572,39 @@ export const Room: React.FC<RoomProps> = ({ room, onCloseRoom }) => {
             {/* 3. Qualidade da Transmissão */}
             <div style={styles.sectionBox}>
               <h4 style={styles.sectionTitle}>3. Resolução e Qualidade de Vídeo</h4>
-              <div style={styles.qualityInfoBox}>
-                <div style={styles.qualityBadgeActive}>
-                  📺 1080p Full HD @ 30 fps
+              <div style={styles.qualitySelectorGrid}>
+                <div
+                  onClick={() => handleSelectQuality('1080p_30')}
+                  style={qualityProfile === '1080p_30' ? styles.qualityCardActive : styles.qualityCard}
+                  role="button"
+                  tabIndex={0}
+                >
+                  <div style={styles.qualityCardHeader}>
+                    <span style={styles.qualityCardTitle}>📺 1080p Full HD @ 30 fps</span>
+                    {qualityProfile === '1080p_30' && <span style={styles.selectedBadge}>✓ Selecionado</span>}
+                  </div>
+                  <div style={styles.qualityDetails}>
+                    <span style={styles.qualityParam}>Bitrate: <strong>4.0 Mbps</strong> (Padrão)</span>
+                    <span style={styles.qualityParam}>Otimização: <strong>Nitidez para Textos e Código</strong></span>
+                    <span style={styles.qualityParam}>Fidelidade: <strong>Resolução Bloqueada</strong> (sem rebaixamento)</span>
+                  </div>
                 </div>
-                <div style={styles.qualityDetails}>
-                  <span style={styles.qualityParam}>Bitrate: <strong>4.0 Mbps</strong></span>
-                  <span style={styles.qualityParam}>Otimização: <strong>Nitidez para Textos e Código</strong></span>
-                  <span style={styles.qualityParam}>Fidelidade: <strong>Resolução Bloqueada</strong> (sem rebaixamento)</span>
+
+                <div
+                  onClick={() => handleSelectQuality('1080p_60')}
+                  style={qualityProfile === '1080p_60' ? styles.qualityCardActive : styles.qualityCard}
+                  role="button"
+                  tabIndex={0}
+                >
+                  <div style={styles.qualityCardHeader}>
+                    <span style={styles.qualityCardTitle}>🚀 1080p Full HD @ 60 fps</span>
+                    {qualityProfile === '1080p_60' && <span style={styles.selectedBadge}>✓ Selecionado</span>}
+                  </div>
+                  <div style={styles.qualityDetails}>
+                    <span style={styles.qualityParam}>Bitrate: <strong>6.0 Mbps</strong> (Alta Fluidez)</span>
+                    <span style={styles.qualityParam}>Otimização: <strong>Fluidez Máxima para Vídeos e Animações</strong></span>
+                    <span style={styles.qualityParam}>Fidelidade: <strong>60 fps Contínuos</strong> (Ultra Nítido)</span>
+                  </div>
                 </div>
               </div>
             </div>
@@ -570,8 +614,8 @@ export const Room: React.FC<RoomProps> = ({ room, onCloseRoom }) => {
               <button
                 type="button"
                 onClick={handleStartSession}
-                disabled={!tentativeSource}
-                style={tentativeSource ? styles.advanceBtn : styles.advanceBtnDisabled}
+                disabled={!currentSource}
+                style={currentSource ? styles.advanceBtn : styles.advanceBtnDisabled}
               >
                 Avançar e Iniciar Transmissão {wantRecord ? '(Com Gravação)' : ''} →
               </button>
@@ -590,7 +634,7 @@ export const Room: React.FC<RoomProps> = ({ room, onCloseRoom }) => {
                       <span style={styles.pulsingDotGreen} /> AO VIVO
                     </span>
                     <span style={styles.resolutionBadge}>
-                      1080p @ 30fps
+                      {qualityProfile === '1080p_60' ? '1080p @ 60fps' : '1080p @ 30fps'}
                     </span>
                     <span style={styles.studentsBadge}>
                       👥 {studentsOnly.length} {studentsOnly.length === 1 ? 'Aluno' : 'Alunos'}
@@ -1591,6 +1635,47 @@ const styles: { [key: string]: React.CSSProperties } = {
     border: '1px solid #334155',
     padding: '2px 7px',
     borderRadius: '6px',
+  },
+  qualitySelectorGrid: {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
+    gap: '12px',
+  },
+  qualityCard: {
+    backgroundColor: '#0f172a',
+    border: '1px solid #1e293b',
+    borderRadius: '8px',
+    padding: '14px 16px',
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '10px',
+    cursor: 'pointer',
+    transition: 'all 0.15s ease',
+  },
+  qualityCardActive: {
+    backgroundColor: '#0f172a',
+    border: '1.5px solid #38bdf8',
+    boxShadow: '0 0 12px rgba(56, 189, 248, 0.15)',
+    borderRadius: '8px',
+    padding: '14px 16px',
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '10px',
+    cursor: 'pointer',
+    transition: 'all 0.15s ease',
+  },
+  qualityCardHeader: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  qualityCardTitle: {
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: '6px',
+    fontWeight: '700',
+    fontSize: '14px',
+    color: '#e2e8f0',
   },
   qualityInfoBox: {
     backgroundColor: '#0f172a',

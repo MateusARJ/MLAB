@@ -62,6 +62,11 @@ func main() {
 		}
 	})
 
+	// Conecta a notificação de vídeo pronto do SFU ao hub de sinalização (inicia transmissão aos alunos sem F5)
+	sfuService.SetOnTrackReady(func(roomID string) {
+		sigHandler.OnTrackReady(roomID)
+	})
+
 	// ── Roteador ──────────────────────────────────────────────────────────────
 	mux := http.NewServeMux()
 

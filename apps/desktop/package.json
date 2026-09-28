@@ -1,6 +1,6 @@
 {
   "name": "@mlab/desktop",
-  "version": "1.4.6",
+  "version": "1.4.9",
   "description": "MLab - App Desktop do Professor",
   "homepage": "https://mlab.com",
   "author": {
@@ -8,6 +8,10 @@
     "email": "contato@mlab.com"
   },
   "private": true,
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/MateusARJ/MLAB.git"
+  },
   "main": "out/main/main.js",
   "scripts": {
     "dev": "electron-vite dev",
@@ -15,15 +19,17 @@
     "build:backend": "node ../../scripts/build-backend.js all",
     "build:backend:win": "node ../../scripts/build-backend.js win",
     "build:backend:linux": "node ../../scripts/build-backend.js linux",
+    "build:backend:mac": "node ../../scripts/build-backend.js mac",
     "build": "electron-vite build",
     "preview": "electron-vite preview",
     "start": "electron .",
     "premake": "npm version patch --no-git-tag-version && node ../../scripts/sync-version.js",
-    "make": "npm run build:web && npm run build:backend && npm run build && electron-builder --win && node ../../scripts/build-linux-wsl.js all",
-    "make:win": "npm run build:web && npm run build:backend:win && npm run build && electron-builder --win",
+    "make": "npm run build:web && npm run build:backend && npm run build && electron-builder --win --publish never && node ../../scripts/build-linux-wsl.js all",
+    "make:win": "npm run build:web && npm run build:backend:win && npm run build && electron-builder --win --publish never",
     "make:linux": "npm run build:web && npm run build:backend:linux && npm run build && node ../../scripts/build-linux-wsl.js all",
     "make:linux:appimage": "npm run build:web && npm run build:backend:linux && npm run build && node ../../scripts/build-linux-wsl.js AppImage",
     "make:linux:deb": "npm run build:web && npm run build:backend:linux && npm run build && node ../../scripts/build-linux-wsl.js deb",
+    "make:mac": "npm run build:web && npm run build:backend:mac && npm run build && electron-builder --mac --publish never",
     "make:all": "npm run make",
     "lint": "tsc --noEmit",
     "test": "vitest run",
@@ -54,6 +60,11 @@
     "productName": "MLab",
     "electronVersion": "31.7.7",
     "copyright": "Copyright © 2024 MLab",
+    "publish": {
+      "provider": "github",
+      "owner": "MateusARJ",
+      "repo": "MLAB"
+    },
     "directories": {
       "output": "dist"
     },
@@ -96,7 +107,14 @@
         "zip"
       ],
       "category": "public.app-category.education",
-      "icon": "resources/icon.png"
+      "icon": "resources/icon.png",
+      "artifactName": "${productName}-Mac-${version}.${ext}",
+      "extraResources": [
+        {
+          "from": "../backend/bin/server-darwin",
+          "to": "bin/server"
+        }
+      ]
     },
     "linux": {
       "target": [
@@ -117,7 +135,7 @@
       },
       "extraResources": [
         {
-          "from": "../backend/bin/server",
+          "from": "../backend/bin/server-linux",
           "to": "bin/server"
         }
       ]

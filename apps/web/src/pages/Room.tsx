@@ -166,32 +166,40 @@ export const Room: React.FC<RoomProps> = ({ token, roomInfo, onLeave }) => {
     }
 
     const attemptPlay = () => {
-      videoEl
-        .play()
-        .then(() => {
-          setAutoplayBlocked(false);
-        })
-        .catch((err) => {
-          // RF-21: Se o navegador bloquear áudio (Autoplay Policy), muta e inicia o vídeo instantaneamente
-          if (err.name === 'NotAllowedError' || err.name === 'AbortError') {
-            videoEl.muted = true;
-            videoEl
-              .play()
-              .then(() => {
-                setAutoplayBlocked(true);
-              })
-              .catch(() => {});
-          }
-        });
+      if (!videoEl) return;
+      const playPromise = videoEl.play();
+      if (playPromise !== undefined) {
+        playPromise
+          .then(() => {
+            setAutoplayBlocked(false);
+          })
+          .catch((err) => {
+            // RF-21: Se o navegador bloquear áudio (Autoplay Policy), muta e inicia o vídeo instantaneamente
+            if (err.name === 'NotAllowedError' || err.name === 'AbortError') {
+              videoEl.muted = true;
+              videoEl
+                .play()
+                .then(() => {
+                  setAutoplayBlocked(true);
+                })
+                .catch(() => {});
+            }
+          });
+      }
     };
 
-    if (videoEl.readyState >= 1) {
+    // Tenta reproduzir imediatamente e em eventos sucessivos de disponibilidade de dados
+    attemptPlay();
+
+    videoEl.onloadedmetadata = () => {
       attemptPlay();
-    } else {
-      videoEl.onloadedmetadata = () => {
-        attemptPlay();
-      };
-    }
+    };
+    videoEl.onloadeddata = () => {
+      attemptPlay();
+    };
+    videoEl.oncanplay = () => {
+      attemptPlay();
+    };
 
     const handleAddTrack = () => {
       if (videoEl && videoEl.srcObject === stream) {

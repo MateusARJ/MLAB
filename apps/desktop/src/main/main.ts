@@ -139,6 +139,21 @@ function createWindow(): void {
     }
   }, 1500)
 
+  // Encerramento gracioso ao clicar no 'X' da janela: notifica alunos se houver sala ativa
+  let isWindowClosing = false
+  win.on('close', async (event) => {
+    if (isWindowClosing) return
+
+    if (activeRoom && activeRoom.id) {
+      event.preventDefault()
+      isWindowClosing = true
+      await closeActiveRoomGracefully()
+      if (!win.isDestroyed()) {
+        win.destroy()
+      }
+    }
+  })
+
   win.webContents.on('did-fail-load', (_event, errorCode, errorDescription, validatedURL) => {
     logApp(`[Main WebContents DID-FAIL-LOAD] code=${errorCode}, desc=${errorDescription}, url=${validatedURL}`)
   })
@@ -285,6 +300,48 @@ ipcMain.handle('request-media-permissions', async () => {
   }
 })
 
+// ── Gerenciamento da sala ativa para encerramento gracioso ao fechar o app ────
+
+let activeRoom: { id: string; token?: string } | null = null
+
+ipcMain.handle('set-active-room', (_event, room: { id: string; token?: string } | null) => {
+  activeRoom = room
+  logApp(`[Main] activeRoom atualizada: ${room ? room.id : 'nenhuma'}`)
+})
+
+async function closeActiveRoomGracefully(): Promise<void> {
+  if (!activeRoom || !activeRoom.id) return
+
+  const roomToClose = activeRoom
+  activeRoom = null
+
+  logApp(`[Main] Encerrando sala ativa (${roomToClose.id}) antes de finalizar o aplicativo...`)
+
+  try {
+    const headers: Record<string, string> = { 'Content-Type': 'application/json' }
+    if (roomToClose.token) {
+      headers['Authorization'] = `Bearer ${roomToClose.token}`
+    }
+
+    const controller = new AbortController()
+    const timer = setTimeout(() => controller.abort(), 1200)
+
+    await fetch(`http://127.0.0.1:8080/rooms/${roomToClose.id}/close`, {
+      method: 'POST',
+      headers,
+      signal: controller.signal
+    }).catch((err) => {
+      logApp(`[Main] Aviso ao enviar closeRoom na saída: ${err}`)
+    })
+    clearTimeout(timer)
+  } catch (err) {
+    logApp(`[Main] Erro ao disparar closeRoom na saída: ${err}`)
+  }
+
+  // Aguarda 400ms para permitir que os frames WebSocket cheguem aos alunos conectados
+  await new Promise((resolve) => setTimeout(resolve, 400))
+}
+
 // ── Backend Process Manager (Servidor Go SFU Invisível) ──────────────────────
 
 let serverProcess: ChildProcess | null = null
@@ -305,24 +362,43 @@ function isPortInUse(port = 8080): Promise<boolean> {
 }
 
 function getBackendExecutablePath(): string | null {
-  const binaryName = process.platform === 'win32' ? 'server.exe' : 'server'
   const isDev = !app.isPackaged
+  const platformBin =
+    process.platform === 'win32'
+      ? 'server.exe'
+      : process.platform === 'darwin'
+      ? 'server-darwin'
+      : 'server-linux'
+  const genericBin = process.platform === 'win32' ? 'server.exe' : 'server'
 
-  const candidates = isDev
-    ? [
-        join(process.cwd(), '../backend/bin', binaryName),
-        join(process.cwd(), '../../apps/backend/bin', binaryName),
-        join(__dirname, '../../../../apps/backend/bin', binaryName),
-        join(__dirname, '../../../backend/bin', binaryName),
-        join(process.cwd(), 'apps/backend/bin', binaryName),
-        'c:\\Users\\User\\Documents\\mlab\\apps\\backend\\bin\\server.exe'
-      ]
-    : [
-        join(process.resourcesPath, 'bin', binaryName),
-        join(process.resourcesPath, binaryName),
-        join(__dirname, '../../resources/bin', binaryName),
-        join(process.cwd(), 'resources/bin', binaryName)
-      ]
+  const binaryNames = platformBin === genericBin ? [genericBin] : [platformBin, genericBin]
+
+  const candidates: string[] = []
+
+  if (isDev) {
+    const devDirs = [
+      join(process.cwd(), '../backend/bin'),
+      join(process.cwd(), '../../apps/backend/bin'),
+      join(__dirname, '../../../../apps/backend/bin'),
+      join(__dirname, '../../../backend/bin'),
+      join(process.cwd(), 'apps/backend/bin')
+    ]
+    for (const dir of devDirs) {
+      for (const b of binaryNames) {
+        candidates.push(join(dir, b))
+      }
+    }
+    if (process.platform === 'win32') {
+      candidates.push('c:\\Users\\User\\Documents\\mlab\\apps\\backend\\bin\\server.exe')
+    }
+  } else {
+    for (const b of binaryNames) {
+      candidates.push(join(process.resourcesPath, 'bin', b))
+      candidates.push(join(process.resourcesPath, b))
+      candidates.push(join(__dirname, '../../resources/bin', b))
+      candidates.push(join(process.cwd(), 'resources/bin', b))
+    }
+  }
 
   for (const candidate of candidates) {
     if (existsSync(candidate)) {
@@ -494,8 +570,23 @@ app.whenReady().then(() => {
   })
 })
 
-app.on('before-quit', () => {
-  stopBackendServer()
+let isAppQuitting = false
+
+app.on('before-quit', async (event) => {
+  if (isAppQuitting) {
+    stopBackendServer()
+    return
+  }
+
+  if (activeRoom && activeRoom.id) {
+    event.preventDefault()
+    isAppQuitting = true
+    await closeActiveRoomGracefully()
+    stopBackendServer()
+    app.quit()
+  } else {
+    stopBackendServer()
+  }
 })
 
 app.on('will-quit', () => {

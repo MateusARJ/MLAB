@@ -3,8 +3,9 @@ import type { CaptureSource, CaptureSourceType } from '@mlab/types';
 
 export type Source = CaptureSource;
 
-export function useScreenCapture(initialMode: CaptureSourceType = 'screen') {
+export function useScreenCapture(initialMode: CaptureSourceType = 'screen', initialFps: 30 | 60 = 30) {
   const [captureMode, setCaptureMode] = useState<CaptureSourceType>(initialMode);
+  const [targetFps, setTargetFps] = useState<30 | 60>(initialFps);
   const [sources, setSources] = useState<CaptureSource[]>([]);
   const [selectedSource, setSelectedSource] = useState<CaptureSource | null>(null);
   const [stream, setStream] = useState<MediaStream | null>(null);
@@ -58,12 +59,18 @@ export function useScreenCapture(initialMode: CaptureSourceType = 'screen') {
     setSelectedSource(null);
   }, []);
 
-  const selectSource = useCallback(async (source: CaptureSource): Promise<MediaStream | null> => {
+  const selectSource = useCallback(async (source: CaptureSource, fps?: 30 | 60): Promise<MediaStream | null> => {
     setSelectedSource(source);
+    const effectiveFps = fps || targetFps;
+    if (fps && fps !== targetFps) {
+      setTargetFps(fps);
+    }
+
     try {
       let mediaStream: MediaStream;
+      const minFps = effectiveFps === 60 ? 30 : 25;
       try {
-        // Tenta capturar cravando resolução de alta fidelidade 1080p @ 30fps (RF-04, RNF-01, RNF-02)
+        // Tenta capturar Full HD com a taxa de quadros configurada (30fps ou 60fps)
         mediaStream = await navigator.mediaDevices.getUserMedia({
           audio: false,
           video: {
@@ -71,17 +78,15 @@ export function useScreenCapture(initialMode: CaptureSourceType = 'screen') {
             mandatory: {
               chromeMediaSource: 'desktop',
               chromeMediaSourceId: source.id,
-              minWidth: 1920,
               maxWidth: 1920,
-              minHeight: 1080,
               maxHeight: 1080,
-              minFrameRate: 30,
-              maxFrameRate: 30,
+              minFrameRate: minFps,
+              maxFrameRate: effectiveFps,
             },
           },
         });
       } catch {
-        // Fallback flexível para monitores ou janelas com dimensões menores que 1080p (ex: 1366x768 ou janelas isoladas)
+        // Fallback flexível para monitores ou janelas com dimensões menores ou especiais
         mediaStream = await navigator.mediaDevices.getUserMedia({
           audio: false,
           video: {
@@ -91,20 +96,19 @@ export function useScreenCapture(initialMode: CaptureSourceType = 'screen') {
               chromeMediaSourceId: source.id,
               maxWidth: 1920,
               maxHeight: 1080,
-              minFrameRate: 30,
-              maxFrameRate: 30,
+              maxFrameRate: effectiveFps,
             },
           },
         });
       }
 
-      // Crava contentHint='detail' para que o encoder VP8 priorize nitidez de código/texto e evite suavização espacial
+      // Crava contentHint='detail' para priorizar nitidez de código/texto
       const videoTrack = mediaStream.getVideoTracks()[0];
       if (videoTrack) {
         // @ts-ignore
         videoTrack.contentHint = 'detail';
         const settings = videoTrack.getSettings();
-        console.log(`[Capture] Resolução capturada: ${settings.width}x${settings.height} @ ${settings.frameRate}fps`);
+        console.log(`[Capture] Resolução capturada: ${settings.width}x${settings.height} @ ${settings.frameRate}fps (alvo: ${effectiveFps}fps)`);
       }
 
       // Tenta anexar microfone do professor com processamento DSP anti-microfonia (RF-10, RN-10)
@@ -251,6 +255,8 @@ export function useScreenCapture(initialMode: CaptureSourceType = 'screen') {
   return {
     captureMode,
     setCaptureMode: changeCaptureMode,
+    targetFps,
+    setTargetFps,
     sources,
     selectedSource,
     stream,
