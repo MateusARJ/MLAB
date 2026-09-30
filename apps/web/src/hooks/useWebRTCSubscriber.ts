@@ -330,6 +330,12 @@ export function useWebRTCSubscriber(token: string, roomInfo: { room_id: string; 
     }
   }, []);
 
+  const requestKeyframe = useCallback(() => {
+    if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+      wsRef.current.send(JSON.stringify({ type: 'request-keyframe', payload: {} }));
+    }
+  }, []);
+
   return {
     stream,
     autoplayBlocked,
@@ -339,5 +345,6 @@ export function useWebRTCSubscriber(token: string, roomInfo: { room_id: string; 
     sharedFiles,
     messages,
     sendChatMessage,
+    requestKeyframe,
   };
 }

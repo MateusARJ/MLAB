@@ -65,6 +65,7 @@ export const Room: React.FC<RoomProps> = ({ token, roomInfo, onLeave }) => {
     sharedFiles = [],
     messages = [],
     sendChatMessage,
+    requestKeyframe,
   } = useWebRTCSubscriber(token, roomInfo);
 
   // Quando o professor encerra a transmissão (connectionStatus === 'closed'), redireciona de volta para a tela de credenciais
@@ -219,7 +220,15 @@ export const Room: React.FC<RoomProps> = ({ token, roomInfo, onLeave }) => {
       }
     };
 
+    const handleStalled = () => {
+      if (typeof requestKeyframe === 'function') {
+        requestKeyframe();
+      }
+    };
+
     videoEl.addEventListener('resize', handleResize);
+    videoEl.addEventListener('stalled', handleStalled);
+    videoEl.addEventListener('waiting', handleStalled);
 
     const videoTracks = typeof stream.getVideoTracks === 'function' ? stream.getVideoTracks() : [];
     videoTracks.forEach((t) => {
@@ -244,9 +253,41 @@ export const Room: React.FC<RoomProps> = ({ token, roomInfo, onLeave }) => {
       if (videoEl) {
         videoEl.onloadedmetadata = null;
         videoEl.removeEventListener('resize', handleResize);
+        videoEl.removeEventListener('stalled', handleStalled);
+        videoEl.removeEventListener('waiting', handleStalled);
       }
     };
-  }, [stream]);
+  }, [stream, requestKeyframe]);
+
+  // Watchdog de desengasgo e descongelação de tela (destrava transmissões com picos de cores/partículas)
+  useEffect(() => {
+    if (!stream || isStreamPaused || connectionStatus !== 'connected') return;
+
+    let lastTime = -1;
+    let freezeCount = 0;
+
+    const interval = setInterval(() => {
+      const videoEl = videoRef.current;
+      if (!videoEl || videoEl.paused || videoEl.ended) return;
+
+      const currentTime = videoEl.currentTime;
+      if (currentTime === lastTime && currentTime > 0) {
+        freezeCount++;
+        // Se a reprodução estagnar por 2 intervalos (1.6s) mesmo sem pausar, solicita Keyframe imediato ao SFU
+        if (freezeCount >= 2) {
+          if (typeof requestKeyframe === 'function') {
+            requestKeyframe();
+          }
+          freezeCount = 0;
+        }
+      } else {
+        lastTime = currentTime;
+        freezeCount = 0;
+      }
+    }, 800);
+
+    return () => clearInterval(interval);
+  }, [stream, isStreamPaused, connectionStatus, requestKeyframe]);
 
   // Reativa reprodução imediatamente quando o professor despausa a transmissão
   useEffect(() => {
