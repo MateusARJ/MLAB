@@ -95,7 +95,7 @@ describe('Room Component (Desktop)', () => {
 
     // Ao clicar, deve desmutar (passando a exibir 'Mutar Microfone')
     fireEvent.click(micBtn);
-    expect(screen.getByRole('button', { name: /🎤 Mutar Microfone/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Mutar Microfone/i })).toBeInTheDocument();
   });
 
   it('deve permitir alternar entre abas de chat público e dúvidas privadas', async () => {
@@ -256,7 +256,7 @@ describe('Room Component (Desktop)', () => {
     fireEvent.click(chatBtn);
 
     // Deve exibir as abas na sidebar retrátil
-    expect(screen.getByRole('button', { name: /^💬 Chat$/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /^Chat$/i })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /Alunos/i })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /Arquivos/i })).toBeInTheDocument();
   });
@@ -372,15 +372,15 @@ describe('Room Component (Desktop)', () => {
     render(<Room room={dummyRoom} onCloseRoom={vi.fn()} />);
 
     // Verifica a presença de ambas as opções
-    expect(screen.getByText(/📺 1080p Full HD @ 30 fps/i)).toBeInTheDocument();
-    expect(screen.getByText(/🚀 1080p Full HD @ 60 fps/i)).toBeInTheDocument();
+    expect(screen.getByText(/1080p Full HD @ 30 fps/i)).toBeInTheDocument();
+    expect(screen.getByText(/1080p Full HD @ 60 fps/i)).toBeInTheDocument();
 
     // 30 fps deve iniciar selecionado por padrão
     expect(screen.getByText(/4\.0 Mbps/i)).toBeInTheDocument();
     expect(screen.getByText(/6\.0 Mbps/i)).toBeInTheDocument();
 
     // Clica na opção de 60 fps
-    const card60 = screen.getByText(/🚀 1080p Full HD @ 60 fps/i).closest('div');
+    const card60 = screen.getByText(/1080p Full HD @ 60 fps/i).closest('div');
     if (card60) {
       fireEvent.click(card60);
     }

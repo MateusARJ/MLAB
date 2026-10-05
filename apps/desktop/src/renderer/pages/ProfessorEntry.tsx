@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { startProfessorSession } from '../services/auth';
 import mlabLogo from '../assets/MLAB-logo.png';
+import { Button, TextInput, Alert, colors, radii, typography } from '@mlab/ui';
 
 interface ProfessorEntryProps {
   onSuccess: () => void;
@@ -41,30 +42,34 @@ export const ProfessorEntry: React.FC<ProfessorEntryProps> = ({ onSuccess }) => 
           <p style={styles.subtitle}>Painel do Professor — Identificação</p>
         </div>
 
-        {error && <div style={styles.errorAlert}>{error}</div>}
+        {error && (
+          <div style={{ marginBottom: '20px' }}>
+            <Alert variant="error" message={error} onClose={() => setError(null)} />
+          </div>
+        )}
 
         <form onSubmit={handleSubmit} style={styles.form}>
-          <div style={styles.inputGroup}>
-            <label htmlFor="professorName" style={styles.label}>Nome do Professor</label>
-            <input
-              id="professorName"
-              type="text"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              placeholder="Ex: Prof. Carlos Eduardo"
-              style={styles.input}
-              autoFocus
-              required
-            />
-          </div>
+          <TextInput
+            id="professorName"
+            label="Nome do Professor"
+            type="text"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            placeholder="Ex: Prof. Carlos Eduardo"
+            autoFocus
+            required
+          />
 
-          <button
+          <Button
             type="submit"
-            disabled={loading}
-            style={{ ...styles.button, opacity: loading ? 0.7 : 1 }}
+            variant="primary"
+            size="lg"
+            fullWidth
+            loading={loading}
+            style={{ marginTop: '8px' }}
           >
             {loading ? 'Acessando...' : 'Ir para Criação da Turma'}
-          </button>
+          </Button>
         </form>
       </div>
     </div>
@@ -77,20 +82,22 @@ const styles: { [key: string]: React.CSSProperties } = {
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#0f172a',
-    color: '#f8fafc',
-    fontFamily: 'Inter, system-ui, sans-serif',
+    backgroundColor: colors.bgBase,
+    color: colors.textPrimary,
+    fontFamily: typography.fontFamily,
     padding: '20px',
+    boxSizing: 'border-box',
   },
   card: {
     width: '100%',
     maxWidth: '440px',
-    backgroundColor: 'rgba(30, 41, 59, 0.85)',
+    backgroundColor: colors.surfaceCard,
     backdropFilter: 'blur(16px)',
-    border: '1px solid rgba(255, 255, 255, 0.1)',
-    borderRadius: '16px',
+    border: `1px solid ${colors.borderSubtle}`,
+    borderRadius: radii.lg,
     padding: '36px 32px',
     boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.5)',
+    boxSizing: 'border-box',
   },
   header: {
     textAlign: 'center',
@@ -105,56 +112,18 @@ const styles: { [key: string]: React.CSSProperties } = {
   title: {
     fontSize: '24px',
     fontWeight: '700',
-    color: '#38bdf8',
+    color: colors.accent,
     marginBottom: '8px',
+    margin: '0 0 8px 0',
   },
   subtitle: {
     fontSize: '14px',
-    color: '#94a3b8',
-  },
-  errorAlert: {
-    backgroundColor: 'rgba(239, 68, 68, 0.15)',
-    border: '1px solid #ef4444',
-    color: '#fca5a5',
-    padding: '12px',
-    borderRadius: '8px',
-    fontSize: '13px',
-    marginBottom: '20px',
+    color: colors.textMuted,
+    margin: 0,
   },
   form: {
     display: 'flex',
     flexDirection: 'column',
     gap: '20px',
-  },
-  inputGroup: {
-    display: 'flex',
-    flexDirection: 'column',
-    gap: '6px',
-  },
-  label: {
-    fontSize: '13px',
-    fontWeight: '500',
-    color: '#cbd5e1',
-  },
-  input: {
-    padding: '12px 14px',
-    borderRadius: '8px',
-    border: '1px solid #334155',
-    backgroundColor: '#0f172a',
-    color: '#f8fafc',
-    fontSize: '14px',
-    outline: 'none',
-  },
-  button: {
-    marginTop: '8px',
-    padding: '14px',
-    borderRadius: '8px',
-    border: 'none',
-    backgroundColor: '#0284c7',
-    color: '#ffffff',
-    fontSize: '15px',
-    fontWeight: '600',
-    cursor: 'pointer',
-    transition: 'background-color 0.2s',
   },
 };

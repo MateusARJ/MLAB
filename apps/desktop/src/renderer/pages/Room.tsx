@@ -6,6 +6,27 @@ import { useWebRTCPublisher } from '../hooks/useWebRTCPublisher';
 import { getStoredToken } from '../services/auth';
 import { closeRoom } from '../services/room';
 import mlabLogo from '../assets/MLAB-logo.png';
+import {
+  Screen,
+  Application,
+  Microphone,
+  MicrophoneOff,
+  Recording,
+  Chat,
+  Locked,
+  UserMultiple,
+  Folder,
+  Attachment,
+  Copy,
+  Checkmark,
+  Settings,
+  Renew,
+  Play,
+  Close,
+  Education,
+  Idea,
+} from '@mlab/ui';
+
 
 interface RoomProps {
   room: { id: string; slug: string; link: string };
@@ -87,7 +108,6 @@ export const Room: React.FC<RoomProps> = ({ room, onCloseRoom }) => {
     toggleMicMute,
     toggleVideoPause,
     stopCapture,
-    targetFps,
     setTargetFps,
   } = useScreenCapture('screen');
 
@@ -421,7 +441,7 @@ export const Room: React.FC<RoomProps> = ({ room, onCloseRoom }) => {
             style={linkCopied ? styles.copyBtnSuccess : styles.copyBtn}
             title={room.link}
           >
-            {linkCopied ? '✓ Link Copiado!' : '📋 Copiar Link'}
+            {linkCopied ? <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}><Checkmark size={14} /> Link Copiado!</span> : <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}><Copy size={14} /> Copiar Link</span>}
           </button>
           <button
             onClick={handleEndSession}
@@ -440,7 +460,7 @@ export const Room: React.FC<RoomProps> = ({ room, onCloseRoom }) => {
             onClick={() => loadSources(captureMode)}
             style={styles.retryPermBtn}
           >
-            🔄 Verificar Novamente
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}><Renew size={14} /> Verificar Novamente</span>
           </button>
         </div>
       )}
@@ -479,14 +499,14 @@ export const Room: React.FC<RoomProps> = ({ room, onCloseRoom }) => {
                   onClick={() => setWantRecord(true)}
                   style={wantRecord ? styles.choiceBtnActive : styles.choiceBtn}
                 >
-                  ⏺️ Sim, Gravar Aula
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}><Recording size={16} /> Sim, Gravar Aula</span>
                 </button>
                 <button
                   type="button"
                   onClick={() => setWantRecord(false)}
                   style={!wantRecord ? styles.choiceBtnActive : styles.choiceBtn}
                 >
-                  🚫 Apenas Transmitir (Sem Gravação)
+                  Apenas Transmitir (Sem Gravação)
                 </button>
               </div>
 
@@ -515,7 +535,7 @@ export const Room: React.FC<RoomProps> = ({ room, onCloseRoom }) => {
                   style={styles.refreshSourcesBtn}
                   title="Atualizar lista de janelas e telas abertas"
                 >
-                  🔄 Atualizar Janelas
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}><Renew size={14} /> Atualizar Janelas</span>
                 </button>
               </div>
               <div style={styles.modeTabs}>
@@ -527,7 +547,7 @@ export const Room: React.FC<RoomProps> = ({ room, onCloseRoom }) => {
                   }}
                   style={captureMode === 'screen' ? styles.modeTabActive : styles.modeTab}
                 >
-                  🖥️ Tela Cheia (Acompanha o SO e Navegação)
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}><Screen size={16} /> Tela Cheia (Acompanha o SO e Navegação)</span>
                 </button>
                 <button
                   type="button"
@@ -537,13 +557,13 @@ export const Room: React.FC<RoomProps> = ({ room, onCloseRoom }) => {
                   }}
                   style={captureMode === 'window' ? styles.modeTabActive : styles.modeTab}
                 >
-                  🗔 Janela / Aba Específica (Isola a Aplicação)
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}><Application size={16} /> Janela / Aba Específica (Isola a Aplicação)</span>
                 </button>
               </div>
 
               {captureMode === 'window' && (
                 <div style={styles.windowHintBox}>
-                  💡 <strong>Dica:</strong> Certifique-se de que a janela ou navegador esteja aberto na Área de Trabalho (não minimizado na barra de tarefas) para que seja listado.
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', verticalAlign: 'middle', marginRight: '4px' }}><Idea size={16} /></span><strong>Dica:</strong> Certifique-se de que a janela ou navegador esteja aberto na Área de Trabalho (não minimizado na barra de tarefas) para que seja listado.
                 </div>
               )}
 
@@ -561,7 +581,7 @@ export const Room: React.FC<RoomProps> = ({ room, onCloseRoom }) => {
                       >
                         <img src={src.thumbnail} alt={src.name} style={styles.thumbnail} />
                         <span style={styles.sourceName}>{src.name}</span>
-                        {isSelected && <span style={styles.selectedBadge}>✓ Selecionada</span>}
+                        {isSelected && <span style={styles.selectedBadge}><Checkmark size={12} style={{ marginRight: '4px' }} />Selecionada</span>}
                       </div>
                     );
                   })
@@ -580,8 +600,8 @@ export const Room: React.FC<RoomProps> = ({ room, onCloseRoom }) => {
                   tabIndex={0}
                 >
                   <div style={styles.qualityCardHeader}>
-                    <span style={styles.qualityCardTitle}>📺 1080p Full HD @ 30 fps</span>
-                    {qualityProfile === '1080p_30' && <span style={styles.selectedBadge}>✓ Selecionado</span>}
+                    <span style={{ ...styles.qualityCardTitle, display: 'inline-flex', alignItems: 'center', gap: '8px' }}><Screen size={16} /> 1080p Full HD @ 30 fps</span>
+                    {qualityProfile === '1080p_30' && <span style={styles.selectedBadge}><Checkmark size={12} style={{ marginRight: '4px' }} />Selecionado</span>}
                   </div>
                   <div style={styles.qualityDetails}>
                     <span style={styles.qualityParam}>Bitrate: <strong>4.0 Mbps</strong> (Padrão)</span>
@@ -597,8 +617,8 @@ export const Room: React.FC<RoomProps> = ({ room, onCloseRoom }) => {
                   tabIndex={0}
                 >
                   <div style={styles.qualityCardHeader}>
-                    <span style={styles.qualityCardTitle}>🚀 1080p Full HD @ 60 fps</span>
-                    {qualityProfile === '1080p_60' && <span style={styles.selectedBadge}>✓ Selecionado</span>}
+                    <span style={{ ...styles.qualityCardTitle, display: 'inline-flex', alignItems: 'center', gap: '8px' }}><Play size={16} /> 1080p Full HD @ 60 fps</span>
+                    {qualityProfile === '1080p_60' && <span style={styles.selectedBadge}><Checkmark size={12} style={{ marginRight: '4px' }} />Selecionado</span>}
                   </div>
                   <div style={styles.qualityDetails}>
                     <span style={styles.qualityParam}>Bitrate: <strong>6.0 Mbps</strong> (Alta Fluidez)</span>
@@ -637,10 +657,10 @@ export const Room: React.FC<RoomProps> = ({ room, onCloseRoom }) => {
                       {qualityProfile === '1080p_60' ? '1080p @ 60fps' : '1080p @ 30fps'}
                     </span>
                     <span style={styles.studentsBadge}>
-                      👥 {studentsOnly.length} {studentsOnly.length === 1 ? 'Aluno' : 'Alunos'}
+                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}><UserMultiple size={14} /> {studentsOnly.length} {studentsOnly.length === 1 ? 'Aluno' : 'Alunos'}</span>
                     </span>
                     <span style={styles.statusInfo}>
-                      Modo: {captureMode === 'screen' ? '🖥️ Tela Cheia' : '🗔 Janela Específica'} (
+                      Modo: {captureMode === 'screen' ? 'Tela Cheia' : 'Janela Específica'} (
                       {selectedSource?.name || 'Fonte Ativa'})
                     </span>
                   </div>
@@ -654,10 +674,10 @@ export const Room: React.FC<RoomProps> = ({ room, onCloseRoom }) => {
                           </span>
                         )}
                         {recordingStatus === 'paused' && (
-                          <span style={styles.pausedBadge}>⏸️ PAUSADO {formattedDuration}</span>
+                          <span style={styles.pausedBadge}>PAUSADO {formattedDuration}</span>
                         )}
                         {recordingStatus === 'stopped' && (
-                          <span style={styles.stoppedBadge}>⏹️ GRAVAÇÃO FINALIZADA</span>
+                          <span style={styles.stoppedBadge}>GRAVAÇÃO FINALIZADA</span>
                         )}
 
                         {recordingStatus === 'recording' && (
@@ -699,7 +719,7 @@ export const Room: React.FC<RoomProps> = ({ room, onCloseRoom }) => {
                         />
                       ) : (
                         <div style={styles.screenShieldCard}>
-                          <span style={styles.screenShieldIcon}>🖥️</span>
+                          <span style={styles.screenShieldIcon}><Screen size={44} /></span>
                           <h3 style={styles.screenShieldTitle}>Sua Tela Inteira está Sendo Transmitida</h3>
                           <p style={styles.screenShieldSubtitle}>
                             A transmissão está ativa e os alunos estão assistindo em tempo real.
@@ -709,12 +729,12 @@ export const Room: React.FC<RoomProps> = ({ room, onCloseRoom }) => {
 
                       {/* Badge Informativo Estático */}
                       <div style={styles.staticOverlayBadge}>
-                        <span>🖥️ Tela Inteira Ativa • Imagem Estática</span>
+                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}><Screen size={14} /> Tela Inteira Ativa • Imagem Estática</span>
                       </div>
 
                       {videoPaused && (
                         <div style={styles.pausedOverlayBadge}>
-                          ⏸️ Transmissão Pausada
+                          Transmissão Pausada
                         </div>
                       )}
                     </div>
@@ -729,7 +749,7 @@ export const Room: React.FC<RoomProps> = ({ room, onCloseRoom }) => {
                       />
                       {videoPaused && (
                         <div style={styles.pausedOverlayBadge}>
-                          ⏸️ Transmissão Pausada
+                          Transmissão Pausada
                         </div>
                       )}
                     </div>
@@ -743,17 +763,17 @@ export const Room: React.FC<RoomProps> = ({ room, onCloseRoom }) => {
                     onClick={toggleMicMute}
                     style={micMuted ? styles.controlBtnActive : styles.controlBtn}
                   >
-                    {micMuted ? '🔇 Desmutar Microfone' : '🎤 Mutar Microfone'}
+                    {micMuted ? <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}><MicrophoneOff size={16} /> Desmutar Microfone</span> : <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}><Microphone size={16} /> Mutar Microfone</span>}
                   </button>
                   <button
                     type="button"
                     onClick={handleToggleVideoPause}
                     style={videoPaused ? styles.controlBtnActive : styles.controlBtn}
                   >
-                    {videoPaused ? '▶️ Retomar Vídeo' : '⏸️ Pausar Vídeo'}
+                    {videoPaused ? 'Retomar Vídeo' : 'Pausar Vídeo'}
                   </button>
                   <button type="button" onClick={handleReconfigure} style={styles.controlBtn}>
-                    ⚙️ Alterar Modo / Fonte
+                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}><Settings size={16} /> Alterar Modo / Fonte</span>
                   </button>
                   {/* Alternância rápida entre monitores se houver mais de uma tela detectada */}
                   {captureMode === 'screen' && screenSources.length > 1 && (
@@ -766,7 +786,7 @@ export const Room: React.FC<RoomProps> = ({ room, onCloseRoom }) => {
                       style={styles.controlBtn}
                       title="Alternar rapidamente o monitor sendo transmitido"
                     >
-                      🖥️ Alternar Monitor
+                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}><Screen size={16} /> Alternar Monitor</span>
                     </button>
                   )}
                   {/* Botão de Chat no Header de Baixo */}
@@ -775,7 +795,7 @@ export const Room: React.FC<RoomProps> = ({ room, onCloseRoom }) => {
                     onClick={handleToggleSidebar}
                     style={isSidebarOpen ? styles.controlBtnActiveChat : styles.controlBtn}
                   >
-                    💬 Chat & Turma
+                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}><Chat size={16} /> Chat & Turma</span>
                     {unreadCount > 0 && (
                       <span style={styles.unreadBadge}>{unreadCount}</span>
                     )}
@@ -802,7 +822,7 @@ export const Room: React.FC<RoomProps> = ({ room, onCloseRoom }) => {
                       onClick={() => setSidebarTab('chat')}
                       style={sidebarTab === 'chat' ? styles.tabBtnActive : styles.tabBtn}
                     >
-                      💬 Chat
+                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}><Chat size={16} /> Chat</span>
                       {unreadCount > 0 && <span style={styles.tabBadge}>{unreadCount}</span>}
                     </button>
                     <button
@@ -810,14 +830,14 @@ export const Room: React.FC<RoomProps> = ({ room, onCloseRoom }) => {
                       onClick={() => setSidebarTab('students')}
                       style={sidebarTab === 'students' ? styles.tabBtnActive : styles.tabBtn}
                     >
-                      👥 Alunos ({studentsOnly.length})
+                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}><UserMultiple size={16} /> Alunos ({studentsOnly.length})</span>
                     </button>
                     <button
                       type="button"
                       onClick={() => setSidebarTab('files')}
                       style={sidebarTab === 'files' ? styles.tabBtnActive : styles.tabBtn}
                     >
-                      📁 Arquivos ({uploadedFiles.length})
+                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}><Folder size={16} /> Arquivos ({uploadedFiles.length})</span>
                     </button>
                   </div>
                   <button
@@ -826,7 +846,7 @@ export const Room: React.FC<RoomProps> = ({ room, onCloseRoom }) => {
                     style={styles.closeSidebarBtn}
                     title="Recolher Painel"
                   >
-                    ✕
+                    <Close size={16} />
                   </button>
                 </div>
 
@@ -842,14 +862,14 @@ export const Room: React.FC<RoomProps> = ({ room, onCloseRoom }) => {
                         }}
                         style={chatSubTab === 'public' ? styles.chatSubTabActive : styles.chatSubTab}
                       >
-                        🌐 Turma (Público)
+                        Turma (Público)
                       </button>
                       <button
                         type="button"
                         onClick={() => setChatSubTab('private')}
                         style={chatSubTab === 'private' ? styles.chatSubTabActivePrivate : styles.chatSubTab}
                       >
-                        🔒 Dúvidas Privadas
+                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}><Locked size={14} /> Dúvidas Privadas</span>
                         {messages.filter((m: any) => m.is_private === true).length > 0 && (
                           <span style={styles.privateTabBadge}>
                             {messages.filter((m: any) => m.is_private === true).length}
@@ -879,7 +899,7 @@ export const Room: React.FC<RoomProps> = ({ room, onCloseRoom }) => {
                                       {displayName} {matricula && <span style={styles.matriculaText}>{matricula}</span>}
                                       <small style={styles.roleTag}> [{isStudent ? 'aluno' : 'professor'}]</small>
                                     </span>
-                                    <span style={styles.publicTag}>🌐 TURMA</span>
+                                    <span style={styles.publicTag}>TURMA</span>
                                   </div>
                                   <p style={styles.messageBody}>{m.content}</p>
                                 </div>
@@ -891,7 +911,7 @@ export const Room: React.FC<RoomProps> = ({ room, onCloseRoom }) => {
                         {/* Formulário exclusivo do Chat Público */}
                         <form onSubmit={handleSendPublicChat} style={styles.chatForm}>
                           <div style={styles.publicIndicatorText}>
-                            🌐 Enviando para: <strong>Toda a Turma (Público)</strong>
+                            Enviando para: <strong>Toda a Turma (Público)</strong>
                           </div>
                           <div style={styles.chatInputRow}>
                             <input
@@ -979,7 +999,7 @@ export const Room: React.FC<RoomProps> = ({ room, onCloseRoom }) => {
                                           {displayName} {matricula && <span style={styles.matriculaText}>{matricula}</span>}
                                           <small style={styles.roleTag}> [{isStudent ? 'aluno' : 'professor'}]</small>
                                         </span>
-                                        <span style={styles.privateTag}>🔒 PRIVADO</span>
+                                        <span style={styles.privateTag}><Locked size={12} style={{ verticalAlign: 'middle', marginRight: '4px' }} />PRIVADO</span>
                                       </div>
                                       <p style={styles.messageBody}>{m.content}</p>
                                     </div>
@@ -1015,7 +1035,7 @@ export const Room: React.FC<RoomProps> = ({ room, onCloseRoom }) => {
                                           {displayName} {matricula && <span style={styles.matriculaText}>{matricula}</span>}
                                           <small style={styles.roleTag}> [{isStudent ? 'aluno' : 'professor'}]</small>
                                         </span>
-                                        <span style={styles.privateTag}>🔒 PRIVADO</span>
+                                        <span style={styles.privateTag}><Locked size={12} style={{ verticalAlign: 'middle', marginRight: '4px' }} />PRIVADO</span>
                                       </div>
                                       <p style={styles.messageBody}>{m.content}</p>
                                       {isStudent && (
@@ -1040,7 +1060,7 @@ export const Room: React.FC<RoomProps> = ({ room, onCloseRoom }) => {
                           {targetStudent ? (
                             <div style={styles.targetIndicatorBox}>
                               <span style={styles.targetIndicatorText}>
-                                🔒 Respondendo em privado para: <strong>{targetStudent.name}</strong> {targetStudent.student_id && `(${targetStudent.student_id})`}
+                                <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}><Locked size={14} /> Respondendo em privado para: <strong>{targetStudent.name}</strong> {targetStudent.student_id && `(${targetStudent.student_id})`}</span>
                               </span>
                               <button
                                 type="button"
@@ -1048,13 +1068,13 @@ export const Room: React.FC<RoomProps> = ({ room, onCloseRoom }) => {
                                 style={styles.clearTargetBtn}
                                 title="Voltar para todas as dúvidas"
                               >
-                                ✕ Ver Todas
+                                <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}><Close size={14} /> Ver Todas</span>
                               </button>
                             </div>
                           ) : (
                             <div style={styles.targetIndicatorBoxMuted}>
                               <span style={styles.targetIndicatorTextMuted}>
-                                🔒 Chat Privado: {studentsOnly.length === 1 ? `Mensagem direta para ${studentsOnly[0].name}` : 'Selecione um aluno acima ou digite para responder'}
+                                <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}><Locked size={14} /> Chat Privado: {studentsOnly.length === 1 ? `Mensagem direta para ${studentsOnly[0].name}` : 'Selecione um aluno acima ou digite para responder'}</span>
                               </span>
                             </div>
                           )}
@@ -1106,7 +1126,7 @@ export const Room: React.FC<RoomProps> = ({ room, onCloseRoom }) => {
                       ) : (
                         studentsOnly.map((s: any) => (
                           <div key={s.participant_id} style={styles.studentCard}>
-                            <div style={styles.studentAvatar}>🎓</div>
+                            <div style={styles.studentAvatar}><Education size={20} /></div>
                             <div style={styles.studentInfoBox}>
                               <span style={styles.studentNameText}>{s.name}</span>
                               <span style={styles.studentMatriculaText}>
@@ -1123,7 +1143,7 @@ export const Room: React.FC<RoomProps> = ({ room, onCloseRoom }) => {
                               style={styles.startPrivateChatBtn}
                               title="Enviar Mensagem Privada"
                             >
-                              🔒 Privado
+                              <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}><Locked size={14} /> Privado</span>
                             </button>
                           </div>
                         ))
@@ -1148,7 +1168,7 @@ export const Room: React.FC<RoomProps> = ({ room, onCloseRoom }) => {
                         disabled={isUploading}
                         style={isUploading ? styles.uploadBtnDisabled : styles.uploadBtn}
                       >
-                        {isUploading ? 'Enviando Arquivo...' : '📎 Compartilhar Novo Arquivo'}
+                        {isUploading ? 'Enviando Arquivo...' : <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}><Attachment size={16} /> Compartilhar Novo Arquivo</span>}
                       </button>
 
                       {uploadMsg && (
@@ -1165,12 +1185,12 @@ export const Room: React.FC<RoomProps> = ({ room, onCloseRoom }) => {
                       ) : (
                         uploadedFiles.map((file: any, idx: number) => (
                           <div key={file.id || idx} style={styles.fileItemRow}>
-                            <span style={styles.fileIcon}>📄</span>
+                            <span style={styles.fileIcon}><Attachment size={16} /></span>
                             <div style={styles.fileInfoColumn}>
                               <span style={styles.fileItemName} title={file.name}>{file.name}</span>
                               <span style={styles.fileItemSize}>{formatFileSize(file.size)}</span>
                             </div>
-                            <span style={styles.fileSharedBadge}>✓ Enviado</span>
+                            <span style={styles.fileSharedBadge}><Checkmark size={12} style={{ marginRight: '4px' }} />Enviado</span>
                           </div>
                         ))
                       )}

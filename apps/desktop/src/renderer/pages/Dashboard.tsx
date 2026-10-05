@@ -1,6 +1,19 @@
 import React, { useState } from 'react';
 import { createRoom } from '../services/room';
 import mlabLogo from '../assets/MLAB-logo.png';
+import {
+  Button,
+  TextInput,
+  StatusBadge,
+  Alert,
+  Card,
+  Copy,
+  Checkmark,
+  Play,
+  Exit,
+  colors,
+  typography,
+} from '@mlab/ui';
 
 interface DashboardProps {
   onEnterRoom: (roomData: { id: string; slug: string; link: string }) => void;
@@ -69,56 +82,95 @@ export const Dashboard: React.FC<DashboardProps> = ({ onEnterRoom, onLogout }) =
           <img src={mlabLogo} alt="MLab Logo" style={styles.logoImg} />
           <h2 style={styles.logo}>MLab</h2>
         </div>
-        <button onClick={onLogout} style={styles.logoutBtn}>Sair</button>
+        <Button
+          variant="danger-ghost"
+          size="sm"
+          icon={<Exit size={16} />}
+          onClick={onLogout}
+        >
+          Sair
+        </Button>
       </header>
 
       <main style={styles.content}>
-        <div style={styles.card}>
-          <h3 style={styles.cardTitle}>Criar Nova Sala de Aula</h3>
-          <p style={styles.cardSubtitle}>Inicie uma transmissao para sua turma de alunos</p>
-
-          {error && <div style={styles.errorAlert}>{error}</div>}
+        <Card
+          title="Criar Nova Sala de Aula"
+          subtitle="Inicie uma transmissão para sua turma de alunos"
+          style={{ width: '100%', maxWidth: '520px' }}
+        >
+          {error && (
+            <div style={{ marginBottom: '20px' }}>
+              <Alert variant="error" message={error} onClose={() => setError(null)} />
+            </div>
+          )}
 
           {!currentRoom ? (
             <form onSubmit={handleCreateRoom} style={styles.form}>
-              <div style={styles.inputGroup}>
-                <label htmlFor="roomTitle" style={styles.label}>Titulo / Disciplina</label>
-                <input
-                  id="roomTitle"
-                  type="text"
-                  value={title}
-                  onChange={(e) => setTitle(e.target.value)}
-                  placeholder="Ex: Algoritmos - Turma 04"
-                  style={styles.input}
-                  required
-                />
-              </div>
-              <button type="submit" disabled={loading} style={styles.createBtn}>
+              <TextInput
+                id="roomTitle"
+                label="Titulo / Disciplina"
+                type="text"
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+                placeholder="Ex: Algoritmos - Turma 04"
+                required
+              />
+              <Button
+                type="submit"
+                variant="primary"
+                size="lg"
+                fullWidth
+                loading={loading}
+                icon={<Play size={18} />}
+              >
                 {loading ? 'Criando Sala...' : 'Criar Sala e Gerar Link'}
-              </button>
+              </Button>
             </form>
           ) : (
             <div style={styles.roomActiveBox}>
-              <div style={styles.statusBadge}>
-                <span style={styles.statusDot}></span> Estado: Waiting (Aguardando inicio)
-              </div>
-              <p style={styles.infoLabel}>Link de Acesso dos Alunos:</p>
-              <div style={styles.linkBox}>
-                <input type="text" readOnly value={currentRoom.link} style={styles.linkInput} />
-                <button onClick={handleCopyLink} style={styles.copyBtn}>
-                  {copied ? 'Copiado!' : 'Copiar Link'}
-                </button>
+              <div>
+                <StatusBadge
+                  status="waiting"
+                  label="Estado: Waiting (Aguardando inicio)"
+                />
               </div>
 
-              <button
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                <span style={{ fontSize: '13px', color: colors.textSecondary, fontFamily: typography.fontFamily }}>
+                  Link de Acesso dos Alunos:
+                </span>
+                <div style={{ display: 'flex', gap: '10px' }}>
+                  <TextInput
+                    readOnly
+                    value={currentRoom.link}
+                    style={{ flex: 1 }}
+                  />
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    size="md"
+                    onClick={handleCopyLink}
+                    icon={copied ? <Checkmark size={16} /> : <Copy size={16} />}
+                  >
+                    {copied ? 'Copiado!' : 'Copiar Link'}
+                  </Button>
+                </div>
+              </div>
+
+              <Button
+                type="button"
+                variant="success"
+                size="lg"
+                fullWidth
                 onClick={() => onEnterRoom(currentRoom)}
-                style={styles.startTransBtn}
+                icon={<Play size={20} />}
+                style={{ marginTop: '12px' }}
               >
                 Abrir Sala de Transmissão
-              </button>
+              </Button>
             </div>
           )}
-        </div>
+        </Card>
       </main>
     </div>
   );
@@ -127,17 +179,17 @@ export const Dashboard: React.FC<DashboardProps> = ({ onEnterRoom, onLogout }) =
 const styles: { [key: string]: React.CSSProperties } = {
   container: {
     minHeight: '100vh',
-    backgroundColor: '#0f172a',
-    color: '#f8fafc',
-    fontFamily: 'Inter, system-ui, sans-serif',
+    backgroundColor: colors.bgBase,
+    color: colors.textPrimary,
+    fontFamily: typography.fontFamily,
   },
   topbar: {
     display: 'flex',
     justifyContent: 'space-between',
     alignItems: 'center',
     padding: '12px 32px',
-    borderBottom: '1px solid #1e293b',
-    backgroundColor: '#1e293b',
+    borderBottom: `1px solid ${colors.surfaceCardSolid}`,
+    backgroundColor: colors.surfaceCardSolid,
   },
   logoBox: {
     display: 'flex',
@@ -152,143 +204,22 @@ const styles: { [key: string]: React.CSSProperties } = {
   logo: {
     fontSize: '20px',
     fontWeight: '700',
-    color: '#38bdf8',
+    color: colors.accent,
     margin: 0,
-  },
-  logoutBtn: {
-    padding: '8px 16px',
-    borderRadius: '6px',
-    border: '1px solid #475569',
-    backgroundColor: 'transparent',
-    color: '#94a3b8',
-    cursor: 'pointer',
-    fontSize: '13px',
   },
   content: {
     padding: '40px 20px',
     display: 'flex',
     justifyContent: 'center',
   },
-  card: {
-    width: '100%',
-    maxWidth: '520px',
-    backgroundColor: 'rgba(30, 41, 59, 0.8)',
-    border: '1px solid rgba(255, 255, 255, 0.1)',
-    borderRadius: '16px',
-    padding: '32px',
-  },
-  cardTitle: {
-    fontSize: '20px',
-    fontWeight: '700',
-    marginBottom: '6px',
-    color: '#f8fafc',
-  },
-  cardSubtitle: {
-    fontSize: '14px',
-    color: '#94a3b8',
-    marginBottom: '24px',
-  },
-  errorAlert: {
-    backgroundColor: 'rgba(239, 68, 68, 0.15)',
-    border: '1px solid #ef4444',
-    color: '#fca5a5',
-    padding: '12px',
-    borderRadius: '8px',
-    fontSize: '13px',
-    marginBottom: '20px',
-  },
   form: {
     display: 'flex',
     flexDirection: 'column',
     gap: '20px',
   },
-  inputGroup: {
-    display: 'flex',
-    flexDirection: 'column',
-    gap: '6px',
-  },
-  label: {
-    fontSize: '13px',
-    color: '#cbd5e1',
-  },
-  input: {
-    padding: '12px',
-    borderRadius: '8px',
-    border: '1px solid #334155',
-    backgroundColor: '#0f172a',
-    color: '#f8fafc',
-    fontSize: '14px',
-    outline: 'none',
-  },
-  createBtn: {
-    padding: '14px',
-    borderRadius: '8px',
-    border: 'none',
-    backgroundColor: '#0284c7',
-    color: '#fff',
-    fontSize: '15px',
-    fontWeight: '600',
-    cursor: 'pointer',
-  },
   roomActiveBox: {
     display: 'flex',
     flexDirection: 'column',
-    gap: '16px',
-  },
-  statusBadge: {
-    display: 'inline-flex',
-    alignItems: 'center',
-    gap: '8px',
-    padding: '8px 12px',
-    borderRadius: '20px',
-    backgroundColor: 'rgba(234, 179, 8, 0.15)',
-    border: '1px solid #eab308',
-    color: '#fde047',
-    fontSize: '13px',
-    width: 'fit-content',
-  },
-  statusDot: {
-    width: '8px',
-    height: '8px',
-    borderRadius: '50%',
-    backgroundColor: '#eab308',
-  },
-  infoLabel: {
-    fontSize: '13px',
-    color: '#cbd5e1',
-  },
-  linkBox: {
-    display: 'flex',
-    gap: '10px',
-  },
-  linkInput: {
-    flex: 1,
-    padding: '10px 12px',
-    borderRadius: '8px',
-    border: '1px solid #334155',
-    backgroundColor: '#0f172a',
-    color: '#f8fafc',
-    fontSize: '13px',
-  },
-  copyBtn: {
-    padding: '10px 16px',
-    borderRadius: '8px',
-    border: '1px solid #38bdf8',
-    backgroundColor: 'transparent',
-    color: '#38bdf8',
-    cursor: 'pointer',
-    fontSize: '13px',
-    fontWeight: '600',
-  },
-  startTransBtn: {
-    marginTop: '12px',
-    padding: '14px',
-    borderRadius: '8px',
-    border: 'none',
-    backgroundColor: '#16a34a',
-    color: '#fff',
-    fontSize: '15px',
-    fontWeight: '600',
-    cursor: 'pointer',
+    gap: '18px',
   },
 };

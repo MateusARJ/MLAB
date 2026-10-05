@@ -1,5 +1,21 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import mlabLogo from '../assets/MLAB-logo.png';
+import {
+  Button,
+  StatusBadge,
+  Alert,
+  Security,
+  Microphone,
+  Screen,
+  Checkmark,
+  Close,
+  Renew,
+  Exit,
+  Idea,
+  colors,
+  radii,
+  typography,
+} from '@mlab/ui';
 
 interface PermissionsProps {
   onPermissionsGranted: () => void;
@@ -128,15 +144,22 @@ export const Permissions: React.FC<PermissionsProps> = ({
           <img src={mlabLogo} alt="MLab Logo" style={styles.logoImg} />
           <h2 style={styles.logo}>MLab</h2>
         </div>
-        <button onClick={onLogout} style={styles.logoutBtn}>
+        <Button
+          variant="danger-ghost"
+          size="sm"
+          icon={<Exit size={16} />}
+          onClick={onLogout}
+        >
           Sair
-        </button>
+        </Button>
       </header>
 
       <main style={styles.content}>
         <div style={styles.card}>
           <div style={styles.header}>
-            <div style={styles.shieldIcon}>🛡️</div>
+            <div style={styles.shieldIcon}>
+              <Security size={44} style={{ color: colors.accent }} />
+            </div>
             <h1 style={styles.title}>Permissões do Sistema Operacional</h1>
             <p style={styles.subtitle}>
               Para transmitir sua aula em tempo real e habilitar a gravação com alta fidelidade, o MLab necessita de autorização do seu computador para capturar a tela e o microfone.
@@ -144,8 +167,8 @@ export const Permissions: React.FC<PermissionsProps> = ({
           </div>
 
           {errorMsg && (
-            <div style={styles.alertBox}>
-              ⚠️ {errorMsg}
+            <div style={{ marginBottom: '20px' }}>
+              <Alert variant="error" message={errorMsg} onClose={() => setErrorMsg(null)} />
             </div>
           )}
 
@@ -157,39 +180,23 @@ export const Permissions: React.FC<PermissionsProps> = ({
                 ...styles.permItem,
                 borderColor:
                   micStatus === 'granted'
-                    ? '#10b981'
+                    ? colors.success
                     : micStatus === 'denied'
-                    ? '#ef4444'
-                    : '#334155',
+                    ? colors.danger
+                    : colors.borderStrong,
               }}
             >
-              <div style={styles.permIconBox}>🎙️</div>
+              <div style={styles.permIconBox}>
+                <Microphone size={24} style={{ color: colors.accent }} />
+              </div>
               <div style={styles.permInfo}>
                 <div style={styles.permHeaderRow}>
                   <h3 style={styles.permTitle}>Acesso ao Microfone</h3>
-                  <span
-                    style={{
-                      ...styles.badge,
-                      backgroundColor:
-                        micStatus === 'granted'
-                          ? 'rgba(16, 185, 129, 0.15)'
-                          : micStatus === 'denied'
-                          ? 'rgba(239, 68, 68, 0.15)'
-                          : 'rgba(245, 158, 11, 0.15)',
-                      color:
-                        micStatus === 'granted'
-                          ? '#34d399'
-                          : micStatus === 'denied'
-                          ? '#f87171'
-                          : '#fbbf24',
-                    }}
-                  >
-                    {micStatus === 'granted'
-                      ? '✓ Concedido'
-                      : micStatus === 'denied'
-                      ? '✕ Negado no SO'
-                      : '⏳ Pendente'}
-                  </span>
+                  <StatusBadge
+                    status={micStatus === 'granted' ? 'live' : micStatus === 'denied' ? 'error' : 'waiting'}
+                    label={micStatus === 'granted' ? 'Concedido' : micStatus === 'denied' ? 'Negado no SO' : 'Pendente'}
+                    icon={micStatus === 'granted' ? <Checkmark size={14} /> : micStatus === 'denied' ? <Close size={14} /> : <Renew size={14} />}
+                  />
                 </div>
                 <p style={styles.permDesc}>
                   Permite aos alunos ouvirem sua explicação ao vivo e grava o áudio da aula com cancelamento de ruído e eco.
@@ -203,39 +210,23 @@ export const Permissions: React.FC<PermissionsProps> = ({
                 ...styles.permItem,
                 borderColor:
                   screenStatus === 'granted'
-                    ? '#10b981'
+                    ? colors.success
                     : screenStatus === 'denied'
-                    ? '#ef4444'
-                    : '#334155',
+                    ? colors.danger
+                    : colors.borderStrong,
               }}
             >
-              <div style={styles.permIconBox}>🖥️</div>
+              <div style={styles.permIconBox}>
+                <Screen size={24} style={{ color: colors.accent }} />
+              </div>
               <div style={styles.permInfo}>
                 <div style={styles.permHeaderRow}>
                   <h3 style={styles.permTitle}>Transmissão e Gravação de Tela</h3>
-                  <span
-                    style={{
-                      ...styles.badge,
-                      backgroundColor:
-                        screenStatus === 'granted'
-                          ? 'rgba(16, 185, 129, 0.15)'
-                          : screenStatus === 'denied'
-                          ? 'rgba(239, 68, 68, 0.15)'
-                          : 'rgba(245, 158, 11, 0.15)',
-                      color:
-                        screenStatus === 'granted'
-                          ? '#34d399'
-                          : screenStatus === 'denied'
-                          ? '#f87171'
-                          : '#fbbf24',
-                    }}
-                  >
-                    {screenStatus === 'granted'
-                      ? '✓ Concedido'
-                      : screenStatus === 'denied'
-                      ? '✕ Negado no SO'
-                      : '⏳ Pendente'}
-                  </span>
+                  <StatusBadge
+                    status={screenStatus === 'granted' ? 'live' : screenStatus === 'denied' ? 'error' : 'waiting'}
+                    label={screenStatus === 'granted' ? 'Concedido' : screenStatus === 'denied' ? 'Negado no SO' : 'Pendente'}
+                    icon={screenStatus === 'granted' ? <Checkmark size={14} /> : screenStatus === 'denied' ? <Close size={14} /> : <Renew size={14} />}
+                  />
                 </div>
                 <p style={styles.permDesc}>
                   Permite transmitir e gravar o monitor completo ou abas/janelas específicas de apresentações e códigos.
@@ -247,27 +238,39 @@ export const Permissions: React.FC<PermissionsProps> = ({
           {/* Ações */}
           <div style={styles.actions}>
             {!isAllGranted ? (
-              <button
+              <Button
+                variant="primary"
+                size="lg"
+                fullWidth
                 onClick={handleRequestPermissions}
-                disabled={requesting}
-                style={styles.requestBtn}
+                loading={requesting}
+                icon={<Security size={18} />}
               >
-                {requesting ? 'Solicitando ao Sistema...' : '🛡️ Conceder Permissões no Sistema'}
-              </button>
+                {requesting ? 'Solicitando ao Sistema...' : 'Conceder Permissões no Sistema'}
+              </Button>
             ) : (
-              <button
+              <Button
+                variant="success"
+                size="lg"
+                fullWidth
                 onClick={onPermissionsGranted}
-                style={styles.continueBtn}
               >
                 Continuar para o Painel de Salas →
-              </button>
+              </Button>
             )}
 
             <button
               onClick={() => setShowHelp(!showHelp)}
               style={styles.helpToggleBtn}
             >
-              {showHelp ? 'Ocultar orientações do Windows' : '❓ Como habilitar permissões nas Configurações do Windows'}
+              {showHelp ? (
+                'Ocultar orientações do Windows'
+              ) : (
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                  <Idea size={16} />
+                  <span>Como habilitar permissões nas Configurações do Windows</span>
+                </span>
+              )}
             </button>
           </div>
 
@@ -293,9 +296,9 @@ export const Permissions: React.FC<PermissionsProps> = ({
 const styles: { [key: string]: React.CSSProperties } = {
   container: {
     minHeight: '100vh',
-    backgroundColor: '#0f172a',
-    color: '#f8fafc',
-    fontFamily: 'Inter, system-ui, sans-serif',
+    backgroundColor: colors.bgBase,
+    color: colors.textPrimary,
+    fontFamily: typography.fontFamily,
     display: 'flex',
     flexDirection: 'column',
   },
@@ -304,8 +307,8 @@ const styles: { [key: string]: React.CSSProperties } = {
     justifyContent: 'space-between',
     alignItems: 'center',
     padding: '16px 32px',
-    borderBottom: '1px solid #1e293b',
-    backgroundColor: '#0f172a',
+    borderBottom: `1px solid ${colors.surfaceCardSolid}`,
+    backgroundColor: colors.bgBase,
   },
   logoBox: {
     display: 'flex',
@@ -320,18 +323,8 @@ const styles: { [key: string]: React.CSSProperties } = {
   logo: {
     fontSize: '20px',
     fontWeight: '700',
-    color: '#38bdf8',
+    color: colors.accent,
     margin: 0,
-  },
-  logoutBtn: {
-    backgroundColor: 'transparent',
-    border: '1px solid #334155',
-    color: '#94a3b8',
-    padding: '8px 16px',
-    borderRadius: '6px',
-    cursor: 'pointer',
-    fontSize: '14px',
-    transition: 'all 0.2s',
   },
   content: {
     flex: 1,
@@ -343,40 +336,35 @@ const styles: { [key: string]: React.CSSProperties } = {
   card: {
     width: '100%',
     maxWidth: '680px',
-    backgroundColor: 'rgba(30, 41, 59, 0.85)',
-    backdropFilter: 'blur(12px)',
-    border: '1px solid rgba(255, 255, 255, 0.1)',
-    borderRadius: '16px',
+    backgroundColor: colors.surfaceCard,
+    backdropFilter: 'blur(16px)',
+    border: `1px solid ${colors.borderSubtle}`,
+    borderRadius: radii.lg,
     padding: '36px 32px',
     boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.5)',
+    boxSizing: 'border-box',
   },
   header: {
     textAlign: 'center',
     marginBottom: '28px',
   },
   shieldIcon: {
-    fontSize: '44px',
+    display: 'flex',
+    justifyContent: 'center',
     marginBottom: '10px',
   },
   title: {
     fontSize: '24px',
     fontWeight: '700',
-    color: '#f8fafc',
+    color: colors.textPrimary,
     marginBottom: '10px',
+    margin: '0 0 10px 0',
   },
   subtitle: {
     fontSize: '14px',
-    color: '#94a3b8',
+    color: colors.textMuted,
     lineHeight: '1.6',
-  },
-  alertBox: {
-    backgroundColor: 'rgba(239, 68, 68, 0.15)',
-    border: '1px solid #ef4444',
-    color: '#fca5a5',
-    padding: '12px 16px',
-    borderRadius: '8px',
-    fontSize: '13px',
-    marginBottom: '20px',
+    margin: 0,
   },
   permList: {
     display: 'flex',
@@ -388,19 +376,19 @@ const styles: { [key: string]: React.CSSProperties } = {
     display: 'flex',
     gap: '16px',
     padding: '16px',
-    backgroundColor: '#0f172a',
+    backgroundColor: colors.bgBase,
     borderRadius: '12px',
-    border: '1px solid #334155',
+    border: `1px solid ${colors.borderStrong}`,
     transition: 'border-color 0.2s',
+    boxSizing: 'border-box',
   },
   permIconBox: {
-    fontSize: '28px',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
     width: '48px',
     height: '48px',
-    backgroundColor: '#1e293b',
+    backgroundColor: colors.surfaceCardSolid,
     borderRadius: '10px',
     flexShrink: 0,
   },
@@ -416,18 +404,12 @@ const styles: { [key: string]: React.CSSProperties } = {
   permTitle: {
     fontSize: '16px',
     fontWeight: '600',
-    color: '#f8fafc',
+    color: colors.textPrimary,
     margin: 0,
-  },
-  badge: {
-    padding: '4px 10px',
-    borderRadius: '9999px',
-    fontSize: '12px',
-    fontWeight: '600',
   },
   permDesc: {
     fontSize: '13px',
-    color: '#94a3b8',
+    color: colors.textMuted,
     margin: 0,
     lineHeight: '1.4',
   },
@@ -436,50 +418,31 @@ const styles: { [key: string]: React.CSSProperties } = {
     flexDirection: 'column',
     gap: '12px',
   },
-  requestBtn: {
-    backgroundColor: '#0284c7',
-    color: '#ffffff',
-    border: 'none',
-    padding: '14px 20px',
-    borderRadius: '8px',
-    fontSize: '15px',
-    fontWeight: '600',
-    cursor: 'pointer',
-    transition: 'background-color 0.2s',
-  },
-  continueBtn: {
-    backgroundColor: '#10b981',
-    color: '#ffffff',
-    border: 'none',
-    padding: '14px 20px',
-    borderRadius: '8px',
-    fontSize: '15px',
-    fontWeight: '600',
-    cursor: 'pointer',
-    transition: 'background-color 0.2s',
-  },
   helpToggleBtn: {
     background: 'none',
     border: 'none',
-    color: '#38bdf8',
+    color: colors.accent,
     fontSize: '13px',
     cursor: 'pointer',
     textDecoration: 'underline',
     padding: '6px',
     textAlign: 'center',
+    display: 'inline-flex',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   helpBox: {
     marginTop: '16px',
-    backgroundColor: '#0f172a',
-    border: '1px solid #334155',
-    borderRadius: '8px',
+    backgroundColor: colors.bgBase,
+    border: `1px solid ${colors.borderStrong}`,
+    borderRadius: radii.md,
     padding: '16px',
     fontSize: '13px',
-    color: '#cbd5e1',
+    color: colors.textSecondary,
   },
   helpTitle: {
     margin: '0 0 10px 0',
-    color: '#38bdf8',
+    color: colors.accent,
     fontSize: '14px',
     fontWeight: '600',
   },

@@ -1,6 +1,6 @@
 {
   "name": "@mlab/desktop",
-  "version": "1.5.1",
+  "version": "1.5.3",
   "description": "MLab - App Desktop do Professor",
   "homepage": "https://mlab.com",
   "author": {
@@ -36,7 +36,8 @@
     "clean": "rm -rf out dist"
   },
   "dependencies": {
-    "@mlab/types": "*"
+    "@mlab/types": "*",
+    "@mlab/ui": "*"
   },
   "devDependencies": {
     "@testing-library/jest-dom": "^6.4.8",

@@ -15,7 +15,7 @@ export interface UseWebRTCPublisherProps {
 export function enforceHighBitrateSDP(
   sdp: string,
   bitrateKbps: number = 4000,
-  maxFramerate: number = 30
+  _maxFramerate: number = 30
 ): string {
   // Concede headroom de burst dinâmico para cenas complexas com alta variação de cores/partículas
   const burstBitrateKbps = Math.max(bitrateKbps * 1.5, bitrateKbps + 2000);
