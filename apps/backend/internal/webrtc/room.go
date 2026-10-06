@@ -209,8 +209,19 @@ func (r *Room) createSubscriberOffer(subscriberID, publisherID string) (string, 
 			go func() {
 				rtcpBuf := make([]byte, 1500)
 				for {
-					if _, _, rtcpErr := sender.Read(rtcpBuf); rtcpErr != nil {
+					n, _, rtcpErr := sender.Read(rtcpBuf)
+					if rtcpErr != nil {
 						return
+					}
+					packets, err := rtcp.Unmarshal(rtcpBuf[:n])
+					if err != nil {
+						continue
+					}
+					for _, pkt := range packets {
+						switch pkt.(type) {
+						case *rtcp.PictureLossIndication, *rtcp.FullIntraRequest:
+							r.RequestKeyFrame()
+						}
 					}
 				}
 			}()
@@ -282,7 +293,7 @@ func (r *Room) handleSubscriberAnswer(subscriberID, sdp string) error {
 
 func (r *Room) startLivenessKeyFrameTicker() {
 	go func() {
-		ticker := time.NewTicker(8 * time.Second)
+		ticker := time.NewTicker(3 * time.Second)
 		defer ticker.Stop()
 		for {
 			select {
@@ -303,7 +314,7 @@ func (r *Room) startLivenessKeyFrameTicker() {
 
 func (r *Room) requestKeyFrameLocked() {
 	now := time.Now()
-	cooldown := 1200 * time.Millisecond
+	cooldown := 350 * time.Millisecond
 
 	if !r.lastPLI.IsZero() && now.Sub(r.lastPLI) < cooldown {
 		// Se já houve um PLI recente, agenda para o término do cooldown para não perder o IDR do novo assinante
@@ -329,7 +340,7 @@ func (r *Room) sendPLILocked() {
 		_ = r.publisherPC.WriteRTCP([]rtcp.Packet{
 			&rtcp.PictureLossIndication{MediaSSRC: r.publisherVideoSSRC},
 			&rtcp.ReceiverEstimatedMaximumBitrate{
-				Bitrate: 8_000_000, // REMB amplo de até 8 Mbps para dar vazão plena a 1080p 60fps sem estrangulamento
+				Bitrate: 10_000_000, // REMB amplo de até 10 Mbps para dar vazão plena a 1080p 60fps sem estrangulamento
 				SSRCs:   []uint32{r.publisherVideoSSRC},
 			},
 		})

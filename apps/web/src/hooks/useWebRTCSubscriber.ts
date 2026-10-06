@@ -3,7 +3,9 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 export function useWebRTCSubscriber(token: string, roomInfo: { room_id: string; ws_url: string; ice_servers: any[] }) {
   const [stream, setStream] = useState<MediaStream | null>(null);
   const [autoplayBlocked, setAutoplayBlocked] = useState(false);
-  const [connectionStatus, setConnectionStatus] = useState<'connecting' | 'connected' | 'reconnecting' | 'closed'>('connecting');
+  const [connectionStatus, setConnectionStatus] = useState<
+    'connecting' | 'connected' | 'reconnecting' | 'closed' | 'publishing' | 'waiting'
+  >('connecting');
   const [isStreamPaused, setIsStreamPaused] = useState<boolean>(false);
   const [sharedFiles, setSharedFiles] = useState<any[]>([]);
   const [messages, setMessages] = useState<any[]>([]);
@@ -330,6 +332,12 @@ export function useWebRTCSubscriber(token: string, roomInfo: { room_id: string; 
     }
   }, []);
 
+  const requestKeyframe = useCallback(() => {
+    if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+      wsRef.current.send(JSON.stringify({ type: 'request-keyframe', payload: {} }));
+    }
+  }, []);
+
   return {
     stream,
     autoplayBlocked,
@@ -339,5 +347,6 @@ export function useWebRTCSubscriber(token: string, roomInfo: { room_id: string; 
     sharedFiles,
     messages,
     sendChatMessage,
+    requestKeyframe,
   };
 }

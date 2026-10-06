@@ -69,7 +69,7 @@ describe('Room Component (Web Subscriber)', () => {
   it('deve alternar a visibilidade do chat ao clicar no botão de toggle', () => {
     render(<Room token={dummyToken} roomInfo={dummyRoomInfo} onLeave={vi.fn()} />);
 
-    const chatToggleBtn = screen.getByRole('button', { name: /Chat/i });
+    const chatToggleBtn = screen.getByRole('button', { name: /^Chat$/i });
     expect(chatToggleBtn).toBeInTheDocument();
 
     // Fecha o chat
@@ -91,8 +91,8 @@ describe('Room Component (Web Subscriber)', () => {
     render(<Room token={dummyToken} roomInfo={dummyRoomInfo} onLeave={vi.fn()} />);
 
     // Na visualização mobile com chat aberto, devem existir as abas Chat e Arquivos
-    expect(screen.getByRole('button', { name: /💬 Chat/i })).toBeInTheDocument();
-    const filesTab = screen.getByRole('button', { name: /📁 Arquivos/i });
+    expect(screen.getByRole('button', { name: /^Chat$/i })).toBeInTheDocument();
+    const filesTab = screen.getByRole('button', { name: /^Arquivos$/i });
     expect(filesTab).toBeInTheDocument();
 
     // Clicar na aba de Arquivos
@@ -300,8 +300,8 @@ describe('Room Component (Web Subscriber)', () => {
     fireEvent.click(chatBtn);
 
     // Deve abrir a gaveta mobile com as abas de alternância
-    expect(screen.getByRole('button', { name: /^💬 Chat$/i })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /^📁 Arquivos$/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /^Chat$/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /^Arquivos$/i })).toBeInTheDocument();
   });
 
   it('deve acionar pseudo-fullscreen visual quando a Fullscreen API nativa não for suportada (ex: iOS Safari)', () => {

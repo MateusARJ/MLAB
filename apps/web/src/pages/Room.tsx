@@ -1,3 +1,15 @@
+import {
+  Chat,
+  Folder,
+  Popup,
+  Maximize,
+  Exit,
+  Close,
+  Locked,
+  Attachment,
+  Download,
+  Renew,
+} from '@mlab/ui';
 import React, { useRef, useEffect, useState } from 'react';
 import { useWebRTCSubscriber } from '../hooks/useWebRTCSubscriber';
 
@@ -65,6 +77,7 @@ export const Room: React.FC<RoomProps> = ({ token, roomInfo, onLeave }) => {
     sharedFiles = [],
     messages = [],
     sendChatMessage,
+    requestKeyframe,
   } = useWebRTCSubscriber(token, roomInfo);
 
   // Quando o professor encerra a transmissão (connectionStatus === 'closed'), redireciona de volta para a tela de credenciais
@@ -219,7 +232,15 @@ export const Room: React.FC<RoomProps> = ({ token, roomInfo, onLeave }) => {
       }
     };
 
+    const handleStalled = () => {
+      if (typeof requestKeyframe === 'function') {
+        requestKeyframe();
+      }
+    };
+
     videoEl.addEventListener('resize', handleResize);
+    videoEl.addEventListener('stalled', handleStalled);
+    videoEl.addEventListener('waiting', handleStalled);
 
     const videoTracks = typeof stream.getVideoTracks === 'function' ? stream.getVideoTracks() : [];
     videoTracks.forEach((t) => {
@@ -244,9 +265,41 @@ export const Room: React.FC<RoomProps> = ({ token, roomInfo, onLeave }) => {
       if (videoEl) {
         videoEl.onloadedmetadata = null;
         videoEl.removeEventListener('resize', handleResize);
+        videoEl.removeEventListener('stalled', handleStalled);
+        videoEl.removeEventListener('waiting', handleStalled);
       }
     };
-  }, [stream]);
+  }, [stream, requestKeyframe]);
+
+  // Watchdog de desengasgo e descongelação de tela (destrava transmissões com picos de cores/partículas)
+  useEffect(() => {
+    if (!stream || isStreamPaused || connectionStatus !== 'connected') return;
+
+    let lastTime = -1;
+    let freezeCount = 0;
+
+    const interval = setInterval(() => {
+      const videoEl = videoRef.current;
+      if (!videoEl || videoEl.paused || videoEl.ended) return;
+
+      const currentTime = videoEl.currentTime;
+      if (currentTime === lastTime && currentTime > 0) {
+        freezeCount++;
+        // Se a reprodução estagnar por 2 intervalos (1.6s) mesmo sem pausar, solicita Keyframe imediato ao SFU
+        if (freezeCount >= 2) {
+          if (typeof requestKeyframe === 'function') {
+            requestKeyframe();
+          }
+          freezeCount = 0;
+        }
+      } else {
+        lastTime = currentTime;
+        freezeCount = 0;
+      }
+    }, 800);
+
+    return () => clearInterval(interval);
+  }, [stream, isStreamPaused, connectionStatus, requestKeyframe]);
 
   // Reativa reprodução imediatamente quando o professor despausa a transmissão
   useEffect(() => {
@@ -432,7 +485,7 @@ export const Room: React.FC<RoomProps> = ({ token, roomInfo, onLeave }) => {
               title="Fechar Menu"
               aria-label="Fechar Menu"
             >
-              ✕
+              <Close size={16} />
             </button>
           </div>
 
@@ -460,7 +513,7 @@ export const Room: React.FC<RoomProps> = ({ token, roomInfo, onLeave }) => {
                 style={styles.fullscreenActionButton}
               >
                 <div style={styles.fullscreenActionLeft}>
-                  <span style={styles.fullscreenActionIcon}>💬</span>
+                  <span style={styles.fullscreenActionIcon}><Chat size={18} /></span>
                   <div style={styles.fullscreenActionMeta}>
                     <span style={styles.fullscreenActionTitle}>Chat da Turma</span>
                     <span style={styles.fullscreenActionDesc}>Mensagens públicas e privadas</span>
@@ -485,7 +538,7 @@ export const Room: React.FC<RoomProps> = ({ token, roomInfo, onLeave }) => {
                 style={styles.fullscreenActionButton}
               >
                 <div style={styles.fullscreenActionLeft}>
-                  <span style={styles.fullscreenActionIcon}>📁</span>
+                  <span style={styles.fullscreenActionIcon}><Folder size={18} /></span>
                   <div style={styles.fullscreenActionMeta}>
                     <span style={styles.fullscreenActionTitle}>Arquivos da Aula</span>
                     <span style={styles.fullscreenActionDesc}>Material compartilhado ({sharedFiles.length})</span>
@@ -505,7 +558,7 @@ export const Room: React.FC<RoomProps> = ({ token, roomInfo, onLeave }) => {
                 style={styles.fullscreenActionButton}
               >
                 <div style={styles.fullscreenActionLeft}>
-                  <span style={styles.fullscreenActionIcon}>📺</span>
+                  <span style={styles.fullscreenActionIcon}><Popup size={18} /></span>
                   <div style={styles.fullscreenActionMeta}>
                     <span style={styles.fullscreenActionTitle}>Picture-in-Picture</span>
                     <span style={styles.fullscreenActionDesc}>Assistir em janela flutuante</span>
@@ -522,7 +575,7 @@ export const Room: React.FC<RoomProps> = ({ token, roomInfo, onLeave }) => {
                 style={styles.fullscreenActionButton}
               >
                 <div style={styles.fullscreenActionLeft}>
-                  <span style={styles.fullscreenActionIcon}>⛶</span>
+                  <span style={styles.fullscreenActionIcon}><Maximize size={18} /></span>
                   <div style={styles.fullscreenActionMeta}>
                     <span style={styles.fullscreenActionTitle}>Sair da Tela Cheia</span>
                     <span style={styles.fullscreenActionDesc}>Restaurar visualização normal</span>
@@ -540,7 +593,7 @@ export const Room: React.FC<RoomProps> = ({ token, roomInfo, onLeave }) => {
                 }}
                 style={styles.fullscreenLeaveBtn}
               >
-                🚪 Sair da Sala
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}><Exit size={16} /> Sair da Sala</span>
               </button>
             </div>
           </div>
@@ -587,7 +640,7 @@ export const Room: React.FC<RoomProps> = ({ token, roomInfo, onLeave }) => {
               }}
               title="Arquivos da Aula"
             >
-              📁 {isMobile ? '' : 'Arquivos da aula'}
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}><Folder size={16} /> {isMobile ? '' : 'Arquivos da aula'}</span>
               {sharedFiles.length > 0 && (
                 <span style={styles.filesBadge}>{sharedFiles.length}</span>
               )}
@@ -612,7 +665,7 @@ export const Room: React.FC<RoomProps> = ({ token, roomInfo, onLeave }) => {
               }}
               title={isChatOpen ? 'Recolher Chat' : 'Abrir Chat'}
             >
-              💬 {isMobile ? '' : 'Chat'}
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}><Chat size={16} /> {isMobile ? '' : 'Chat'}</span>
               {unreadCount > 0 && (
                 <span style={styles.unreadBadge}>{unreadCount > 99 ? '99+' : unreadCount}</span>
               )}
@@ -656,7 +709,7 @@ export const Room: React.FC<RoomProps> = ({ token, roomInfo, onLeave }) => {
           {isStreamPaused ? (
             <div style={styles.pausedScreen}>
               <div style={styles.pausedIconWrapper}>
-                <span style={styles.pausedIcon}>⏸️</span>
+                <span style={styles.pausedIcon}><Renew size={36} /></span>
               </div>
               <h3 style={styles.pausedTitle}>Aula Pausada pelo Professor</h3>
               <p style={styles.pausedSub}>
@@ -729,7 +782,7 @@ export const Room: React.FC<RoomProps> = ({ token, roomInfo, onLeave }) => {
                   onClick={handleToggleChat}
                   style={styles.waitingChatBtn}
                 >
-                  💬 Abrir Chat da Aula
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}><Chat size={16} /> Abrir Chat da Aula</span>
                   {unreadCount > 0 && (
                     <span style={styles.unreadBadge}>{unreadCount}</span>
                   )}
@@ -749,7 +802,7 @@ export const Room: React.FC<RoomProps> = ({ token, roomInfo, onLeave }) => {
             }}
           >
             <div style={styles.drawerHeader}>
-              <span style={styles.drawerTitle}>📁 Arquivos da Aula ({sharedFiles.length})</span>
+              <span style={{ ...styles.drawerTitle, display: 'inline-flex', alignItems: 'center', gap: '6px' }}><Folder size={18} /> Arquivos da Aula ({sharedFiles.length})</span>
               <button
                 onClick={() => setIsFilesOpen(false)}
                 style={styles.closeDrawerBtn}
@@ -757,7 +810,7 @@ export const Room: React.FC<RoomProps> = ({ token, roomInfo, onLeave }) => {
                 aria-label="Fechar Arquivos"
                 data-testid="close-files-btn"
               >
-                ✕
+                <Close size={16} />
               </button>
             </div>
             <div style={styles.filesList}>
@@ -768,7 +821,7 @@ export const Room: React.FC<RoomProps> = ({ token, roomInfo, onLeave }) => {
               ) : (
                 sharedFiles.map((file, idx) => (
                   <div key={file.id || idx} style={styles.fileItemCard}>
-                    <div style={styles.fileIconBox}>📄</div>
+                    <div style={styles.fileIconBox}><Attachment size={18} /></div>
                     <div style={styles.fileMeta}>
                       <span style={styles.fileName} title={file.name}>{file.name}</span>
                       <span style={styles.fileSize}>{formatFileSize(file.size)}</span>
@@ -780,7 +833,9 @@ export const Room: React.FC<RoomProps> = ({ token, roomInfo, onLeave }) => {
                       rel="noopener noreferrer"
                       style={styles.downloadBtn}
                     >
-                      ⬇ Baixar
+                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                        <Download size={14} /> Baixar
+                      </span>
                     </a>
                   </div>
                 ))
@@ -821,7 +876,7 @@ export const Room: React.FC<RoomProps> = ({ token, roomInfo, onLeave }) => {
                   onClick={() => setMobileDrawerTab('chat')}
                   style={mobileDrawerTab === 'chat' ? styles.mobileTabActive : styles.mobileTab}
                 >
-                  💬 Chat
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}><Chat size={16} /> Chat</span>
                   {unreadCount > 0 && <span style={styles.unreadBadge}>{unreadCount}</span>}
                 </button>
                 <button
@@ -829,7 +884,7 @@ export const Room: React.FC<RoomProps> = ({ token, roomInfo, onLeave }) => {
                   onClick={() => setMobileDrawerTab('files')}
                   style={mobileDrawerTab === 'files' ? styles.mobileTabActive : styles.mobileTab}
                 >
-                  📁 Arquivos
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}><Folder size={16} /> Arquivos</span>
                   {sharedFiles.length > 0 && <span style={styles.filesBadge}>{sharedFiles.length}</span>}
                 </button>
               </div>
@@ -838,7 +893,7 @@ export const Room: React.FC<RoomProps> = ({ token, roomInfo, onLeave }) => {
                 style={styles.closeChatBtn}
                 title="Fechar"
               >
-                ✕
+                <Close size={16} />
               </button>
             </div>
           ) : (
@@ -849,7 +904,7 @@ export const Room: React.FC<RoomProps> = ({ token, roomInfo, onLeave }) => {
                 style={styles.closeChatBtn}
                 title="Recolher Chat"
               >
-                ✕
+                <Close size={16} />
               </button>
             </div>
           )}
@@ -864,7 +919,7 @@ export const Room: React.FC<RoomProps> = ({ token, roomInfo, onLeave }) => {
                 ) : (
                   sharedFiles.map((file, idx) => (
                     <div key={file.id || idx} style={styles.fileItemCard}>
-                      <div style={styles.fileIconBox}>📄</div>
+                      <div style={styles.fileIconBox}><Attachment size={18} /></div>
                       <div style={styles.fileMeta}>
                         <span style={styles.fileName} title={file.name}>{file.name}</span>
                         <span style={styles.fileSize}>{formatFileSize(file.size)}</span>
@@ -892,14 +947,14 @@ export const Room: React.FC<RoomProps> = ({ token, roomInfo, onLeave }) => {
                   onClick={() => setStudentChatTab('public')}
                   style={studentChatTab === 'public' ? styles.chatSubTabActive : styles.chatSubTab}
                 >
-                  🌐 Turma (Público)
+                  Turma (Público)
                 </button>
                 <button
                   type="button"
                   onClick={() => setStudentChatTab('private')}
                   style={studentChatTab === 'private' ? styles.chatSubTabActivePrivate : styles.chatSubTab}
                 >
-                  🔒 Privado com Professor
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}><Locked size={14} /> Privado com Professor</span>
                   {messages.filter((m) => m.is_private).length > 0 && (
                     <span style={styles.tabBadge}>
                       {messages.filter((m) => m.is_private).length}
@@ -934,7 +989,7 @@ export const Room: React.FC<RoomProps> = ({ token, roomInfo, onLeave }) => {
                                   {' '}[{isSenderStudent ? 'aluno' : 'professor'}]
                                 </small>
                               </span>
-                              <span style={styles.publicBadge}>🌐 TURMA</span>
+                              <span style={styles.publicBadge}>TURMA</span>
                             </div>
                             <p style={styles.msgContent}>{m.content}</p>
                           </div>
@@ -945,7 +1000,7 @@ export const Room: React.FC<RoomProps> = ({ token, roomInfo, onLeave }) => {
 
                   <form onSubmit={handleSendPublicChat} style={styles.chatForm}>
                     <div style={styles.chatTargetBannerPublic}>
-                      🌐 Enviando mensagem pública para <strong>Toda a Turma</strong>
+                      Enviando mensagem pública para <strong>Toda a Turma</strong>
                     </div>
                     <div style={styles.chatInputRow}>
                       <input
@@ -996,7 +1051,7 @@ export const Room: React.FC<RoomProps> = ({ token, roomInfo, onLeave }) => {
                                   {' '}[{isSenderStudent ? 'aluno' : 'professor'}]
                                 </small>
                               </span>
-                              <span style={styles.privateBadge}>🔒 PRIVADO</span>
+                              <span style={styles.privateBadge}><Locked size={12} style={{ verticalAlign: 'middle', marginRight: '4px' }} />PRIVADO</span>
                             </div>
                             <p style={styles.msgContent}>{m.content}</p>
                           </div>
@@ -1007,7 +1062,7 @@ export const Room: React.FC<RoomProps> = ({ token, roomInfo, onLeave }) => {
 
                   <form onSubmit={handleSendPrivateChat} style={styles.chatForm}>
                     <div style={styles.chatTargetBanner}>
-                      🔒 Enviando dúvida privada diretamente ao <strong>Professor</strong>
+                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}><Locked size={14} /> Enviando dúvida privada diretamente ao <strong>Professor</strong></span>
                     </div>
                     <div style={styles.chatInputRow}>
                       <input

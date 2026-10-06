@@ -2,6 +2,15 @@ name: Build & Release Multiplataforma (Windows, macOS, Linux)
 
 on:
   workflow_dispatch: # Permite disparar manualmente na aba Actions do GitHub
+    inputs:
+      tag_name:
+        description: 'Tag/Versão da Release (ex: v1.4.8)'
+        required: false
+        default: 'v1.5.0'
+      release_title:
+        description: 'Título da Release'
+        required: false
+        default: 'MLab v1.5.0'
   push:
     branches:
       - master
@@ -85,19 +94,78 @@ jobs:
   release:
     name: Criar GitHub Release
     needs: build
-    if: startsWith(github.ref, 'refs/tags/v')
+    if: success() && (startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch')
     runs-on: ubuntu-latest
     permissions:
       contents: write
     steps:
+      - name: Checkout do código
+        uses: actions/checkout@v4
+
       - name: Download de todos os artefatos
         uses: actions/download-artifact@v4
         with:
           path: dist-release
 
+      - name: Determinar Versão da Release
+        id: release_vars
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ -n "${{ github.event.inputs.tag_name }}" ]; then
+            echo "tag=${{ github.event.inputs.tag_name }}" >> $GITHUB_OUTPUT
+            echo "title=${{ github.event.inputs.release_title }}" >> $GITHUB_OUTPUT
+          elif [[ "${{ github.ref }}" == refs/tags/* ]]; then
+            TAG_NAME="${GITHUB_REF#refs/tags/}"
+            echo "tag=$TAG_NAME" >> $GITHUB_OUTPUT
+            echo "title=MLab $TAG_NAME" >> $GITHUB_OUTPUT
+          else
+            PKG_VER=$(node -p "require('./package.json').version" 2>/dev/null || echo "1.4.8")
+            echo "tag=v$PKG_VER" >> $GITHUB_OUTPUT
+            echo "title=MLab v$PKG_VER" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Preparar Tag Limpa (Ocultar Código-Fonte da Release)
+        run: |
+          TAG="${{ steps.release_vars.outputs.tag }}"
+          
+          # Salva os artefatos compilados fora da árvore git
+          mkdir -p /tmp/mlab-dist-release
+          cp -r dist-release/* /tmp/mlab-dist-release/
+          
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          
+          # Cria um commit órfão limpo sem arquivos de código
+          git checkout --orphan release-clean-tree
+          git rm -rf .
+          
+          cat << 'EOF' > README.md
+          # MLab - Downloads Oficiais da Versão
+
+          Esta release disponibiliza exclusivamente os instaladores executáveis compilados do MLab.
+          Por favor, baixe o instalador correspondente ao seu sistema operacional na seção Assets desta Release abaixo:
+          - Windows: instalador executável (.exe)
+          - Linux: pacote (.AppImage ou .deb)
+          - macOS: pacote (.dmg ou .zip)
+          EOF
+
+          git add README.md
+          git commit -m "release: ${TAG} (distribuicao oficial de binarios)"
+          
+          # Aponta a tag para este commit limpo (zero codigo-fonte)
+          git tag -a "${TAG}" -m "Release ${TAG}" -f
+          git push origin "${TAG}" --force
+          
+          # Restaura os artefatos para upload nos assets
+          mkdir -p dist-release
+          cp -r /tmp/mlab-dist-release/* dist-release/
+
       - name: Publicar Release
         uses: softprops/action-gh-release@v2
         with:
+          tag_name: ${{ steps.release_vars.outputs.tag }}
+          name: ${{ steps.release_vars.outputs.title }}
+          draft: false
+          prerelease: false
           files: |
             dist-release/**/*.exe
             dist-release/**/*.blockmap
