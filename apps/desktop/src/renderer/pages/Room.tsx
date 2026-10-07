@@ -768,7 +768,7 @@ export const Room: React.FC<RoomProps> = ({ room, onCloseRoom }) => {
                   <button
                     type="button"
                     onClick={handleToggleVideoPause}
-                    style={videoPaused ? styles.controlBtnActive : styles.controlBtn}
+                    style={videoPaused ? styles.controlBtnPauseActive : styles.controlBtn}
                   >
                     {videoPaused ? 'Retomar Vídeo' : 'Pausar Vídeo'}
                   </button>
@@ -1764,8 +1764,9 @@ const styles: { [key: string]: React.CSSProperties } = {
   pausedBadge: {
     fontSize: '12px',
     fontWeight: '600',
-    color: '#fbbf24',
-    backgroundColor: 'rgba(251, 191, 36, 0.12)',
+    color: '#38bdf8',
+    backgroundColor: 'rgba(2, 132, 199, 0.15)',
+    border: '1px solid rgba(56, 189, 248, 0.3)',
     padding: '3px 8px',
     borderRadius: '6px',
   },
@@ -1927,12 +1928,12 @@ const styles: { [key: string]: React.CSSProperties } = {
     left: '50%',
     transform: 'translate(-50%, -50%)',
     backgroundColor: 'rgba(15, 23, 42, 0.92)',
-    color: '#fbbf24',
+    color: '#38bdf8',
     fontSize: '16px',
     fontWeight: '700',
     padding: '12px 24px',
     borderRadius: '10px',
-    border: '1px solid rgba(251, 191, 36, 0.5)',
+    border: '1px solid rgba(56, 189, 248, 0.4)',
     boxShadow: '0 8px 30px rgba(0, 0, 0, 0.6)',
     display: 'flex',
     alignItems: 'center',
@@ -1973,6 +1974,19 @@ const styles: { [key: string]: React.CSSProperties } = {
     border: '1px solid #ef4444',
     backgroundColor: 'rgba(239, 68, 68, 0.2)',
     color: '#fca5a5',
+    cursor: 'pointer',
+    fontSize: '13px',
+    fontWeight: '600',
+    display: 'flex',
+    alignItems: 'center',
+    gap: '6px',
+  },
+  controlBtnPauseActive: {
+    padding: '9px 16px',
+    borderRadius: '8px',
+    border: '1px solid #0284c7',
+    backgroundColor: 'rgba(2, 132, 199, 0.2)',
+    color: '#38bdf8',
     cursor: 'pointer',
     fontSize: '13px',
     fontWeight: '600',
