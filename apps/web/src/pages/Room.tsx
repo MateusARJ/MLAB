@@ -9,6 +9,8 @@ import {
   Attachment,
   Download,
   Renew,
+  Touch_1,
+  Touch_1Filled,
 } from '@mlab/ui';
 import React, { useRef, useEffect, useState } from 'react';
 import { useWebRTCSubscriber } from '../hooks/useWebRTCSubscriber';
@@ -78,6 +80,8 @@ export const Room: React.FC<RoomProps> = ({ token, roomInfo, onLeave }) => {
     messages = [],
     sendChatMessage,
     requestKeyframe,
+    isHandRaised = false,
+    toggleHand = () => {},
   } = useWebRTCSubscriber(token, roomInfo);
 
   // Quando o professor encerra a transmissão (connectionStatus === 'closed'), redireciona de volta para a tela de credenciais
@@ -549,6 +553,30 @@ export const Room: React.FC<RoomProps> = ({ token, roomInfo, onLeave }) => {
                 )}
               </button>
 
+              {/* Levantar / Abaixar Mão em Tela Cheia */}
+              <button
+                onClick={() => {
+                  toggleHand();
+                }}
+                style={isHandRaised ? styles.fullscreenActionButtonActive : styles.fullscreenActionButton}
+                title={isHandRaised ? 'Abaixar mão' : 'Levantar mão'}
+                aria-label={isHandRaised ? 'Abaixar mão' : 'Levantar mão'}
+              >
+                <div style={styles.fullscreenActionLeft}>
+                  <span style={styles.fullscreenActionIcon}>
+                    {isHandRaised ? <Touch_1Filled size={18} /> : <Touch_1 size={18} />}
+                  </span>
+                  <div style={styles.fullscreenActionMeta}>
+                    <span style={styles.fullscreenActionTitle}>
+                      {isHandRaised ? 'Mão Levantada (Abaixar)' : 'Levantar Mão'}
+                    </span>
+                    <span style={styles.fullscreenActionDesc}>
+                      {isHandRaised ? 'Cancelar solicitação de dúvida' : 'Avisar o professor que você tem uma dúvida'}
+                    </span>
+                  </div>
+                </div>
+              </button>
+
               {/* Picture-in-Picture */}
               <button
                 onClick={() => {
@@ -730,6 +758,27 @@ export const Room: React.FC<RoomProps> = ({ token, roomInfo, onLeave }) => {
                 muted={autoplayBlocked}
                 style={styles.video}
               />
+              {/* Banner de feedback quando a mão está levantada */}
+              {isHandRaised && (
+                <div style={styles.handRaisedBanner} role="status">
+                  <div style={styles.handRaisedBannerContent}>
+                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}>
+                      <Touch_1Filled size={16} />
+                      <span>Sua mão está levantada. O professor foi notificado.</span>
+                    </span>
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        toggleHand(false);
+                      }}
+                      style={styles.handRaisedLowerBtn}
+                    >
+                      Abaixar Mão
+                    </button>
+                  </div>
+                </div>
+              )}
               {/* Controles sobre o vídeo (ocultados em tela cheia) */}
               {!effectiveFullscreen && (
                 <div
@@ -740,6 +789,21 @@ export const Room: React.FC<RoomProps> = ({ token, roomInfo, onLeave }) => {
                     transition: 'opacity 0.25s ease',
                   }}
                 >
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      toggleHand();
+                    }}
+                    style={isHandRaised ? styles.overlayBtnActive : styles.overlayBtn}
+                    title={isHandRaised ? 'Abaixar mão' : 'Levantar mão'}
+                    aria-label={isHandRaised ? 'Abaixar mão' : 'Levantar mão'}
+                  >
+                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                      {isHandRaised ? <Touch_1Filled size={16} /> : <Touch_1 size={16} />}
+                      {isHandRaised ? 'Mão Levantada (Abaixar)' : 'Levantar Mão'}
+                    </span>
+                  </button>
                   <button
                     type="button"
                     onClick={(e) => {
@@ -1357,6 +1421,54 @@ const styles: { [key: string]: React.CSSProperties } = {
     backdropFilter: 'blur(8px)',
     boxShadow: '0 4px 12px rgba(0, 0, 0, 0.5)',
     transition: 'opacity 0.25s ease, background-color 0.2s',
+  },
+  overlayBtnActive: {
+    padding: '8px 14px',
+    borderRadius: '6px',
+    border: '1px solid #0f62fe',
+    backgroundColor: 'rgba(15, 98, 254, 0.85)',
+    color: '#ffffff',
+    cursor: 'pointer',
+    fontSize: '12px',
+    fontWeight: '600',
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: '6px',
+    backdropFilter: 'blur(8px)',
+    boxShadow: '0 4px 12px rgba(15, 98, 254, 0.4)',
+    transition: 'opacity 0.25s ease, background-color 0.2s',
+  },
+  handRaisedBanner: {
+    position: 'absolute' as const,
+    top: '16px',
+    left: '50%',
+    transform: 'translateX(-50%)',
+    zIndex: 20,
+    backgroundColor: 'rgba(15, 23, 42, 0.92)',
+    border: '1px solid rgba(15, 98, 254, 0.4)',
+    borderRadius: '8px',
+    padding: '8px 16px',
+    boxShadow: '0 4px 16px rgba(0, 0, 0, 0.4)',
+    backdropFilter: 'blur(8px)',
+  },
+  handRaisedBannerContent: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '14px',
+    fontSize: '13px',
+    color: '#f8fafc',
+    fontWeight: '500',
+  },
+  handRaisedLowerBtn: {
+    padding: '4px 10px',
+    borderRadius: '4px',
+    border: '1px solid rgba(255, 255, 255, 0.2)',
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    color: '#ffffff',
+    fontSize: '12px',
+    fontWeight: '600',
+    cursor: 'pointer',
+    transition: 'background-color 0.2s',
   },
   pausedScreen: {
     display: 'flex',
@@ -2006,6 +2118,19 @@ const styles: { [key: string]: React.CSSProperties } = {
     border: '1px solid #334155',
     borderRadius: '8px',
     color: '#f8fafc',
+    cursor: 'pointer',
+    transition: 'all 0.2s ease',
+    textAlign: 'left' as const,
+  },
+  fullscreenActionButtonActive: {
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: '12px 14px',
+    backgroundColor: 'rgba(15, 98, 254, 0.2)',
+    border: '1px solid #0f62fe',
+    borderRadius: '8px',
+    color: '#ffffff',
     cursor: 'pointer',
     transition: 'all 0.2s ease',
     textAlign: 'left' as const,

@@ -2,10 +2,12 @@ import { render, screen, fireEvent } from '@testing-library/react';
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import { Room } from './Room';
 
-const { mockSendChatMessage, mockSubscriberState } = vi.hoisted(() => ({
+const { mockSendChatMessage, mockToggleHand, mockSubscriberState } = vi.hoisted(() => ({
   mockSendChatMessage: vi.fn(),
+  mockToggleHand: vi.fn(),
   mockSubscriberState: {
     connectionStatus: 'connected' as 'connecting' | 'connected' | 'reconnecting' | 'closed',
+    isHandRaised: false,
   },
 }));
 
@@ -22,6 +24,8 @@ vi.mock('../hooks/useWebRTCSubscriber', () => ({
       { sender_name: 'Professor Girafales', sender_role: 'professor', content: 'Sua nota da prova é 10', is_private: true },
     ],
     sendChatMessage: mockSendChatMessage,
+    isHandRaised: mockSubscriberState.isHandRaised,
+    toggleHand: mockToggleHand,
   }),
 }));
 
@@ -29,6 +33,7 @@ describe('Room Component (Web Subscriber)', () => {
   afterEach(() => {
     window.innerWidth = 1024;
     mockSubscriberState.connectionStatus = 'connected';
+    mockSubscriberState.isHandRaised = false;
     fireEvent(window, new Event('resize'));
     try {
       Object.defineProperty(document, 'fullscreenElement', {
@@ -332,6 +337,28 @@ describe('Room Component (Web Subscriber)', () => {
 
     // O header tradicional deve voltar a ser exibido
     expect(container.querySelector('header')).toBeInTheDocument();
+  });
+
+  it('deve exibir o botão de Levantar Mão no player e chamar toggleHand ao clicar', () => {
+    render(<Room token={dummyToken} roomInfo={dummyRoomInfo} onLeave={vi.fn()} />);
+
+    const raiseBtn = screen.getByRole('button', { name: /Levantar Mão/i });
+    expect(raiseBtn).toBeInTheDocument();
+
+    fireEvent.click(raiseBtn);
+    expect(mockToggleHand).toHaveBeenCalled();
+  });
+
+  it('deve exibir banner avisando que a mão está levantada quando isHandRaised for true', () => {
+    mockSubscriberState.isHandRaised = true;
+    render(<Room token={dummyToken} roomInfo={dummyRoomInfo} onLeave={vi.fn()} />);
+
+    expect(screen.getByText(/Sua mão está levantada\. O professor foi notificado\./i)).toBeInTheDocument();
+    const lowerBtns = screen.getAllByRole('button', { name: /Abaixar Mão/i });
+    expect(lowerBtns.length).toBeGreaterThanOrEqual(1);
+
+    fireEvent.click(lowerBtns[0]);
+    expect(mockToggleHand).toHaveBeenCalledWith(false);
   });
 });
 
