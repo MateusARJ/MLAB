@@ -9,6 +9,8 @@ import (
 	"log"
 	"strings"
 	"time"
+
+	"github.com/screenshare/classroom/internal/chat"
 )
 
 const (
@@ -435,7 +437,9 @@ func (h *Hub) onChatMessage(c *Client, msg WsMessage) {
 		}
 	}
 
-	sanitized := html.EscapeString(trimmed)
+	// Máscara de segurança para termos ofensivos / palavrões (chat público e privado)
+	masked := chat.MaskProfanity(trimmed)
+	sanitized := html.EscapeString(masked)
 
 	targetID := p.TargetID
 	if p.IsPrivate && targetID == "" && c.role == RoleAluno {
