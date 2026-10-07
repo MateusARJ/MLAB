@@ -46,4 +46,6 @@ export {
   Education,
   Idea,
   Security,
+  Touch_1,
+  Touch_1Filled,
 } from '@carbon/icons-react';

@@ -16,6 +16,8 @@ const (
 	TypeEndSession       = "end-session"
 	TypeStreamPause      = "stream-pause" // professor envia para pausar/retomar transmissão
 	TypeRequestKeyFrame  = "request-keyframe" // publisher solicita keyframe imediato (ex: após troca de fonte)
+	TypeRaiseHand        = "raise-hand"       // aluno levanta ou abaixa a mão
+	TypeLowerHand        = "lower-hand"       // professor (ou aluno) abaixa a mão
 )
 
 // Mensagens que o servidor envia ao(s) cliente(s).
@@ -33,6 +35,7 @@ const (
 	TypeChatHistory       = "chat-history"       // unicast: histórico de chat público para novo participante
 	TypeFilesHistory      = "files-history"      // unicast: lista de arquivos já compartilhados para novo participante
 	TypeStreamStarted     = "stream-started"     // broadcast: professor iniciou a transmissão e a mídia está pronta
+	TypeHandUpdated       = "hand-updated"       // broadcast: status de mão levantada atualizado
 )
 
 // SessionStatus reflete o estado da sala de transmissão.
@@ -180,6 +183,8 @@ type ParticipantInfo struct {
 	Name          string `json:"name"`
 	StudentID     string `json:"student_id,omitempty"`
 	Role          Role   `json:"role"`
+	HandRaised    bool   `json:"hand_raised"`
+	HandRaisedAt  string `json:"hand_raised_at,omitempty"`
 }
 
 // ParticipantsUpdatePayload envia a lista atualizada de participantes ao professor.
@@ -201,4 +206,23 @@ type FilesHistoryPayload struct {
 // StreamStartedPayload notifica os alunos de que o professor iniciou a transmissão e a mídia está disponível.
 type StreamStartedPayload struct {
 	PublisherID string `json:"publisher_id"`
+}
+
+// RaiseHandPayload é enviado pelo aluno para levantar/abaixar a mão.
+type RaiseHandPayload struct {
+	Raised bool `json:"raised"`
+}
+
+// LowerHandPayload é enviado pelo professor (ou aluno) para abaixar a mão de um aluno.
+type LowerHandPayload struct {
+	ParticipantID string `json:"participant_id,omitempty"`
+}
+
+// HandUpdatedPayload notifica todos os clientes sobre alteração no estado de mão levantada.
+type HandUpdatedPayload struct {
+	ParticipantID string `json:"participant_id"`
+	Name          string `json:"name"`
+	StudentID     string `json:"student_id,omitempty"`
+	Raised        bool   `json:"raised"`
+	RaisedAt      string `json:"raised_at,omitempty"`
 }

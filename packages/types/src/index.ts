@@ -57,6 +57,10 @@ export interface Participant {
   studentId?: string; // obrigatório quando role === 'aluno'
   joinedAt: string;
   leftAt?: string;
+  handRaised?: boolean;
+  handRaisedAt?: string;
+  hand_raised?: boolean;
+  hand_raised_at?: string;
 }
 
 // ── ChatMessage ───────────────────────────────────────────────────────────────
@@ -143,7 +147,30 @@ export type WsMessageType =
   | 'room-closed'
   | 'chat-message'
   | 'ice-servers'
+  | 'raise-hand'
+  | 'lower-hand'
+  | 'hand-updated'
   | 'error';
+
+export interface RaiseHandPayload {
+  raised: boolean;
+}
+
+export interface LowerHandPayload {
+  participantId?: string;
+  participant_id?: string;
+}
+
+export interface HandUpdatedPayload {
+  participantId?: string;
+  participant_id?: string;
+  name: string;
+  studentId?: string;
+  student_id?: string;
+  raised: boolean;
+  raisedAt?: string;
+  raised_at?: string;
+}
 
 export interface WsMessage<T = unknown> {
   type: WsMessageType;

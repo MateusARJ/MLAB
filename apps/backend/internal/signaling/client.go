@@ -30,6 +30,8 @@ type Client struct {
 	role          Role
 	name          string
 	studentID     string // matrícula do aluno (vazio para professor)
+	handRaised    bool   // indica se o aluno está com a mão levantada
+	handRaisedAt  time.Time
 	closeOnce     sync.Once
 }
 
