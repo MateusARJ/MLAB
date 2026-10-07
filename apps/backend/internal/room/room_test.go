@@ -102,7 +102,7 @@ func TestRoomLifecycle(t *testing.T) {
 	}
 
 	// 3. Student 1 Joins via composite path (POST /rooms/{roomSlug}/{profSlug}/join)
-	joinBody := []byte(`{"name": "Aluno 1", "student_id": "RA-101"}`)
+	joinBody := []byte(`{"name": "Aluno 1", "student_id": "2025116TADS0001"}`)
 	joinReq := httptest.NewRequest("POST", "/rooms/"+createResp.Slug+"/join", bytes.NewReader(joinBody))
 	joinRec := httptest.NewRecorder()
 	mux.ServeHTTP(joinRec, joinReq)
@@ -117,7 +117,7 @@ func TestRoomLifecycle(t *testing.T) {
 	}
 
 	// 4. Student 2 Joins (reaches limit 2)
-	joinBody2 := []byte(`{"name": "Aluno 2", "student_id": "RA-102"}`)
+	joinBody2 := []byte(`{"name": "Aluno 2", "student_id": "2025116TADS0002"}`)
 	joinReq2 := httptest.NewRequest("POST", "/rooms/"+roomID+"/join", bytes.NewReader(joinBody2))
 	joinRec2 := httptest.NewRecorder()
 	mux.ServeHTTP(joinRec2, joinReq2)
@@ -126,7 +126,7 @@ func TestRoomLifecycle(t *testing.T) {
 	}
 
 	// 5. Student 3 tries to join -> 429 Too Many Requests
-	joinBody3 := []byte(`{"name": "Aluno 3", "student_id": "RA-103"}`)
+	joinBody3 := []byte(`{"name": "Aluno 3", "student_id": "2025116TADS0003"}`)
 	joinReq3 := httptest.NewRequest("POST", "/rooms/"+roomID+"/join", bytes.NewReader(joinBody3))
 	joinRec3 := httptest.NewRecorder()
 	mux.ServeHTTP(joinRec3, joinReq3)
@@ -170,8 +170,29 @@ func TestJoinValidation(t *testing.T) {
 		t.Errorf("expected 400 Bad Request for empty name and student_id, got %d", rec.Code)
 	}
 
-	// Non-existent room
-	validBody := bytes.NewReader([]byte(`{"name": "Teste", "student_id": "RA-1"}`))
+	// Invalid student_id formats (must contain numbers and up to 4 letters)
+	invalidIDs := []string{
+		"2024091812",       // apenas números
+		"RA-101",           // hífen
+		"2025116ABCDE0001", // 5 letras (excede limite de 4)
+		"TADS20250000",     // letras no início
+		"20250000TADS",     // letras no fim
+		"   ",              // vazio
+	}
+
+	for _, invalidID := range invalidIDs {
+		body := bytes.NewReader([]byte(`{"name": "Aluno Teste", "student_id": "` + invalidID + `"}`))
+		reqInv := httptest.NewRequest("POST", "/rooms/room-123/join", body)
+		recInv := httptest.NewRecorder()
+		mux.ServeHTTP(recInv, reqInv)
+
+		if recInv.Code != http.StatusBadRequest {
+			t.Errorf("expected 400 Bad Request for invalid student_id %q, got %d", invalidID, recInv.Code)
+		}
+	}
+
+	// Non-existent room with valid student_id
+	validBody := bytes.NewReader([]byte(`{"name": "Teste", "student_id": "2025116TADS0000"}`))
 	reqNotFound := httptest.NewRequest("POST", "/rooms/room-does-not-exist/join", validBody)
 	recNotFound := httptest.NewRecorder()
 	mux.ServeHTTP(recNotFound, reqNotFound)

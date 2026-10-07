@@ -8,6 +8,7 @@ import (
 	"net"
 	"net/http"
 	"os"
+	"regexp"
 	"strings"
 	"time"
 
@@ -15,6 +16,9 @@ import (
 )
 
 const defaultMaxParticipants = 50
+
+// studentIDRegex valida que a matrícula contém números e até 4 letras da sigla do curso.
+var studentIDRegex = regexp.MustCompile(`^[0-9]+[A-Za-z]{1,4}[0-9]+$`)
 
 // RoomCloseBroadcasterFunc define a assinatura da função de broadcast para encerramento de sala.
 type RoomCloseBroadcasterFunc func(roomID string)
@@ -381,6 +385,10 @@ func (h *Handler) handleJoin(w http.ResponseWriter, r *http.Request, identifier 
 	req.StudentID = strings.TrimSpace(req.StudentID)
 	if req.Name == "" || req.StudentID == "" {
 		writeError(w, http.StatusBadRequest, "name e student_id são obrigatórios")
+		return
+	}
+	if !studentIDRegex.MatchString(req.StudentID) {
+		writeError(w, http.StatusBadRequest, "matrícula inválida: deve conter números e até 4 letras da sigla do curso (ex: 2025116TADS0000)")
 		return
 	}
 

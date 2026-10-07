@@ -1,5 +1,5 @@
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { Join } from './Join';
 import * as apiService from '../services/api';
@@ -10,6 +10,9 @@ vi.mock('../services/api', () => ({
 }));
 
 describe('Join Component (Web)', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
   it('deve renderizar os campos Nome Completo e Matricula com novo padrao de rota', () => {
     render(
       <MemoryRouter initialEntries={['/algoritmos-turma-04/professor-carlos/entrar']}>
@@ -45,7 +48,7 @@ describe('Join Component (Web)', () => {
       target: { value: 'Carlos Silva' },
     });
     fireEvent.change(screen.getByLabelText(/Matrícula \/ Registro Acadêmico/i), {
-      target: { value: '2024091812' },
+      target: { value: '2025116TADS0000' },
     });
 
     fireEvent.click(screen.getByRole('button', { name: /Assistir à Aula ao Vivo/i }));
@@ -53,7 +56,7 @@ describe('Join Component (Web)', () => {
     await waitFor(() => {
       expect(apiService.joinRoom).toHaveBeenCalledWith('algoritmos-turma-04/professor-carlos', {
         name: 'Carlos Silva',
-        student_id: '2024091812',
+        student_id: '2025116TADS0000',
       });
       expect(handleJoined).toHaveBeenCalled();
     });
@@ -80,7 +83,7 @@ describe('Join Component (Web)', () => {
       target: { value: 'Carlos Silva' },
     });
     fireEvent.change(screen.getByLabelText(/Matrícula \/ Registro Acadêmico/i), {
-      target: { value: '2024091812' },
+      target: { value: '2025116TADS0000' },
     });
 
     fireEvent.click(screen.getByRole('button', { name: /Assistir à Aula ao Vivo/i }));
@@ -88,9 +91,36 @@ describe('Join Component (Web)', () => {
     await waitFor(() => {
       expect(apiService.joinRoom).toHaveBeenCalledWith('charlie-delta-7342', {
         name: 'Carlos Silva',
-        student_id: '2024091812',
+        student_id: '2025116TADS0000',
       });
       expect(handleJoined).toHaveBeenCalled();
+    });
+  });
+
+  it('deve exibir mensagem de erro e bloquear envio com formato de matricula invalido', async () => {
+    const handleJoined = vi.fn();
+
+    render(
+      <MemoryRouter initialEntries={['/algoritmos-turma-04/professor-carlos/entrar']}>
+        <Routes>
+          <Route path="/:roomName/:professorName/entrar" element={<Join onJoined={handleJoined} />} />
+        </Routes>
+      </MemoryRouter>
+    );
+
+    fireEvent.change(screen.getByLabelText(/Nome Completo/i), {
+      target: { value: 'Carlos Silva' },
+    });
+    fireEvent.change(screen.getByLabelText(/Matrícula \/ Registro Acadêmico/i), {
+      target: { value: '2024091812' }, // apenas números, sem sigla do curso
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: /Assistir à Aula ao Vivo/i }));
+
+    await waitFor(() => {
+      expect(screen.getByText(/Matrícula inválida/i)).toBeInTheDocument();
+      expect(apiService.joinRoom).not.toHaveBeenCalled();
+      expect(handleJoined).not.toHaveBeenCalled();
     });
   });
 });
