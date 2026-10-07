@@ -82,50 +82,50 @@ A arquitetura do MLab combina uma aplicação nativa de alta performance para o 
 
 ## Funcionalidades
 
-### ✋ Levantar a Mão com Fila de Chamada (Sem Emojis)
+###  Levantar a Mão com Fila de Chamada 
 - O aluno clica no botão **Levantar Mão** no player de vídeo ou na barra lateral de tela cheia.
 - O professor visualiza uma seção dedicada **Mãos Levantadas** na aba de Alunos, com a contagem exata e a ordem cronológica de chamada (`#1`, `#2`, `#3`), permitindo atender quem levantou a mão primeiro.
 - O professor pode responder diretamente em chat privado ou clicar em **Abaixar Mão**. O próprio aluno também pode abaixar a mão a qualquer momento.
 - Se a barra lateral do professor estiver fechada, um aviso discreto (Toast flutuante) avisa que o aluno levantou a mão com atalho para abrir a turma.
-- **Padrão Visual Estrito:** Toda a funcionalidade foi construída seguindo rigorosamente o **IBM Carbon Design System** (`Touch_1` e `Touch_1Filled`), **sem o uso de nenhum emoji** na interface.
+- **Padrão Visual Estrito:** Toda a funcionalidade foi construída seguindo rigorosamente o **IBM Carbon Design System** (`Touch_1` e `Touch_1Filled`).
 
-### 🌐 Operação 100% Offline e Detecção Inteligente de Rede
+###  Operação 100% Offline e Detecção Inteligente de Rede
 - Funciona perfeitamente em salas de aula sem qualquer conexão externa de internet.
 - O backend conta com um algoritmo inteligente de inspeção de interfaces de rede que **descarta automaticamente adaptadores virtuais** (VMware, VirtualBox, WSL, Hyper-V, Docker, ZeroTier e túneis VPN), identificando com precisão o IPv4 físico real da interface cabeada (Ethernet) ou sem fio (Wi-Fi) da sala.
 - Garante que o link gerado pelo professor funcione na primeira tentativa para todos os computadores dos alunos na rede local.
 
-### 📺 Perfis de Qualidade Full HD 1080p (30 fps e 60 fps)
+###  Perfis de Qualidade Full HD 1080p (30 fps e 60 fps)
 - **1080p @ 30 fps (4.0 Mbps):** Perfil padrão para aulas de programação, leitura de slides e edição de código-fonte. Configurado com `contentHint = 'detail'` e `degradationPreference = 'maintain-resolution'`, garantindo que a resolução nunca seja degradada.
 - **1080p @ 60 fps (6.0 Mbps):** Perfil de alta taxa de quadros para demonstração de animações, desenvolvimento de jogos, renderização 3D e vídeos.
 - Teto de REMB da SFU ampliado para 8 Mbps, garantindo fluidez contínua sem engasgos.
 
-### ⚡ Troca Dinâmica de Fonte sem Quedas (`replaceTrack`)
+###  Troca Dinâmica de Fonte sem Quedas (`replaceTrack`)
 - O professor pode alternar entre "Tela Inteira" e "Janela Específica" (ou trocar de janela) a qualquer momento durante a aula ao vivo.
 - A substituição é realizada a quente via `RTCRtpSender.replaceTrack` e solicitação imediata de Keyframe (RTCP PLI), mantendo a mesma conexão WebRTC ativa, sem congelamentos e sem exigir que os alunos atualizem a página (zero F5).
 
-### 🛡️ Keyframe Controller Não-Destrutivo (Zero Tela Preta)
+###  Keyframe Controller Não-Destrutivo (Zero Tela Preta)
 - Elimina o problema crônico de telas pretas quando novos alunos entram na transmissão.
 - O SFU implementa agendamento inteligente com janela de cooldown (1.2s): solicitações de novos participantes nunca são descartadas e sim disparadas no instante exato de liberação do encoder.
 - Inclui um *liveness ticker* seguro a cada 8 segundos para recuperação automática em caso de oscilações transitórias na rede local.
 
-### 📝 Entrada Identificada com Validação de Matrícula
+###  Entrada Identificada com Validação de Matrícula
 - O aluno se identifica antes de entrar na transmissão informando Nome Completo e Matrícula institucional.
 - **Máscara de Validação Regex:** A matrícula aceita siglas de curso de até 4 letras maiúsculas cercadas de dígitos (ex: `2025116TADS0000`, `20241INFO1234`, `20232ENG0001`), impedindo entradas inválidas ou nomes em branco.
 
-### 💬 Chat com Máscara de Segurança contra Palavrões
+###  Chat com Máscara de Segurança contra Palavrões
 - **Isolamento de Canais:** Separação estrita entre o chat público da turma e o canal confidencial de dúvidas privadas (aluno-professor).
 - **Máscara de Segurança Automática:** Filtro em tempo real no backend Go que detecta palavras inadequadas e ofensivas (incluindo variações leetspeak, repetições de caracteres e acentuações) e substitui o conteúdo por máscara de asteriscos (`****`), preservando a integridade do ambiente acadêmico.
-- **Histórico Persistente:** Alunos que entram atrasados recebem automaticamente o histórico de mensagens trocadas na aula.
+- **Histórico Persistente:** Alunos que entram atrasados recebem automaticamente o histórico de mensagens trocadas na aula. (Limite de 200 mensagens)
 
-### 📁 Compartilhamento de Arquivos na Rede Local
+###  Compartilhamento de Arquivos na Rede Local
 - O professor pode arrastar ou selecionar arquivos de qualquer extensão (PDFs, códigos-fonte, imagens, arquivos zipados) para a transmissão.
 - Os alunos realizam download direto via rede local através da página da aula, sem necessitar de pen-drives ou de internet.
 
-### 🎥 Gravação Local em 1080p com Correção de Duração EBML
+###  Gravação Local em 1080p com Correção de Duração EBML
 - Permite que o professor salve a gravação completa da aula no seu disco rígido em formato WebM 1080p.
 - Injeta dinamicamente metadados EBML (`Duration`) no cabeçalho do arquivo antes do salvamento final, resolvendo a limitação nativa do Chromium e permitindo que o vídeo seja reproduzido com barra de seek e duração correta em qualquer tocador (VLC, Windows Media Player, navegadores).
 
-### 🔇 Supressão de Microfonia e Áudio Anti-Uivo
+###  Supressão de Microfonia e Áudio Anti-Uivo
 - O aplicativo desktop incorpora processamento Web Audio com filtros passa-alta, redução de ganho dinâmico e cancelamento de eco acústico para suprimir microfonia durante a fala do professor no laboratório.
 - Tratamento de Autoplay Policy dos navegadores no cliente do aluno, exibindo banner sutil para desmutar com um clique caso o navegador bloqueie o áudio inicial.
 
