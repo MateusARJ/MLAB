@@ -24,10 +24,10 @@ export const StatusBadge: React.FC<StatusBadgeProps> = ({
       dotColor: '#22c55e',
     },
     paused: {
-      bg: colors.warningSoft,
-      border: colors.warning,
-      color: colors.warningText,
-      dotColor: colors.warning,
+      bg: colors.primarySoft,
+      border: colors.accent,
+      color: colors.accent,
+      dotColor: colors.accent,
     },
     waiting: {
       bg: colors.warningSoft,

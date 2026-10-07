@@ -14,6 +14,7 @@ export * from './StatusBadge';
 export * from './Tabs';
 export * from './Alert';
 export * from './Card';
+export * from './Loading';
 
 // Carbon Icons Re-exports
 export {
