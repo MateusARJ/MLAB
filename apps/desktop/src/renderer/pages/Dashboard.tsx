@@ -20,6 +20,21 @@ interface DashboardProps {
   onLogout: () => void;
 }
 
+const isLanLink = (link?: string): boolean => {
+  if (!link) return false;
+  try {
+    const url = new URL(link.startsWith('http') ? link : `http://${link}`);
+    const host = url.hostname;
+    return (
+      /^10\./.test(host) ||
+      /^192\.168\./.test(host) ||
+      /^172\.(1[6-9]|2[0-9]|3[0-1])\./.test(host)
+    );
+  } catch {
+    return false;
+  }
+};
+
 export const Dashboard: React.FC<DashboardProps> = ({ onEnterRoom, onLogout }) => {
   const [title, setTitle] = useState('');
   const [loading, setLoading] = useState(false);
@@ -136,9 +151,27 @@ export const Dashboard: React.FC<DashboardProps> = ({ onEnterRoom, onLogout }) =
               </div>
 
               <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                <span style={{ fontSize: '13px', color: colors.textSecondary, fontFamily: typography.fontFamily }}>
-                  Link de Acesso dos Alunos:
-                </span>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <span style={{ fontSize: '13px', color: colors.textSecondary, fontFamily: typography.fontFamily }}>
+                    Link de Acesso dos Alunos:
+                  </span>
+                  {isLanLink(currentRoom.link) && (
+                    <span
+                      style={{
+                        fontSize: '11px',
+                        padding: '2px 8px',
+                        borderRadius: '12px',
+                        backgroundColor: 'rgba(15, 98, 254, 0.15)',
+                        color: '#4589ff',
+                        fontWeight: 600,
+                        border: '1px solid rgba(15, 98, 254, 0.3)',
+                      }}
+                      title="Transmissão operando diretamente na rede local (sem necessidade de internet externa)"
+                    >
+                      Rede Local (LAN)
+                    </span>
+                  )}
+                </div>
                 <div style={{ display: 'flex', gap: '10px' }}>
                   <TextInput
                     readOnly

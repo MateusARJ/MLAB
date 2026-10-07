@@ -161,12 +161,15 @@ func (h *Handler) OnTrackReady(roomID string) {
 func (h *Handler) buildIceServers(participantID string) IceServersPayload {
 	servers := []IceServer{}
 
-	// STUN (sempre incluído).
+	// STUN: se STUN_URL estiver explicitamente configurada, usa-a.
+	// Se não, e houver internet externa, usa o STUN padrão do Google.
+	// Se não houver internet (rede local offline), não adiciona STUN externo inalcançável.
 	stunURL := os.Getenv("STUN_URL")
-	if stunURL == "" {
-		stunURL = "stun:stun.l.google.com:19302"
+	if stunURL != "" {
+		servers = append(servers, IceServer{URLs: []string{stunURL}})
+	} else if room.IsInternetAvailable() {
+		servers = append(servers, IceServer{URLs: []string{"stun:stun.l.google.com:19302"}})
 	}
-	servers = append(servers, IceServer{URLs: []string{stunURL}})
 
 	// TURN (apenas se configurado).
 	turnURL := os.Getenv("TURN_URL")

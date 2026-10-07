@@ -53,7 +53,7 @@ export function useWebRTCSubscriber(token: string, roomInfo: { room_id: string; 
       setStream(null);
 
       const pc = new RTCPeerConnection({
-        iceServers: iceServers && iceServers.length > 0
+        iceServers: Array.isArray(iceServers)
           ? iceServers
           : [{ urls: 'stun:stun.l.google.com:19302' }],
       });

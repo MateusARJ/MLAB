@@ -35,10 +35,23 @@ interface RoomProps {
 
 function formatFileSize(bytes: number): string {
   if (!bytes || bytes === 0) return '0 B';
-  const k = 1024;
-  const sizes = ['B', 'KB', 'MB', 'GB'];
   const i = Math.floor(Math.log(bytes) / Math.log(k));
   return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
+}
+
+function isLanLink(link?: string): boolean {
+  if (!link) return false;
+  try {
+    const url = new URL(link.startsWith('http') ? link : `http://${link}`);
+    const host = url.hostname;
+    return (
+      /^10\./.test(host) ||
+      /^192\.168\./.test(host) ||
+      /^172\.(1[6-9]|2[0-9]|3[0-1])\./.test(host)
+    );
+  } catch {
+    return false;
+  }
 }
 
 export const Room: React.FC<RoomProps> = ({ room, onCloseRoom }) => {
@@ -431,7 +444,17 @@ export const Room: React.FC<RoomProps> = ({ room, onCloseRoom }) => {
           <img src={mlabLogo} alt="MLab Logo" style={styles.logoImg} />
           <div>
             <h2 style={styles.title}>{professorName ? `MLab — Prof. ${professorName}` : `MLab — Sala: ${room.slug}`}</h2>
-            <div style={styles.roomLinkStatic}>{room.link}</div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+              <div style={styles.roomLinkStatic}>{room.link}</div>
+              {isLanLink(room.link) && (
+                <span
+                  style={styles.lanBadge}
+                  title="Transmissão operando diretamente na rede local (sem necessidade de internet externa)"
+                >
+                  Rede Local (LAN)
+                </span>
+              )}
+            </div>
           </div>
         </div>
         <div style={styles.headerActions}>
@@ -1249,6 +1272,18 @@ const styles: { [key: string]: React.CSSProperties } = {
     color: '#94a3b8',
     marginTop: '3px',
     userSelect: 'text',
+    cursor: 'default',
+  },
+  lanBadge: {
+    fontSize: '11px',
+    padding: '2px 8px',
+    borderRadius: '12px',
+    backgroundColor: 'rgba(15, 98, 254, 0.15)',
+    color: '#4589ff',
+    fontWeight: '600',
+    border: '1px solid rgba(15, 98, 254, 0.3)',
+    display: 'inline-flex',
+    alignItems: 'center',
     cursor: 'default',
   },
   closeBtn: {
