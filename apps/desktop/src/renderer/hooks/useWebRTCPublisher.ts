@@ -80,6 +80,12 @@ export function useWebRTCPublisher({
   const [error, setError] = useState<string | null>(null);
   const [messages, setMessages] = useState<any[]>([]);
   const [participants, setParticipants] = useState<any[]>([]);
+  const [lastHandRaised, setLastHandRaised] = useState<{
+    participant_id: string;
+    name: string;
+    student_id?: string;
+    timestamp: number;
+  } | null>(null);
 
   const pcRef = useRef<RTCPeerConnection | null>(null);
   const wsRef = useRef<WebSocket | null>(null);
@@ -288,6 +294,29 @@ export function useWebRTCPublisher({
             if (msg.payload && Array.isArray(msg.payload.participants)) {
               setParticipants(msg.payload.participants);
             }
+          } else if (msg.type === 'hand-updated') {
+            const update = msg.payload;
+            if (update && update.participant_id) {
+              setParticipants((prev) =>
+                prev.map((p) =>
+                  p.participant_id === update.participant_id
+                    ? {
+                        ...p,
+                        hand_raised: update.raised,
+                        hand_raised_at: update.raised_at || (update.raised ? new Date().toISOString() : undefined),
+                      }
+                    : p
+                )
+              );
+              if (update.raised) {
+                setLastHandRaised({
+                  participant_id: update.participant_id,
+                  name: update.name || 'Aluno',
+                  student_id: update.student_id,
+                  timestamp: Date.now(),
+                });
+              }
+            }
           } else if (msg.type === 'error') {
             setError(msg.payload.message || 'Erro de sinalização.');
           }
@@ -493,12 +522,39 @@ export function useWebRTCPublisher({
     }
   }, []);
 
+  const lowerStudentHand = useCallback((participantId: string) => {
+    if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+      try {
+        wsRef.current.send(
+          JSON.stringify({
+            type: 'lower-hand',
+            payload: { participant_id: participantId },
+          })
+        );
+        setParticipants((prev) =>
+          prev.map((p) =>
+            p.participant_id === participantId ? { ...p, hand_raised: false } : p
+          )
+        );
+      } catch (err) {
+        console.warn('Erro ao enviar sinal de lower-hand:', err);
+      }
+    }
+  }, []);
+
+  const dismissHandToast = useCallback(() => {
+    setLastHandRaised(null);
+  }, []);
+
   return {
     isPublishing,
     connectionState,
     error,
     messages,
     participants,
+    lastHandRaised,
+    dismissHandToast,
+    lowerStudentHand,
     sendChatMessage,
     sendStreamPause,
     startPublishing,

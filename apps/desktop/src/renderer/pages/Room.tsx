@@ -25,6 +25,8 @@ import {
   Close,
   Education,
   Idea,
+  Touch_1,
+  Touch_1Filled,
 } from '@mlab/ui';
 
 
@@ -161,6 +163,9 @@ export const Room: React.FC<RoomProps> = ({ room, onCloseRoom }) => {
     error: publisherError,
     messages = [],
     participants = [],
+    lastHandRaised,
+    dismissHandToast,
+    lowerStudentHand,
     sendChatMessage,
     sendStreamPause,
     startPublishing,
@@ -434,6 +439,13 @@ export const Room: React.FC<RoomProps> = ({ room, onCloseRoom }) => {
   };
 
   const studentsOnly = participants.filter((p: any) => p.role === 'aluno');
+  const raisedHandsStudents = studentsOnly
+    .filter((s: any) => s.hand_raised || s.handRaised)
+    .sort((a: any, b: any) => {
+      const timeA = new Date(a.hand_raised_at || a.handRaisedAt || 0).getTime();
+      const timeB = new Date(b.hand_raised_at || b.handRaisedAt || 0).getTime();
+      return timeA - timeB;
+    });
   const professorName = typeof window !== 'undefined' ? sessionStorage.getItem('professor_name') : null;
 
   return (
@@ -777,6 +789,39 @@ export const Room: React.FC<RoomProps> = ({ room, onCloseRoom }) => {
                       )}
                     </div>
                   )}
+
+                  {/* Notificação Flutuante de Mão Levantada (quando a sidebar estiver recolhida) */}
+                  {lastHandRaised && !isSidebarOpen && (
+                    <div style={styles.handToastOverlay} role="alert">
+                      <div style={styles.handToastContent}>
+                        <Touch_1Filled size={18} style={{ color: '#0f62fe', flexShrink: 0 }} />
+                        <div style={styles.handToastText}>
+                          <span style={styles.handToastStrong}>{lastHandRaised.studentName}</span> levantou a mão.
+                        </div>
+                      </div>
+                      <div style={styles.handToastActions}>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setSidebarTab('students');
+                            setIsSidebarOpen(true);
+                            dismissHandToast();
+                          }}
+                          style={styles.handToastViewBtn}
+                        >
+                          Ver Turma
+                        </button>
+                        <button
+                          type="button"
+                          onClick={dismissHandToast}
+                          style={styles.handToastDismissBtn}
+                          title="Dispensar aviso"
+                        >
+                          <Close size={14} />
+                        </button>
+                      </div>
+                    </div>
+                  )}
                 </div>
 
                 {/* Barra de Controles de Transmissão */}
@@ -822,6 +867,11 @@ export const Room: React.FC<RoomProps> = ({ room, onCloseRoom }) => {
                     {unreadCount > 0 && (
                       <span style={styles.unreadBadge}>{unreadCount}</span>
                     )}
+                    {raisedHandsStudents.length > 0 && (
+                      <span style={styles.raisedHandHeaderBadge} title={`${raisedHandsStudents.length} mão(s) levantada(s)`}>
+                        <Touch_1Filled size={12} /> {raisedHandsStudents.length}
+                      </span>
+                    )}
                   </button>
                 </div>
               </div>
@@ -853,7 +903,14 @@ export const Room: React.FC<RoomProps> = ({ room, onCloseRoom }) => {
                       onClick={() => setSidebarTab('students')}
                       style={sidebarTab === 'students' ? styles.tabBtnActive : styles.tabBtn}
                     >
-                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}><UserMultiple size={16} /> Alunos ({studentsOnly.length})</span>
+                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                        <UserMultiple size={16} /> Alunos ({studentsOnly.length})
+                        {raisedHandsStudents.length > 0 && (
+                          <span style={styles.tabHandBadge} title={`${raisedHandsStudents.length} mão(s) levantada(s)`}>
+                            <Touch_1Filled size={11} /> {raisedHandsStudents.length}
+                          </span>
+                        )}
+                      </span>
                     </button>
                     <button
                       type="button"
@@ -1136,6 +1193,60 @@ export const Room: React.FC<RoomProps> = ({ room, onCloseRoom }) => {
                 {/* Aba 2: Lista de Alunos Conectados com Nome e Matrícula */}
                 {sidebarTab === 'students' && (
                   <div style={styles.studentsTabContent}>
+                    {/* Seção de Destaque: Fila de Mãos Levantadas */}
+                    {raisedHandsStudents.length > 0 && (
+                      <div style={styles.raisedHandsSection}>
+                        <div style={styles.raisedHandsHeader}>
+                          <span style={styles.raisedHandsTitle}>
+                            <Touch_1Filled size={16} style={{ color: '#0f62fe' }} /> Mãos Levantadas ({raisedHandsStudents.length})
+                          </span>
+                          <span style={styles.raisedHandsHelp}>Ordem de chamada</span>
+                        </div>
+                        <div style={styles.raisedHandsList}>
+                          {raisedHandsStudents.map((s: any, idx: number) => {
+                            const pId = s.participant_id || s.id;
+                            return (
+                              <div key={`raised-${pId}`} style={styles.raisedHandCard}>
+                                <div style={styles.raisedHandOrderBadge}>#{idx + 1}</div>
+                                <div style={styles.studentInfoBox}>
+                                  <span style={styles.studentNameText}>{s.name}</span>
+                                  <span style={styles.studentMatriculaText}>
+                                    Matrícula: <strong>{s.student_id || 'Não informada'}</strong>
+                                  </span>
+                                </div>
+                                <div style={styles.raisedHandActions}>
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setTargetStudent({ id: pId, name: s.name, student_id: s.student_id });
+                                      setChatSubTab('private');
+                                      setSidebarTab('chat');
+                                    }}
+                                    style={styles.startPrivateChatBtn}
+                                    title="Enviar Mensagem Privada"
+                                  >
+                                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                                      <Locked size={14} /> Privado
+                                    </span>
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => lowerStudentHand(pId)}
+                                    style={styles.lowerHandBtn}
+                                    title="Abaixar Mão do Aluno"
+                                  >
+                                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                                      <Touch_1 size={14} /> Abaixar
+                                    </span>
+                                  </button>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
+
                     <div style={styles.studentsListHeader}>
                       <span style={styles.studentsListTitle}>Alunos Presentes na Aula</span>
                       <span style={styles.studentsCountBadge}>{studentsOnly.length} online</span>
@@ -1147,29 +1258,50 @@ export const Room: React.FC<RoomProps> = ({ room, onCloseRoom }) => {
                           <p style={styles.emptyText}>Nenhum aluno conectado no momento.</p>
                         </div>
                       ) : (
-                        studentsOnly.map((s: any) => (
-                          <div key={s.participant_id} style={styles.studentCard}>
-                            <div style={styles.studentAvatar}><Education size={20} /></div>
-                            <div style={styles.studentInfoBox}>
-                              <span style={styles.studentNameText}>{s.name}</span>
-                              <span style={styles.studentMatriculaText}>
-                                Matrícula: <strong>{s.student_id || 'Não informada'}</strong>
-                              </span>
+                        studentsOnly.map((s: any) => {
+                          const isRaised = Boolean(s.hand_raised || s.handRaised);
+                          const pId = s.participant_id || s.id;
+                          return (
+                            <div key={pId} style={styles.studentCard}>
+                              <div style={styles.studentAvatar}><Education size={20} /></div>
+                              <div style={styles.studentInfoBox}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                  <span style={styles.studentNameText}>{s.name}</span>
+                                  {isRaised && (
+                                    <span style={styles.studentHandTag} title="Mão levantada">
+                                      <Touch_1Filled size={12} /> Mão Levantada
+                                    </span>
+                                  )}
+                                </div>
+                                <span style={styles.studentMatriculaText}>
+                                  Matrícula: <strong>{s.student_id || 'Não informada'}</strong>
+                                </span>
+                              </div>
+                              {isRaised && (
+                                <button
+                                  type="button"
+                                  onClick={() => lowerStudentHand(pId)}
+                                  style={styles.lowerHandSmallBtn}
+                                  title="Abaixar Mão"
+                                >
+                                  <Touch_1 size={14} />
+                                </button>
+                              )}
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setTargetStudent({ id: pId, name: s.name, student_id: s.student_id });
+                                  setChatSubTab('private');
+                                  setSidebarTab('chat');
+                                }}
+                                style={styles.startPrivateChatBtn}
+                                title="Enviar Mensagem Privada"
+                              >
+                                <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}><Locked size={14} /> Privado</span>
+                              </button>
                             </div>
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setTargetStudent({ id: s.participant_id, name: s.name, student_id: s.student_id });
-                                setChatSubTab('private');
-                                setSidebarTab('chat');
-                              }}
-                              style={styles.startPrivateChatBtn}
-                              title="Enviar Mensagem Privada"
-                            >
-                              <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}><Locked size={14} /> Privado</span>
-                            </button>
-                          </div>
-                        ))
+                          );
+                        })
                       )}
                     </div>
                   </div>
@@ -1845,6 +1977,62 @@ const styles: { [key: string]: React.CSSProperties } = {
     justifyContent: 'center',
     position: 'relative',
   },
+  handToastOverlay: {
+    position: 'absolute',
+    top: '16px',
+    right: '16px',
+    zIndex: 10,
+    backgroundColor: '#161616',
+    border: '1px solid #0f62fe',
+    borderLeft: '4px solid #0f62fe',
+    borderRadius: '6px',
+    padding: '10px 14px',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: '12px',
+    boxShadow: '0 4px 20px rgba(0,0,0,0.5)',
+    maxWidth: '340px',
+  },
+  handToastContent: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '8px',
+  },
+  handToastText: {
+    fontSize: '12px',
+    color: '#f4f4f4',
+  },
+  handToastStrong: {
+    fontWeight: '600',
+    color: '#ffffff',
+  },
+  handToastActions: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '6px',
+    flexShrink: 0,
+  },
+  handToastViewBtn: {
+    padding: '3px 8px',
+    backgroundColor: '#0f62fe',
+    color: '#ffffff',
+    border: 'none',
+    borderRadius: '4px',
+    fontSize: '11px',
+    fontWeight: '600',
+    cursor: 'pointer',
+  },
+  handToastDismissBtn: {
+    background: 'transparent',
+    border: 'none',
+    color: '#c6c6c6',
+    cursor: 'pointer',
+    padding: '2px',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   previewMedia: {
     maxWidth: '100%',
     maxHeight: '100%',
@@ -2051,6 +2239,18 @@ const styles: { [key: string]: React.CSSProperties } = {
     borderRadius: '10px',
     lineHeight: '1',
   },
+  raisedHandHeaderBadge: {
+    backgroundColor: '#0f62fe',
+    color: '#ffffff',
+    fontSize: '10px',
+    fontWeight: '700',
+    padding: '2px 6px',
+    borderRadius: '10px',
+    lineHeight: '1',
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: '3px',
+  },
   sidebarDesktop: {
     backgroundColor: '#0f172a',
     borderRadius: '10px',
@@ -2112,6 +2312,17 @@ const styles: { [key: string]: React.CSSProperties } = {
     fontWeight: '700',
     padding: '1px 5px',
     borderRadius: '8px',
+  },
+  tabHandBadge: {
+    backgroundColor: '#0f62fe',
+    color: '#ffffff',
+    fontSize: '9px',
+    fontWeight: '700',
+    padding: '1px 5px',
+    borderRadius: '8px',
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: '2px',
   },
   closeSidebarBtn: {
     background: 'transparent',
@@ -2465,6 +2676,98 @@ const styles: { [key: string]: React.CSSProperties } = {
     fontWeight: '600',
     cursor: 'pointer',
     flexShrink: 0,
+  },
+  raisedHandsSection: {
+    padding: '10px 12px',
+    backgroundColor: 'rgba(15, 98, 254, 0.08)',
+    borderBottom: '1px solid rgba(15, 98, 254, 0.3)',
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '8px',
+  },
+  raisedHandsHeader: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  raisedHandsTitle: {
+    fontSize: '12px',
+    fontWeight: '600',
+    color: '#78a9ff',
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: '6px',
+  },
+  raisedHandsHelp: {
+    fontSize: '10px',
+    color: '#a8a8a8',
+    textTransform: 'uppercase',
+    letterSpacing: '0.5px',
+  },
+  raisedHandsList: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '6px',
+  },
+  raisedHandCard: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '8px',
+    padding: '8px 10px',
+    backgroundColor: '#161616',
+    borderRadius: '6px',
+    border: '1px solid #0f62fe',
+  },
+  raisedHandOrderBadge: {
+    fontSize: '11px',
+    fontWeight: '700',
+    color: '#0f62fe',
+    backgroundColor: 'rgba(15, 98, 254, 0.15)',
+    padding: '2px 6px',
+    borderRadius: '4px',
+    flexShrink: 0,
+  },
+  raisedHandActions: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '4px',
+    flexShrink: 0,
+  },
+  lowerHandBtn: {
+    padding: '4px 8px',
+    borderRadius: '4px',
+    border: '1px solid #da1e28',
+    backgroundColor: 'rgba(218, 30, 40, 0.15)',
+    color: '#ff8389',
+    fontSize: '11px',
+    fontWeight: '600',
+    cursor: 'pointer',
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: '4px',
+  },
+  lowerHandSmallBtn: {
+    padding: '4px 6px',
+    borderRadius: '4px',
+    border: '1px solid #da1e28',
+    backgroundColor: 'rgba(218, 30, 40, 0.15)',
+    color: '#ff8389',
+    fontSize: '11px',
+    cursor: 'pointer',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  studentHandTag: {
+    fontSize: '10px',
+    color: '#78a9ff',
+    backgroundColor: 'rgba(15, 98, 254, 0.15)',
+    padding: '1px 6px',
+    borderRadius: '10px',
+    fontWeight: '600',
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: '4px',
   },
   filesTabContent: {
     flex: 1,
