@@ -497,7 +497,7 @@ export const Room: React.FC<RoomProps> = ({ token, roomInfo, onLeave }) => {
             {/* Status da Transmissão idêntico ao do Header */}
             <div style={styles.fullscreenStatusCard}>
               <span style={styles.statusLabel}>
-                Status: {isStreamPaused ? 'pausado' : connectionStatus}
+                {isStreamPaused ? 'pausado' : connectionStatus}
               </span>
             </div>
 
@@ -646,7 +646,6 @@ export const Room: React.FC<RoomProps> = ({ token, roomInfo, onLeave }) => {
           </div>
           <div style={isMobile ? styles.statusBoxMobile : styles.statusBox}>
             <span style={styles.statusLabel}>
-              Status:{' '}
               {isStreamPaused ? (
                 <span style={styles.statusPausedBadge}>pausado</span>
               ) : (
