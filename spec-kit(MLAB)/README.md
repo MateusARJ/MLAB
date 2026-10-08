@@ -1,4 +1,4 @@
-# ScreenShare Classroom — Spec Kit
+# MLab — Spec Kit
 
 Kit de desenvolvimento orientado por especificação para um sistema de compartilhamento de tela em aulas ao vivo.
 

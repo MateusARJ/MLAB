@@ -3,6 +3,9 @@ import { useParams, useLocation } from 'react-router-dom';
 import { joinRoom, getRoomInfo } from '../services/api';
 import { Button, TextInput, Alert, Play, colors, radii, typography } from '@mlab/ui';
 
+// Validação de matrícula: números com limite de até 4 letras (qualquer letra) da sigla do curso no miolo
+const STUDENT_ID_REGEX = /^[0-9]+[A-Za-z]{1,4}[0-9]+$/;
+
 interface JoinProps {
   onJoined: (token: string, roomInfo: any) => void;
 }
@@ -57,6 +60,11 @@ export const Join: React.FC<JoinProps> = ({ onJoined }) => {
     // RF-11: Nome Completo e Matrícula obrigatórios
     if (!name.trim() || !studentId.trim()) {
       setError('Por favor, informe seu Nome Completo e sua Matrícula.');
+      return;
+    }
+
+    if (!STUDENT_ID_REGEX.test(studentId.trim())) {
+      setError('Matrícula inválida. A matrícula deve conter números e até 4 letras da sigla do curso (Ex: 2025116TADS0000).');
       return;
     }
 

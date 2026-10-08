@@ -38,8 +38,11 @@ func (s *Service) SanitizeAndFormat(roomID, senderID, senderName, senderRole, ra
 		return nil, ErrEmptyMessage
 	}
 
+	// Máscara de segurança para termos ofensivos / palavrões
+	maskedContent := MaskProfanity(trimmed)
+
 	// Sanitização XSS estrita (RNF-17 / ADR 0004)
-	sanitizedContent := html.EscapeString(trimmed)
+	sanitizedContent := html.EscapeString(maskedContent)
 
 	// Formatação do nome de exibição conforme papel
 	formattedRole := strings.ToLower(senderRole)

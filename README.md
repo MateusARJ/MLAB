@@ -1,321 +1,330 @@
 # MLab
 
 <p align="center">
-  <img src="MLAB-logo.png" alt="MLab Logo" width="200" />
+  <img src="MLAB-logo.png" alt="MLab Logo" width="220" />
 </p>
 
-Plataforma de transmissão de tela e áudio ao vivo voltada para ambientes educacionais, permitindo que um professor transmita sua tela para turmas com 40 ou mais alunos com ultrabaixa latência (< 500 ms), consumo fixo de upload e distribuição escalável via SFU (Selective Forwarding Unit).
+<p align="center">
+  <strong>Transmissão de tela e áudio em rede local para salas de aula e laboratórios de informática</strong><br />
+  Alta fidelidade em 1080p (30/60 fps), ultrabaixa latência (&lt; 500 ms), 100% offline e sem necessidade de internet.
+</p>
+
+<p align="center">
+  <img src="https://img.shields.io/badge/Go-1.22+-00ADD8?style=flat&logo=go&logoColor=white" alt="Go" />
+  <img src="https://img.shields.io/badge/WebRTC-Pion-orange?style=flat&logo=webrtc&logoColor=white" alt="WebRTC" />
+  <img src="https://img.shields.io/badge/Electron-Desktop-47848F?style=flat&logo=electron&logoColor=white" alt="Electron" />
+  <img src="https://img.shields.io/badge/React-18-61DAFB?style=flat&logo=react&logoColor=black" alt="React" />
+  <img src="https://img.shields.io/badge/Vite-Fast-646CFF?style=flat&logo=vite&logoColor=white" alt="Vite" />
+  <img src="https://img.shields.io/badge/Carbon_Design-IBM-0f62fe?style=flat&logo=ibm&logoColor=white" alt="IBM Carbon" />
+  <img src="https://img.shields.io/badge/Methodology-SDD_%26_AI-7c3aed?style=flat" alt="SDD" />
+  <img src="https://img.shields.io/badge/License-MIT-green.svg" alt="License" />
+</p>
 
 ---
 
-## 1. Visão Geral e Arquitetura
+## O Problema
 
-O sistema adota uma arquitetura monorepo gerenciada com **Turborepo** e topologia de mídia WebRTC baseada em **SFU (Selective Forwarding Unit)**:
+Nas aulas práticas e laboratoriais de cursos técnicos e superiores (como programação e informática), os professores frequentemente enfrentam graves limitações para compartilhar a sua tela com os estudantes:
+
+1. **Limitações do Projetor Físico:** Os projetores multimídia instalados nas salas geralmente possuem baixa resolução nativa, lâmpadas com brilho desgastado e baixo contraste.
+2. **Prejuízo à Visibilidade no Laboratório:** O projetor fica posicionado fixamente na parede frontal. Os alunos posicionados nas fileiras intermediárias e no fundo do laboratório têm enorme dificuldade em enxergar linhas finas de código-fonte no editor, saídas detalhadas de terminais e caracteres pequenos.
+3. **Instabilidade e Queda da Internet:** A conexão de internet da instituição costuma oscilar ou cair durante os horários de pico, inviabilizando qualquer transmissão dependente de servidores externos.
+4. **Bloqueio de Ferramentas em Nuvem pelo Firewall:** O firewall institucional bloqueia portas e protocolos de plataformas comerciais em nuvem (Google Meet, Zoom, Microsoft Teams e Discord), impedindo seu uso nas máquinas da instituição.
+
+---
+
+## O Objetivo
+
+O **MLab** foi desenvolvido com o propósito de **acabar definitivamente com a dependência do projetor físico** e proporcionar um salto substancial na qualidade das aulas.
+
+O professor transmite a tela inteira ou uma janela específica diretamente para os monitores dos computadores dos alunos em **1080p Full HD** cravado (a 30 ou 60 fps). A solução opera **100% em rede local (LAN)** — seja via cabo Ethernet ou Wi-Fi da sala —, funcionando de forma **totalmente offline**, **sem consumir dados da internet**, **sem exigir instalação de programas ou extensões por parte dos alunos** e com latência imperceptível (&lt; 500 ms).
+
+---
+
+## Como Funciona
+
+A arquitetura do MLab combina uma aplicação nativa de alta performance para o professor com um servidor centralizador SFU em Go e clientes web ultra-leves para os alunos:
 
 ```text
-Professor (Desktop Electron) ────► Servidor SFU (Go / Pion) ────► Aluno 1 (Navegador Web)
-                                                            ├──► Aluno 2 (Navegador Web)
-                                                            ├──► ...
-                                                            └──► Aluno 40+ (Navegador Web)
+       Computador do Professor (Desktop Electron)
+    ┌────────────────────────────────────────────────────────┐
+    │  • Captura nativa de tela/janela em 1080p (30/60 fps)  │
+    │  • DSP de áudio anti-microfonia e cancelamento de eco  │
+    │  • Upload fixo único (4 a 6 Mbps) via WebRTC Upstream  │
+    │  • Painel de controle, gravação local e chat privado   │
+    └──────────────────────────┬─────────────────────────────┘
+                               │ WebRTC RTP / WebSocket (:8080)
+                               ▼
+    ┌────────────────────────────────────────────────────────┐
+    │  Servidor Backend SFU (Go / Pion WebRTC)               │
+    │  • Repasse em memória sem recompressão (SFU)           │
+    │  • Keyframe Controller inteligente (zero tela preta)   │
+    │  • Descarte de adaptadores virtuais de rede (LAN pura) │
+    │  • Fila de mãos levantadas e máscara de palavrões      │
+    └───────────┬─────────────────────────────┬──────────────┘
+                │ WebRTC Downstream           │ WebRTC Downstream
+                ▼                             ▼
+      Computadores dos Alunos       Dispositivos Móveis dos Alunos
+    ┌────────────────────────┐    ┌──────────────────────────────┐
+    │  Navegador Web (React) │    │  Navegador Mobile (Chrome/   │
+    │  • Vídeo 1080p cravado │    │  Safari)                     │
+    │  • Levantar a Mão      │    │  • Modo Tela Cheia e PiP     │
+    │  • Chat público/privado│    │  • Sem instalar nada         │
+    │  • Download de arquivos│    │  • 100% offline na rede local│
+    └────────────────────────┘    └──────────────────────────────┘
 ```
 
-- **App Desktop (Professor):** Aplicação instalável desenvolvida em **Electron + React + TypeScript + Vite**. O professor realiza login, cria a sala de aula, escolhe a fonte de captura (tela inteira ou janela específica via `desktopCapturer`), seleciona a resolução e taxa de quadros (1080p @ 30fps ou 1080p @ 60fps), inicia a transmissão upstream via WebRTC, pode gravar a aula localmente em 1080p com correção de metadados WebM, compartilhar arquivos, gerenciar dúvidas privadas e alterar fontes dinamicamente sem interromper a transmissão.
-- **Backend (SFU, REST e Sinalização):** Servidor em **Go** utilizando a biblioteca **Pion WebRTC**. A SFU recebe o fluxo do professor e o repassa em memória para todos os alunos conectados, mantendo o consumo de upload do professor constante (entre 4 e 6 Mbps), independentemente da quantidade de alunos. Inclui WebSocket Hub thread-safe, Keyframe Controller com agendamento inteligente de RTCP PLI para evitar sobrecarga no encoder e eliminar telas pretas, persistência em memória do histórico de chat e arquivos da sessão, rate limit de chat (5 mensagens a cada 5 segundos) e credenciais efêmeras TURN (HMAC-SHA1).
-- **App Web (Aluno):** Interface web moderna em **React + Vite** (porta **`:3000`**), acessível diretamente por qualquer navegador moderno (desktop e mobile) sem necessidade de plugins. O aluno acessa pelo link único da sala, informa Nome Completo e Matrícula, assiste à aula instantaneamente (mesmo se entrar antes do professor iniciar a transmissão, sem necessidade de F5), baixa arquivos compartilhados pelo professor e interage pelo chat público da turma ou dúvidas privadas.
-- **Packages Compartilhados:** `@mlab/types` compartilha DTOs, payloads de sinalização e interfaces TypeScript entre todas as aplicações; `@mlab/ui` provê componentes visuais reutilizáveis.
+- **Professor:** Aplicação Desktop em Electron + React + TypeScript + Vite. Cria a sala, escolhe o monitor ou janela, define a qualidade e transmite. O consumo de upload do professor permanece estritamente fixo entre 4 e 6 Mbps, não importando se há 5 ou 60 alunos conectados.
+- **Servidor:** Backend compilado em Go com biblioteca Pion WebRTC. Atua como SFU (Selective Forwarding Unit), repassando os pacotes de vídeo e áudio em memória com altíssimo rendimento e baixíssimo uso de CPU/RAM. Gerencia também o WebSocket Hub, o histórico em memória da aula e o compartilhamento de arquivos na porta `:8080`.
+- **Alunos:** Página web responsiva servida pelo backend na rede local. O aluno acessa digitando o endereço da sala no navegador (ex: `http://<ip-do-professor>:8080/sala/alpha-bravo-1234/entrar`).
 
 ---
 
-## 2. Diferenciais Técnicos e Funcionalidades Recentes
+## Funcionalidades
 
-### 📺 Perfis de Resolução e Qualidade (1080p 30fps e 60fps)
-Na tela de setup da sala, o professor pode selecionar o perfil ideal para a aula:
-- **📺 1080p Full HD @ 30 fps (4.0 Mbps):** Otimizado para máxima nitidez de leitura em textos, slides e código-fonte, com menor consumo de rede.
-- **🚀 1080p Full HD @ 60 fps (6.0 Mbps):** Máxima fluidez para vídeos, animações e simulações com 60 quadros por segundo contínuos.
-- **Nitidez Permanente:** Diretivas `contentHint = 'detail'` e `degradationPreference = 'maintain-resolution'` ativas, impedindo o rebaixamento espacial de resolução para manter linhas de código e textos 100% nítidos.
+###  Levantar a Mão com Fila de Chamada 
+- O aluno clica no botão **Levantar Mão** no player de vídeo ou na barra lateral de tela cheia.
+- O professor visualiza uma seção dedicada **Mãos Levantadas** na aba de Alunos, com a contagem exata e a ordem cronológica de chamada (`#1`, `#2`, `#3`), permitindo atender quem levantou a mão primeiro.
+- O professor pode responder diretamente em chat privado ou clicar em **Abaixar Mão**. O próprio aluno também pode abaixar a mão a qualquer momento.
+- Se a barra lateral do professor estiver fechada, um aviso discreto (Toast flutuante) avisa que o aluno levantou a mão com atalho para abrir a turma.
+- **Padrão Visual Estrito:** Toda a funcionalidade foi construída seguindo rigorosamente o **IBM Carbon Design System** (`Touch_1` e `Touch_1Filled`).
 
-### 🛡️ Keyframe Controller Não-Destrutivo (Zero Travamentos e Zero Tela Preta)
-- **Eliminação de Sobrecarga no Encoder:** Remoção do envio em rajadas periódicas contínuas que forçava o encoder Chromium a descartar quadros (*frame skipping* severo).
-- **Agendamento Inteligente (`pendingPLI`):** Se um pedido de RTCP PLI chegar dentro da janela de cooldown (1.2s), ele não é descartado: o SFU agenda o disparo para o momento exato em que o cooldown termina, garantindo que **100% dos novos alunos recebam o IDR frame inicial** e eliminando telas pretas.
-- **Liveness Keyframe Espaçado:** Ticker seguro a cada 8 segundos que assegura recuperação automática da transmissão em redes com perda transitória de pacotes.
-- **REMB Ampliado:** Teto de REMB do SFU configurado para 8 Mbps para dar vazão plena a 60 fps sem estrangulamento.
+###  Operação 100% Offline e Detecção Inteligente de Rede
+- Funciona perfeitamente em salas de aula sem qualquer conexão externa de internet.
+- O backend conta com um algoritmo inteligente de inspeção de interfaces de rede que **descarta automaticamente adaptadores virtuais** (VMware, VirtualBox, WSL, Hyper-V, Docker, ZeroTier e túneis VPN), identificando com precisão o IPv4 físico real da interface cabeada (Ethernet) ou sem fio (Wi-Fi) da sala.
+- Garante que o link gerado pelo professor funcione na primeira tentativa para todos os computadores dos alunos na rede local.
 
-### 🚀 Conexão Instantânea e Sincronização sem F5
-- **Espera Amigável:** O aluno pode acessar o link da sala antes do professor iniciar a transmissão, acompanhando o status na tela de espera.
-- **Início Automático:** Quando o professor clica em iniciar a aula, o sinal `stream-started` é disparado e todos os alunos conectados recebem o vídeo automaticamente, sem necessidade de atualizar a página (F5).
-- **Reset de Faixas Órfãs:** O player do aluno descarta faixas encerradas (`readyState === 'ended'`) para evitar que conexões antigas interfiram na reprodução.
-- **Encerramento Sincronizado:** Se o professor encerrar a aula ou fechar o aplicativo desktop, todos os alunos são imediatamente notificados e redirecionados para o início com aviso claro.
+###  Perfis de Qualidade Full HD 1080p (30 fps e 60 fps)
+- **1080p @ 30 fps (4.0 Mbps):** Perfil padrão para aulas de programação, leitura de slides e edição de código-fonte. Configurado com `contentHint = 'detail'` e `degradationPreference = 'maintain-resolution'`, garantindo que a resolução nunca seja degradada.
+- **1080p @ 60 fps (6.0 Mbps):** Perfil de alta taxa de quadros para demonstração de animações, desenvolvimento de jogos, renderização 3D e vídeos.
+- Teto de REMB da SFU ampliado para 8 Mbps, garantindo fluidez contínua sem engasgos.
 
-### 💬 Chat e Arquivos Persistentes na Transmissão
-- **Histórico Automático da Sessão:** Mensagens do chat público e arquivos compartilhados pelo professor ficam salvos na memória da sessão do Hub. Alunos que entram durante a aula recebem todo o histórico imediatamente (`chat-history` e `files-history`).
-- **Isolamento de Canais:** Separação estrita entre o formulário do **Chat da Turma** (público) e **Dúvidas Privadas** (confidencial aluno-professor).
+###  Troca Dinâmica de Fonte sem Quedas (`replaceTrack`)
+- O professor pode alternar entre "Tela Inteira" e "Janela Específica" (ou trocar de janela) a qualquer momento durante a aula ao vivo.
+- A substituição é realizada a quente via `RTCRtpSender.replaceTrack` e solicitação imediata de Keyframe (RTCP PLI), mantendo a mesma conexão WebRTC ativa, sem congelamentos e sem exigir que os alunos atualizem a página (zero F5).
 
-### ⚡ Troca Dinâmica de Modo e Fonte (`replaceTrack`)
-O professor pode alterar o modo de transmissão ("Tela Inteira" ou "Janela do Aplicativo") e escolher outra janela ou tela a qualquer momento durante a aula ao vivo.
-- A aplicação utiliza `RTCRtpSender.replaceTrack` para atualizar o fluxo de vídeo mantendo a mesma conexão WebRTC ativa (sem quedas ou necessidade de renegociação SDP).
-- O backend SFU reaproveita a mesma instância de `TrackLocalStaticRTP`, encaminhando os pacotes RTP para os alunos de forma ininterrupta.
+###  Keyframe Controller Não-Destrutivo (Zero Tela Preta)
+- Elimina o problema crônico de telas pretas quando novos alunos entram na transmissão.
+- O SFU implementa agendamento inteligente com janela de cooldown (1.2s): solicitações de novos participantes nunca são descartadas e sim disparadas no instante exato de liberação do encoder.
+- Inclui um *liveness ticker* seguro a cada 8 segundos para recuperação automática em caso de oscilações transitórias na rede local.
 
-### 🎥 Gravação Local em 1080p com Correção de Duração EBML
-- Permite gravar a aula diretamente no computador do professor em formato WebM 1080p via `MediaRecorder`.
-- Corrige a limitação nativa do formato WebM gerado por navegadores/Electron (onde o cabeçalho não possui duração, impedindo o seek e a barra de progresso) através da injeção de metadados EBML (`Duration`) diretamente no blob antes do salvamento.
-- Arquivo final 100% navegável e compatível com reprodutores de vídeo como VLC, Windows Media Player e navegadores web.
+###  Entrada Identificada com Validação de Matrícula
+- O aluno se identifica antes de entrar na transmissão informando Nome Completo e Matrícula institucional.
+- **Máscara de Validação Regex:** A matrícula aceita siglas de curso de até 4 letras maiúsculas cercadas de dígitos (ex: `2025116TADS0000`, `20241INFO1234`, `20232ENG0001`), impedindo entradas inválidas ou nomes em branco.
 
-### 🔊 Resiliência a Políticas de Autoplay de Áudio
-- Tratamento nativo para restrições de reprodução de áudio dos navegadores (Autoplay Policy).
-- Caso o navegador do aluno bloqueie o som por falta de interação prévia, o vídeo continua tocando e um banner elegante é exibido permitindo desmutar o áudio com um clique ("Clique para ativar o áudio").
+###  Chat com Máscara de Segurança contra Palavrões
+- **Isolamento de Canais:** Separação estrita entre o chat público da turma e o canal confidencial de dúvidas privadas (aluno-professor).
+- **Máscara de Segurança Automática:** Filtro em tempo real no backend Go que detecta palavras inadequadas e ofensivas (incluindo variações leetspeak, repetições de caracteres e acentuações) e substitui o conteúdo por máscara de asteriscos (`****`), preservando a integridade do ambiente acadêmico.
+- **Histórico Persistente:** Alunos que entram atrasados recebem automaticamente o histórico de mensagens trocadas na aula. (Limite de 200 mensagens)
 
----
+###  Compartilhamento de Arquivos na Rede Local
+- O professor pode arrastar ou selecionar arquivos de qualquer extensão (PDFs, códigos-fonte, imagens, arquivos zipados) para a transmissão.
+- Os alunos realizam download direto via rede local através da página da aula, sem necessitar de pen-drives ou de internet.
 
-## 3. Pré-requisitos do Ambiente
+###  Gravação Local em 1080p com Correção de Duração EBML
+- Permite que o professor salve a gravação completa da aula no seu disco rígido em formato WebM 1080p.
+- Injeta dinamicamente metadados EBML (`Duration`) no cabeçalho do arquivo antes do salvamento final, resolvendo a limitação nativa do Chromium e permitindo que o vídeo seja reproduzido com barra de seek e duração correta em qualquer tocador (VLC, Windows Media Player, navegadores).
 
-Para executar o projeto localmente:
-
-1. **Node.js:** Versão 20.0.0 ou superior (com `npm` 10+).
-2. **Go:** Versão 1.22 ou superior (testado e homologado com Go 1.24/1.27).
-3. **Sistema Operacional:** Windows 10/11, macOS ou Linux.
-4. **Navegador Web:** Google Chrome, Microsoft Edge, Mozilla Firefox ou compatível com WebRTC.
-
----
-
-## 4. Instalação e Preparação
-
-1. Instale todas as dependências do monorepo a partir da raiz:
-   ```powershell
-   cd c:\Users\User\Documents\mlab
-   npm install
-   ```
-
-2. Certifique-se de que os binários nativos do Electron foram instalados:
-   ```powershell
-   node node_modules/electron/install.js
-   ```
-
-3. No Windows, configure o diretório temporário do Go (para evitar bloqueios de antivírus ou permissão):
-   ```powershell
-   $env:GOTMPDIR = "c:\Users\User\Documents\mlab\.gotmp"
-   ```
+###  Supressão de Microfonia e Áudio Anti-Uivo
+- O aplicativo desktop incorpora processamento Web Audio com filtros passa-alta, redução de ganho dinâmico e cancelamento de eco acústico para suprimir microfonia durante a fala do professor no laboratório.
+- Tratamento de Autoplay Policy dos navegadores no cliente do aluno, exibindo banner sutil para desmutar com um clique caso o navegador bloqueie o áudio inicial.
 
 ---
 
-## 5. Como Executar a Aplicação
+## Desenvolvimento com IA (Google Antigravity) e SDD
 
-### Opção A: Execução Unificada via Turborepo (Recomendado)
-A partir da raiz do monorepo, inicie todos os serviços simultaneamente:
+Este projeto foi desenvolvido em regime de **Pair Programming com Inteligência Artificial** utilizando o **Google Antigravity**, aplicando rigorosamente a metodologia **Spec-Driven Development (SDD)**.
+
+### A Metodologia SDD na Prática
+O desenvolvimento baseado em especificações assegurou que nenhuma linha de código de produção fosse alterada sem antes passar por um ciclo formal e verificável:
+
+1. **Especificação de Requisitos e ADRs:** Criação de documentos formais em `spec-kit(MLAB)` contendo as regras de negócio, limites de hardware e decisões arquiteturais (ADRs).
+2. **Plano de Implementação Modular:** Antes de qualquer alteração, o agente Antigravity elaborava planos detalhados de implementação com passos cirúrgicos, análise de impacto e estratégia de não-regressão.
+3. **Desenvolvimento Guiado por Testes (TDD/SDD):** Cada nova funcionalidade (desde o controle de concorrência em Go até o filtro de matrícula e o levantamento de mão) foi acompanhada por testes unitários e de integração antes da integração final.
+4. **Preservação Contínua da Qualidade:** Todas as implementações foram validadas para garantir que as restrições críticas do projeto — como 1080p cravado a 30/60 fps, zero emojis e tempo de resposta de rede — permanecessem intactas.
+
+### Sinergia Humano-IA
+A colaboração entre o desenvolvedor e o agente Antigravity dividiu-se com base nas forças de cada parte:
+- **Papel do Desenvolvedor:** Identificação das dores reais vividas nas salas de aula e laboratórios de informática, definição do escopo de usuário, validação ergonômica da interface, restrições da infraestrutura de rede da instituição e testes práticos em ambiente real.
+- **Papel do Antigravity (IA):** Arquitetura e modelagem concorrente thread-safe em Go, engenharia de pacotes WebRTC RTP/RTCP na SFU Pion, implementação do DSP de áudio, integração com o Carbon Design System, injeção de metadados binários EBML e automação de dezenas de suítes de testes automatizados.
+
+---
+
+## Requisitos do Sistema
+
+- **Sistema Operacional do Professor:** Windows 10/11 (64-bit), macOS 13+ (Ventura ou superior) ou Linux (Ubuntu/Debian/Fedora).
+- **Computadores dos Alunos:** Qualquer computador ou smartphone com navegador moderno (Google Chrome, Microsoft Edge, Mozilla Firefox, Safari ou Opera).
+- **Ambiente de Desenvolvimento:**
+  - **Go:** 1.22 ou superior (homologado com Go 1.24/1.27)
+  - **Node.js:** 20.0.0 ou superior (com `npm` 10+)
+  - **Permissão de Gravação de Tela** no sistema operacional do professor.
+
+---
+
+## Como Executar
+
+### 1. Preparação do Repositório
+
+Clone o repositório e instale as dependências unificadas na raiz:
+
+```powershell
+git clone https://github.com/MateusARJ/MLAB.git
+cd MLAB
+npm install
+```
+
+Configure o diretório temporário do Go no Windows:
+```powershell
+$env:GOTMPDIR = "$PWD\.gotmp"
+```
+
+---
+
+### 2. Execução para Desenvolvimento
+
+#### Opção A — Execução Unificada (Turborepo)
+Inicie todos os serviços simultaneamente através do pipeline Turborepo:
 ```powershell
 npm run dev
 ```
 
----
+#### Opção B — Execução em Terminais Separados
 
-### Opção B: Execução em Terminais Separados
-
-Caso deseje acompanhar os logs de cada serviço de forma isolada, abra **3 terminais PowerShell**:
-
-#### Terminal 1 — Servidor Backend (Go)
+**Terminal 1 — Backend SFU em Go (Porta `:8080`):**
 ```powershell
-cd c:\Users\User\Documents\mlab\apps\backend
-$env:GOTMPDIR = "c:\Users\User\Documents\mlab\.gotmp"
+cd apps/backend
+$env:GOTMPDIR = "$PWD\..\..\.gotmp"
 $env:JWT_SECRET = "dev-secret-key-12345"
 go run ./cmd/server/main.go
 ```
-> O backend inicializará na porta **`:8080`** provendo REST API, WebSocket Hub e a SFU Pion WebRTC.
 
-#### Terminal 2 — App Web do Aluno (React / Vite)
+**Terminal 2 — App Web do Aluno (Porta `:5173` ou `:3000` via proxy):**
 ```powershell
-cd c:\Users\User\Documents\mlab\apps\web
+cd apps/web
 npm run dev
 ```
-> O frontend do aluno estará acessível em **`http://localhost:3000`** (com proxy configurado para o backend na `:8080`).
 
-#### Terminal 3 — App Desktop do Professor (Electron)
+**Terminal 3 — App Desktop do Professor (Electron):**
 ```powershell
-cd c:\Users\User\Documents\mlab\apps\desktop
+cd apps/desktop
 npm run dev
 ```
-> A janela do Electron abrirá pronta para o login e gerenciamento de aulas do professor.
 
 ---
 
-## 6. Como Buildar e Empacotar o Aplicativo (Build & Distribuição)
+## Gerando os Aplicativos e Instaladores
 
-O projeto possui scripts automatizados para compilar e empacotar cada componente da plataforma.
+O aplicativo do professor é empacotado através do `electron-builder` integrado ao `electron-vite`:
 
-### 6.1 Build Multiplataforma do App Desktop do Professor (Windows, macOS e Linux)
-
-O aplicativo do professor é empacotado através do **`electron-builder`** integrado ao **`electron-vite`**, com suporte oficial às três principais plataformas:
-
-#### 🪟 No Windows:
-Gera o instalador NSIS e a versão portátil:
+### No Windows
+Gera o instalador executável `.exe` e a versão portátil:
 ```powershell
-cd c:\Users\User\Documents\mlab\apps\desktop
+cd apps/desktop
 npm run make
 ```
-* **Instalador NSIS:** `dist/MLab Setup 1.4.8.exe`
-* **Versão Portátil:** `dist/win-unpacked/MLab.exe`
+- **Instalador NSIS:** `apps/desktop/dist/MLab Setup 1.5.4.exe`
+- **Versão Portátil:** `apps/desktop/dist/win-unpacked/MLab.exe`
 
-#### 🍏 No macOS:
-Em uma máquina com macOS (Intel ou Apple Silicon M1/M2/M3):
+### No macOS
+Em uma máquina macOS (Apple Silicon ou Intel):
 ```bash
 cd apps/desktop
 npm run build
 npx electron-builder --mac
 ```
-* **Imagem de Disco:** `dist/MLab-1.4.8.dmg` (arrastar para Aplicativos)
-* **Arquivo Compactado:** `dist/MLab-1.4.8-mac.zip`
+- **Imagem de Disco:** `dist/MLab-1.5.4.dmg` (arrastar para Aplicativos)
 
-#### 🐧 No Linux:
-Em uma máquina Linux (Ubuntu, Debian, Fedora, Arch) ou via WSL2:
+### No Linux
+Em uma distribuição Linux (Ubuntu, Debian, Fedora):
 ```bash
 cd apps/desktop
 npm run build
 npx electron-builder --linux AppImage deb
 ```
-* **Executável Universal:** `dist/MLab-1.4.8.AppImage` (basta dar permissão `chmod +x` e rodar)
-* **Pacote Debian/Ubuntu:** `dist/MLab_1.4.8_amd64.deb` (`sudo dpkg -i ...`)
+- **Executável Universal:** `dist/MLab-1.5.4.AppImage`
+- **Pacote Debian:** `dist/MLab_1.5.4_amd64.deb`
 
----
-
-### 6.2 Build Automático na Nuvem via GitHub Actions (Windows + Mac + Linux de uma vez)
-
-Como o macOS exige ferramentas nativas da Apple (`hdiutil`) para gerar o arquivo `.dmg`, o repositório já inclui um fluxo de automação em [`.github/workflows/build-all.yml`](.github/workflows/build-all.yml).
-
-Sempre que você subir o código para o GitHub:
-1. Vá até a aba **Actions** no GitHub.
-2. Selecione **Build & Release Multiplataforma** e clique em **Run workflow**.
-3. O GitHub compilará os três instaladores simultaneamente em máquinas Windows, Mac e Linux na nuvem.
-4. Ao final, você baixa os instaladores prontos (`.exe`, `.dmg`, `.AppImage` e `.deb`) diretamente da aba **Artifacts** para disponibilizar aos professores.
-
----
-
-### 6.3 Build do Backend (Servidor Go SFU)
-
-Para gerar o binário de produção do servidor:
-
+### Binário do Backend de Produção
+Para compilar o servidor Go com otimizações máximas de binário único:
 ```powershell
-cd c:\Users\User\Documents\mlab\apps\backend
-npm run build
-```
-*(Ou diretamente: `go build -o ./bin/server.exe ./cmd/server`)*
-
-> O executável compilado de alta performance será gerado em **`apps/backend/bin/server.exe`**.
-
----
-
-### 6.4 Build do Web App dos Alunos (React / Vite)
-
-Para compilar o frontend dos alunos para produção:
-
-```powershell
-cd c:\Users\User\Documents\mlab\apps\web
-npm run build
-```
-
-> Os arquivos estáticos otimizados (HTML, CSS e JS) serão gerados na pasta **`apps/web/dist/`**, prontos para hospedagem em qualquer servidor web ou CDN.
-
----
-
-### 6.5 Build Unificado de Todo o Monorepo
-
-Para compilar todos os pacotes e aplicações de uma só vez aproveitando o cache do Turborepo:
-
-```powershell
-npm run build
+cd apps/backend
+go build -ldflags="-s -w" -o ./bin/mlab-server.exe ./cmd/server
 ```
 
 ---
 
-## 7. Fluxo de Uso e Transmissão
+## Testes Automatizados
 
-### Fluxo do Professor (Desktop):
-1. **Login:**
-   - **E-mail:** `professor@screenshare.local`
-   - **Senha:** `professor123`
-2. **Criação da Sala:**
-   - No Dashboard, clique em **Criar Nova Sala**.
-   - Copie o link de convite dos alunos (ex: `http://localhost:3000/sala/alpha-bravo-1234/entrar`).
-   - Clique em **Entrar na Sala como Professor**.
-3. **Configuração e Transmissão:**
-   - **1. Gravação:** Escolha se deseja gravar a aula localmente (`.webm`).
-   - **2. Captura:** Escolha o modo de captura: **Tela Inteira** ou **Janela / Aba Específica**.
-   - **3. Resolução e Qualidade:** Selecione entre **1080p @ 30 fps** (padrão nítido) ou **1080p @ 60 fps** (alta fluidez).
-   - Clique em **Avançar e Iniciar Transmissão**.
-4. **Durante a Aula:**
-   - **Troca de Fonte:** Clique em **Alterar Modo / Fonte** no painel do professor para trocar de tela/janela sem quedas.
-   - **Compartilhar Arquivos:** Envie materiais pela gaveta de arquivos.
-   - **Dúvidas Privadas:** Responda alunos individualmente com total sigilo em relação à turma.
-   - **Microfone:** Controle o mute/unmute com processamento anti-microfonia.
+O projeto conta com mais de **80 testes automatizados** distribuídos entre todas as camadas do sistema, executados sem dependências externas:
 
-### Fluxo do Aluno (Web):
-1. O aluno acessa no navegador o link fornecido pelo professor:
-   `http://localhost:3000/sala/{slug}/entrar`
-2. Preenche seu **Nome Completo** e **Matrícula** e clica em **Entrar na Aula**.
-3. **Entrada Antes do Início:** O aluno vê a mensagem amigável de espera e recebe o vídeo automaticamente assim que o professor inicia, sem precisar recarregar (zero F5).
-4. **Durante a Aula:**
-   - Visualiza a tela nítida em tempo real.
-   - Acessa o histórico completo do chat da turma e arquivos compartilhados.
-   - Envia dúvidas privadas para o professor ou participa do chat geral.
-   - Utiliza os controles de **Tela Cheia (Fullscreen)** e **Picture-in-Picture (PiP)**.
-
----
-
-## 8. Testes Automatizados e Qualidade
-
-A aplicação conta com uma ampla suíte de **70 testes automatizados**, cobrindo o backend em Go, a aplicação desktop e o frontend web:
-
-### Executar Todos os Testes:
 ```powershell
-npm run test
+# Executar todos os testes do monorepo (Go, Web e Desktop)
+npm test
+
+# Executar testes unitários do Backend Go
+cd apps/backend
+go test -v ./...
+
+# Executar testes do Web App do Aluno
+npm test --prefix apps/web
+
+# Executar testes do App Desktop do Professor
+npm test --prefix apps/desktop
 ```
 
-### Detalhamento da Cobertura:
-- **Backend Go (5 pacotes / 13 testes):**
-  - `auth`: Autenticação JWT, geração e validação de tokens, criptografia bcrypt de senhas.
-  - `chat`: Rate limit de mensagens (5 msgs / 5s), sanitização contra XSS e persistência em memória.
-  - `room`: Criação, isolamento de salas por proprietário e expiração.
-  - `signaling`: WebSocket Hub thread-safe, concorrência de mensagens, broadcast de arquivos e histórico.
-  - `webrtc`: Pipeline SFU Pion, criação de PeerConnections, Keyframe Controller com agendamento inteligente (`pendingPLI`), liveness ticker e isolamento entre salas.
-- **App Desktop Electron (7 arquivos / 37 testes Vitest):**
-  - `Room.test.tsx`: Setup guiado, seleção de qualidade (1080p 30fps e 60fps), gravação local WebM, troca dinâmica de fontes, isolamento de chats público e privado, e prevenção de microfonia local.
-  - `useScreenCapture.test.ts`: Supressão de realimentação acústica (DSP anti-microfonia), captura flexível e constraints de taxa de quadros (30/60 fps).
-  - `webmFixer.test.ts`: Parser de tags EBML e injeção de duração em vídeos WebM.
-  - `Permissions.test.tsx`: Verificação de permissões do sistema operacional e fluxo de concessão.
-  - `Dashboard.test.tsx`: Listagem e criação de salas pelo professor.
-  - `Login.test.tsx`: Validação de credenciais e controle de sessão do professor.
-  - `ProfessorEntry.test.tsx`: Fluxo de entrada do professor na sala.
-- **App Web Aluno (3 arquivos / 20 testes Vitest):**
-  - `useWebRTCSubscriber.test.ts`: Handshake WebRTC com SFU, auto-reconexão sem F5 ao receber `stream-started`, solicitação de Keyframe imediato, recepção de histórico de mensagens e arquivos.
-  - `Join.test.tsx`: Validação de campos obrigatórios (Nome e Matrícula) e redirecionamento de rotas.
-  - `Room.test.tsx`: Conexão WebRTC de assinante, manipulação de Autoplay Policy, layout responsivo e controles do player.
-
 ---
 
-## 9. Estrutura de Diretórios
+## Estrutura do Repositório
 
 ```text
 mlab/
 ├── apps/
-│   ├── backend/          # Servidor Go: REST API, WebSocket Hub e SFU Pion WebRTC
-│   │   ├── cmd/server/   # Ponto de entrada do backend (main.go)
-│   │   └── internal/     # Módulos auth, chat, room, signaling, webrtc
-│   ├── desktop/          # Aplicação Electron + React (Professor)
-│   │   ├── src/main/     # Processo principal do Electron e handlers IPC
-│   │   ├── src/preload/  # Bridge segura de APIs nativas para o renderer
-│   │   └── src/renderer/ # Interface React, captura de mídia (30/60fps), WebM fixer e chat
-│   └── web/              # Aplicação React + Vite na porta 3000 (Aluno)
-│       ├── src/hooks/    # Hook WebRTC subscriber com auto-keyframe e sync sem F5
-│       └── src/pages/    # Páginas de entrada (Join) e sala de aula (Room)
+│   ├── backend/               # Servidor Go: SFU Pion WebRTC, REST API e WebSocket Hub
+│   │   ├── cmd/server/        # Ponto de entrada (main.go)
+│   │   └── internal/
+│   │       ├── auth/          # Autenticação JWT, claims e bcrypt
+│   │       ├── chat/          # Sanitização XSS, rate-limit e máscara de palavrões
+│   │       ├── room/          # Gerenciamento de salas, links e detecção de IPs de LAN
+│   │       ├── signaling/     # WebSocket Hub, eventos de levantar a mão e arquivos
+│   │       └── webrtc/        # Pipeline SFU Pion, Keyframe Controller e reuso de faixas
+│   ├── desktop/               # Aplicativo Electron + React (Professor)
+│   │   ├── src/main/          # Processo principal Electron e bridge de captura nativa
+│   │   ├── src/preload/       # ContextBridge seguro
+│   │   └── src/renderer/      # Interface React (Carbon Design), WebM fixer e controles
+│   └── web/                   # Web App do Aluno (React + Vite)
+│       ├── src/hooks/         # Hook WebRTC subscriber com auto-keyframe e reconexão
+│       └── src/pages/         # Telas de entrada (Join) e sala de transmissão (Room)
 ├── packages/
-│   ├── types/            # Tipos TypeScript, DTOs e contratos de sinalização
-│   └── ui/               # Componentes de interface compartilhados
-├── spec-kit(MLAB)/       # Especificações de requisitos, arquitetura e ADRs
-├── docs/                 # Documentações complementares e relatórios
-├── MLAB-logo.png         # Logotipo oficial do MLab
-├── package.json          # Orquestração do workspace raiz
-└── turbo.json            # Configuração de pipelines do Turborepo
+│   ├── types/                 # DTOs compartilhados, tipos TypeScript e mensagens de sinalização
+│   └── ui/                    # Biblioteca de componentes visuais e ícones Carbon compartilhados
+├── spec-kit(MLAB)/            # Especificações de requisitos, diagramas e ADRs do projeto
+├── MLAB-logo.png              # Identidade visual oficial do MLab
+├── package.json               # Gerenciador de dependências e scripts da raiz
+└── turbo.json                 # Configuração de pipelines do Turborepo
 ```
 
 ---
 
-## 📄 Licença
+## Licença e Menções a Terceiros
 
-Este projeto é desenvolvido para uso educacional e corporativo sob licença proprietária/MIT conforme especificado pelos mantenedores.
+O código-fonte do **MLab** é distribuído sob os termos da **Licença MIT**.
+
+### Atribuições e Licenças de Bibliotecas de Terceiros
+O MLab é construído sobre tecnologias de código aberto consagradas da comunidade de software livre. Agradecemos e reconhecemos expressamente os autores e mantenedores dos seguintes projetos:
+
+| Projeto / Biblioteca | Licença | Detentores de Direitos / Autores | Finalidade no MLab |
+| :--- | :--- | :--- | :--- |
+| **[Pion WebRTC](https://github.com/pion/webrtc)** | MIT | Copyright (c) 2018 Pion | Implementação do motor WebRTC e SFU em Go puro |
+| **[Gorilla WebSocket](https://github.com/gorilla/websocket)** | BSD-2-Clause | Copyright (c) 2013 The Gorilla WebSocket Authors | Servidor WebSocket concorrente e canal de sinalização |
+| **[Golang-JWT](https://github.com/golang-jwt/jwt)** | MIT | Copyright (c) 2021 Dave Grijalva, Form3, Golang-JWT Authors | Assinatura e validação de tokens JWT |
+| **[Go Cryptography](https://golang.org/x/crypto)** | BSD-3-Clause | Copyright (c) 2009 The Go Authors | Algoritmo bcrypt para segurança de senhas |
+| **[Electron](https://github.com/electron/electron)** | MIT | Copyright (c) OpenJS Foundation and Electron contributors | Framework desktop nativo multiplataforma |
+| **[React](https://github.com/facebook/react)** | MIT | Copyright (c) Meta Platforms, Inc. and affiliates | Biblioteca de interfaces reativas |
+| **[Carbon Design System](https://github.com/carbon-design-system)** | Apache-2.0 | Copyright (c) IBM Corporation | Sistema de design e pacote de ícones oficiais |
+| **[Vite](https://github.com/vitejs/vite)** | MIT | Copyright (c) 2019-present Evan You & Vite Contributors | Ferramenta de build rápido e empacotamento web |
+| **[Turborepo](https://github.com/vercel/turbo)** | MIT | Copyright (c) 2021 Vercel, Inc. | Orquestrador de monorepo e cache inteligente de builds |
+| **[TypeScript](https://github.com/microsoft/TypeScript)** | Apache-2.0 | Copyright (c) Microsoft Corporation | Tipagem estática e interfaces em todo o monorepo |
+| **[Vitest](https://github.com/vitest-dev/vitest)** | MIT | Copyright (c) 2021-present Anthony Fu & Vitest contributors | Suíte de testes unitários ultrarrápida |
+| **[Testing Library](https://github.com/testing-library)** | MIT | Copyright (c) 2017 Kent C. Dodds | Testes de integração de componentes React |
+
+Para maiores detalhes sobre os termos de uso de cada dependência, consulte os arquivos de licença originais de cada pacote.

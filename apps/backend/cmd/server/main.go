@@ -30,9 +30,11 @@ func main() {
 	roomStore := room.NewInMemoryStore()
 
 	// ── SFU Pion WebRTC (T011) ────────────────────────────────────────────────
+	lanIP := room.GetPrimaryPhysicalIP()
 	sfuService, err := webrtc.NewSFUService(webrtc.Config{
 		UDPPortMin: 50000,
 		UDPPortMax: 50100,
+		NAT1To1IP:  lanIP,
 	})
 	if err != nil {
 		log.Fatalf("erro ao inicializar SFUService: %v", err)

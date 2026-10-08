@@ -49,4 +49,25 @@ describe('Dashboard Component', () => {
       link: 'http://localhost:5173/algoritmos-i/professor/entrar',
     });
   });
+
+  it('deve exibir o badge de Rede Local (LAN) quando o link contiver IP privado de rede local', async () => {
+    (roomService.createRoom as any).mockResolvedValueOnce({
+      room_id: 'room-lan-1',
+      slug: 'redes-locais/professor',
+      link: 'http://192.168.1.50:5173/redes-locais/professor/entrar',
+      status: 'waiting',
+    });
+
+    render(<Dashboard onEnterRoom={vi.fn()} onLogout={vi.fn()} />);
+
+    fireEvent.change(screen.getByLabelText(/Titulo \/ Disciplina/i), {
+      target: { value: 'Redes Locais' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: /Criar Sala e Gerar Link/i }));
+
+    await waitFor(() => {
+      expect(screen.getByText('Rede Local (LAN)')).toBeInTheDocument();
+      expect(screen.getByDisplayValue('http://192.168.1.50:5173/redes-locais/professor/entrar')).toBeInTheDocument();
+    });
+  });
 });

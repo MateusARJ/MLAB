@@ -14,6 +14,7 @@ export * from './StatusBadge';
 export * from './Tabs';
 export * from './Alert';
 export * from './Card';
+export * from './Loading';
 
 // Carbon Icons Re-exports
 export {
@@ -45,4 +46,6 @@ export {
   Education,
   Idea,
   Security,
+  Touch_1,
+  Touch_1Filled,
 } from '@carbon/icons-react';

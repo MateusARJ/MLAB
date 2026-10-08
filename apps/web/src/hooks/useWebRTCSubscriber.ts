@@ -1,6 +1,17 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 
-export function useWebRTCSubscriber(token: string, roomInfo: { room_id: string; ws_url: string; ice_servers: any[] }) {
+function parseJwtSub(token: string): string | null {
+  try {
+    const parts = token.split('.');
+    if (parts.length < 2) return null;
+    const payload = JSON.parse(atob(parts[1].replace(/-/g, '+').replace(/_/g, '/')));
+    return payload.sub || null;
+  } catch {
+    return null;
+  }
+}
+
+export function useWebRTCSubscriber(token: string, roomInfo: { room_id: string; ws_url: string; ice_servers: any[]; participant_id?: string }) {
   const [stream, setStream] = useState<MediaStream | null>(null);
   const [autoplayBlocked, setAutoplayBlocked] = useState(false);
   const [connectionStatus, setConnectionStatus] = useState<
@@ -9,6 +20,7 @@ export function useWebRTCSubscriber(token: string, roomInfo: { room_id: string; 
   const [isStreamPaused, setIsStreamPaused] = useState<boolean>(false);
   const [sharedFiles, setSharedFiles] = useState<any[]>([]);
   const [messages, setMessages] = useState<any[]>([]);
+  const [isHandRaised, setIsHandRaised] = useState<boolean>(false);
 
   const pcRef = useRef<RTCPeerConnection | null>(null);
   const wsRef = useRef<WebSocket | null>(null);
@@ -19,6 +31,10 @@ export function useWebRTCSubscriber(token: string, roomInfo: { room_id: string; 
   const isClosedRef = useRef(false);
   const connectionStatusRef = useRef(connectionStatus);
   connectionStatusRef.current = connectionStatus;
+
+  const myParticipantId = (roomInfo as any)?.participant_id || parseJwtSub(token);
+  const myParticipantIdRef = useRef<string | null>(myParticipantId);
+  myParticipantIdRef.current = myParticipantId;
 
   const roomId = roomInfo?.room_id;
   const wsUrl = roomInfo?.ws_url;
@@ -53,7 +69,7 @@ export function useWebRTCSubscriber(token: string, roomInfo: { room_id: string; 
       setStream(null);
 
       const pc = new RTCPeerConnection({
-        iceServers: iceServers && iceServers.length > 0
+        iceServers: Array.isArray(iceServers)
           ? iceServers
           : [{ urls: 'stun:stun.l.google.com:19302' }],
       });
@@ -148,6 +164,19 @@ export function useWebRTCSubscriber(token: string, roomInfo: { room_id: string; 
         } else if (msg.type === 'files-history') {
           if (msg.payload && Array.isArray(msg.payload.files)) {
             setSharedFiles(msg.payload.files);
+          }
+        } else if (msg.type === 'hand-updated') {
+          const myId = myParticipantIdRef.current;
+          if (msg.payload && (!myId || msg.payload.participant_id === myId)) {
+            setIsHandRaised(!!msg.payload.raised);
+          }
+        } else if (msg.type === 'participants-update') {
+          const myId = myParticipantIdRef.current;
+          if (myId && msg.payload && Array.isArray(msg.payload.participants)) {
+            const me = msg.payload.participants.find((p: any) => p.participant_id === myId);
+            if (me && typeof me.hand_raised === 'boolean') {
+              setIsHandRaised(me.hand_raised);
+            }
           }
         } else if (msg.type === 'stream-started') {
           // O professor iniciou a transmissão com vídeo pronto: reinicializa PeerConnection e conecta sem F5
@@ -338,6 +367,23 @@ export function useWebRTCSubscriber(token: string, roomInfo: { room_id: string; 
     }
   }, []);
 
+  const toggleHand = useCallback((desiredRaised?: boolean) => {
+    if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+      const nextRaised = typeof desiredRaised === 'boolean' ? desiredRaised : !isHandRaised;
+      try {
+        wsRef.current.send(
+          JSON.stringify({
+            type: 'raise-hand',
+            payload: { raised: nextRaised },
+          })
+        );
+        setIsHandRaised(nextRaised);
+      } catch (err) {
+        console.warn('Erro ao enviar sinal de raise-hand:', err);
+      }
+    }
+  }, [isHandRaised]);
+
   return {
     stream,
     autoplayBlocked,
@@ -346,6 +392,8 @@ export function useWebRTCSubscriber(token: string, roomInfo: { room_id: string; 
     isStreamPaused,
     sharedFiles,
     messages,
+    isHandRaised,
+    toggleHand,
     sendChatMessage,
     requestKeyframe,
   };

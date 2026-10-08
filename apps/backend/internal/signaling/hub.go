@@ -9,6 +9,8 @@ import (
 	"log"
 	"strings"
 	"time"
+
+	"github.com/screenshare/classroom/internal/chat"
 )
 
 const (
@@ -299,6 +301,10 @@ func (h *Hub) route(env *envelope) {
 		if h.sfu != nil {
 			_ = h.sfu.RequestKeyFrame(h.roomID)
 		}
+	case TypeRaiseHand:
+		h.onRaiseHand(c, env.msg)
+	case TypeLowerHand:
+		h.onLowerHand(c, env.msg)
 	case TypeEndSession:
 		h.onEndSession(c)
 	default:
@@ -435,7 +441,9 @@ func (h *Hub) onChatMessage(c *Client, msg WsMessage) {
 		}
 	}
 
-	sanitized := html.EscapeString(trimmed)
+	// Máscara de segurança para termos ofensivos / palavrões (chat público e privado)
+	masked := chat.MaskProfanity(trimmed)
+	sanitized := html.EscapeString(masked)
 
 	targetID := p.TargetID
 	if p.IsPrivate && targetID == "" && c.role == RoleAluno {
@@ -581,17 +589,107 @@ func (h *Hub) BroadcastFileShared(payload FileSharedPayload) {
 func (h *Hub) broadcastParticipantsUpdate() {
 	list := make([]ParticipantInfo, 0, len(h.clients))
 	for _, client := range h.clients {
+		var raisedAtStr string
+		if client.handRaised && !client.handRaisedAt.IsZero() {
+			raisedAtStr = client.handRaisedAt.UTC().Format(time.RFC3339)
+		}
 		list = append(list, ParticipantInfo{
 			ParticipantID: client.participantID,
 			Name:          client.name,
 			StudentID:     client.studentID,
 			Role:          client.role,
+			HandRaised:    client.handRaised,
+			HandRaisedAt:  raisedAtStr,
 		})
 	}
 	h.broadcastAll(TypeParticipantsUpdate, ParticipantsUpdatePayload{
 		Count:        len(list),
 		Participants: list,
 	})
+}
+
+func (h *Hub) onRaiseHand(c *Client, msg WsMessage) {
+	if c.role != RoleAluno {
+		c.sendError("FORBIDDEN", "apenas alunos podem levantar a mão")
+		return
+	}
+
+	raised := true
+	if len(msg.Payload) > 0 {
+		var p RaiseHandPayload
+		if err := json.Unmarshal(msg.Payload, &p); err == nil {
+			raised = p.Raised
+		}
+	}
+
+	c.handRaised = raised
+	var raisedAtStr string
+	if raised {
+		c.handRaisedAt = time.Now()
+		raisedAtStr = c.handRaisedAt.UTC().Format(time.RFC3339)
+		log.Printf("hub[%s]: aluno %s (%s) levantou a mão", h.roomID, c.name, c.participantID)
+	} else {
+		c.handRaisedAt = time.Time{}
+		log.Printf("hub[%s]: aluno %s (%s) abaixou a mão", h.roomID, c.name, c.participantID)
+	}
+
+	h.broadcastAll(TypeHandUpdated, HandUpdatedPayload{
+		ParticipantID: c.participantID,
+		Name:          c.name,
+		StudentID:     c.studentID,
+		Raised:        c.handRaised,
+		RaisedAt:      raisedAtStr,
+	})
+	h.broadcastParticipantsUpdate()
+}
+
+func (h *Hub) onLowerHand(c *Client, msg WsMessage) {
+	if c.role == RoleProfessor {
+		var p LowerHandPayload
+		if len(msg.Payload) > 0 {
+			_ = json.Unmarshal(msg.Payload, &p)
+		}
+		targetID := p.ParticipantID
+		if targetID == "" {
+			c.sendError("BAD_REQUEST", "participant_id obrigatório para abaixar a mão")
+			return
+		}
+		target, ok := h.clients[targetID]
+		if !ok || target.role != RoleAluno {
+			c.sendError("NOT_FOUND", "aluno não encontrado")
+			return
+		}
+		target.handRaised = false
+		target.handRaisedAt = time.Time{}
+		log.Printf("hub[%s]: professor abaixou a mão do aluno %s (%s)", h.roomID, target.name, target.participantID)
+
+		h.broadcastAll(TypeHandUpdated, HandUpdatedPayload{
+			ParticipantID: target.participantID,
+			Name:          target.name,
+			StudentID:     target.studentID,
+			Raised:        false,
+		})
+		h.broadcastParticipantsUpdate()
+		return
+	}
+
+	// Se for o próprio aluno abaixando sua mão via lower-hand
+	if c.role == RoleAluno {
+		c.handRaised = false
+		c.handRaisedAt = time.Time{}
+		log.Printf("hub[%s]: aluno %s (%s) abaixou a própria mão", h.roomID, c.name, c.participantID)
+
+		h.broadcastAll(TypeHandUpdated, HandUpdatedPayload{
+			ParticipantID: c.participantID,
+			Name:          c.name,
+			StudentID:     c.studentID,
+			Raised:        false,
+		})
+		h.broadcastParticipantsUpdate()
+		return
+	}
+
+	c.sendError("FORBIDDEN", "operação não permitida")
 }
 
 // ── Broadcast helpers ─────────────────────────────────────────────────────────

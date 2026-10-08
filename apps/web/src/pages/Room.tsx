@@ -9,6 +9,8 @@ import {
   Attachment,
   Download,
   Renew,
+  Touch_1,
+  Touch_1Filled,
 } from '@mlab/ui';
 import React, { useRef, useEffect, useState } from 'react';
 import { useWebRTCSubscriber } from '../hooks/useWebRTCSubscriber';
@@ -78,6 +80,8 @@ export const Room: React.FC<RoomProps> = ({ token, roomInfo, onLeave }) => {
     messages = [],
     sendChatMessage,
     requestKeyframe,
+    isHandRaised = false,
+    toggleHand = () => {},
   } = useWebRTCSubscriber(token, roomInfo);
 
   // Quando o professor encerra a transmissão (connectionStatus === 'closed'), redireciona de volta para a tela de credenciais
@@ -493,7 +497,7 @@ export const Room: React.FC<RoomProps> = ({ token, roomInfo, onLeave }) => {
             {/* Status da Transmissão idêntico ao do Header */}
             <div style={styles.fullscreenStatusCard}>
               <span style={styles.statusLabel}>
-                Status: {isStreamPaused ? 'pausado' : connectionStatus}
+                {isStreamPaused ? 'pausado' : connectionStatus}
               </span>
             </div>
 
@@ -547,6 +551,30 @@ export const Room: React.FC<RoomProps> = ({ token, roomInfo, onLeave }) => {
                 {sharedFiles.length > 0 && (
                   <span style={styles.filesBadge}>{sharedFiles.length}</span>
                 )}
+              </button>
+
+              {/* Levantar / Abaixar Mão em Tela Cheia */}
+              <button
+                onClick={() => {
+                  toggleHand();
+                }}
+                style={isHandRaised ? styles.fullscreenActionButtonActive : styles.fullscreenActionButton}
+                title={isHandRaised ? 'Abaixar mão' : 'Levantar mão'}
+                aria-label={isHandRaised ? 'Abaixar mão' : 'Levantar mão'}
+              >
+                <div style={styles.fullscreenActionLeft}>
+                  <span style={styles.fullscreenActionIcon}>
+                    {isHandRaised ? <Touch_1Filled size={18} /> : <Touch_1 size={18} />}
+                  </span>
+                  <div style={styles.fullscreenActionMeta}>
+                    <span style={styles.fullscreenActionTitle}>
+                      {isHandRaised ? 'Mão Levantada (Abaixar)' : 'Levantar Mão'}
+                    </span>
+                    <span style={styles.fullscreenActionDesc}>
+                      {isHandRaised ? 'Cancelar solicitação de dúvida' : 'Avisar o professor que você tem uma dúvida'}
+                    </span>
+                  </div>
+                </div>
               </button>
 
               {/* Picture-in-Picture */}
@@ -618,7 +646,11 @@ export const Room: React.FC<RoomProps> = ({ token, roomInfo, onLeave }) => {
           </div>
           <div style={isMobile ? styles.statusBoxMobile : styles.statusBox}>
             <span style={styles.statusLabel}>
-              Status: {isStreamPaused ? 'pausado' : connectionStatus}
+              {isStreamPaused ? (
+                <span style={styles.statusPausedBadge}>pausado</span>
+              ) : (
+                connectionStatus
+              )}
             </span>
 
             {/* Botão de Arquivos da Aula */}
@@ -725,6 +757,27 @@ export const Room: React.FC<RoomProps> = ({ token, roomInfo, onLeave }) => {
                 muted={autoplayBlocked}
                 style={styles.video}
               />
+              {/* Banner de feedback quando a mão está levantada */}
+              {isHandRaised && (
+                <div style={styles.handRaisedBanner} role="status">
+                  <div style={styles.handRaisedBannerContent}>
+                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}>
+                      <Touch_1Filled size={16} />
+                      <span>Sua mão está levantada. O professor foi notificado.</span>
+                    </span>
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        toggleHand(false);
+                      }}
+                      style={styles.handRaisedLowerBtn}
+                    >
+                      Abaixar Mão
+                    </button>
+                  </div>
+                </div>
+              )}
               {/* Controles sobre o vídeo (ocultados em tela cheia) */}
               {!effectiveFullscreen && (
                 <div
@@ -736,31 +789,47 @@ export const Room: React.FC<RoomProps> = ({ token, roomInfo, onLeave }) => {
                   }}
                 >
                   <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      toggleHand();
+                    }}
+                    style={isHandRaised ? styles.overlayBtnActive : styles.overlayBtn}
+                    title={isHandRaised ? 'Abaixar mão' : 'Levantar mão'}
+                    aria-label={isHandRaised ? 'Abaixar mão' : 'Levantar mão'}
+                  >
+                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                      {isHandRaised ? <Touch_1Filled size={16} /> : <Touch_1 size={16} />}
+                      {isHandRaised ? 'Mão Levantada (Abaixar)' : 'Levantar Mão'}
+                    </span>
+                  </button>
+                  <button
+                    type="button"
                     onClick={(e) => {
                       e.stopPropagation();
                       handleToggleFullscreen();
                     }}
-                    style={styles.minimalOverlayBtn}
+                    style={styles.overlayBtn}
                     title="Tela Cheia"
                     aria-label="Tela Cheia"
                   >
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-                      <path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3" />
-                    </svg>
+                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                      <Maximize size={16} /> Tela Cheia
+                    </span>
                   </button>
                   <button
+                    type="button"
                     onClick={(e) => {
                       e.stopPropagation();
                       handleTogglePiP();
                     }}
-                    style={styles.minimalOverlayBtn}
+                    style={styles.overlayBtn}
                     title="Picture-in-Picture"
                     aria-label="Picture-in-Picture"
                   >
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                      <rect x="2" y="3" width="20" height="14" rx="2" />
-                      <rect x="12" y="9" width="8" height="6" rx="1" fill="currentColor" fillOpacity="0.4" />
-                    </svg>
+                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                      <Popup size={16} /> Picture-in-Picture
+                    </span>
                   </button>
                 </div>
               )}
@@ -1336,20 +1405,69 @@ const styles: { [key: string]: React.CSSProperties } = {
     gap: '10px',
     zIndex: 10,
   },
-  minimalOverlayBtn: {
-    width: '40px',
-    height: '40px',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: '8px',
-    border: '1px solid rgba(255, 255, 255, 0.18)',
+  overlayBtn: {
+    padding: '8px 14px',
+    borderRadius: '6px',
+    border: '1px solid rgba(255, 255, 255, 0.2)',
     backgroundColor: 'rgba(15, 23, 42, 0.85)',
     color: '#ffffff',
     cursor: 'pointer',
+    fontSize: '12px',
+    fontWeight: '500',
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: '6px',
     backdropFilter: 'blur(8px)',
     boxShadow: '0 4px 12px rgba(0, 0, 0, 0.5)',
     transition: 'opacity 0.25s ease, background-color 0.2s',
+  },
+  overlayBtnActive: {
+    padding: '8px 14px',
+    borderRadius: '6px',
+    border: '1px solid #0f62fe',
+    backgroundColor: 'rgba(15, 98, 254, 0.85)',
+    color: '#ffffff',
+    cursor: 'pointer',
+    fontSize: '12px',
+    fontWeight: '600',
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: '6px',
+    backdropFilter: 'blur(8px)',
+    boxShadow: '0 4px 12px rgba(15, 98, 254, 0.4)',
+    transition: 'opacity 0.25s ease, background-color 0.2s',
+  },
+  handRaisedBanner: {
+    position: 'absolute' as const,
+    top: '16px',
+    left: '50%',
+    transform: 'translateX(-50%)',
+    zIndex: 20,
+    backgroundColor: 'rgba(15, 23, 42, 0.92)',
+    border: '1px solid rgba(15, 98, 254, 0.4)',
+    borderRadius: '8px',
+    padding: '8px 16px',
+    boxShadow: '0 4px 16px rgba(0, 0, 0, 0.4)',
+    backdropFilter: 'blur(8px)',
+  },
+  handRaisedBannerContent: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '14px',
+    fontSize: '13px',
+    color: '#f8fafc',
+    fontWeight: '500',
+  },
+  handRaisedLowerBtn: {
+    padding: '4px 10px',
+    borderRadius: '4px',
+    border: '1px solid rgba(255, 255, 255, 0.2)',
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    color: '#ffffff',
+    fontSize: '12px',
+    fontWeight: '600',
+    cursor: 'pointer',
+    transition: 'background-color 0.2s',
   },
   pausedScreen: {
     display: 'flex',
@@ -1366,18 +1484,22 @@ const styles: { [key: string]: React.CSSProperties } = {
     boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.6)',
   },
   pausedIconWrapper: {
-    width: '72px',
-    height: '72px',
+    width: '64px',
+    height: '64px',
     borderRadius: '50%',
-    backgroundColor: 'rgba(251, 191, 36, 0.12)',
-    border: '2px solid rgba(251, 191, 36, 0.4)',
+    backgroundColor: 'rgba(2, 132, 199, 0.12)',
+    border: '1px solid rgba(56, 189, 248, 0.3)',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: '18px',
+    color: '#38bdf8',
   },
   pausedIcon: {
-    fontSize: '32px',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    animation: 'spin 4s linear infinite',
   },
   pausedTitle: {
     fontSize: '22px',
@@ -1765,9 +1887,9 @@ const styles: { [key: string]: React.CSSProperties } = {
   statusPausedBadge: {
     fontSize: '11px',
     fontWeight: '700',
-    color: '#f59e0b',
-    backgroundColor: 'rgba(245, 158, 11, 0.15)',
-    border: '1px solid rgba(245, 158, 11, 0.3)',
+    color: '#38bdf8',
+    backgroundColor: 'rgba(2, 132, 199, 0.15)',
+    border: '1px solid rgba(56, 189, 248, 0.3)',
     padding: '3px 8px',
     borderRadius: '12px',
   },
@@ -1995,6 +2117,19 @@ const styles: { [key: string]: React.CSSProperties } = {
     border: '1px solid #334155',
     borderRadius: '8px',
     color: '#f8fafc',
+    cursor: 'pointer',
+    transition: 'all 0.2s ease',
+    textAlign: 'left' as const,
+  },
+  fullscreenActionButtonActive: {
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: '12px 14px',
+    backgroundColor: 'rgba(15, 98, 254, 0.2)',
+    border: '1px solid #0f62fe',
+    borderRadius: '8px',
+    color: '#ffffff',
     cursor: 'pointer',
     transition: 'all 0.2s ease',
     textAlign: 'left' as const,

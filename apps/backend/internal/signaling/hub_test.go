@@ -162,6 +162,51 @@ func TestHub_ChatMessage_SanitizationAndDiscard(t *testing.T) {
 	case <-time.After(1 * time.Second):
 		t.Fatal("timeout waiting for sanitized chat message broadcast")
 	}
+
+	// 3. Mensagem com palavrão pública e privada -> deve receber máscara de segurança
+	profPayload := `Essa porra não funciona caralho!`
+	pBytes, _ := json.Marshal(ChatSendPayload{Content: profPayload, IsPrivate: false})
+	hub.onChatMessage(client, WsMessage{Type: TypeChatMessage, Payload: pBytes})
+
+	select {
+	case msgBytes := <-client.send:
+		var wsMsg WsMessage
+		_ = json.Unmarshal(msgBytes, &wsMsg)
+		var chatRecv ChatRecvPayload
+		_ = json.Unmarshal(wsMsg.Payload, &chatRecv)
+
+		if strings.Contains(strings.ToLower(chatRecv.Content), "porra") || strings.Contains(strings.ToLower(chatRecv.Content), "caralho") {
+			t.Errorf("palavrão vazou no broadcast público: %s", chatRecv.Content)
+		}
+		expectedMasked := "Essa ***** não funciona *******!"
+		if chatRecv.Content != expectedMasked {
+			t.Errorf("esperado %q, obteve %q", expectedMasked, chatRecv.Content)
+		}
+	case <-time.After(1 * time.Second):
+		t.Fatal("timeout aguardando chat público mascarado")
+	}
+
+	// Chat privado com professor também deve ser mascarado
+	privBytes, _ := json.Marshal(ChatSendPayload{Content: "merda professor", IsPrivate: true, TargetID: "prof-01"})
+	hub.onChatMessage(client, WsMessage{Type: TypeChatMessage, Payload: privBytes})
+
+	select {
+	case msgBytes := <-client.send:
+		var wsMsg WsMessage
+		_ = json.Unmarshal(msgBytes, &wsMsg)
+		var chatRecv ChatRecvPayload
+		_ = json.Unmarshal(wsMsg.Payload, &chatRecv)
+
+		if strings.Contains(strings.ToLower(chatRecv.Content), "merda") {
+			t.Errorf("palavrão vazou no chat privado: %s", chatRecv.Content)
+		}
+		expectedPriv := "***** professor"
+		if chatRecv.Content != expectedPriv {
+			t.Errorf("esperado %q, obteve %q", expectedPriv, chatRecv.Content)
+		}
+	case <-time.After(1 * time.Second):
+		t.Fatal("timeout aguardando chat privado mascarado")
+	}
 }
 
 func TestHub_Reconnection_RaceConditionPrevention(t *testing.T) {

@@ -5,9 +5,9 @@ import (
 	"errors"
 	"fmt"
 	"log"
-	"net"
 	"net/http"
 	"os"
+	"regexp"
 	"strings"
 	"time"
 
@@ -15,6 +15,9 @@ import (
 )
 
 const defaultMaxParticipants = 50
+
+// studentIDRegex valida que a matrícula contém números e até 4 letras da sigla do curso.
+var studentIDRegex = regexp.MustCompile(`^[0-9]+[A-Za-z]{1,4}[0-9]+$`)
 
 // RoomCloseBroadcasterFunc define a assinatura da função de broadcast para encerramento de sala.
 type RoomCloseBroadcasterFunc func(roomID string)
@@ -76,48 +79,9 @@ func (h *Handler) SetRoomCloseBroadcaster(fn RoomCloseBroadcasterFunc) {
 	h.roomCloseBroadcaster = fn
 }
 
-// getOutboundIP descobre o endereço IP de saída da interface de rede primária.
+// getOutboundIP descobre o endereço IP de saída da interface de rede primária física.
 func getOutboundIP() string {
-	conn, err := net.Dial("udp", "8.8.8.8:80")
-	if err == nil {
-		defer conn.Close()
-		if localAddr, ok := conn.LocalAddr().(*net.UDPAddr); ok {
-			ip := localAddr.IP.String()
-			if ip != "" && ip != "127.0.0.1" && ip != "localhost" {
-				return ip
-			}
-		}
-	}
-
-	// Fallback para redes locais offline ou sem saída externa (ex: sem rota para 8.8.8.8):
-	// Itera sobre as interfaces ativas buscando um IPv4 válido (não loopback e não APIPA 169.254.x.x)
-	ifaces, err := net.Interfaces()
-	if err == nil {
-		for _, iface := range ifaces {
-			if iface.Flags&net.FlagUp == 0 || iface.Flags&net.FlagLoopback != 0 {
-				continue
-			}
-			addrs, err := iface.Addrs()
-			if err != nil {
-				continue
-			}
-			for _, addr := range addrs {
-				var ip net.IP
-				switch v := addr.(type) {
-				case *net.IPNet:
-					ip = v.IP
-				case *net.IPAddr:
-					ip = v.IP
-				}
-				if ip == nil || ip.IsLoopback() || ip.To4() == nil || ip.IsLinkLocalUnicast() {
-					continue
-				}
-				return ip.To4().String()
-			}
-		}
-	}
-
-	return "localhost"
+	return GetPrimaryPhysicalIP()
 }
 
 // resolveBaseURL resolve a URL base a ser apresentada no link da sala (ngrok > PUBLIC_URL > BASE_URL > IP de rede > localhost).
@@ -383,6 +347,10 @@ func (h *Handler) handleJoin(w http.ResponseWriter, r *http.Request, identifier 
 		writeError(w, http.StatusBadRequest, "name e student_id são obrigatórios")
 		return
 	}
+	if !studentIDRegex.MatchString(req.StudentID) {
+		writeError(w, http.StatusBadRequest, "matrícula inválida: deve conter números e até 4 letras da sigla do curso (ex: 2025116TADS0000)")
+		return
+	}
 
 	// 1. Tenta buscar por ID (UUID); se não encontrar, busca por Slug (usado no link público de convite)
 	room, err := h.store.GetRoomByID(r.Context(), identifier)
@@ -443,6 +411,16 @@ func (h *Handler) handleJoin(w http.ResponseWriter, r *http.Request, identifier 
 
 	wsURL := h.resolveWsURL(r, room.ID)
 
+	var iceServers []IceServer
+	stunURL := os.Getenv("STUN_URL")
+	if stunURL != "" {
+		iceServers = []IceServer{{URLs: []string{stunURL}}}
+	} else if IsInternetAvailable() {
+		iceServers = []IceServer{{URLs: []string{"stun:stun.l.google.com:19302"}}}
+	} else {
+		iceServers = []IceServer{}
+	}
+
 	writeJSON(w, http.StatusOK, JoinResponse{
 		Token:         tokenStr,
 		ExpiresAt:     expiresAt,
@@ -450,7 +428,7 @@ func (h *Handler) handleJoin(w http.ResponseWriter, r *http.Request, identifier 
 		RoomStatus:    room.Status,
 		RoomID:        room.ID,
 		WsURL:         wsURL,
-		IceServers:    []IceServer{{URLs: []string{"stun:stun.l.google.com:19302"}}},
+		IceServers:    iceServers,
 		ProfessorName: room.ProfessorName,
 		RoomTitle:     room.Title,
 	})

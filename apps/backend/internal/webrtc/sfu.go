@@ -7,12 +7,14 @@ import (
 	"sync"
 
 	"github.com/pion/webrtc/v3"
+	"github.com/screenshare/classroom/internal/room"
 )
 
 // Config contém as opções de inicialização do SFU.
 type Config struct {
 	UDPPortMin uint16
 	UDPPortMax uint16
+	NAT1To1IP  string
 }
 
 // SFUService gerencia as salas e conexões WebRTC via Pion SFU.
@@ -49,52 +51,15 @@ func NewSFUService(cfg Config) (*SFUService, error) {
 		return !ip.IsLinkLocalUnicast()
 	})
 
-	natIP := os.Getenv("NAT_1TO1_IP")
+	natIP := cfg.NAT1To1IP
+	if natIP == "" {
+		natIP = os.Getenv("NAT_1TO1_IP")
+	}
 	if natIP == "" {
 		natIP = os.Getenv("PUBLIC_IP")
 	}
 	if natIP == "" {
-		// Detecta o IP real da interface de rede primária (ex: 192.168.1.40)
-		conn, err := net.Dial("udp", "8.8.8.8:80")
-		if err == nil {
-			if localAddr, ok := conn.LocalAddr().(*net.UDPAddr); ok {
-				ip := localAddr.IP.String()
-				if ip != "" && ip != "127.0.0.1" && ip != "localhost" {
-					natIP = ip
-				}
-			}
-			_ = conn.Close()
-		}
-
-		// Fallback para redes locais sem acesso à internet ou offline
-		if natIP == "" {
-			if ifaces, err := net.Interfaces(); err == nil {
-				for _, iface := range ifaces {
-					if iface.Flags&net.FlagUp == 0 || iface.Flags&net.FlagLoopback != 0 {
-						continue
-					}
-					if addrs, err := iface.Addrs(); err == nil {
-						for _, addr := range addrs {
-							var ip net.IP
-							switch v := addr.(type) {
-							case *net.IPNet:
-								ip = v.IP
-							case *net.IPAddr:
-								ip = v.IP
-							}
-							if ip == nil || ip.IsLoopback() || ip.To4() == nil || ip.IsLinkLocalUnicast() {
-								continue
-							}
-							natIP = ip.To4().String()
-							break
-						}
-					}
-					if natIP != "" {
-						break
-					}
-				}
-			}
-		}
+		natIP = room.GetPrimaryPhysicalIP()
 	}
 	if natIP != "" && natIP != "127.0.0.1" && natIP != "localhost" {
 		settingEngine.SetNAT1To1IPs([]string{natIP}, webrtc.ICECandidateTypeHost)
