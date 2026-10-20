@@ -27,6 +27,8 @@ import {
   Idea,
   Touch_1,
   Touch_1Filled,
+  VolumeUp,
+  VolumeMute,
 } from '@mlab/ui';
 
 
@@ -115,12 +117,14 @@ export const Room: React.FC<RoomProps> = ({ room, onCloseRoom }) => {
     selectedSource,
     stream,
     micMuted,
+    systemAudioMuted,
     videoPaused,
     hasPermissions,
     loadSources,
     refreshSources,
     selectSource,
     toggleMicMute,
+    toggleSystemAudio,
     toggleVideoPause,
     stopCapture,
     setTargetFps,
@@ -832,6 +836,22 @@ export const Room: React.FC<RoomProps> = ({ room, onCloseRoom }) => {
                     style={micMuted ? styles.controlBtnActive : styles.controlBtn}
                   >
                     {micMuted ? <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}><MicrophoneOff size={16} /> Desmutar Microfone</span> : <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}><Microphone size={16} /> Mutar Microfone</span>}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={toggleSystemAudio}
+                    style={systemAudioMuted ? styles.controlBtnActive : styles.controlBtn}
+                    title={systemAudioMuted ? "Transmitir o áudio interno do computador (vídeos educativos, músicas, etc.) para os alunos" : "Silenciar o áudio interno do computador"}
+                  >
+                    {systemAudioMuted ? (
+                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                        <VolumeMute size={16} /> Ativar Som do PC
+                      </span>
+                    ) : (
+                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                        <VolumeUp size={16} /> Silenciar Som do PC
+                      </span>
+                    )}
                   </button>
                   <button
                     type="button"

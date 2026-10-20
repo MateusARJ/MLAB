@@ -39,7 +39,11 @@ if (typeof window !== 'undefined') {
   // @ts-ignore
   globalThis.MediaStream = class MockMediaStream {
     private _tracks: any[] = [];
-    constructor() {
+    constructor(tracks?: any[]) {
+      if (Array.isArray(tracks)) {
+        this._tracks = [...tracks];
+        return;
+      }
       const mockVideoTrack = {
         kind: 'video',
         id: 'mock-video-track',
@@ -61,6 +65,7 @@ if (typeof window !== 'undefined') {
     getVideoTracks() { return this._tracks.filter((t) => t.kind === 'video'); }
     getAudioTracks() { return this._tracks.filter((t) => t.kind === 'audio'); }
     addTrack(track: any) { this._tracks.push(track); }
+    removeTrack(track: any) { this._tracks = this._tracks.filter((t) => t !== track && t.id !== track?.id); }
   };
 
   // @ts-ignore

@@ -48,4 +48,6 @@ export {
   Security,
   Touch_1,
   Touch_1Filled,
+  VolumeUp,
+  VolumeMute,
 } from '@carbon/icons-react';

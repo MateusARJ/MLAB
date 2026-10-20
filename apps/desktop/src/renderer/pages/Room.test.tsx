@@ -98,6 +98,36 @@ describe('Room Component (Desktop)', () => {
     expect(screen.getByRole('button', { name: /Mutar Microfone/i })).toBeInTheDocument();
   });
 
+  it('deve iniciar com som do PC desligado por padrão e permitir alternar ao clicar', async () => {
+    render(<Room room={dummyRoom} onCloseRoom={vi.fn()} />);
+
+    await waitFor(() => {
+      expect(screen.getByText('Tela Inteira 1')).toBeInTheDocument();
+    });
+
+    const advanceBtn = screen.getByRole('button', { name: /Avançar e Iniciar Transmissão/i });
+    await waitFor(() => {
+      expect(advanceBtn).toBeEnabled();
+    });
+    fireEvent.click(advanceBtn);
+
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: /Alterar Modo \/ Fonte/i })).toBeInTheDocument();
+    });
+
+    // Som do PC deve iniciar desligado por padrão (exibindo 'Ativar Som do PC')
+    const systemAudioBtn = screen.getByRole('button', { name: /Ativar Som do PC/i });
+    expect(systemAudioBtn).toBeInTheDocument();
+
+    // Ao clicar, deve ativar (passando a exibir 'Silenciar Som do PC')
+    fireEvent.click(systemAudioBtn);
+    expect(screen.getByRole('button', { name: /Silenciar Som do PC/i })).toBeInTheDocument();
+
+    // Ao clicar novamente, deve silenciar (voltando a exibir 'Ativar Som do PC')
+    fireEvent.click(screen.getByRole('button', { name: /Silenciar Som do PC/i }));
+    expect(screen.getByRole('button', { name: /Ativar Som do PC/i })).toBeInTheDocument();
+  });
+
   it('deve permitir alternar entre abas de chat público e dúvidas privadas', async () => {
     render(<Room room={dummyRoom} onCloseRoom={vi.fn()} />);
 
