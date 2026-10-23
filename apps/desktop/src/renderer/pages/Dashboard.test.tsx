@@ -18,7 +18,9 @@ describe('Dashboard Component', () => {
     (roomService.createRoom as any).mockResolvedValueOnce({
       room_id: 'room-123',
       slug: 'algoritmos-i/professor',
-      link: 'http://localhost:5173/algoritmos-i/professor/entrar',
+      link: 'http://mlab-professor.local:5173',
+      mdns_link: 'http://mlab-professor.local:5173',
+      ip_link: 'http://192.168.1.50:5173',
       status: 'waiting',
     });
 
@@ -33,28 +35,34 @@ describe('Dashboard Component', () => {
     await waitFor(() => {
       expect(roomService.createRoom).toHaveBeenCalledWith('Algoritmos I');
       expect(screen.getByText(/Estado: Waiting/i)).toBeInTheDocument();
-      expect(screen.getByRole('button', { name: /Copiar Link/i })).toBeInTheDocument();
-      expect(screen.getByDisplayValue('http://localhost:5173/algoritmos-i/professor/entrar')).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: /Copiar Link Fixo/i })).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: /Copiar Link Direto IP/i })).toBeInTheDocument();
+      expect(screen.getByDisplayValue('http://mlab-professor.local:5173')).toBeInTheDocument();
+      expect(screen.getByDisplayValue('http://192.168.1.50:5173')).toBeInTheDocument();
     });
 
-    fireEvent.click(screen.getByRole('button', { name: /Copiar Link/i }));
+    fireEvent.click(screen.getByRole('button', { name: /Copiar Link Fixo/i }));
     await waitFor(() => {
-      expect(screen.getByText(/Copiado!/i)).toBeInTheDocument();
+      expect(screen.getByTitle(/Link Fixo Copiado/i)).toBeInTheDocument();
     });
 
     fireEvent.click(screen.getByRole('button', { name: /Abrir Sala de Transmissão/i }));
-    expect(handleEnterRoom).toHaveBeenCalledWith({
+    expect(handleEnterRoom).toHaveBeenCalledWith(expect.objectContaining({
       id: 'room-123',
       slug: 'algoritmos-i/professor',
-      link: 'http://localhost:5173/algoritmos-i/professor/entrar',
-    });
+      link: 'http://mlab-professor.local:5173',
+      mdnsLink: 'http://mlab-professor.local:5173',
+      ipLink: 'http://192.168.1.50:5173',
+    }));
   });
 
-  it('deve exibir o badge de Rede Local (LAN) quando o link contiver IP privado de rede local', async () => {
+  it('deve exibir o badge de Rede Local (LAN) e Link Direto IP', async () => {
     (roomService.createRoom as any).mockResolvedValueOnce({
       room_id: 'room-lan-1',
       slug: 'redes-locais/professor',
-      link: 'http://192.168.1.50:5173/redes-locais/professor/entrar',
+      link: 'http://192.168.1.50:5173',
+      mdns_link: 'http://mlab-professor.local:5173',
+      ip_link: 'http://192.168.1.50:5173',
       status: 'waiting',
     });
 
@@ -67,7 +75,8 @@ describe('Dashboard Component', () => {
 
     await waitFor(() => {
       expect(screen.getByText('Rede Local (LAN)')).toBeInTheDocument();
-      expect(screen.getByDisplayValue('http://192.168.1.50:5173/redes-locais/professor/entrar')).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: /Copiar Link Direto IP/i })).toBeInTheDocument();
+      expect(screen.getByDisplayValue('http://192.168.1.50:5173')).toBeInTheDocument();
     });
   });
 });

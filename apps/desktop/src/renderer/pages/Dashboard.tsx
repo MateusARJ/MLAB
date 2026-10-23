@@ -3,6 +3,7 @@ import { createRoom } from '../services/room';
 import mlabLogo from '../assets/MLAB-logo.png';
 import {
   Button,
+  IconButton,
   TextInput,
   StatusBadge,
   Alert,
@@ -16,30 +17,32 @@ import {
 } from '@mlab/ui';
 
 interface DashboardProps {
-  onEnterRoom: (roomData: { id: string; slug: string; link: string }) => void;
+  onEnterRoom: (roomData: {
+    id: string;
+    slug: string;
+    link: string;
+    ipLink?: string;
+    mdnsLink?: string;
+    shortIpLink?: string;
+    shortMdnsLink?: string;
+  }) => void;
   onLogout: () => void;
 }
-
-const isLanLink = (link?: string): boolean => {
-  if (!link) return false;
-  try {
-    const url = new URL(link.startsWith('http') ? link : `http://${link}`);
-    const host = url.hostname;
-    return (
-      /^10\./.test(host) ||
-      /^192\.168\./.test(host) ||
-      /^172\.(1[6-9]|2[0-9]|3[0-1])\./.test(host)
-    );
-  } catch {
-    return false;
-  }
-};
 
 export const Dashboard: React.FC<DashboardProps> = ({ onEnterRoom, onLogout }) => {
   const [title, setTitle] = useState('');
   const [loading, setLoading] = useState(false);
-  const [copied, setCopied] = useState(false);
-  const [currentRoom, setCurrentRoom] = useState<{ id: string; slug: string; link: string } | null>(null);
+  const [copiedMdns, setCopiedMdns] = useState(false);
+  const [copiedIp, setCopiedIp] = useState(false);
+  const [currentRoom, setCurrentRoom] = useState<{
+    id: string;
+    slug: string;
+    link: string;
+    ipLink?: string;
+    mdnsLink?: string;
+    shortIpLink?: string;
+    shortMdnsLink?: string;
+  } | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const handleCreateRoom = async (e: React.FormEvent) => {
@@ -57,6 +60,10 @@ export const Dashboard: React.FC<DashboardProps> = ({ onEnterRoom, onLogout }) =
         id: roomId,
         slug: resp.slug,
         link: roomLink,
+        ipLink: resp.ip_link,
+        mdnsLink: resp.mdns_link,
+        shortIpLink: resp.short_ip_link,
+        shortMdnsLink: resp.short_mdns_link,
       };
       setCurrentRoom(roomData);
     } catch (err: any) {
@@ -65,16 +72,16 @@ export const Dashboard: React.FC<DashboardProps> = ({ onEnterRoom, onLogout }) =
     }
   };
 
-  const handleCopyLink = async () => {
-    if (!currentRoom?.link) return;
+  const copyToClipboard = async (text: string) => {
+    if (!text) return;
     try {
       if (window.electronAPI && typeof window.electronAPI.copyToClipboard === 'function') {
-        await window.electronAPI.copyToClipboard(currentRoom.link);
+        await window.electronAPI.copyToClipboard(text);
       } else if (navigator?.clipboard?.writeText) {
-        await navigator.clipboard.writeText(currentRoom.link);
+        await navigator.clipboard.writeText(text);
       } else {
         const textArea = document.createElement('textarea');
-        textArea.value = currentRoom.link;
+        textArea.value = text;
         textArea.style.position = 'fixed';
         textArea.style.opacity = '0';
         document.body.appendChild(textArea);
@@ -83,11 +90,25 @@ export const Dashboard: React.FC<DashboardProps> = ({ onEnterRoom, onLogout }) =
         document.execCommand('copy');
         document.body.removeChild(textArea);
       }
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
     } catch (err) {
       console.error('Erro ao copiar link:', err);
     }
+  };
+
+  const handleCopyMdns = async () => {
+    const link = currentRoom?.mdnsLink || currentRoom?.link;
+    if (!link) return;
+    await copyToClipboard(link);
+    setCopiedMdns(true);
+    setTimeout(() => setCopiedMdns(false), 2000);
+  };
+
+  const handleCopyIp = async () => {
+    const link = currentRoom?.ipLink || currentRoom?.link;
+    if (!link) return;
+    await copyToClipboard(link);
+    setCopiedIp(true);
+    setTimeout(() => setCopiedIp(false), 2000);
   };
 
   return (
@@ -150,12 +171,57 @@ export const Dashboard: React.FC<DashboardProps> = ({ onEnterRoom, onLogout }) =
                 />
               </div>
 
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                  <span style={{ fontSize: '13px', color: colors.textSecondary, fontFamily: typography.fontFamily }}>
-                    Link de Acesso dos Alunos:
-                  </span>
-                  {isLanLink(currentRoom.link) && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                <span style={{ fontSize: '13px', color: colors.textSecondary, fontFamily: typography.fontFamily }}>
+                  Links de Acesso dos Alunos:
+                </span>
+
+                {/* Link Fixo (mDNS) */}
+                <div style={styles.linkCard}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
+                    <span style={{ fontSize: '12px', fontWeight: 600, color: colors.textPrimary }}>
+                      Link Fixo (mDNS)
+                    </span>
+                    <span
+                      style={{
+                        fontSize: '11px',
+                        padding: '2px 8px',
+                        borderRadius: '12px',
+                        backgroundColor: 'rgba(36, 161, 72, 0.15)',
+                        color: '#42be65',
+                        fontWeight: 600,
+                        border: '1px solid rgba(36, 161, 72, 0.3)',
+                      }}
+                      title="Recomendado para computadores e dispositivos com suporte a mDNS/Bonjour"
+                    >
+                      Fácil Acesso
+                    </span>
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <TextInput
+                      readOnly
+                      value={currentRoom.mdnsLink || currentRoom.link}
+                      style={{ flex: 1 }}
+                    />
+                    <IconButton
+                      type="button"
+                      variant={copiedMdns ? 'success' : 'secondary'}
+                      size="md"
+                      onClick={handleCopyMdns}
+                      title={copiedMdns ? 'Link Fixo Copiado' : 'Copiar Link Fixo'}
+                      aria-label="Copiar Link Fixo"
+                    >
+                      {copiedMdns ? <Checkmark size={18} /> : <Copy size={18} />}
+                    </IconButton>
+                  </div>
+                </div>
+
+                {/* Link Direto (IP) */}
+                <div style={styles.linkCard}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
+                    <span style={{ fontSize: '12px', fontWeight: 600, color: colors.textPrimary }}>
+                      Link Direto (IP da Rede Local)
+                    </span>
                     <span
                       style={{
                         fontSize: '11px',
@@ -166,27 +232,28 @@ export const Dashboard: React.FC<DashboardProps> = ({ onEnterRoom, onLogout }) =
                         fontWeight: 600,
                         border: '1px solid rgba(15, 98, 254, 0.3)',
                       }}
-                      title="Transmissão operando diretamente na rede local (sem necessidade de internet externa)"
+                      title="Funciona diretamente via endereço IP em qualquer dispositivo conectado à rede local"
                     >
                       Rede Local (LAN)
                     </span>
-                  )}
-                </div>
-                <div style={{ display: 'flex', gap: '10px' }}>
-                  <TextInput
-                    readOnly
-                    value={currentRoom.link}
-                    style={{ flex: 1 }}
-                  />
-                  <Button
-                    type="button"
-                    variant="secondary"
-                    size="md"
-                    onClick={handleCopyLink}
-                    icon={copied ? <Checkmark size={16} /> : <Copy size={16} />}
-                  >
-                    {copied ? 'Copiado!' : 'Copiar Link'}
-                  </Button>
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <TextInput
+                      readOnly
+                      value={currentRoom.ipLink || currentRoom.link}
+                      style={{ flex: 1 }}
+                    />
+                    <IconButton
+                      type="button"
+                      variant={copiedIp ? 'success' : 'secondary'}
+                      size="md"
+                      onClick={handleCopyIp}
+                      title={copiedIp ? 'Link IP Copiado' : 'Copiar Link Direto IP'}
+                      aria-label="Copiar Link Direto IP"
+                    >
+                      {copiedIp ? <Checkmark size={18} /> : <Copy size={18} />}
+                    </IconButton>
+                  </div>
                 </div>
               </div>
 
@@ -254,5 +321,11 @@ const styles: { [key: string]: React.CSSProperties } = {
     display: 'flex',
     flexDirection: 'column',
     gap: '18px',
+  },
+  linkCard: {
+    backgroundColor: 'rgba(255, 255, 255, 0.03)',
+    border: '1px solid rgba(255, 255, 255, 0.08)',
+    borderRadius: '8px',
+    padding: '12px',
   },
 };
