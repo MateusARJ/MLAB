@@ -28,6 +28,7 @@ type Store interface {
 	GetRoomByID(ctx context.Context, roomID string) (*Room, error)
 	GetRoomBySlug(ctx context.Context, slug string) (*Room, error)
 	GetRoomByOwnerID(ctx context.Context, ownerID string) (*Room, error)
+	GetActiveRoom(ctx context.Context) (*Room, error)
 	UpdateRoomStatus(ctx context.Context, roomID string, status Status, closedAt *time.Time) error
 	DeleteRoom(ctx context.Context, roomID string) error
 
@@ -114,6 +115,18 @@ func (s *inMemoryStore) GetRoomByOwnerID(_ context.Context, ownerID string) (*Ro
 	defer s.mu.RUnlock()
 	for _, r := range s.rooms {
 		if r.OwnerID == ownerID {
+			copy := *r
+			return &copy, nil
+		}
+	}
+	return nil, ErrRoomNotFound
+}
+
+func (s *inMemoryStore) GetActiveRoom(_ context.Context) (*Room, error) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	for _, r := range s.rooms {
+		if r.Status == StatusWaiting || r.Status == StatusPublishing {
 			copy := *r
 			return &copy, nil
 		}

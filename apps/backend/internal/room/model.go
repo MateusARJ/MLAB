@@ -48,17 +48,25 @@ type CreateRoomRequest struct {
 
 // CreateRoomResponse é a resposta de POST /rooms (201).
 type CreateRoomResponse struct {
-	RoomID    string `json:"room_id"`
-	Slug      string `json:"slug"`
-	Link      string `json:"link"`
-	Status    Status `json:"status"`
-	CreatedAt string `json:"created_at"`
+	RoomID        string `json:"room_id"`
+	Slug          string `json:"slug"`
+	Link          string `json:"link"`
+	IPLink        string `json:"ip_link,omitempty"`
+	MDNSLink      string `json:"mdns_link,omitempty"`
+	ShortIPLink   string `json:"short_ip_link,omitempty"`
+	ShortMDNSLink string `json:"short_mdns_link,omitempty"`
+	Status        Status `json:"status"`
+	CreatedAt     string `json:"created_at"`
 }
 
 // LinkResponse é a resposta de GET /rooms/{id}/link (200).
 type LinkResponse struct {
-	RoomID string `json:"room_id"`
-	Link   string `json:"link"`
+	RoomID        string `json:"room_id"`
+	Link          string `json:"link"`
+	IPLink        string `json:"ip_link,omitempty"`
+	MDNSLink      string `json:"mdns_link,omitempty"`
+	ShortIPLink   string `json:"short_ip_link,omitempty"`
+	ShortMDNSLink string `json:"short_mdns_link,omitempty"`
 }
 
 // JoinRequest é o payload de POST /rooms/{id}/join.

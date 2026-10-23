@@ -6,6 +6,7 @@ import (
 	"io"
 	"log"
 	"regexp"
+	"strings"
 	"sync"
 	"time"
 
@@ -273,6 +274,12 @@ func (r *Room) handleSubscriberAnswer(subscriberID, sdp string) error {
 	// Se o PeerConnection já concluiu a negociação e está em stable, ignora respostas redundantes sem erro
 	if pc.SignalingState() == webrtc.SignalingStateStable {
 		log.Printf("[SFU] Subscriber %s já está em estado stable, ignorando answer redundante", subscriberID)
+		return nil
+	}
+
+	// Se o SDP não contiver parâmetros de transporte ICE (ex: resposta vazia ou prematura antes de mídia ativa), ignora sem erro
+	if !strings.Contains(sdp, "ice-ufrag") {
+		log.Printf("[SFU] Resposta do subscriber %s ignorada por ausência de credenciais ICE (stream ainda não pronta)", subscriberID)
 		return nil
 	}
 
