@@ -20,6 +20,7 @@ export * from './Loading';
 export {
   Screen,
   Application,
+  Camera,
   Microphone,
   MicrophoneOff,
   Recording,

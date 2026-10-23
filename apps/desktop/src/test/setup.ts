@@ -28,6 +28,8 @@ window.electronAPI = {
   }),
   copyToClipboard: vi.fn().mockResolvedValue(true),
   setActiveRoom: vi.fn().mockResolvedValue(undefined),
+  setContentProtection: vi.fn().mockResolvedValue(true),
+  captureWindowToClipboard: vi.fn().mockResolvedValue(true),
 };
 
 if (typeof window !== 'undefined') {

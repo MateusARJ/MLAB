@@ -52,6 +52,16 @@ export interface ElectronAPI {
    * Registra ou desregistra a sala ativa atual no processo principal para encerramento automático ao fechar a janela.
    */
   setActiveRoom: (room: { id: string; token?: string } | null) => Promise<void>
+
+  /**
+   * Altera dinamicamente a proteção de conteúdo da janela (oculta o MLab na captura ao vivo).
+   */
+  setContentProtection: (enabled: boolean) => Promise<boolean>
+
+  /**
+   * Captura a janela do MLab e copia a imagem diretamente para a área de transferência do SO.
+   */
+  captureWindowToClipboard: () => Promise<boolean>
 }
 
 const api: ElectronAPI = {
@@ -68,7 +78,9 @@ const api: ElectronAPI = {
       return Promise.resolve(false)
     }
   },
-  setActiveRoom: (room) => ipcRenderer.invoke('set-active-room', room)
+  setActiveRoom: (room) => ipcRenderer.invoke('set-active-room', room),
+  setContentProtection: (enabled: boolean) => ipcRenderer.invoke('set-content-protection', enabled),
+  captureWindowToClipboard: () => ipcRenderer.invoke('capture-window-to-clipboard')
 }
 
 contextBridge.exposeInMainWorld('electronAPI', api)

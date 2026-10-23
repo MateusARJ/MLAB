@@ -6,7 +6,8 @@ import {
   nativeImage,
   dialog,
   session,
-  systemPreferences
+  systemPreferences,
+  clipboard
 } from 'electron'
 import { join } from 'path'
 import { existsSync, appendFileSync, mkdirSync, chmodSync, promises as fsPromises } from 'fs'
@@ -119,11 +120,11 @@ function createWindow(): void {
     logApp(`[Main] Falha ao definir ícone da janela: ${err}`)
   }
 
-  // Previne captura recursiva e oculta a janela e cursor do MLab ao compartilhar tela inteira (WDA_EXCLUDEFROMCAPTURE)
+  // Inicia com proteção desativada para permitir prints nativos fora da transmissão (Win+Shift+S, PrtScn)
   try {
-    win.setContentProtection(true)
+    win.setContentProtection(false)
   } catch (err) {
-    logApp(`[Main] Falha ao ativar setContentProtection: ${err}`)
+    logApp(`[Main] Falha ao configurar setContentProtection inicial: ${err}`)
   }
 
   win.once('ready-to-show', () => {
@@ -307,6 +308,35 @@ let activeRoom: { id: string; token?: string } | null = null
 ipcMain.handle('set-active-room', (_event, room: { id: string; token?: string } | null) => {
   activeRoom = room
   logApp(`[Main] activeRoom atualizada: ${room ? room.id : 'nenhuma'}`)
+})
+
+ipcMain.handle('set-content-protection', (event, enabled: boolean) => {
+  const targetWin = BrowserWindow.fromWebContents(event.sender)
+  if (targetWin && !targetWin.isDestroyed()) {
+    try {
+      targetWin.setContentProtection(enabled)
+      logApp(`[Main] setContentProtection alterado dinamicamente para: ${enabled}`)
+      return true
+    } catch (err) {
+      logApp(`[Main] Erro ao alterar setContentProtection: ${err}`)
+      return false
+    }
+  }
+  return false
+})
+
+ipcMain.handle('capture-window-to-clipboard', async (event) => {
+  const targetWin = BrowserWindow.fromWebContents(event.sender)
+  if (!targetWin || targetWin.isDestroyed()) return false
+  try {
+    const img = await targetWin.webContents.capturePage()
+    clipboard.writeImage(img)
+    logApp('[Main] Captura da janela salva na área de transferência com sucesso')
+    return true
+  } catch (err) {
+    logApp(`[Main] Erro ao capturar janela para clipboard: ${err}`)
+    return false
+  }
 })
 
 async function closeActiveRoomGracefully(): Promise<void> {

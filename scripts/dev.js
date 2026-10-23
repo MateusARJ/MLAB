@@ -27,6 +27,29 @@ cleanupPort(8080);
 cleanupPort(5173);
 cleanupPort(5174);
 
+/**
+ * Inspeciona o perfil de rede do Windows e avisa caso a rede esteja como Pública (bloqueando portas do LAN).
+ */
+function checkNetworkProfile() {
+  if (process.platform !== 'win32') return;
+  try {
+    const stdout = execSync(
+      'powershell -NoProfile -Command "Get-NetConnectionProfile | Select-Object -First 1 Name, InterfaceAlias, NetworkCategory | ConvertTo-Json"',
+      { stdio: ['ignore', 'pipe', 'ignore'], timeout: 3000 }
+    ).toString();
+    const info = JSON.parse(stdout);
+    if (info && (info.NetworkCategory !== undefined)) {
+      const isPublic = info.NetworkCategory === 0 || info.NetworkCategory === 'Public';
+      const categoryName = isPublic ? 'Pública' : (info.NetworkCategory === 1 || info.NetworkCategory === 'Private' ? 'Privada' : info.NetworkCategory);
+      console.log(`[MLab Dev] Rede ativa: ${info.Name || info.InterfaceAlias} (${info.InterfaceAlias}) - Perfil: ${categoryName}`);
+      if (isPublic) {
+        console.log(`[MLab Dev] AVISO: A rede está configurada como 'Pública' no Windows. Caso alunos em outros aparelhos não consigam conectar, configure a rede Wi-Fi como 'Privada'.`);
+      }
+    }
+  } catch {}
+}
+checkNetworkProfile();
+
 // Define flag para que o Electron não tente inicializar server.exe concorrentemente com @mlab/backend
 process.env.MLAB_DEV_MONOREPO = '1';
 

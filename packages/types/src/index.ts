@@ -36,6 +36,10 @@ export interface CreateRoomResponse {
   room_id: string;
   slug: string;
   link: string;
+  ip_link?: string;
+  mdns_link?: string;
+  short_ip_link?: string;
+  short_mdns_link?: string;
   status: RoomStatus;
   created_at: string;
   id?: string;
@@ -45,6 +49,10 @@ export interface CreateRoomResponse {
 export interface RoomLinkResponse {
   room_id: string;
   link: string;
+  ip_link?: string;
+  mdns_link?: string;
+  short_ip_link?: string;
+  short_mdns_link?: string;
 }
 
 // ── Participant ───────────────────────────────────────────────────────────────
