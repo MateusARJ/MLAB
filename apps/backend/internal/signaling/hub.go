@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/screenshare/classroom/internal/chat"
+	"golang.org/x/text/unicode/norm"
 )
 
 const (
@@ -355,18 +356,21 @@ func (h *Hub) onSubscribeRequest(c *Client, msg WsMessage) {
 		c.sendError("SFU_UNAVAILABLE", "SFU não inicializado")
 		return
 	}
+	if h.status == SessionWaiting || h.status == SessionReconnecting {
+		// Professor ainda não começou a transmitir — notifica estado de espera amigável
+		c.sendJSON(TypeSessionState, SessionStatePayload{
+			Status:            h.status,
+			ParticipantsCount: len(h.clients),
+		})
+		return
+	}
+
 	offerSDP, err := h.sfu.CreateSubscriberOffer(h.roomID, c.participantID, publisherID)
 	if err != nil {
-		if h.status == SessionWaiting || h.status == SessionReconnecting {
-			// Professor ainda não começou a transmitir — notifica estado de espera amigável
-			c.sendJSON(TypeSessionState, SessionStatePayload{
-				Status:            h.status,
-				ParticipantsCount: len(h.clients),
-			})
-			return
-		}
-		log.Printf("hub[%s]: CreateSubscriberOffer: %v", h.roomID, err)
-		c.sendError("SFU_ERROR", "erro ao criar oferta")
+		c.sendJSON(TypeSessionState, SessionStatePayload{
+			Status:            SessionWaiting,
+			ParticipantsCount: len(h.clients),
+		})
 		return
 	}
 	c.sendJSON(TypeOffer, SDPPayload{SDP: offerSDP})
@@ -442,7 +446,11 @@ func (h *Hub) onChatMessage(c *Client, msg WsMessage) {
 	}
 
 	// Máscara de segurança para termos ofensivos / palavrões (chat público e privado)
-	masked := chat.MaskProfanity(trimmed)
+	// Garante padrão UTF-8 válido e normalização canônica Unicode (NFC)
+	cleanContent := norm.NFC.String(strings.ToValidUTF8(trimmed, ""))
+
+	// Máscara de segurança para termos ofensivos / palavrões (chat público e privado)
+	masked := chat.MaskProfanity(cleanContent)
 	sanitized := html.EscapeString(masked)
 
 	targetID := p.TargetID

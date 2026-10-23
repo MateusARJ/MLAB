@@ -114,6 +114,17 @@ export const Room: React.FC<RoomProps> = ({ token, roomInfo, onLeave }) => {
   const [isPseudoFullscreen, setIsPseudoFullscreen] = useState<boolean>(false);
   const [isFullscreenSidebarOpen, setIsFullscreenSidebarOpen] = useState<boolean>(false);
   const prevMessagesLength = useRef(messages.length);
+  const publicMessagesEndRef = useRef<HTMLDivElement>(null);
+  const privateMessagesEndRef = useRef<HTMLDivElement>(null);
+
+  // Auto-scroll para descer o chat quando novas mensagens forem adicionadas
+  useEffect(() => {
+    if (studentChatTab === 'public') {
+      publicMessagesEndRef.current?.scrollIntoView?.({ behavior: 'smooth' });
+    } else {
+      privateMessagesEndRef.current?.scrollIntoView?.({ behavior: 'smooth' });
+    }
+  }, [messages, studentChatTab, isChatOpen]);
 
   const effectiveFullscreen = isFullscreen || isPseudoFullscreen;
 
@@ -1065,6 +1076,7 @@ export const Room: React.FC<RoomProps> = ({ token, roomInfo, onLeave }) => {
                         );
                       })
                     )}
+                    <div ref={publicMessagesEndRef} />
                   </div>
 
                   <form onSubmit={handleSendPublicChat} style={styles.chatForm}>
@@ -1127,6 +1139,7 @@ export const Room: React.FC<RoomProps> = ({ token, roomInfo, onLeave }) => {
                         );
                       })
                     )}
+                    <div ref={privateMessagesEndRef} />
                   </div>
 
                   <form onSubmit={handleSendPrivateChat} style={styles.chatForm}>

@@ -3,6 +3,8 @@ package chat
 import (
 	"strings"
 	"unicode"
+
+	"golang.org/x/text/unicode/norm"
 )
 
 // normalizeRune mapeia caracteres acentuados e variações visuais (leetspeak comum numérico)
@@ -46,12 +48,30 @@ var phrasesDictionary = []string{
 	"filhos da puta",
 	"filhas da puta",
 	"filho de uma puta",
+	"filho duma puta",
+	"filho de uma egua",
+	"puta que pariu",
+	"puta que o pariu",
+	"puta que te pariu",
+	"puta merda",
 	"vai se fuder",
+	"vai se foder",
+	"vai se fode",
+	"vao se fuder",
+	"vao se foder",
 	"vai tomar no cu",
+	"vai tomar no seu cu",
+	"toma no cu",
+	"tomar no cu",
+	"tomar no seu cu",
+	"vai pro caralho",
+	"vai pra puta que pariu",
 	"foda-se",
 	"foda se",
 	"foder-se",
 	"fodeu-se",
+	"chupa meu pau",
+	"chupa minha rola",
 	"mother fucker",
 	"motherfucker",
 }
@@ -60,12 +80,15 @@ var phrasesDictionary = []string{
 var wordsDictionary = map[string]bool{
 	"merda":        true,
 	"merdas":       true,
+	"merdinha":     true,
 	"bosta":        true,
 	"bostas":       true,
+	"bostinha":     true,
 	"porra":        true,
 	"porras":       true,
 	"caralho":      true,
 	"caralhos":     true,
+	"caralhada":    true,
 	"krl":          true,
 	"krlinho":      true,
 	"foda":         true,
@@ -73,6 +96,17 @@ var wordsDictionary = map[string]bool{
 	"foder":        true,
 	"fode":         true,
 	"fodeu":        true,
+	"fodi":         true,
+	"fodei":        true,
+	"fodes":        true,
+	"fodam":        true,
+	"fudam":        true,
+	"fodendo":      true,
+	"fudendo":      true,
+	"foderam":      true,
+	"fuderam":      true,
+	"fodao":        true,
+	"fudao":        true,
 	"fodido":       true,
 	"fodida":       true,
 	"fodidos":      true,
@@ -81,34 +115,57 @@ var wordsDictionary = map[string]bool{
 	"fudida":       true,
 	"fudidos":      true,
 	"fudidas":      true,
+	"fudidasso":    true,
+	"fudidaco":     true,
 	"fodasse":      true,
 	"fodase":       true,
 	"puta":         true,
 	"putas":        true,
+	"putinha":      true,
+	"putinhas":     true,
 	"puto":         true,
 	"putos":        true,
+	"putao":        true,
 	"putaria":      true,
 	"putarias":     true,
 	"cu":           true,
 	"cus":          true,
 	"cuzao":        true,
+	"cuzoes":       true,
 	"cuzudos":      true,
+	"cuzinho":      true,
+	"cuzinhos":     true,
 	"viado":        true,
 	"viados":       true,
+	"viadao":       true,
+	"viadoes":      true,
 	"veado":        true,
 	"veados":       true,
 	"viadinho":     true,
 	"viadagem":     true,
+	"boiola":       true,
+	"boiolas":      true,
+	"boiolice":     true,
+	"bicha":        true,
+	"bichas":       true,
+	"baitola":      true,
+	"baitolas":     true,
 	"arrombado":    true,
 	"arrombada":    true,
 	"arrombados":   true,
 	"arrombadas":   true,
+	"arrombadao":   true,
+	"arrombadaco":  true,
 	"desgraca":     true,
 	"desgracado":   true,
 	"desgracada":   true,
+	"desgracados":  true,
+	"desgracadas":  true,
 	"corno":        true,
 	"cornos":       true,
 	"corna":        true,
+	"cornao":       true,
+	"cornudo":      true,
 	"babaca":       true,
 	"babacas":      true,
 	"otario":       true,
@@ -117,17 +174,39 @@ var wordsDictionary = map[string]bool{
 	"otarias":      true,
 	"fdp":          true,
 	"pqp":          true,
+	"vtnc":         true,
+	"vsf":          true,
+	"tnc":          true,
+	"vnc":          true,
+	"kct":          true,
+	"cct":          true,
 	"cacete":       true,
 	"cacetes":      true,
 	"buceta":       true,
 	"bucetas":      true,
+	"bucetinha":    true,
+	"bucetinhas":   true,
+	"bucetao":      true,
 	"bct":          true,
 	"pica":         true,
 	"picas":        true,
+	"picao":        true,
 	"piroca":       true,
 	"pirocas":      true,
+	"pirocao":      true,
+	"piroquinha":   true,
 	"rola":         true,
 	"rolas":        true,
+	"xoxota":       true,
+	"xoxotas":      true,
+	"xoxotinha":    true,
+	"punheta":      true,
+	"punheteiro":   true,
+	"punheteiros":  true,
+	"siririca":     true,
+	"boquete":      true,
+	"boqueteiro":   true,
+	"boqueteiros":  true,
 	"escroto":      true,
 	"escrota":      true,
 	"escrotos":     true,
@@ -135,6 +214,20 @@ var wordsDictionary = map[string]bool{
 	"vagabunda":    true,
 	"vagabundos":   true,
 	"vagabundas":   true,
+	"retardado":    true,
+	"retardada":    true,
+	"retardados":   true,
+	"retardadas":   true,
+	"idiota":       true,
+	"idiotas":      true,
+	"imbecil":      true,
+	"imbecis":      true,
+	"estupido":     true,
+	"estupida":     true,
+	"estupidos":    true,
+	"estupidas":    true,
+	"canalha":      true,
+	"canalhas":     true,
 	"fuck":         true,
 	"fucking":      true,
 	"fucked":       true,
@@ -156,6 +249,10 @@ var wordsDictionary = map[string]bool{
 	"bastards":     true,
 	"cock":         true,
 	"cocks":        true,
+	"stfu":         true,
+	"wtf":          true,
+	"bullshit":     true,
+	"dumbass":      true,
 }
 
 var collapsedWordsDictionary = map[string]bool{}
@@ -195,6 +292,9 @@ func MaskProfanity(text string) string {
 		return text
 	}
 
+	// 0. Garante que o texto seja UTF-8 válido e canonicamente normalizado em NFC
+	text = norm.NFC.String(strings.ToValidUTF8(text, ""))
+
 	origRunes := []rune(text)
 	normRunes := make([]rune, len(origRunes))
 	for i, r := range origRunes {
@@ -204,37 +304,36 @@ func MaskProfanity(text string) string {
 	maskFlags := make([]bool, len(origRunes))
 
 	// 1. Verificação de expressões compostas (frases)
-	normStr := string(normRunes)
+	// Trabalha estritamente com fatias de runes para evitar anomalias de fatiamento de bytes com UTF-8
 	for _, phrase := range phrasesDictionary {
 		pRunes := []rune(phrase)
 		pLen := len(pRunes)
-		idx := 0
-		for {
-			pos := strings.Index(normStr[idx:], phrase)
-			if pos == -1 {
-				break
-			}
-			matchStart := idx + pos
+		if pLen == 0 || pLen > len(normRunes) {
+			continue
+		}
 
-			// Converte posições em bytes para índices em runes
-			startRune := len([]rune(normStr[:matchStart]))
-			endRune := startRune + pLen
-
-			// Valida limites de palavra antes e depois da frase
-			leftOK := startRune == 0 || isWordBoundaryChar(origRunes[startRune-1])
-			rightOK := endRune >= len(origRunes) || isWordBoundaryChar(origRunes[endRune])
-
-			if leftOK && rightOK {
-				for i := startRune; i < endRune; i++ {
-					if !unicode.IsSpace(origRunes[i]) {
-						maskFlags[i] = true
-					}
+		for i := 0; i <= len(normRunes)-pLen; i++ {
+			match := true
+			for j := 0; j < pLen; j++ {
+				if normRunes[i+j] != pRunes[j] {
+					match = false
+					break
 				}
 			}
+			if !match {
+				continue
+			}
 
-			idx = matchStart + pLen
-			if idx >= len(normStr) {
-				break
+			// Valida limites de palavra antes e depois da frase
+			leftOK := i == 0 || isWordBoundaryChar(origRunes[i-1])
+			rightOK := (i+pLen) >= len(origRunes) || isWordBoundaryChar(origRunes[i+pLen])
+
+			if leftOK && rightOK {
+				for k := i; k < i+pLen; k++ {
+					if !unicode.IsSpace(origRunes[k]) {
+						maskFlags[k] = true
+					}
+				}
 			}
 		}
 	}

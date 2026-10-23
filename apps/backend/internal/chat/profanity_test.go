@@ -107,3 +107,60 @@ func TestMaskProfanity_MixedSentence(t *testing.T) {
 		t.Errorf("Resultado inesperado: %q", got)
 	}
 }
+
+func TestMaskProfanity_CapsLockAndExpandedCoverage(t *testing.T) {
+	cases := []struct {
+		input    string
+		expected string
+	}{
+		{"FODENDO", "*******"},
+		{"FUDENDO", "*******"},
+		{"DESGRAÇADOS", "***********"},
+		{"DESGRAÇADAS", "***********"},
+		{"VIADÃO", "******"},
+		{"VIADAO", "******"},
+		{"BOIOLA", "******"},
+		{"BOIOLAS", "*******"},
+		{"VTNC", "****"},
+		{"VSF", "***"},
+		{"TNC", "***"},
+		{"PUTA QUE PARIU", "**** *** *****"},
+		{"PUTA QUE O PARIU", "**** *** * *****"},
+		{"VAI SE FODER", "*** ** *****"},
+		{"VAI SE FUDER", "*** ** *****"},
+		{"TOMA NO CU", "**** ** **"},
+		{"TOMAR NO SEU CU", "***** ** *** **"},
+		{"ARROMBADO", "*********"},
+		{"ARROMBADOS", "**********"},
+		{"ARROMBADAÇO", "***********"},
+		{"CARALHADA", "*********"},
+		{"RETARDADO", "*********"},
+		{"IDIOTA", "******"},
+		{"IMBECIL", "*******"},
+	}
+
+	for _, c := range cases {
+		got := MaskProfanity(c.input)
+		if got != c.expected {
+			t.Errorf("MaskProfanity(%q) = %q; want %q", c.input, got, c.expected)
+		}
+	}
+}
+
+func TestMaskProfanity_UTF8AndAccents(t *testing.T) {
+	legitimateAccents := []string{
+		"Olá professor, d'água até o café!",
+		"Não estou conseguindo entender a questão número 3.",
+		"A função matemática é f(x) = x² + 2.",
+		"Parabéns pela explicação da matéria!",
+		"Hoje à noite teremos monitoria acadêmica?",
+		"😀 Emojis e acentos funcionam normalmente no chat!",
+	}
+
+	for _, text := range legitimateAccents {
+		got := MaskProfanity(text)
+		if got != text {
+			t.Errorf("Texto legítimo com UTF-8/acentos foi alterado indevidamente!\nOriginal: %q\nObtido:   %q", text, got)
+		}
+	}
+}
