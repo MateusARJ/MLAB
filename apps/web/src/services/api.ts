@@ -20,6 +20,29 @@ export interface RoomInfo {
   status: string;
 }
 
+export interface ActiveRoomInfo {
+  room_id: string;
+  slug: string;
+  title: string;
+  professor_name: string;
+  status: string;
+  link: string;
+  ip_link?: string;
+  mdns_link?: string;
+  short_ip_link?: string;
+  short_mdns_link?: string;
+}
+
+export async function getActiveRoom(): Promise<ActiveRoomInfo | null> {
+  try {
+    const res = await fetch(`${API_BASE_URL}/rooms/active`);
+    if (!res.ok) return null;
+    return await res.json();
+  } catch {
+    return null;
+  }
+}
+
 export async function getRoomInfo(slug: string): Promise<RoomInfo | null> {
   try {
     const res = await fetch(`${API_BASE_URL}/rooms/${slug}/info`);

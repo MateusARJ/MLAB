@@ -1,8 +1,18 @@
-import { defineConfig } from 'vite'
+import { defineConfig, createLogger } from 'vite'
 import react from '@vitejs/plugin-react'
 import { resolve } from 'path'
 
+const customLogger = createLogger()
+const loggerError = customLogger.error.bind(customLogger)
+customLogger.error = (msg, options) => {
+  if (typeof msg === 'string' && (msg.includes('ECONNABORTED') || msg.includes('ECONNRESET'))) {
+    return
+  }
+  loggerError(msg, options)
+}
+
 export default defineConfig({
+  customLogger,
   plugins: [react()],
   resolve: {
     alias: {
@@ -13,6 +23,7 @@ export default defineConfig({
   server: {
     host: true,
     port: 5173,
+    allowedHosts: true,
     proxy: {
       '/rooms': {
         target: 'http://localhost:8080',
@@ -45,5 +56,10 @@ export default defineConfig({
   build: {
     outDir: 'dist',
     sourcemap: true
+  },
+  preview: {
+    host: true,
+    port: 5173,
+    allowedHosts: true
   }
 })

@@ -6,12 +6,33 @@ import {
   nativeImage,
   dialog,
   session,
-  systemPreferences
+  systemPreferences,
+  clipboard
 } from 'electron'
 import { join } from 'path'
 import { existsSync, appendFileSync, mkdirSync, chmodSync, promises as fsPromises } from 'fs'
 import { spawn, ChildProcess } from 'child_process'
 import http from 'http'
+import { CursorPresenceTracker, type CursorTrackingTarget } from './cursorPresence'
+
+const cursorPresenceTracker = new CursorPresenceTracker()
+
+// Impede que o Chromium reduza a prioridade de captura/codificação quando o MLab está em segundo plano
+app.commandLine.appendSwitch('disable-renderer-backgrounding')
+app.commandLine.appendSwitch('disable-background-timer-throttling')
+app.commandLine.appendSwitch('disable-backgrounding-occluded-windows')
+app.commandLine.appendSwitch(
+  'disable-features',
+  'CalculateNativeWinOcclusion,IntensiveWakeUpThrottling,MacAllowBackgroundingRenderProcesses'
+)
+if (process.platform === 'win32') {
+  app.commandLine.appendSwitch('enable-features', 'AllowWgcWindowCapturer,AllowWgcScreenCapturer')
+} else if (process.platform === 'darwin') {
+  app.commandLine.appendSwitch(
+    'enable-features',
+    'ScreenCaptureKitMac,ScreenCaptureKitMacWindow,ScreenCaptureKitStreamPickerSonoma'
+  )
+}
 
 
 // Registra o AppUserModelId no Windows para agrupar e exibir a logo na Barra de Tarefas
@@ -101,7 +122,8 @@ function createWindow(): void {
       preload: getPreloadPath(),
       sandbox: false,
       contextIsolation: true,
-      nodeIntegration: false
+      nodeIntegration: false,
+      backgroundThrottling: false
     },
     ...(process.platform === 'darwin' ? { titleBarStyle: 'hiddenInset' } : {}),
     show: false
@@ -119,11 +141,11 @@ function createWindow(): void {
     logApp(`[Main] Falha ao definir ícone da janela: ${err}`)
   }
 
-  // Previne captura recursiva e oculta a janela e cursor do MLab ao compartilhar tela inteira (WDA_EXCLUDEFROMCAPTURE)
+  // Inicia com proteção desativada para permitir prints nativos fora da transmissão (Win+Shift+S, PrtScn)
   try {
-    win.setContentProtection(true)
+    win.setContentProtection(false)
   } catch (err) {
-    logApp(`[Main] Falha ao ativar setContentProtection: ${err}`)
+    logApp(`[Main] Falha ao configurar setContentProtection inicial: ${err}`)
   }
 
   win.once('ready-to-show', () => {
@@ -204,7 +226,8 @@ ipcMain.handle('get-screen-sources', async (event, type?: 'screen' | 'window') =
           id: source.id,
           name: cleanName,
           thumbnail: source.thumbnail.toDataURL(),
-          type: source.id.startsWith('screen') ? ('screen' as const) : ('window' as const)
+          type: source.id.startsWith('screen') ? ('screen' as const) : ('window' as const),
+          displayId: source.display_id || undefined
         }
       })
   } catch (err) {
@@ -307,6 +330,47 @@ let activeRoom: { id: string; token?: string } | null = null
 ipcMain.handle('set-active-room', (_event, room: { id: string; token?: string } | null) => {
   activeRoom = room
   logApp(`[Main] activeRoom atualizada: ${room ? room.id : 'nenhuma'}`)
+})
+
+ipcMain.handle('set-content-protection', (event, enabled: boolean) => {
+  const targetWin = BrowserWindow.fromWebContents(event.sender)
+  if (targetWin && !targetWin.isDestroyed()) {
+    try {
+      targetWin.setContentProtection(enabled)
+      logApp(`[Main] setContentProtection alterado dinamicamente para: ${enabled}`)
+      return true
+    } catch (err) {
+      logApp(`[Main] Erro ao alterar setContentProtection: ${err}`)
+      return false
+    }
+  }
+  return false
+})
+
+ipcMain.handle('capture-window-to-clipboard', async (event) => {
+  const targetWin = BrowserWindow.fromWebContents(event.sender)
+  if (!targetWin || targetWin.isDestroyed()) return false
+  try {
+    const img = await targetWin.webContents.capturePage()
+    clipboard.writeImage(img)
+    logApp('[Main] Captura da janela salva na área de transferência com sucesso')
+    return true
+  } catch (err) {
+    logApp(`[Main] Erro ao capturar janela para clipboard: ${err}`)
+    return false
+  }
+})
+
+ipcMain.handle('cursor-tracking:start', (event, target: CursorTrackingTarget) => {
+  const targetWin = BrowserWindow.fromWebContents(event.sender)
+  if (!targetWin || targetWin.isDestroyed() || !target || !target.sourceId) {
+    return false
+  }
+  return cursorPresenceTracker.start(targetWin, target)
+})
+
+ipcMain.handle('cursor-tracking:stop', () => {
+  cursorPresenceTracker.stop()
 })
 
 async function closeActiveRoomGracefully(): Promise<void> {
@@ -590,10 +654,12 @@ app.on('before-quit', async (event) => {
 })
 
 app.on('will-quit', () => {
+  cursorPresenceTracker.dispose()
   stopBackendServer()
 })
 
 app.on('window-all-closed', () => {
+  cursorPresenceTracker.stop()
   stopBackendServer()
   if (process.platform !== 'darwin') {
     app.quit()
@@ -601,6 +667,7 @@ app.on('window-all-closed', () => {
 })
 
 process.on('exit', () => {
+  cursorPresenceTracker.dispose()
   stopBackendServer()
 })
 

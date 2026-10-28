@@ -20,6 +20,7 @@ export * from './Loading';
 export {
   Screen,
   Application,
+  Camera,
   Microphone,
   MicrophoneOff,
   Recording,
@@ -48,4 +49,6 @@ export {
   Security,
   Touch_1,
   Touch_1Filled,
+  VolumeUp,
+  VolumeMute,
 } from '@carbon/icons-react';

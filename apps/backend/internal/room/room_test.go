@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 
@@ -100,6 +101,28 @@ func TestRoomLifecycle(t *testing.T) {
 	if linkResp.Link == "" {
 		t.Error("expected non-empty link in LinkResponse")
 	}
+	if linkResp.IPLink == "" || linkResp.MDNSLink == "" {
+		t.Errorf("expected non-empty ip_link and mdns_link in LinkResponse: %+v", linkResp)
+	}
+	if strings.Contains(linkResp.IPLink, "/entrar") || strings.Contains(linkResp.MDNSLink, "/entrar") {
+		t.Errorf("expected short root URLs without /entrar, got ip=%q mdns=%q", linkResp.IPLink, linkResp.MDNSLink)
+	}
+
+	// 2.1 Get Active Room (GET /rooms/active)
+	activeReq := httptest.NewRequest("GET", "/rooms/active", nil)
+	activeRec := httptest.NewRecorder()
+	mux.ServeHTTP(activeRec, activeReq)
+	if activeRec.Code != http.StatusOK {
+		t.Fatalf("expected 200 OK for GET /rooms/active, got %d: %s", activeRec.Code, activeRec.Body.String())
+	}
+	var activeMap map[string]any
+	_ = json.NewDecoder(activeRec.Body).Decode(&activeMap)
+	if activeMap["room_id"] != roomID {
+		t.Errorf("expected active room_id %q, got %v", roomID, activeMap["room_id"])
+	}
+	if activeMap["ip_link"] == nil || activeMap["mdns_link"] == nil {
+		t.Errorf("expected ip_link and mdns_link in active room response: %+v", activeMap)
+	}
 
 	// 3. Student 1 Joins via composite path (POST /rooms/{roomSlug}/{profSlug}/join)
 	joinBody := []byte(`{"name": "Aluno 1", "student_id": "2025116TADS0001"}`)
@@ -142,6 +165,14 @@ func TestRoomLifecycle(t *testing.T) {
 
 	if closeRec.Code != http.StatusOK {
 		t.Fatalf("expected 200 OK for closeRoom, got %d: %s", closeRec.Code, closeRec.Body.String())
+	}
+
+	// 6.1 Check Active Room after close -> 404
+	activeAfterCloseReq := httptest.NewRequest("GET", "/rooms/active", nil)
+	activeAfterCloseRec := httptest.NewRecorder()
+	mux.ServeHTTP(activeAfterCloseRec, activeAfterCloseReq)
+	if activeAfterCloseRec.Code != http.StatusNotFound {
+		t.Errorf("expected 404 NotFound for GET /rooms/active after close, got %d", activeAfterCloseRec.Code)
 	}
 
 	// 7. Student tries to join closed room -> 404 Not Found (link descartado)
@@ -310,7 +341,7 @@ func TestCreateRoomFixedSlug(t *testing.T) {
 	if resp.Slug != expectedSlug {
 		t.Errorf("esperava slug %q, obteve %q", expectedSlug, resp.Slug)
 	}
-	expectedLink := "http://localhost:3000/matematica/professor/entrar"
+	expectedLink := "http://localhost:3000"
 	if resp.Link != expectedLink {
 		t.Errorf("esperava Link %q, obteve %q", expectedLink, resp.Link)
 	}
@@ -373,7 +404,7 @@ func TestCreateRoomNgrok(t *testing.T) {
 		t.Fatalf("decode err: %v", err)
 	}
 
-	expectedLink := "https://mlab-live.ngrok-free.app/matematica/professor-silva/entrar"
+	expectedLink := "https://mlab-live.ngrok-free.app"
 	if resp.Link != expectedLink {
 		t.Errorf("esperava Link com ngrok e link %q, obteve %q", expectedLink, resp.Link)
 	}

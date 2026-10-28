@@ -6,7 +6,9 @@ describe('Room Component (Desktop)', () => {
   const dummyRoom = {
     id: 'room-101',
     slug: 'charlie-delta-7342',
-    link: 'http://localhost:3000/sala/charlie-delta-7342/entrar',
+    link: 'http://mlab-charlie.local:3000',
+    mdnsLink: 'http://mlab-charlie.local:3000',
+    ipLink: 'http://192.168.1.100:3000',
   };
 
   it('deve exibir o setup inicial com opções de gravação e modos de captura', async () => {
@@ -98,6 +100,36 @@ describe('Room Component (Desktop)', () => {
     expect(screen.getByRole('button', { name: /Mutar Microfone/i })).toBeInTheDocument();
   });
 
+  it('deve iniciar com som do PC desligado por padrão e permitir alternar ao clicar', async () => {
+    render(<Room room={dummyRoom} onCloseRoom={vi.fn()} />);
+
+    await waitFor(() => {
+      expect(screen.getByText('Tela Inteira 1')).toBeInTheDocument();
+    });
+
+    const advanceBtn = screen.getByRole('button', { name: /Avançar e Iniciar Transmissão/i });
+    await waitFor(() => {
+      expect(advanceBtn).toBeEnabled();
+    });
+    fireEvent.click(advanceBtn);
+
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: /Alterar Modo \/ Fonte/i })).toBeInTheDocument();
+    });
+
+    // Som do PC deve iniciar desligado por padrão (exibindo 'Ativar Som do PC')
+    const systemAudioBtn = screen.getByRole('button', { name: /Ativar Som do PC/i });
+    expect(systemAudioBtn).toBeInTheDocument();
+
+    // Ao clicar, deve ativar (passando a exibir 'Silenciar Som do PC')
+    fireEvent.click(systemAudioBtn);
+    expect(screen.getByRole('button', { name: /Silenciar Som do PC/i })).toBeInTheDocument();
+
+    // Ao clicar novamente, deve silenciar (voltando a exibir 'Ativar Som do PC')
+    fireEvent.click(screen.getByRole('button', { name: /Silenciar Som do PC/i }));
+    expect(screen.getByRole('button', { name: /Ativar Som do PC/i })).toBeInTheDocument();
+  });
+
   it('deve permitir alternar entre abas de chat público e dúvidas privadas', async () => {
     render(<Room room={dummyRoom} onCloseRoom={vi.fn()} />);
 
@@ -131,13 +163,13 @@ describe('Room Component (Desktop)', () => {
   it('deve copiar o link da sala ao clicar no botão Copiar Link do cabeçalho', async () => {
     render(<Room room={dummyRoom} onCloseRoom={vi.fn()} />);
 
-    const copyBtn = screen.getByRole('button', { name: /Copiar Link/i });
+    const copyBtn = screen.getByRole('button', { name: /Copiar Link Fixo/i });
     expect(copyBtn).toBeInTheDocument();
 
     fireEvent.click(copyBtn);
 
     await waitFor(() => {
-      expect(screen.getByText(/Link Copiado!/i)).toBeInTheDocument();
+      expect(screen.getByTitle(/Link Fixo Copiado/i)).toBeInTheDocument();
     });
   });
 
@@ -206,7 +238,8 @@ describe('Room Component (Desktop)', () => {
   it('deve renderizar o link da sala diretamente abaixo do título no cabeçalho e não exibir ID', async () => {
     render(<Room room={dummyRoom} onCloseRoom={vi.fn()} />);
 
-    expect(screen.getByText(new RegExp(dummyRoom.link, 'i'))).toBeInTheDocument();
+    expect(screen.getByText(dummyRoom.mdnsLink)).toBeInTheDocument();
+    expect(screen.getByText(dummyRoom.ipLink)).toBeInTheDocument();
     expect(screen.queryByText(/ID:/i)).not.toBeInTheDocument();
 
     await waitFor(() => {
@@ -214,7 +247,7 @@ describe('Room Component (Desktop)', () => {
     });
   });
 
-  it('deve exibir o badge de resolução 1080p @ 30fps sem 4 Mbps na sessão ao vivo', async () => {
+  it('deve exibir o badge de resolução 1080p @ 60fps na sessão ao vivo por padrão', async () => {
     render(<Room room={dummyRoom} onCloseRoom={vi.fn()} />);
 
     await waitFor(() => {
@@ -229,8 +262,8 @@ describe('Room Component (Desktop)', () => {
 
     await waitFor(() => {
       expect(screen.getByRole('button', { name: /Alterar Modo \/ Fonte/i })).toBeInTheDocument();
-      expect(screen.getByText('1080p @ 30fps')).toBeInTheDocument();
-      expect(screen.queryByText(/4 Mbps/i)).not.toBeInTheDocument();
+      expect(screen.getByText('1080p @ 60fps')).toBeInTheDocument();
+      expect(screen.queryByText(/6 Mbps/i)).not.toBeInTheDocument();
     });
   });
 
@@ -368,21 +401,20 @@ describe('Room Component (Desktop)', () => {
     }
   });
 
-  it('deve exibir as opções de qualidade 1080p 30fps e 1080p 60fps e permitir alternar', async () => {
+  it('deve iniciar com qualidade 1080p 60fps por padrão e permitir alternar para 30fps', async () => {
     render(<Room room={dummyRoom} onCloseRoom={vi.fn()} />);
 
     // Verifica a presença de ambas as opções
     expect(screen.getByText(/1080p Full HD @ 30 fps/i)).toBeInTheDocument();
     expect(screen.getByText(/1080p Full HD @ 60 fps/i)).toBeInTheDocument();
 
-    // 30 fps deve iniciar selecionado por padrão
     expect(screen.getByText(/4\.0 Mbps/i)).toBeInTheDocument();
     expect(screen.getByText(/6\.0 Mbps/i)).toBeInTheDocument();
 
-    // Clica na opção de 60 fps
-    const card60 = screen.getByText(/1080p Full HD @ 60 fps/i).closest('div');
-    if (card60) {
-      fireEvent.click(card60);
+    // Clica na opção de 30 fps para alternar
+    const card30 = screen.getByText(/1080p Full HD @ 30 fps/i).closest('div');
+    if (card30) {
+      fireEvent.click(card30);
     }
 
     await waitFor(() => {
@@ -400,8 +432,48 @@ describe('Room Component (Desktop)', () => {
       expect(screen.getByRole('button', { name: /Alterar Modo \/ Fonte/i })).toBeInTheDocument();
     });
 
-    // Deve exibir badge de 1080p @ 60fps na barra de status
-    expect(screen.getByText('1080p @ 60fps')).toBeInTheDocument();
+    // Deve exibir badge de 1080p @ 30fps na barra de status
+    expect(screen.getByText('1080p @ 30fps')).toBeInTheDocument();
+  });
+
+  it('deve chamar captureWindowToClipboard e exibir aviso em toast ao clicar no botão Tirar Print', async () => {
+    render(<Room room={dummyRoom} onCloseRoom={vi.fn()} />);
+
+    await waitFor(() => {
+      expect(screen.getByText('Tela Inteira 1')).toBeInTheDocument();
+    });
+
+    const advanceBtn = screen.getByRole('button', { name: /Avançar e Iniciar Transmissão/i });
+    await waitFor(() => {
+      expect(advanceBtn).toBeEnabled();
+    });
+    fireEvent.click(advanceBtn);
+
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: /Alterar Modo \/ Fonte/i })).toBeInTheDocument();
+    });
+
+    const printBtn = screen.getByRole('button', { name: /Tirar Print/i });
+    expect(printBtn).toBeInTheDocument();
+
+    fireEvent.click(printBtn);
+
+    await waitFor(() => {
+      expect(window.electronAPI.captureWindowToClipboard).toHaveBeenCalled();
+      expect(screen.getByText(/Print da janela do MLab copiado para a área de transferência!/i)).toBeInTheDocument();
+    });
+  });
+
+  it('deve exibir os badges de Rede Local (LAN) tanto no Link Fixo quanto no Link IP Direto sem o botão de recarregar', async () => {
+    render(<Room room={dummyRoom} onCloseRoom={vi.fn()} />);
+
+    expect(screen.getByText(dummyRoom.mdnsLink)).toBeInTheDocument();
+    expect(screen.getByText(dummyRoom.ipLink)).toBeInTheDocument();
+
+    const lanBadges = screen.getAllByText('Rede Local (LAN)');
+    expect(lanBadges).toHaveLength(2);
+
+    expect(screen.queryByRole('button', { name: /Atualizar IP e Links da Rede/i })).not.toBeInTheDocument();
   });
 });
 

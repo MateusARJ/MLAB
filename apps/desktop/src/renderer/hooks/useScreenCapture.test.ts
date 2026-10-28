@@ -10,11 +10,14 @@ describe('useScreenCapture & Audio Feedback Suppression (Anti-Microfonia)', () =
   let mockDestinationNode: any;
   let mockRawTrack: any;
   let mockProcessedTrack: any;
+  let mockSystemAudioTrack: any;
   let mockVideoTrack: any;
   let createdFilters: any[];
+  let createdGainNodes: any[];
 
   beforeEach(() => {
     createdFilters = [];
+    createdGainNodes = [];
     mockRawTrack = {
       kind: 'audio',
       id: 'raw-track-1',
@@ -25,6 +28,12 @@ describe('useScreenCapture & Audio Feedback Suppression (Anti-Microfonia)', () =
       kind: 'audio',
       id: 'processed-track-1',
       enabled: true,
+      stop: vi.fn(),
+    };
+    mockSystemAudioTrack = {
+      kind: 'audio',
+      id: 'system-track-1',
+      enabled: false,
       stop: vi.fn(),
     };
     mockVideoTrack = {
@@ -69,6 +78,14 @@ describe('useScreenCapture & Audio Feedback Suppression (Anti-Microfonia)', () =
         return filter;
       });
       createDynamicsCompressor = vi.fn().mockReturnValue(mockCompressorNode);
+      createGain = vi.fn().mockImplementation(() => {
+        const gainNode = {
+          gain: { value: 1 },
+          connect: vi.fn(),
+        };
+        createdGainNodes.push(gainNode);
+        return gainNode;
+      });
       createMediaStreamDestination = vi.fn().mockReturnValue(mockDestinationNode);
       close = vi.fn().mockResolvedValue(undefined);
       resume = vi.fn().mockResolvedValue(undefined);
@@ -87,6 +104,10 @@ describe('useScreenCapture & Audio Feedback Suppression (Anti-Microfonia)', () =
           screenAudioTracks.push(track);
         }
       }),
+      removeTrack: vi.fn().mockImplementation((track: any) => {
+        const idx = screenAudioTracks.indexOf(track);
+        if (idx !== -1) screenAudioTracks.splice(idx, 1);
+      }),
     };
 
     const mockMicStream = {
@@ -99,6 +120,12 @@ describe('useScreenCapture & Audio Feedback Suppression (Anti-Microfonia)', () =
 
     // @ts-ignore
     navigator.mediaDevices.getUserMedia = vi.fn().mockImplementation(async (constraints: any) => {
+      if (constraints?.video && constraints?.audio) {
+        if (!screenAudioTracks.includes(mockSystemAudioTrack)) {
+          screenAudioTracks.push(mockSystemAudioTrack);
+        }
+        return mockScreenStream;
+      }
       if (constraints?.video) {
         return mockScreenStream;
       }
@@ -231,6 +258,87 @@ describe('useScreenCapture & Audio Feedback Suppression (Anti-Microfonia)', () =
     expect(mockRawTrack.stop).toHaveBeenCalled();
   });
 
+  it('deve iniciar com áudio interno do computador desligado por padrão (systemAudioMuted = true)', async () => {
+    const { result } = renderHook(() => useScreenCapture());
+
+    await act(async () => {
+      await result.current.selectSource({
+        id: 'screen:1',
+        name: 'Tela Principal',
+        type: 'screen',
+        thumbnail: '',
+      });
+    });
+
+    expect(result.current.systemAudioMuted).toBe(true);
+    expect(result.current.hasSystemAudio).toBe(true);
+    expect(mockSystemAudioTrack.enabled).toBe(false);
+  });
+
+  it('deve alternar o áudio interno do computador ao chamar toggleSystemAudio mantendo independência do microfone', async () => {
+    const { result } = renderHook(() => useScreenCapture());
+
+    await act(async () => {
+      await result.current.selectSource({
+        id: 'screen:1',
+        name: 'Tela Principal',
+        type: 'screen',
+        thumbnail: '',
+      });
+    });
+
+    // Estado inicial: ambos mutados
+    expect(result.current.systemAudioMuted).toBe(true);
+    expect(result.current.micMuted).toBe(true);
+    expect(mockSystemAudioTrack.enabled).toBe(false);
+
+    // Ativa o som do PC
+    await act(async () => {
+      await result.current.toggleSystemAudio();
+    });
+
+    expect(result.current.systemAudioMuted).toBe(false);
+    expect(result.current.micMuted).toBe(true); // Microfone permanece mutado!
+    expect(mockSystemAudioTrack.enabled).toBe(true);
+    expect(mockProcessedTrack.enabled).toBe(true);
+
+    // Silencia o som do PC novamente
+    await act(async () => {
+      await result.current.toggleSystemAudio();
+    });
+
+    expect(result.current.systemAudioMuted).toBe(true);
+    expect(result.current.micMuted).toBe(true);
+    expect(mockSystemAudioTrack.enabled).toBe(false);
+    expect(mockProcessedTrack.enabled).toBe(false);
+  });
+
+  it('deve interromper faixas do sistema e resetar systemAudioMuted ao chamar stopCapture', async () => {
+    const { result } = renderHook(() => useScreenCapture());
+
+    await act(async () => {
+      await result.current.selectSource({
+        id: 'screen:1',
+        name: 'Tela Principal',
+        type: 'screen',
+        thumbnail: '',
+      });
+    });
+
+    await act(async () => {
+      await result.current.toggleSystemAudio();
+    });
+    expect(result.current.systemAudioMuted).toBe(false);
+
+    act(() => {
+      result.current.stopCapture();
+    });
+
+    expect(result.current.stream).toBeNull();
+    expect(result.current.systemAudioMuted).toBe(true);
+    expect(mockSystemAudioTrack.stop).toHaveBeenCalled();
+  });
+
   it('deve reconhecer abas e janelas legítimas mesmo que contenham mlab no título', async () => {
     const customSources = [
       { id: 'window:10', name: 'GitHub - mlab-project - Google Chrome', type: 'window' as const, thumbnail: 'thumb-1' },
@@ -252,6 +360,36 @@ describe('useScreenCapture & Audio Feedback Suppression (Anti-Microfonia)', () =
       'MLab Student Portal - Edge',
       'Visual Studio Code',
     ]);
+  });
+
+  it('deve iniciar o rastreamento de cursor no selectSource e encerrá-lo no stopCapture', async () => {
+    const startSpy = vi.fn().mockResolvedValue(true);
+    const stopSpy = vi.fn().mockResolvedValue(undefined);
+    window.electronAPI.startCursorTracking = startSpy;
+    window.electronAPI.stopCursorTracking = stopSpy;
+
+    const { result } = renderHook(() => useScreenCapture('window'));
+
+    await act(async () => {
+      await result.current.selectSource({
+        id: 'window:999:0',
+        name: 'Vídeo Aula - Edge',
+        type: 'window',
+        thumbnail: '',
+      });
+    });
+
+    expect(startSpy).toHaveBeenCalledWith({
+      sourceId: 'window:999:0',
+      type: 'window',
+      displayId: undefined,
+    });
+
+    act(() => {
+      result.current.stopCapture();
+    });
+
+    expect(stopSpy).toHaveBeenCalled();
   });
 });
 

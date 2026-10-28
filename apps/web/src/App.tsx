@@ -1,7 +1,8 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { Routes, Route, Navigate, useNavigate, useParams } from 'react-router-dom'
 import { Join } from './pages/Join'
 import { Room } from './pages/Room'
+import { getActiveRoom } from './services/api'
 
 /**
  * Roteamento do web app dos alunos.
@@ -25,6 +26,10 @@ export default function App(): React.ReactElement {
     return null
   })
 
+  useEffect(() => {
+    document.title = 'MLab'
+  }, [])
+
   return (
     <Routes>
       <Route
@@ -47,14 +52,98 @@ export default function App(): React.ReactElement {
       <Route path="*" element={<Navigate to="/" replace />} />
       <Route
         path="/"
-        element={
-          <Placeholder
-            title="MLab"
-            subtitle="Acesse via link fornecido pelo professor"
-          />
-        }
+        element={<RootRedirect />}
       />
     </Routes>
+  )
+}
+
+function RootRedirect(): React.ReactElement {
+  const navigate = useNavigate()
+  const [loading, setLoading] = useState(true)
+  const [retryCount, setRetryCount] = useState(0)
+
+  useEffect(() => {
+    let mounted = true
+    let timer: any = null
+
+    const checkActive = async () => {
+      try {
+        const room = await getActiveRoom()
+        if (!mounted) return
+        if (room && room.slug) {
+          navigate(`/${room.slug}/entrar`, { replace: true })
+          return
+        }
+      } catch {}
+      if (mounted) {
+        setLoading(false)
+        timer = setTimeout(() => {
+          if (mounted) {
+            setRetryCount((prev) => prev + 1)
+          }
+        }, 3000)
+      }
+    }
+
+    checkActive()
+
+    return () => {
+      mounted = false
+      if (timer) clearTimeout(timer)
+    }
+  }, [navigate, retryCount])
+
+  if (loading) {
+    return (
+      <Placeholder
+        title="MLab"
+        subtitle="Localizando sala de aula..."
+      />
+    )
+  }
+
+  return (
+    <div
+      style={{
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        justifyContent: 'center',
+        height: '100vh',
+        fontFamily: 'system-ui, sans-serif',
+        background: '#0f172a',
+        color: '#f1f5f9',
+        gap: '1rem',
+        padding: '20px',
+        textAlign: 'center',
+      }}
+    >
+      <h1 style={{ fontSize: '1.75rem', margin: 0 }}>MLab</h1>
+      <p style={{ color: '#94a3b8', fontSize: '0.95rem', margin: 0, maxWidth: '400px' }}>
+        Aguardando o professor iniciar a aula...
+      </p>
+      <button
+        type="button"
+        onClick={() => {
+          setLoading(true)
+          setRetryCount((prev) => prev + 1)
+        }}
+        style={{
+          marginTop: '8px',
+          padding: '8px 18px',
+          borderRadius: '6px',
+          backgroundColor: '#0f62fe',
+          color: '#ffffff',
+          border: 'none',
+          fontSize: '14px',
+          fontWeight: 600,
+          cursor: 'pointer',
+        }}
+      >
+        Verificar Novamente
+      </button>
+    </div>
   )
 }
 

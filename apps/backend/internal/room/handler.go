@@ -150,6 +150,7 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	// Pública — aluno entra com nome + matrícula, sem JWT prévio.
 	mux.HandleFunc("POST /rooms/{roomName}/{profName}/join", h.joinRoomByPath)
 	mux.HandleFunc("POST /rooms/{roomId}/join", h.joinRoom)
+	mux.HandleFunc("GET /rooms/active", h.getActiveRoom)
 	mux.HandleFunc("GET /rooms/{roomName}/{profName}/info", h.getRoomInfoByPath)
 	mux.HandleFunc("GET /rooms/{roomId}/info", h.getRoomInfo)
 	mux.HandleFunc("GET /rooms/{roomId}/files", h.listFiles)
@@ -210,6 +211,7 @@ func (h *Handler) createRoom(w http.ResponseWriter, r *http.Request) {
 	if existing, err := h.store.GetRoomByOwnerID(r.Context(), professorID); err == nil && existing != nil {
 		_ = h.store.UpdateRoomStatus(r.Context(), existing.ID, StatusClosed, nil)
 		_ = h.store.DeleteRoom(r.Context(), existing.ID)
+		StopMDNSServer()
 	}
 
 	slug := fmt.Sprintf("%s/%s", roomSlug, profSlug)
@@ -233,13 +235,26 @@ func (h *Handler) createRoom(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	baseURL := h.resolveBaseURL(r)
+	lanIP := getOutboundIP()
+	if lanIP != "" && lanIP != "127.0.0.1" && lanIP != "localhost" {
+		go func(pSlug, ip string) {
+			if _, err := StartMDNSServer(pSlug, ip); err != nil {
+				log.Printf("[mDNS] Aviso: falha ao registrar anúncio mDNS: %v", err)
+			}
+		}(room.ProfessorSlug, lanIP)
+	}
+
+	links := h.buildRoomLinks(r, room)
 	writeJSON(w, http.StatusCreated, CreateRoomResponse{
-		RoomID:    room.ID,
-		Slug:      room.Slug,
-		Link:      buildLink(baseURL, room.Slug),
-		Status:    room.Status,
-		CreatedAt: room.CreatedAt.Format(time.RFC3339),
+		RoomID:        room.ID,
+		Slug:          room.Slug,
+		Link:          links.Link,
+		IPLink:        links.IPLink,
+		MDNSLink:      links.MDNSLink,
+		ShortIPLink:   links.ShortIPLink,
+		ShortMDNSLink: links.ShortMDNSLink,
+		Status:        room.Status,
+		CreatedAt:     room.CreatedAt.Format(time.RFC3339),
 	})
 }
 
@@ -269,10 +284,14 @@ func (h *Handler) getLink(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	baseURL := h.resolveBaseURL(r)
+	links := h.buildRoomLinks(r, room)
 	writeJSON(w, http.StatusOK, LinkResponse{
-		RoomID: room.ID,
-		Link:   buildLink(baseURL, room.Slug),
+		RoomID:        room.ID,
+		Link:          links.Link,
+		IPLink:        links.IPLink,
+		MDNSLink:      links.MDNSLink,
+		ShortIPLink:   links.ShortIPLink,
+		ShortMDNSLink: links.ShortMDNSLink,
 	})
 }
 
@@ -474,6 +493,7 @@ func (h *Handler) closeRoom(w http.ResponseWriter, r *http.Request) {
 		h.roomCloseBroadcaster(roomID)
 	}
 	_ = h.store.DeleteRoom(r.Context(), roomID)
+	StopMDNSServer()
 
 	writeJSON(w, http.StatusOK, CloseResponse{
 		Status:   StatusClosed,
@@ -481,7 +501,84 @@ func (h *Handler) closeRoom(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+// ── GET /rooms/active ─────────────────────────────────────────────────────────
+
+func (h *Handler) getActiveRoom(w http.ResponseWriter, r *http.Request) {
+	room, err := h.store.GetActiveRoom(r.Context())
+	if err != nil {
+		if errors.Is(err, ErrRoomNotFound) {
+			writeError(w, http.StatusNotFound, "nenhuma sala ativa no momento")
+			return
+		}
+		writeError(w, http.StatusInternalServerError, "erro ao buscar sala ativa")
+		return
+	}
+
+	links := h.buildRoomLinks(r, room)
+	writeJSON(w, http.StatusOK, map[string]any{
+		"room_id":         room.ID,
+		"slug":            room.Slug,
+		"title":           room.Title,
+		"professor_name":  room.ProfessorName,
+		"status":          room.Status,
+		"link":            links.Link,
+		"ip_link":         links.IPLink,
+		"mdns_link":       links.MDNSLink,
+		"short_ip_link":   links.ShortIPLink,
+		"short_mdns_link": links.ShortMDNSLink,
+	})
+}
+
 // ── helpers ───────────────────────────────────────────────────────────────────
+
+type roomLinks struct {
+	Link          string
+	IPLink        string
+	MDNSLink      string
+	ShortIPLink   string
+	ShortMDNSLink string
+}
+
+func (h *Handler) buildRoomLinks(r *http.Request, room *Room) roomLinks {
+	webPort := getWebPort()
+	proto := "http"
+	if r != nil && (r.TLS != nil || r.Header.Get("X-Forwarded-Proto") == "https") {
+		proto = "https"
+	}
+
+	ip := getOutboundIP()
+	if ip == "" || ip == "127.0.0.1" {
+		ip = "localhost"
+	}
+
+	profSlug := room.ProfessorSlug
+	if profSlug == "" {
+		profSlug = slugify(room.ProfessorName)
+	}
+	if profSlug == "" {
+		profSlug = "professor"
+	}
+
+	ipBase := fmt.Sprintf("%s://%s:%s", proto, ip, webPort)
+	mdnsBase := fmt.Sprintf("%s://mlab.local:%s", proto, webPort)
+
+	defaultLink := mdnsBase
+	if ngrok := os.Getenv("NGROK_URL"); ngrok != "" {
+		defaultLink = strings.TrimRight(ngrok, "/")
+	} else if pub := os.Getenv("PUBLIC_URL"); pub != "" {
+		defaultLink = strings.TrimRight(pub, "/")
+	} else if base := os.Getenv("BASE_URL"); base != "" {
+		defaultLink = strings.TrimRight(base, "/")
+	}
+
+	return roomLinks{
+		Link:          defaultLink,
+		IPLink:        ipBase,
+		MDNSLink:      mdnsBase,
+		ShortIPLink:   ipBase,
+		ShortMDNSLink: mdnsBase,
+	}
+}
 
 func writeJSON(w http.ResponseWriter, status int, v any) {
 	w.Header().Set("Content-Type", "application/json")

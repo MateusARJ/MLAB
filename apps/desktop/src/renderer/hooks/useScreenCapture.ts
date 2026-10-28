@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import type { CaptureSource, CaptureSourceType } from '@mlab/types';
+import { createCursorMaskedTrack, type MaskedVideoTrackResult } from '../media/createCursorMaskedTrack';
 
 export type Source = CaptureSource;
 
@@ -10,11 +11,17 @@ export function useScreenCapture(initialMode: CaptureSourceType = 'screen', init
   const [selectedSource, setSelectedSource] = useState<CaptureSource | null>(null);
   const [stream, setStream] = useState<MediaStream | null>(null);
   const [micMuted, setMicMuted] = useState(true);
+  const [systemAudioMuted, setSystemAudioMuted] = useState(true);
+  const [hasSystemAudio, setHasSystemAudio] = useState(false);
   const [videoPaused, setVideoPaused] = useState(false);
   const [hasPermissions, setHasPermissions] = useState<boolean | null>(null);
 
   const audioContextRef = useRef<AudioContext | null>(null);
   const rawAudioStreamRef = useRef<MediaStream | null>(null);
+  const systemAudioStreamRef = useRef<MediaStream | null>(null);
+  const systemGainNodeRef = useRef<GainNode | null>(null);
+  const mixerDestinationRef = useRef<MediaStreamAudioDestinationNode | null>(null);
+  const maskedTracksRef = useRef<MaskedVideoTrackResult[]>([]);
 
   const loadSources = useCallback(async (mode: CaptureSourceType) => {
     if (window.electronAPI && window.electronAPI.getScreenSources) {
@@ -70,9 +77,14 @@ export function useScreenCapture(initialMode: CaptureSourceType = 'screen', init
       let mediaStream: MediaStream;
       const minFps = effectiveFps === 60 ? 30 : 25;
       try {
-        // Tenta capturar Full HD com a taxa de quadros configurada (30fps ou 60fps)
+        // Tenta capturar Full HD com a taxa de quadros configurada (30fps ou 60fps) e áudio interno do sistema
         mediaStream = await navigator.mediaDevices.getUserMedia({
-          audio: false,
+          audio: {
+            // @ts-ignore
+            mandatory: {
+              chromeMediaSource: 'desktop',
+            },
+          },
           video: {
             // @ts-ignore
             mandatory: {
@@ -86,20 +98,59 @@ export function useScreenCapture(initialMode: CaptureSourceType = 'screen', init
           },
         });
       } catch {
-        // Fallback flexível para monitores ou janelas com dimensões menores ou especiais
-        mediaStream = await navigator.mediaDevices.getUserMedia({
-          audio: false,
-          video: {
-            // @ts-ignore
-            mandatory: {
-              chromeMediaSource: 'desktop',
-              chromeMediaSourceId: source.id,
-              maxWidth: 1920,
-              maxHeight: 1080,
-              maxFrameRate: effectiveFps,
+        try {
+          // Fallback flexível para dimensões especiais com áudio interno do sistema
+          mediaStream = await navigator.mediaDevices.getUserMedia({
+            audio: {
+              // @ts-ignore
+              mandatory: {
+                chromeMediaSource: 'desktop',
+              },
             },
-          },
-        });
+            video: {
+              // @ts-ignore
+              mandatory: {
+                chromeMediaSource: 'desktop',
+                chromeMediaSourceId: source.id,
+                maxWidth: 1920,
+                maxHeight: 1080,
+                maxFrameRate: effectiveFps,
+              },
+            },
+          });
+        } catch {
+          // Fallback resiliente: caso o SO ou driver rejeite áudio do sistema, garante captura de vídeo sem interrupções
+          try {
+            mediaStream = await navigator.mediaDevices.getUserMedia({
+              audio: false,
+              video: {
+                // @ts-ignore
+                mandatory: {
+                  chromeMediaSource: 'desktop',
+                  chromeMediaSourceId: source.id,
+                  maxWidth: 1920,
+                  maxHeight: 1080,
+                  minFrameRate: minFps,
+                  maxFrameRate: effectiveFps,
+                },
+              },
+            });
+          } catch {
+            mediaStream = await navigator.mediaDevices.getUserMedia({
+              audio: false,
+              video: {
+                // @ts-ignore
+                mandatory: {
+                  chromeMediaSource: 'desktop',
+                  chromeMediaSourceId: source.id,
+                  maxWidth: 1920,
+                  maxHeight: 1080,
+                  maxFrameRate: effectiveFps,
+                },
+              },
+            });
+          }
+        }
       }
 
       // Crava contentHint='detail' para priorizar nitidez de código/texto
@@ -109,6 +160,47 @@ export function useScreenCapture(initialMode: CaptureSourceType = 'screen', init
         videoTrack.contentHint = 'detail';
         const settings = videoTrack.getSettings();
         console.log(`[Capture] Resolução capturada: ${settings.width}x${settings.height} @ ${settings.frameRate}fps (alvo: ${effectiveFps}fps)`);
+      }
+
+      // Isola e gerencia a faixa de áudio interno do sistema capturada
+      const capturedSysTracks = mediaStream.getAudioTracks();
+      if (capturedSysTracks.length > 0) {
+        systemAudioStreamRef.current = new MediaStream(capturedSysTracks);
+        capturedSysTracks.forEach((t) => {
+          if (typeof mediaStream.removeTrack === 'function') {
+            mediaStream.removeTrack(t);
+          }
+          t.enabled = !systemAudioMuted;
+        });
+        setHasSystemAudio(true);
+      } else {
+        systemAudioStreamRef.current = null;
+        setHasSystemAudio(false);
+      }
+
+      // Envolve a faixa de vídeo no pipeline de ocultação contextual do cursor (quando suportado)
+      // e inicia o rastreamento nativo de presença do cursor no processo Main
+      if (videoTrack) {
+        const masked = createCursorMaskedTrack(videoTrack);
+        maskedTracksRef.current.push(masked);
+        if (masked.active && masked.track !== videoTrack) {
+          if (typeof mediaStream.removeTrack === 'function') {
+            mediaStream.removeTrack(videoTrack);
+          }
+          if (typeof mediaStream.addTrack === 'function') {
+            mediaStream.addTrack(masked.track);
+          }
+        }
+      }
+
+      if (window.electronAPI && typeof window.electronAPI.startCursorTracking === 'function') {
+        window.electronAPI
+          .startCursorTracking({
+            sourceId: source.id,
+            type: source.type || (source.id.startsWith('screen') ? 'screen' : 'window'),
+            displayId: source.displayId,
+          })
+          .catch(() => {});
       }
 
       // Tenta anexar microfone do professor com processamento DSP anti-microfonia (RF-10, RN-10)
@@ -131,10 +223,13 @@ export function useScreenCapture(initialMode: CaptureSourceType = 'screen', init
           audio: audioConstraints,
         });
         rawAudioStreamRef.current = rawAudioStream;
+        rawAudioStream.getAudioTracks().forEach((track) => {
+          track.enabled = !micMuted;
+        });
 
         let finalAudioTrack: MediaStreamTrack | null = null;
 
-        // Processamento Web Audio API: Highpass 85Hz + Lowpass 7.5kHz + DynamicsCompressor (Hard Limiter Anti-Howling)
+        // Processamento Web Audio API: Mixer Bus (Microfone com DSP + Áudio do Sistema Alta Fidelidade)
         const AudioCtxClass =
           typeof window !== 'undefined'
             ? window.AudioContext || (window as any).webkitAudioContext
@@ -158,31 +253,57 @@ export function useScreenCapture(initialMode: CaptureSourceType = 'screen', init
               typeof audioCtx.createDynamicsCompressor === 'function' &&
               typeof audioCtx.createMediaStreamDestination === 'function'
             ) {
-              const sourceNode = audioCtx.createMediaStreamSource(rawAudioStream);
-
-              // 1. Filtro Passa-Alta (Highpass): remove ressonâncias subgraves (< 85 Hz)
-              const highpass = audioCtx.createBiquadFilter();
-              highpass.type = 'highpass';
-              highpass.frequency.value = 85;
-
-              // 2. Filtro Passa-Baixa (Lowpass): elimina apitos agudos de microfonia (> 7500 Hz)
-              const lowpass = audioCtx.createBiquadFilter();
-              lowpass.type = 'lowpass';
-              lowpass.frequency.value = 7500;
-
-              // 3. Hard Limiter Dinâmico: trava o ganho em -6 dBFS em 1 ms, impedindo o loop de Barkhausen
-              const limiter = audioCtx.createDynamicsCompressor();
-              limiter.threshold.value = -6;
-              limiter.knee.value = 3;
-              limiter.ratio.value = 20; // 20:1 limiter
-              limiter.attack.value = 0.001; // 1 ms de ataque imediato
-              limiter.release.value = 0.15; // 150 ms de recuperação suave
-
               const destination = audioCtx.createMediaStreamDestination();
-              sourceNode.connect(highpass);
-              highpass.connect(lowpass);
-              lowpass.connect(limiter);
-              limiter.connect(destination);
+              mixerDestinationRef.current = destination;
+
+              // 1. Ramo do Microfone (Voz com Filtros Anti-Microfonia e Hard Limiter)
+              if (rawAudioStream.getAudioTracks().length > 0) {
+                const sourceNode = audioCtx.createMediaStreamSource(rawAudioStream);
+
+                // 1. Filtro Passa-Alta (Highpass): remove ressonâncias subgraves (< 85 Hz)
+                const highpass = audioCtx.createBiquadFilter();
+                highpass.type = 'highpass';
+                highpass.frequency.value = 85;
+
+                // 2. Filtro Passa-Baixa (Lowpass): elimina apitos agudos de microfonia (> 7500 Hz)
+                const lowpass = audioCtx.createBiquadFilter();
+                lowpass.type = 'lowpass';
+                lowpass.frequency.value = 7500;
+
+                // 3. Hard Limiter Dinâmico: trava o ganho em -6 dBFS em 1 ms, impedindo o loop de Barkhausen
+                const limiter = audioCtx.createDynamicsCompressor();
+                limiter.threshold.value = -6;
+                limiter.knee.value = 3;
+                limiter.ratio.value = 20; // 20:1 limiter
+                limiter.attack.value = 0.001; // 1 ms de ataque imediato
+                limiter.release.value = 0.15; // 150 ms de recuperação suave
+
+                sourceNode.connect(highpass);
+                highpass.connect(lowpass);
+                lowpass.connect(limiter);
+                limiter.connect(destination);
+              }
+
+              // 2. Ramo do Áudio do Sistema (Alta Fidelidade 20Hz-20kHz para Vídeos Educativos)
+              if (
+                systemAudioStreamRef.current &&
+                systemAudioStreamRef.current.getAudioTracks().length > 0
+              ) {
+                try {
+                  const sysSource = audioCtx.createMediaStreamSource(systemAudioStreamRef.current);
+                  if (typeof audioCtx.createGain === 'function') {
+                    const sysGain = audioCtx.createGain();
+                    sysGain.gain.value = systemAudioMuted ? 0 : 1; // Inicia em 0 (MUTADO)
+                    systemGainNodeRef.current = sysGain;
+                    sysSource.connect(sysGain);
+                    sysGain.connect(destination);
+                  } else {
+                    sysSource.connect(destination);
+                  }
+                } catch (sysErr) {
+                  console.warn('[Capture] Erro ao conectar áudio do sistema ao mixer Web Audio:', sysErr);
+                }
+              }
 
               const processedTracks = destination.stream.getAudioTracks();
               if (processedTracks.length > 0) {
@@ -190,13 +311,13 @@ export function useScreenCapture(initialMode: CaptureSourceType = 'screen', init
               }
             }
           } catch (dspErr) {
-            console.warn('[Capture] Falha ao inicializar Web Audio limiter, utilizando faixa bruta:', dspErr);
+            console.warn('[Capture] Falha ao inicializar Web Audio mixer, utilizando faixa bruta:', dspErr);
           }
         }
 
         const trackToAdd = finalAudioTrack || rawAudioStream.getAudioTracks()[0];
         if (trackToAdd) {
-          trackToAdd.enabled = !micMuted;
+          trackToAdd.enabled = (!micMuted) || (!systemAudioMuted);
           mediaStream.addTrack(trackToAdd);
         }
       } catch (err) {
@@ -209,34 +330,105 @@ export function useScreenCapture(initialMode: CaptureSourceType = 'screen', init
       console.error('Erro ao capturar stream de tela/janela:', err);
       return null;
     }
-  }, [stream, micMuted]);
+  }, [stream, micMuted, systemAudioMuted, targetFps]);
 
   const toggleMicMute = useCallback(() => {
-    if (stream) {
-      const audioTracks = stream.getAudioTracks();
-      audioTracks.forEach((track) => {
-        track.enabled = micMuted; // inverte estado
+    const nextMuted = !micMuted;
+    setMicMuted(nextMuted);
+
+    if (rawAudioStreamRef.current) {
+      rawAudioStreamRef.current.getAudioTracks().forEach((track) => {
+        track.enabled = !nextMuted;
       });
-      if (rawAudioStreamRef.current) {
-        rawAudioStreamRef.current.getAudioTracks().forEach((track) => {
-          track.enabled = micMuted;
-        });
-      }
-      setMicMuted(!micMuted);
     }
-  }, [stream, micMuted]);
+
+    if (stream) {
+      const isAnyActive = (!nextMuted) || (!systemAudioMuted);
+      stream.getAudioTracks().forEach((track) => {
+        track.enabled = isAnyActive;
+      });
+    }
+  }, [stream, micMuted, systemAudioMuted]);
+
+  const toggleSystemAudio = useCallback(async () => {
+    const nextMuted = !systemAudioMuted;
+    setSystemAudioMuted(nextMuted);
+
+    if (systemGainNodeRef.current) {
+      systemGainNodeRef.current.gain.value = nextMuted ? 0 : 1;
+    }
+
+    if (systemAudioStreamRef.current) {
+      systemAudioStreamRef.current.getAudioTracks().forEach((track) => {
+        track.enabled = !nextMuted;
+      });
+    } else if (!nextMuted) {
+      // Se não foi capturado na inicialização, tenta capturar sob demanda
+      try {
+        const sysStream = await navigator.mediaDevices.getUserMedia({
+          audio: {
+            // @ts-ignore
+            mandatory: {
+              chromeMediaSource: 'desktop',
+            },
+          },
+          video: false,
+        });
+        if (sysStream && sysStream.getAudioTracks().length > 0) {
+          systemAudioStreamRef.current = sysStream;
+          setHasSystemAudio(true);
+          if (audioContextRef.current && mixerDestinationRef.current) {
+            const sysSource = audioContextRef.current.createMediaStreamSource(sysStream);
+            if (typeof audioContextRef.current.createGain === 'function') {
+              const sysGain = audioContextRef.current.createGain();
+              sysGain.gain.value = 1;
+              systemGainNodeRef.current = sysGain;
+              sysSource.connect(sysGain);
+              sysGain.connect(mixerDestinationRef.current);
+            } else {
+              sysSource.connect(mixerDestinationRef.current);
+            }
+          }
+        }
+      } catch (err) {
+        console.warn('[Capture] Captura de áudio do sistema sob demanda não disponível:', err);
+      }
+    }
+
+    if (stream) {
+      const isAnyActive = (!micMuted) || (!nextMuted);
+      stream.getAudioTracks().forEach((track) => {
+        track.enabled = isAnyActive;
+      });
+    }
+  }, [stream, systemAudioMuted, micMuted]);
 
   const toggleVideoPause = useCallback(() => {
     if (stream) {
+      const nextEnabled = videoPaused; // inverte estado
       const videoTracks = stream.getVideoTracks();
       videoTracks.forEach((track) => {
-        track.enabled = videoPaused; // inverte estado
+        track.enabled = nextEnabled;
+      });
+      maskedTracksRef.current.forEach((m) => {
+        m.setEnabled(nextEnabled);
       });
       setVideoPaused(!videoPaused);
     }
   }, [stream, videoPaused]);
 
   const stopCapture = useCallback(() => {
+    if (window.electronAPI && typeof window.electronAPI.stopCursorTracking === 'function') {
+      window.electronAPI.stopCursorTracking().catch(() => {});
+    }
+    if (maskedTracksRef.current.length > 0) {
+      maskedTracksRef.current.forEach((m) => {
+        try {
+          m.dispose();
+        } catch {}
+      });
+      maskedTracksRef.current = [];
+    }
     if (stream) {
       stream.getTracks().forEach((t) => t.stop());
       setStream(null);
@@ -246,10 +438,18 @@ export function useScreenCapture(initialMode: CaptureSourceType = 'screen', init
       rawAudioStreamRef.current.getTracks().forEach((t) => t.stop());
       rawAudioStreamRef.current = null;
     }
+    if (systemAudioStreamRef.current) {
+      systemAudioStreamRef.current.getTracks().forEach((t) => t.stop());
+      systemAudioStreamRef.current = null;
+    }
     if (audioContextRef.current) {
       audioContextRef.current.close().catch(() => {});
       audioContextRef.current = null;
     }
+    systemGainNodeRef.current = null;
+    mixerDestinationRef.current = null;
+    setHasSystemAudio(false);
+    setSystemAudioMuted(true);
   }, [stream]);
 
   return {
@@ -261,12 +461,15 @@ export function useScreenCapture(initialMode: CaptureSourceType = 'screen', init
     selectedSource,
     stream,
     micMuted,
+    systemAudioMuted,
+    hasSystemAudio,
     videoPaused,
     hasPermissions,
     loadSources,
     refreshSources,
     selectSource,
     toggleMicMute,
+    toggleSystemAudio,
     toggleVideoPause,
     stopCapture,
   };

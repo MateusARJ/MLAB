@@ -36,6 +36,10 @@ export interface CreateRoomResponse {
   room_id: string;
   slug: string;
   link: string;
+  ip_link?: string;
+  mdns_link?: string;
+  short_ip_link?: string;
+  short_mdns_link?: string;
   status: RoomStatus;
   created_at: string;
   id?: string;
@@ -45,6 +49,10 @@ export interface CreateRoomResponse {
 export interface RoomLinkResponse {
   room_id: string;
   link: string;
+  ip_link?: string;
+  mdns_link?: string;
+  short_ip_link?: string;
+  short_mdns_link?: string;
 }
 
 // ── Participant ───────────────────────────────────────────────────────────────
@@ -237,6 +245,15 @@ export interface CaptureSource {
   name: string;
   thumbnail: string;
   type: CaptureSourceType;
+  /** display_id do Electron (somente telas) — usado para mapear o cursor no monitor correto */
+  displayId?: string;
+}
+
+export interface CursorState {
+  /** true = cursor deve aparecer para os alunos e na gravação */
+  visible: boolean;
+  /** Retângulo do cursor normalizado [0..1] relativo à fonte capturada; null = fora da fonte */
+  rect: { x: number; y: number; w: number; h: number } | null;
 }
 
 export type RecordingFormat = 'webm';

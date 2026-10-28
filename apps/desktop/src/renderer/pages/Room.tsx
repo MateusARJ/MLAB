@@ -4,11 +4,16 @@ import { useScreenCapture } from '../hooks/useScreenCapture';
 import { useLocalRecorder } from '../hooks/useLocalRecorder';
 import { useWebRTCPublisher } from '../hooks/useWebRTCPublisher';
 import { getStoredToken } from '../services/auth';
-import { closeRoom } from '../services/room';
+import { closeRoom, getRoomLink } from '../services/room';
 import mlabLogo from '../assets/MLAB-logo.png';
 import {
+  colors,
+  radii,
+  typography,
+  IconButton,
   Screen,
   Application,
+  Camera,
   Microphone,
   MicrophoneOff,
   Recording,
@@ -27,16 +32,28 @@ import {
   Idea,
   Touch_1,
   Touch_1Filled,
+  VolumeUp,
+  VolumeMute,
 } from '@mlab/ui';
 
 
 interface RoomProps {
-  room: { id: string; slug: string; link: string };
+  room: {
+    id: string;
+    slug: string;
+    link: string;
+    ipLink?: string;
+    mdnsLink?: string;
+    shortIpLink?: string;
+    shortMdnsLink?: string;
+  };
   onCloseRoom: () => void;
 }
 
 function formatFileSize(bytes: number): string {
   if (!bytes || bytes === 0) return '0 B';
+  const k = 1024;
+  const sizes = ['B', 'KB', 'MB', 'GB'];
   const i = Math.floor(Math.log(bytes) / Math.log(k));
   return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
 }
@@ -45,8 +62,10 @@ function isLanLink(link?: string): boolean {
   if (!link) return false;
   try {
     const url = new URL(link.startsWith('http') ? link : `http://${link}`);
-    const host = url.hostname;
+    const host = url.hostname.toLowerCase();
     return (
+      host.endsWith('.local') ||
+      host === 'localhost' ||
       /^10\./.test(host) ||
       /^192\.168\./.test(host) ||
       /^172\.(1[6-9]|2[0-9]|3[0-1])\./.test(host)
@@ -59,11 +78,60 @@ function isLanLink(link?: string): boolean {
 export const Room: React.FC<RoomProps> = ({ room, onCloseRoom }) => {
   // Configuração pré-transmissão
   const [wantRecord, setWantRecord] = useState<boolean>(false);
-  const [qualityProfile, setQualityProfile] = useState<'1080p_30' | '1080p_60'>('1080p_30');
+  const [qualityProfile, setQualityProfile] = useState<'1080p_30' | '1080p_60'>('1080p_60');
   const [tentativeSource, setTentativeSource] = useState<CaptureSource | null>(null);
   const [isLiveSession, setIsLiveSession] = useState<boolean>(false);
   const [saveSuccessMsg, setSaveSuccessMsg] = useState<string | null>(null);
-  const [linkCopied, setLinkCopied] = useState<boolean>(false);
+  const [copiedMdns, setCopiedMdns] = useState<boolean>(false);
+  const [copiedIp, setCopiedIp] = useState<boolean>(false);
+  const [screenshotMsg, setScreenshotMsg] = useState<string | null>(null);
+  const [links, setLinks] = useState({
+    link: room.link,
+    ipLink: room.ipLink || room.link,
+    mdnsLink: room.mdnsLink || '',
+    shortIpLink: room.shortIpLink || '',
+    shortMdnsLink: room.shortMdnsLink || '',
+  });
+
+  useEffect(() => {
+    if ((!room.mdnsLink || !room.ipLink) && room.id) {
+      getRoomLink(room.id)
+        .then((resp) => {
+          if (resp) {
+            setLinks({
+              link: resp.link || room.link,
+              ipLink: resp.ip_link || resp.link || room.link,
+              mdnsLink: resp.mdns_link || '',
+              shortIpLink: resp.short_ip_link || '',
+              shortMdnsLink: resp.short_mdns_link || '',
+            });
+          }
+        })
+        .catch(() => {});
+    }
+  }, [room.id, room.mdnsLink, room.ipLink, room.link]);
+
+  const handleTakeScreenshot = useCallback(async () => {
+    if (window.electronAPI && typeof window.electronAPI.captureWindowToClipboard === 'function') {
+      try {
+        const success = await window.electronAPI.captureWindowToClipboard();
+        if (success) {
+          setScreenshotMsg('Print da janela do MLab copiado para a área de transferência!');
+        } else {
+          setScreenshotMsg('Não foi possível capturar a janela do MLab.');
+        }
+      } catch {
+        setScreenshotMsg('Erro ao capturar a janela do MLab.');
+      }
+    }
+  }, []);
+
+  useEffect(() => {
+    if (screenshotMsg) {
+      const timer = setTimeout(() => setScreenshotMsg(null), 3500);
+      return () => clearTimeout(timer);
+    }
+  }, [screenshotMsg]);
 
   // Imagem estática atual para o modo Tela Cheia
   const [currentThumbnail, setCurrentThumbnail] = useState<string | null>(null);
@@ -83,16 +151,16 @@ export const Room: React.FC<RoomProps> = ({ room, onCloseRoom }) => {
   // Sub-aba de Chat: público vs privado
   const [chatSubTab, setChatSubTab] = useState<'public' | 'private'>('public');
 
-  const handleCopyLink = useCallback(async () => {
-    if (!room.link) return;
+  const copyToClipboard = useCallback(async (text: string) => {
+    if (!text) return;
     try {
       if (window.electronAPI && typeof window.electronAPI.copyToClipboard === 'function') {
-        await window.electronAPI.copyToClipboard(room.link);
+        await window.electronAPI.copyToClipboard(text);
       } else if (navigator?.clipboard?.writeText) {
-        await navigator.clipboard.writeText(room.link);
+        await navigator.clipboard.writeText(text);
       } else {
         const textArea = document.createElement('textarea');
-        textArea.value = room.link;
+        textArea.value = text;
         textArea.style.position = 'fixed';
         textArea.style.opacity = '0';
         document.body.appendChild(textArea);
@@ -101,12 +169,26 @@ export const Room: React.FC<RoomProps> = ({ room, onCloseRoom }) => {
         document.execCommand('copy');
         document.body.removeChild(textArea);
       }
-      setLinkCopied(true);
-      setTimeout(() => setLinkCopied(false), 2000);
     } catch (err) {
       console.error('Erro ao copiar link:', err);
     }
-  }, [room.link]);
+  }, []);
+
+  const handleCopyMdns = useCallback(async () => {
+    const link = links.mdnsLink || links.link;
+    if (!link) return;
+    await copyToClipboard(link);
+    setCopiedMdns(true);
+    setTimeout(() => setCopiedMdns(false), 2000);
+  }, [copyToClipboard, links.mdnsLink, links.link]);
+
+  const handleCopyIp = useCallback(async () => {
+    const link = links.ipLink || links.link;
+    if (!link) return;
+    await copyToClipboard(link);
+    setCopiedIp(true);
+    setTimeout(() => setCopiedIp(false), 2000);
+  }, [copyToClipboard, links.ipLink, links.link]);
 
   const {
     captureMode,
@@ -115,12 +197,14 @@ export const Room: React.FC<RoomProps> = ({ room, onCloseRoom }) => {
     selectedSource,
     stream,
     micMuted,
+    systemAudioMuted,
     videoPaused,
     hasPermissions,
     loadSources,
     refreshSources,
     selectSource,
     toggleMicMute,
+    toggleSystemAudio,
     toggleVideoPause,
     stopCapture,
     setTargetFps,
@@ -179,6 +263,19 @@ export const Room: React.FC<RoomProps> = ({ room, onCloseRoom }) => {
   });
 
   const prevMessagesLength = useRef(messages.length);
+  const publicChatEndRef = useRef<HTMLDivElement>(null);
+  const privateChatEndRef = useRef<HTMLDivElement>(null);
+
+  // Auto-scroll para descer o chat quando novas mensagens forem adicionadas
+  useEffect(() => {
+    if (sidebarTab === 'chat') {
+      if (chatSubTab === 'public') {
+        publicChatEndRef.current?.scrollIntoView?.({ behavior: 'smooth' });
+      } else {
+        privateChatEndRef.current?.scrollIntoView?.({ behavior: 'smooth' });
+      }
+    }
+  }, [messages, sidebarTab, chatSubTab, isSidebarOpen]);
 
   useEffect(() => {
     if (!isSidebarOpen && messages.length > prevMessagesLength.current) {
@@ -186,6 +283,29 @@ export const Room: React.FC<RoomProps> = ({ room, onCloseRoom }) => {
     }
     prevMessagesLength.current = messages.length;
   }, [messages, isSidebarOpen]);
+
+  // Restaura setContentProtection(false) ao sair da sala e escuta atalhos de captura
+  useEffect(() => {
+    const handleKeyUp = (e: KeyboardEvent) => {
+      if (
+        e.key === 'PrintScreen' ||
+        e.key === 'F10' ||
+        (e.ctrlKey && e.shiftKey && (e.key === 'S' || e.key === 's'))
+      ) {
+        e.preventDefault();
+        handleTakeScreenshot();
+      }
+    };
+
+    window.addEventListener('keyup', handleKeyUp);
+
+    return () => {
+      window.removeEventListener('keyup', handleKeyUp);
+      if (window.electronAPI && typeof window.electronAPI.setContentProtection === 'function') {
+        window.electronAPI.setContentProtection(false).catch(() => {});
+      }
+    };
+  }, [handleTakeScreenshot]);
 
   const handleToggleSidebar = () => {
     setIsSidebarOpen((prev) => {
@@ -262,6 +382,9 @@ export const Room: React.FC<RoomProps> = ({ room, onCloseRoom }) => {
   const screenSources = sources.filter((s) => s.type === 'screen' || s.id.startsWith('screen'));
 
   const handleSwitchScreen = useCallback(async (source: CaptureSource) => {
+    if (window.electronAPI && typeof window.electronAPI.setContentProtection === 'function') {
+      await window.electronAPI.setContentProtection(true).catch(() => {});
+    }
     const fps = qualityProfile === '1080p_60' ? 60 : 30;
     const newStream = await selectSource(source, fps);
     if (source.thumbnail) {
@@ -308,8 +431,20 @@ export const Room: React.FC<RoomProps> = ({ room, onCloseRoom }) => {
       setCurrentThumbnail(sourceToUse.thumbnail);
     }
 
+    // 1º Ativa a proteção no DWM ANTES de iniciar a sessão WGC para evitar E_FAIL (-2147467259)
+    if (window.electronAPI && typeof window.electronAPI.setContentProtection === 'function') {
+      await window.electronAPI.setContentProtection(true).catch(() => {});
+    }
+
     const fps = qualityProfile === '1080p_60' ? 60 : 30;
     const activeStream = await selectSource(sourceToUse, fps);
+    if (!activeStream) {
+      if (window.electronAPI && typeof window.electronAPI.setContentProtection === 'function') {
+        window.electronAPI.setContentProtection(false).catch(() => {});
+      }
+      return;
+    }
+
     setIsLiveSession(true);
 
     // Quando o professor começa a transmitir a tela, o microfone deve ficar desligado por padrão
@@ -353,6 +488,9 @@ export const Room: React.FC<RoomProps> = ({ room, onCloseRoom }) => {
         window.electronAPI.setActiveRoom(null);
       }
     }
+    if (window.electronAPI && typeof window.electronAPI.setContentProtection === 'function') {
+      window.electronAPI.setContentProtection(false).catch(() => {});
+    }
     endSession();
     stopCapture();
     onCloseRoom();
@@ -360,6 +498,9 @@ export const Room: React.FC<RoomProps> = ({ room, onCloseRoom }) => {
 
   const handleReconfigure = useCallback(() => {
     setIsLiveSession(false);
+    if (window.electronAPI && typeof window.electronAPI.setContentProtection === 'function') {
+      window.electronAPI.setContentProtection(false).catch(() => {});
+    }
   }, []);
 
   const handleSendPublicChat = (e: React.FormEvent) => {
@@ -455,29 +596,59 @@ export const Room: React.FC<RoomProps> = ({ room, onCloseRoom }) => {
         <div style={styles.headerTitleBox}>
           <img src={mlabLogo} alt="MLab Logo" style={styles.logoImg} />
           <div>
-            <h2 style={styles.title}>{professorName ? `MLab — Prof. ${professorName}` : `MLab — Sala: ${room.slug}`}</h2>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-              <div style={styles.roomLinkStatic}>{room.link}</div>
-              {isLanLink(room.link) && (
-                <span
-                  style={styles.lanBadge}
-                  title="Transmissão operando diretamente na rede local (sem necessidade de internet externa)"
+            <h2 style={styles.title}>{professorName ? `MLab — Prof. ${professorName.charAt(0).toUpperCase() + professorName.slice(1)}` : `MLab — Sala: ${room.slug}`}</h2>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', marginTop: '4px' }}>
+              {/* Link Fixo */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <span style={{ fontSize: '11px', color: colors.textMuted, fontWeight: 600, minWidth: '86px' }}>Link Fixo:</span>
+                <span style={styles.roomLinkStatic}>{links.mdnsLink || links.link}</span>
+                <IconButton
+                  type="button"
+                  variant={copiedMdns ? 'success' : 'ghost'}
+                  size="sm"
+                  onClick={handleCopyMdns}
+                  title={copiedMdns ? 'Link Fixo Copiado' : 'Copiar Link Fixo'}
+                  aria-label="Copiar Link Fixo"
                 >
-                  Rede Local (LAN)
-                </span>
-              )}
+                  {copiedMdns ? <Checkmark size={14} /> : <Copy size={14} />}
+                </IconButton>
+                {isLanLink(links.mdnsLink || links.link) && (
+                  <span
+                    style={styles.lanBadge}
+                    title="Transmissão operando diretamente na rede local (sem necessidade de internet externa)"
+                  >
+                    Rede Local (LAN)
+                  </span>
+                )}
+              </div>
+
+              {/* Link Direto IP */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <span style={{ fontSize: '11px', color: colors.textMuted, fontWeight: 600, minWidth: '86px' }}>Link IP Direto:</span>
+                <span style={styles.roomLinkStatic}>{links.ipLink || links.link}</span>
+                <IconButton
+                  type="button"
+                  variant={copiedIp ? 'success' : 'ghost'}
+                  size="sm"
+                  onClick={handleCopyIp}
+                  title={copiedIp ? 'Link IP Copiado' : 'Copiar Link Direto IP'}
+                  aria-label="Copiar Link Direto IP"
+                >
+                  {copiedIp ? <Checkmark size={14} /> : <Copy size={14} />}
+                </IconButton>
+                {isLanLink(links.ipLink || links.link) && (
+                  <span
+                    style={styles.lanBadge}
+                    title="Transmissão operando diretamente na rede local (sem necessidade de internet externa)"
+                  >
+                    Rede Local (LAN)
+                  </span>
+                )}
+              </div>
             </div>
           </div>
         </div>
         <div style={styles.headerActions}>
-          <button
-            type="button"
-            onClick={handleCopyLink}
-            style={linkCopied ? styles.copyBtnSuccess : styles.copyBtn}
-            title={room.link}
-          >
-            {linkCopied ? <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}><Checkmark size={14} /> Link Copiado!</span> : <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}><Copy size={14} /> Copiar Link</span>}
-          </button>
           <button
             onClick={handleEndSession}
             style={isSaving ? styles.closeBtnDisabled : styles.closeBtn}
@@ -487,6 +658,14 @@ export const Room: React.FC<RoomProps> = ({ room, onCloseRoom }) => {
           </button>
         </div>
       </header>
+
+      {screenshotMsg && (
+        <div style={styles.screenshotSuccessBanner}>
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}>
+            <Checkmark size={16} /> {screenshotMsg}
+          </span>
+        </div>
+      )}
 
       {hasPermissions === false && (
         <div style={styles.permissionAlert}>
@@ -636,7 +815,7 @@ export const Room: React.FC<RoomProps> = ({ room, onCloseRoom }) => {
                 >
                   <div style={styles.qualityCardHeader}>
                     <span style={{ ...styles.qualityCardTitle, display: 'inline-flex', alignItems: 'center', gap: '8px' }}><Screen size={16} /> 1080p Full HD @ 30 fps</span>
-                    {qualityProfile === '1080p_30' && <span style={styles.selectedBadge}><Checkmark size={12} style={{ marginRight: '4px' }} />Selecionado</span>}
+                    {qualityProfile === '1080p_30' && <span style={styles.selectedBadgeInline}><Checkmark size={12} style={{ marginRight: '4px' }} />Selecionado</span>}
                   </div>
                   <div style={styles.qualityDetails}>
                     <span style={styles.qualityParam}>Bitrate: <strong>4.0 Mbps</strong> (Padrão)</span>
@@ -653,7 +832,7 @@ export const Room: React.FC<RoomProps> = ({ room, onCloseRoom }) => {
                 >
                   <div style={styles.qualityCardHeader}>
                     <span style={{ ...styles.qualityCardTitle, display: 'inline-flex', alignItems: 'center', gap: '8px' }}><Play size={16} /> 1080p Full HD @ 60 fps</span>
-                    {qualityProfile === '1080p_60' && <span style={styles.selectedBadge}><Checkmark size={12} style={{ marginRight: '4px' }} />Selecionado</span>}
+                    {qualityProfile === '1080p_60' && <span style={styles.selectedBadgeInline}><Checkmark size={12} style={{ marginRight: '4px' }} />Selecionado</span>}
                   </div>
                   <div style={styles.qualityDetails}>
                     <span style={styles.qualityParam}>Bitrate: <strong>6.0 Mbps</strong> (Alta Fluidez)</span>
@@ -835,6 +1014,22 @@ export const Room: React.FC<RoomProps> = ({ room, onCloseRoom }) => {
                   </button>
                   <button
                     type="button"
+                    onClick={toggleSystemAudio}
+                    style={systemAudioMuted ? styles.controlBtnActive : styles.controlBtn}
+                    title={systemAudioMuted ? "Transmitir o áudio interno do computador (vídeos educativos, músicas, etc.) para os alunos" : "Silenciar o áudio interno do computador"}
+                  >
+                    {systemAudioMuted ? (
+                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                        <VolumeMute size={16} /> Ativar Som do PC
+                      </span>
+                    ) : (
+                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                        <VolumeUp size={16} /> Silenciar Som do PC
+                      </span>
+                    )}
+                  </button>
+                  <button
+                    type="button"
                     onClick={handleToggleVideoPause}
                     style={videoPaused ? styles.controlBtnPauseActive : styles.controlBtn}
                   >
@@ -842,6 +1037,16 @@ export const Room: React.FC<RoomProps> = ({ room, onCloseRoom }) => {
                   </button>
                   <button type="button" onClick={handleReconfigure} style={styles.controlBtn}>
                     <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}><Settings size={16} /> Alterar Modo / Fonte</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleTakeScreenshot}
+                    style={styles.controlBtn}
+                    title="Tirar print da janela do MLab e copiar para a área de transferência (F10 / PrintScreen)"
+                  >
+                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                      <Camera size={16} /> Tirar Print
+                    </span>
                   </button>
                   {/* Alternância rápida entre monitores se houver mais de uma tela detectada */}
                   {captureMode === 'screen' && screenSources.length > 1 && (
@@ -986,6 +1191,7 @@ export const Room: React.FC<RoomProps> = ({ room, onCloseRoom }) => {
                               );
                             })
                           )}
+                          <div ref={publicChatEndRef} />
                         </div>
 
                         {/* Formulário exclusivo do Chat Público */}
@@ -1133,6 +1339,7 @@ export const Room: React.FC<RoomProps> = ({ room, onCloseRoom }) => {
                               );
                             })()
                           )}
+                          <div ref={privateChatEndRef} />
                         </div>
 
                         {/* Formulário exclusivo do Chat Privado — Sempre visível sem exigir clique prévio no aluno */}
@@ -1389,20 +1596,27 @@ const styles: { [key: string]: React.CSSProperties } = {
     gap: '12px',
   },
   logoImg: {
-    width: '46px',
-    height: '46px',
+    width: '56px',
+    height: '56px',
     objectFit: 'contain',
   },
   title: {
-    fontSize: '18px',
+    fontSize: '20px',
     fontWeight: '700',
-    color: '#f8fafc',
+    color: colors.textPrimary,
+    fontFamily: typography.fontFamily,
     margin: 0,
+    lineHeight: '26px',
+    letterSpacing: '-0.02em',
   },
   roomLinkStatic: {
     fontSize: '12px',
-    color: '#94a3b8',
-    marginTop: '3px',
+    fontFamily: 'monospace, Consolas, sans-serif',
+    color: colors.textPrimary,
+    backgroundColor: 'rgba(30, 41, 59, 0.7)',
+    padding: '2px 8px',
+    borderRadius: radii.sm,
+    border: `1px solid ${colors.borderSubtle}`,
     userSelect: 'text',
     cursor: 'default',
   },
@@ -1417,6 +1631,32 @@ const styles: { [key: string]: React.CSSProperties } = {
     display: 'inline-flex',
     alignItems: 'center',
     cursor: 'default',
+  },
+  screenshotBtn: {
+    padding: '8px 14px',
+    borderRadius: '6px',
+    border: '1px solid #334155',
+    backgroundColor: '#1e293b',
+    color: '#38bdf8',
+    fontSize: '13px',
+    fontWeight: '600',
+    cursor: 'pointer',
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: '6px',
+  },
+  screenshotSuccessBanner: {
+    padding: '10px 16px',
+    borderRadius: '8px',
+    backgroundColor: 'rgba(22, 163, 74, 0.15)',
+    border: '1px solid #16a34a',
+    color: '#86efac',
+    fontSize: '13px',
+    fontWeight: '600',
+    display: 'flex',
+    alignItems: 'center',
+    gap: '8px',
+    marginBottom: '12px',
   },
   closeBtn: {
     padding: '8px 16px',
@@ -1714,6 +1954,16 @@ const styles: { [key: string]: React.CSSProperties } = {
     textOverflow: 'ellipsis',
     width: '100%',
   },
+  selectedBadgeInline: {
+    backgroundColor: colors.accent,
+    color: colors.bgBase,
+    fontSize: '11px',
+    fontWeight: '700',
+    padding: '2px 8px',
+    borderRadius: radii.sm,
+    display: 'inline-flex',
+    alignItems: 'center',
+  },
   selectedBadge: {
     position: 'absolute',
     top: '6px',
@@ -1829,6 +2079,7 @@ const styles: { [key: string]: React.CSSProperties } = {
     gap: '12px',
   },
   qualityCard: {
+    position: 'relative',
     backgroundColor: '#0f172a',
     border: '1px solid #1e293b',
     borderRadius: '8px',
@@ -1840,6 +2091,7 @@ const styles: { [key: string]: React.CSSProperties } = {
     transition: 'all 0.15s ease',
   },
   qualityCardActive: {
+    position: 'relative',
     backgroundColor: '#0f172a',
     border: '1.5px solid #38bdf8',
     boxShadow: '0 0 12px rgba(56, 189, 248, 0.15)',

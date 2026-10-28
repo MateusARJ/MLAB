@@ -1,5 +1,5 @@
 import { contextBridge, ipcRenderer, clipboard } from 'electron'
-import type { CaptureSource, CaptureSourceType, RecordingFormat } from '@mlab/types'
+import type { CaptureSource, CaptureSourceType, CursorState, RecordingFormat } from '@mlab/types'
 
 /**
  * Preload script — expõe APIs do Electron ao renderer de forma segura.
@@ -52,6 +52,35 @@ export interface ElectronAPI {
    * Registra ou desregistra a sala ativa atual no processo principal para encerramento automático ao fechar a janela.
    */
   setActiveRoom: (room: { id: string; token?: string } | null) => Promise<void>
+
+  /**
+   * Altera dinamicamente a proteção de conteúdo da janela (oculta o MLab na captura ao vivo).
+   */
+  setContentProtection: (enabled: boolean) => Promise<boolean>
+
+  /**
+   * Captura a janela do MLab e copia a imagem diretamente para a área de transferência do SO.
+   */
+  captureWindowToClipboard: () => Promise<boolean>
+
+  /**
+   * Inicia o rastreamento de presença e posição do cursor para ocultação contextual na transmissão.
+   */
+  startCursorTracking: (target: {
+    sourceId: string
+    type: CaptureSourceType
+    displayId?: string
+  }) => Promise<boolean>
+
+  /**
+   * Encerra o rastreamento de presença do cursor.
+   */
+  stopCursorTracking: () => Promise<void>
+
+  /**
+   * Inscreve um callback para receber atualizações de visibilidade e posição do cursor.
+   */
+  onCursorState: (cb: (state: CursorState) => void) => () => void
 }
 
 const api: ElectronAPI = {
@@ -68,7 +97,22 @@ const api: ElectronAPI = {
       return Promise.resolve(false)
     }
   },
-  setActiveRoom: (room) => ipcRenderer.invoke('set-active-room', room)
+  setActiveRoom: (room) => ipcRenderer.invoke('set-active-room', room),
+  setContentProtection: (enabled: boolean) => ipcRenderer.invoke('set-content-protection', enabled),
+  captureWindowToClipboard: () => ipcRenderer.invoke('capture-window-to-clipboard'),
+  startCursorTracking: (target) => ipcRenderer.invoke('cursor-tracking:start', target),
+  stopCursorTracking: () => ipcRenderer.invoke('cursor-tracking:stop'),
+  onCursorState: (cb) => {
+    const listener = (_event: unknown, state: CursorState) => {
+      if (state && typeof cb === 'function') {
+        cb(state)
+      }
+    }
+    ipcRenderer.on('cursor-state', listener)
+    return () => {
+      ipcRenderer.removeListener('cursor-state', listener)
+    }
+  }
 }
 
 contextBridge.exposeInMainWorld('electronAPI', api)
