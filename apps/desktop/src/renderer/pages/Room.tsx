@@ -34,6 +34,9 @@ import {
   Touch_1Filled,
   VolumeUp,
   VolumeMute,
+  Pin,
+  PinFilled,
+  decodeChatEntities,
 } from '@mlab/ui';
 
 
@@ -251,6 +254,7 @@ export const Room: React.FC<RoomProps> = ({ room, onCloseRoom }) => {
     dismissHandToast,
     lowerStudentHand,
     sendChatMessage,
+    pinChatMessage = () => {},
     sendStreamPause,
     startPublishing,
     changeStream,
@@ -275,7 +279,7 @@ export const Room: React.FC<RoomProps> = ({ room, onCloseRoom }) => {
         privateChatEndRef.current?.scrollIntoView?.({ behavior: 'smooth' });
       }
     }
-  }, [messages, sidebarTab, chatSubTab, isSidebarOpen]);
+  }, [messages.length, sidebarTab, chatSubTab, isSidebarOpen]);
 
   useEffect(() => {
     if (!isSidebarOpen && messages.length > prevMessagesLength.current) {
@@ -287,6 +291,16 @@ export const Room: React.FC<RoomProps> = ({ room, onCloseRoom }) => {
   // Restaura setContentProtection(false) ao sair da sala e escuta atalhos de captura
   useEffect(() => {
     const handleKeyUp = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement | null;
+      const isEditable =
+        target &&
+        (target.tagName === 'INPUT' ||
+          target.tagName === 'TEXTAREA' ||
+          target.tagName === 'SELECT' ||
+          target.isContentEditable);
+      if (isEditable && e.key !== 'PrintScreen' && e.key !== 'F10') {
+        return;
+      }
       if (
         e.key === 'PrintScreen' ||
         e.key === 'F10' ||
@@ -1165,35 +1179,114 @@ export const Room: React.FC<RoomProps> = ({ room, onCloseRoom }) => {
 
                     {chatSubTab === 'public' ? (
                       // ── ABA PÚBLICA ──────────────────────────────────
-                      <>
-                        <div style={styles.messagesList}>
-                          {messages.filter((m: any) => m.is_private !== true).length === 0 ? (
-                            <div style={styles.emptyMessagesBox}>
-                              <p style={styles.emptyText}>Nenhuma mensagem pública no chat até o momento.</p>
-                            </div>
-                          ) : (
-                            messages.filter((m: any) => m.is_private !== true).map((m: any, idx: number) => {
-                              const isStudent = m.role === 'aluno' || m.sender_role === 'aluno';
-                              const displayName = m.name || m.sender_name || 'Participante';
-                              const matricula = m.student_id ? `(${m.student_id})` : '';
+                      (() => {
+                        const publicMsgs = messages.filter((m: any) => m.is_private !== true);
+                        const pinnedPublic = publicMsgs.filter((m: any) => m.pinned === true);
 
-                              return (
-                                <div key={m.message_id || idx} style={styles.messageCard}>
-                                  <div style={styles.messageHeaderRow}>
-                                    <span style={styles.senderName}>
-                                      {displayName} {matricula && <span style={styles.matriculaText}>{matricula}</span>}
-                                      <small style={styles.roleTag}> [{isStudent ? 'aluno' : 'professor'}]</small>
-                                    </span>
-                                    <span style={styles.publicTag}>TURMA</span>
-                                  </div>
-                                  <p style={styles.messageBody}>{m.content}</p>
+                        return (
+                          <>
+                            {pinnedPublic.length > 0 && (
+                              <div style={styles.pinnedBannerBox} data-testid="pinned-public-section">
+                                <div style={styles.pinnedBannerHeader}>
+                                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: '5px' }}>
+                                    <PinFilled size={13} /> Mensagens Fixadas ({pinnedPublic.length}/3)
+                                  </span>
                                 </div>
-                              );
-                            })
-                          )}
-                          <div ref={publicChatEndRef} />
-                        </div>
+                                {pinnedPublic.map((pm: any, pIdx: number) => {
+                                  const pmId = pm.message_id || pm.id || `pub-pin-${pIdx}`;
+                                  const pmSender = pm.name || pm.sender_name || 'Participante';
+                                  return (
+                                    <div key={`pin-banner-${pmId}`} style={styles.pinnedBannerItem}>
+                                      <span style={styles.pinnedBannerText}>
+                                        <strong>{pmSender}:</strong> {decodeChatEntities(pm.content)}
+                                      </span>
+                                      <button
+                                        type="button"
+                                        onClick={() => pinChatMessage(pmId, false, false)}
+                                        style={styles.pinMsgBtnActive}
+                                        title="Desafixar mensagem"
+                                        aria-label="Desafixar mensagem"
+                                      >
+                                        <PinFilled size={13} />
+                                      </button>
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            )}
 
+                            <div style={styles.messagesList}>
+                              {publicMsgs.length === 0 ? (
+                                <div style={styles.emptyMessagesBox}>
+                                  <p style={styles.emptyText}>Nenhuma mensagem pública no chat até o momento.</p>
+                                </div>
+                              ) : (
+                                publicMsgs.map((m: any, idx: number) => {
+                                  const isStudent = m.role === 'aluno' || m.sender_role === 'aluno';
+                                  const displayName = m.name || m.sender_name || 'Participante';
+                                  const matricula = m.student_id ? `(${m.student_id})` : '';
+                                  const msgId = m.message_id || m.id || `pub-${idx}`;
+                                  const isPinned = m.pinned === true;
+                                  const limitReached = !isPinned && pinnedPublic.length >= 3;
+
+                                  return (
+                                    <div
+                                      key={msgId}
+                                      style={
+                                        isPinned
+                                          ? { ...styles.messageCard, ...styles.pinnedMessageCard }
+                                          : styles.messageCard
+                                      }
+                                    >
+                                      <div style={styles.messageHeaderRow}>
+                                        <span style={styles.senderName}>
+                                          {displayName} {matricula && <span style={styles.matriculaText}>{matricula}</span>}
+                                          <small style={styles.roleTag}> [{isStudent ? 'aluno' : 'professor'}]</small>
+                                        </span>
+                                        <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                                          <span style={styles.publicTag}>TURMA</span>
+                                          <button
+                                            type="button"
+                                            onClick={() => {
+                                              if (limitReached) return;
+                                              pinChatMessage(msgId, !isPinned, false);
+                                            }}
+                                            disabled={limitReached}
+                                            style={
+                                              isPinned
+                                                ? styles.pinMsgBtnActive
+                                                : limitReached
+                                                ? styles.pinMsgBtnDisabled
+                                                : styles.pinMsgBtn
+                                            }
+                                            title={
+                                              isPinned
+                                                ? 'Desafixar mensagem'
+                                                : limitReached
+                                                ? 'Limite máximo de 3 mensagens fixadas atingido'
+                                                : 'Fixar mensagem'
+                                            }
+                                            aria-label={isPinned ? 'Desafixar mensagem' : 'Fixar mensagem'}
+                                            data-testid={`pin-msg-btn-${msgId}`}
+                                          >
+                                            {isPinned ? <PinFilled size={14} /> : <Pin size={14} />}
+                                          </button>
+                                        </div>
+                                      </div>
+                                      <p style={styles.messageBody}>{decodeChatEntities(m.content)}</p>
+                                    </div>
+                                  );
+                                })
+                              )}
+                              <div ref={publicChatEndRef} />
+                            </div>
+                          </>
+                        );
+                      })()
+                    ) : null}
+
+                    {chatSubTab === 'public' ? (
+                      <>
                         {/* Formulário exclusivo do Chat Público */}
                         <form onSubmit={handleSendPublicChat} style={styles.chatForm}>
                           <div style={styles.publicIndicatorText}>
@@ -1251,96 +1344,217 @@ export const Room: React.FC<RoomProps> = ({ room, onCloseRoom }) => {
                           </select>
                         </div>
 
-                        <div style={styles.messagesList}>
-                          {targetStudent ? (
-                            // Conversa privada filtrada para o aluno selecionado
-                            (() => {
-                              const studentMsgs = messages.filter((m: any) =>
-                                m.is_private === true &&
-                                (m.participant_id === targetStudent.id || m.target_id === targetStudent.id)
-                              );
+                        {(() => {
+                          const activePrivateScope = targetStudent
+                            ? messages.filter(
+                                (m: any) =>
+                                  m.is_private === true &&
+                                  (m.participant_id === targetStudent.id || m.target_id === targetStudent.id)
+                              )
+                            : messages.filter((m: any) => m.is_private === true);
+                          const pinnedPrivate = activePrivateScope.filter((m: any) => m.pinned === true);
 
-                              return studentMsgs.length === 0 ? (
-                                <div style={styles.emptyMessagesBox}>
-                                  <p style={styles.emptyText}>
-                                    Nenhuma mensagem trocada ainda com <strong>{targetStudent.name}</strong>.
-                                  </p>
-                                  <p style={{ ...styles.emptyText, fontSize: '11px', color: '#64748b' }}>
-                                    Envie uma mensagem abaixo para iniciar a conversa privada.
-                                  </p>
-                                </div>
-                              ) : (
-                                studentMsgs.map((m: any, idx: number) => {
-                                  const isStudent = m.role === 'aluno' || m.sender_role === 'aluno';
-                                  const displayName = m.name || m.sender_name || 'Participante';
-                                  const matricula = m.student_id ? `(${m.student_id})` : '';
-
-                                  return (
-                                    <div
-                                      key={m.message_id || idx}
-                                      style={{ ...styles.messageCard, ...styles.privateMessageCard }}
-                                    >
-                                      <div style={styles.messageHeaderRow}>
-                                        <span style={styles.senderName}>
-                                          {displayName} {matricula && <span style={styles.matriculaText}>{matricula}</span>}
-                                          <small style={styles.roleTag}> [{isStudent ? 'aluno' : 'professor'}]</small>
+                          return (
+                            <>
+                              {pinnedPrivate.length > 0 && (
+                                <div style={styles.pinnedBannerBoxPrivate} data-testid="pinned-private-section">
+                                  <div style={styles.pinnedBannerHeaderPrivate}>
+                                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: '5px' }}>
+                                      <PinFilled size={13} /> Mensagens Privadas Fixadas ({pinnedPrivate.length}/3)
+                                    </span>
+                                  </div>
+                                  {pinnedPrivate.map((pm: any, pIdx: number) => {
+                                    const pmId = pm.message_id || pm.id || `priv-pin-${pIdx}`;
+                                    const pmSender = pm.name || pm.sender_name || 'Participante';
+                                    const isPmStudent = pm.role === 'aluno' || pm.sender_role === 'aluno';
+                                    const pmTargetId = isPmStudent ? (pm.participant_id || pm.sender_id) : pm.target_id || targetStudent?.id;
+                                    return (
+                                      <div key={`pin-priv-banner-${pmId}`} style={styles.pinnedBannerItem}>
+                                        <span style={styles.pinnedBannerText}>
+                                          <strong>{pmSender}:</strong> {decodeChatEntities(pm.content)}
                                         </span>
-                                        <span style={styles.privateTag}><Locked size={12} style={{ verticalAlign: 'middle', marginRight: '4px' }} />PRIVADO</span>
-                                      </div>
-                                      <p style={styles.messageBody}>{m.content}</p>
-                                    </div>
-                                  );
-                                })
-                              );
-                            })()
-                          ) : (
-                            // Visão geral de todas as dúvidas privadas recebidas dos alunos
-                            (() => {
-                              const allPrivate = messages.filter((m: any) => m.is_private === true);
-
-                              return allPrivate.length === 0 ? (
-                                <div style={styles.emptyMessagesBox}>
-                                  <p style={styles.emptyText}>Nenhuma dúvida privada recebida até o momento.</p>
-                                  <p style={{ ...styles.emptyText, fontSize: '11px', color: '#64748b' }}>
-                                    Selecione um aluno no menu acima para iniciar uma conversa.
-                                  </p>
-                                </div>
-                              ) : (
-                                allPrivate.map((m: any, idx: number) => {
-                                  const isStudent = m.role === 'aluno' || m.sender_role === 'aluno';
-                                  const displayName = m.name || m.sender_name || 'Participante';
-                                  const matricula = m.student_id ? `(${m.student_id})` : '';
-
-                                  return (
-                                    <div
-                                      key={m.message_id || idx}
-                                      style={{ ...styles.messageCard, ...styles.privateMessageCard }}
-                                    >
-                                      <div style={styles.messageHeaderRow}>
-                                        <span style={styles.senderName}>
-                                          {displayName} {matricula && <span style={styles.matriculaText}>{matricula}</span>}
-                                          <small style={styles.roleTag}> [{isStudent ? 'aluno' : 'professor'}]</small>
-                                        </span>
-                                        <span style={styles.privateTag}><Locked size={12} style={{ verticalAlign: 'middle', marginRight: '4px' }} />PRIVADO</span>
-                                      </div>
-                                      <p style={styles.messageBody}>{m.content}</p>
-                                      {isStudent && (
                                         <button
                                           type="button"
-                                          onClick={() => setTargetStudent({ id: m.participant_id, name: displayName, student_id: m.student_id })}
-                                          style={styles.replyPrivateBtn}
+                                          onClick={() => pinChatMessage(pmId, false, true, pmTargetId)}
+                                          style={styles.pinMsgBtnActivePrivate}
+                                          title="Desafixar mensagem"
+                                          aria-label="Desafixar mensagem"
                                         >
-                                          ↩ Responder a {displayName}
+                                          <PinFilled size={13} />
                                         </button>
-                                      )}
+                                      </div>
+                                    );
+                                  })}
+                                </div>
+                              )}
+
+                              <div style={styles.messagesList}>
+                                {targetStudent ? (
+                                  // Conversa privada filtrada para o aluno selecionado
+                                  activePrivateScope.length === 0 ? (
+                                    <div style={styles.emptyMessagesBox}>
+                                      <p style={styles.emptyText}>
+                                        Nenhuma mensagem trocada ainda com <strong>{targetStudent.name}</strong>.
+                                      </p>
+                                      <p style={{ ...styles.emptyText, fontSize: '11px', color: '#64748b' }}>
+                                        Envie uma mensagem abaixo para iniciar a conversa privada.
+                                      </p>
                                     </div>
-                                  );
-                                })
-                              );
-                            })()
-                          )}
-                          <div ref={privateChatEndRef} />
-                        </div>
+                                  ) : (
+                                    activePrivateScope.map((m: any, idx: number) => {
+                                      const isStudent = m.role === 'aluno' || m.sender_role === 'aluno';
+                                      const displayName = m.name || m.sender_name || 'Participante';
+                                      const matricula = m.student_id ? `(${m.student_id})` : '';
+                                      const msgId = m.message_id || m.id || `priv-${idx}`;
+                                      const isPinned = m.pinned === true;
+                                      const limitReached = !isPinned && pinnedPrivate.length >= 3;
+
+                                      return (
+                                        <div
+                                          key={msgId}
+                                          style={
+                                            isPinned
+                                              ? {
+                                                  ...styles.messageCard,
+                                                  ...styles.privateMessageCard,
+                                                  ...styles.pinnedPrivateMessageCard,
+                                                }
+                                              : { ...styles.messageCard, ...styles.privateMessageCard }
+                                          }
+                                        >
+                                          <div style={styles.messageHeaderRow}>
+                                            <span style={styles.senderName}>
+                                              {displayName} {matricula && <span style={styles.matriculaText}>{matricula}</span>}
+                                              <small style={styles.roleTag}> [{isStudent ? 'aluno' : 'professor'}]</small>
+                                            </span>
+                                            <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                                              <span style={styles.privateTag}>
+                                                <Locked size={12} style={{ verticalAlign: 'middle', marginRight: '4px' }} />
+                                                PRIVADO
+                                              </span>
+                                              <button
+                                                type="button"
+                                                onClick={() => {
+                                                  if (limitReached) return;
+                                                  pinChatMessage(msgId, !isPinned, true, targetStudent.id);
+                                                }}
+                                                disabled={limitReached}
+                                                style={
+                                                  isPinned
+                                                    ? styles.pinMsgBtnActivePrivate
+                                                    : limitReached
+                                                    ? styles.pinMsgBtnDisabled
+                                                    : styles.pinMsgBtn
+                                                }
+                                                title={
+                                                  isPinned
+                                                    ? 'Desafixar mensagem'
+                                                    : limitReached
+                                                    ? 'Limite máximo de 3 mensagens fixadas atingido'
+                                                    : 'Fixar mensagem'
+                                                }
+                                                aria-label={isPinned ? 'Desafixar mensagem' : 'Fixar mensagem'}
+                                                data-testid={`pin-msg-btn-${msgId}`}
+                                              >
+                                                {isPinned ? <PinFilled size={14} /> : <Pin size={14} />}
+                                              </button>
+                                            </div>
+                                          </div>
+                                          <p style={styles.messageBody}>{decodeChatEntities(m.content)}</p>
+                                        </div>
+                                      );
+                                    })
+                                  )
+                                ) : (
+                                  // Visão geral de todas as dúvidas privadas recebidas dos alunos
+                                  activePrivateScope.length === 0 ? (
+                                    <div style={styles.emptyMessagesBox}>
+                                      <p style={styles.emptyText}>Nenhuma dúvida privada recebida até o momento.</p>
+                                      <p style={{ ...styles.emptyText, fontSize: '11px', color: '#64748b' }}>
+                                        Selecione um aluno no menu acima para iniciar uma conversa.
+                                      </p>
+                                    </div>
+                                  ) : (
+                                    activePrivateScope.map((m: any, idx: number) => {
+                                      const isStudent = m.role === 'aluno' || m.sender_role === 'aluno';
+                                      const displayName = m.name || m.sender_name || 'Participante';
+                                      const matricula = m.student_id ? `(${m.student_id})` : '';
+                                      const msgId = m.message_id || m.id || `priv-all-${idx}`;
+                                      const isPinned = m.pinned === true;
+                                      const studentTargetId = isStudent ? (m.participant_id || m.sender_id) : m.target_id;
+                                      const limitReached = !isPinned && pinnedPrivate.length >= 3;
+
+                                      return (
+                                        <div
+                                          key={msgId}
+                                          style={
+                                            isPinned
+                                              ? {
+                                                  ...styles.messageCard,
+                                                  ...styles.privateMessageCard,
+                                                  ...styles.pinnedPrivateMessageCard,
+                                                }
+                                              : { ...styles.messageCard, ...styles.privateMessageCard }
+                                          }
+                                        >
+                                          <div style={styles.messageHeaderRow}>
+                                            <span style={styles.senderName}>
+                                              {displayName} {matricula && <span style={styles.matriculaText}>{matricula}</span>}
+                                              <small style={styles.roleTag}> [{isStudent ? 'aluno' : 'professor'}]</small>
+                                            </span>
+                                            <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                                              <span style={styles.privateTag}>
+                                                <Locked size={12} style={{ verticalAlign: 'middle', marginRight: '4px' }} />
+                                                PRIVADO
+                                              </span>
+                                              <button
+                                                type="button"
+                                                onClick={() => {
+                                                  if (limitReached) return;
+                                                  pinChatMessage(msgId, !isPinned, true, studentTargetId);
+                                                }}
+                                                disabled={limitReached}
+                                                style={
+                                                  isPinned
+                                                    ? styles.pinMsgBtnActivePrivate
+                                                    : limitReached
+                                                    ? styles.pinMsgBtnDisabled
+                                                    : styles.pinMsgBtn
+                                                }
+                                                title={
+                                                  isPinned
+                                                    ? 'Desafixar mensagem'
+                                                    : limitReached
+                                                    ? 'Limite máximo de 3 mensagens fixadas atingido'
+                                                    : 'Fixar mensagem'
+                                                }
+                                                aria-label={isPinned ? 'Desafixar mensagem' : 'Fixar mensagem'}
+                                                data-testid={`pin-msg-btn-${msgId}`}
+                                              >
+                                                {isPinned ? <PinFilled size={14} /> : <Pin size={14} />}
+                                              </button>
+                                            </div>
+                                          </div>
+                                          <p style={styles.messageBody}>{decodeChatEntities(m.content)}</p>
+                                          {isStudent && (
+                                            <button
+                                              type="button"
+                                              onClick={() => setTargetStudent({ id: m.participant_id, name: displayName, student_id: m.student_id })}
+                                              style={styles.replyPrivateBtn}
+                                            >
+                                              ↩ Responder a {displayName}
+                                            </button>
+                                          )}
+                                        </div>
+                                      );
+                                    })
+                                  )
+                                )}
+                                <div ref={privateChatEndRef} />
+                              </div>
+                            </>
+                          );
+                        })()}
 
                         {/* Formulário exclusivo do Chat Privado — Sempre visível sem exigir clique prévio no aluno */}
                         <form onSubmit={handleSendPrivateChat} style={styles.chatForm}>
@@ -2686,6 +2900,107 @@ const styles: { [key: string]: React.CSSProperties } = {
   privateMessageCard: {
     backgroundColor: 'rgba(49, 46, 129, 0.4)',
     border: '1px solid #6366f1',
+  },
+  pinnedMessageCard: {
+    border: '1px solid #38bdf8',
+    backgroundColor: 'rgba(56, 189, 248, 0.1)',
+  },
+  pinnedPrivateMessageCard: {
+    border: '1px solid #a855f7',
+    backgroundColor: 'rgba(168, 85, 247, 0.2)',
+  },
+  pinnedBannerBox: {
+    padding: '8px 12px',
+    backgroundColor: 'rgba(14, 116, 144, 0.18)',
+    borderBottom: '1px solid rgba(56, 189, 248, 0.35)',
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '6px',
+  },
+  pinnedBannerBoxPrivate: {
+    padding: '8px 12px',
+    backgroundColor: 'rgba(88, 28, 135, 0.22)',
+    borderBottom: '1px solid rgba(168, 85, 247, 0.4)',
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '6px',
+  },
+  pinnedBannerHeader: {
+    fontSize: '11px',
+    fontWeight: '700',
+    color: '#38bdf8',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  pinnedBannerHeaderPrivate: {
+    fontSize: '11px',
+    fontWeight: '700',
+    color: '#c084fc',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  pinnedBannerItem: {
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: '8px',
+    padding: '5px 8px',
+    borderRadius: '6px',
+    backgroundColor: 'rgba(15, 23, 42, 0.65)',
+    border: '1px solid rgba(148, 163, 184, 0.2)',
+  },
+  pinnedBannerText: {
+    fontSize: '11px',
+    color: '#f1f5f9',
+    flex: 1,
+    wordBreak: 'break-word',
+  },
+  pinMsgBtn: {
+    background: 'transparent',
+    border: '1px solid transparent',
+    borderRadius: '4px',
+    color: '#94a3b8',
+    padding: '2px 4px',
+    cursor: 'pointer',
+    display: 'inline-flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  pinMsgBtnActive: {
+    background: 'rgba(56, 189, 248, 0.18)',
+    border: '1px solid #38bdf8',
+    borderRadius: '4px',
+    color: '#38bdf8',
+    padding: '2px 4px',
+    cursor: 'pointer',
+    display: 'inline-flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  pinMsgBtnActivePrivate: {
+    background: 'rgba(168, 85, 247, 0.2)',
+    border: '1px solid #a855f7',
+    borderRadius: '4px',
+    color: '#c084fc',
+    padding: '2px 4px',
+    cursor: 'pointer',
+    display: 'inline-flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  pinMsgBtnDisabled: {
+    background: 'transparent',
+    border: '1px solid transparent',
+    borderRadius: '4px',
+    color: '#475569',
+    padding: '2px 4px',
+    cursor: 'not-allowed',
+    opacity: 0.45,
+    display: 'inline-flex',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   messageHeaderRow: {
     display: 'flex',

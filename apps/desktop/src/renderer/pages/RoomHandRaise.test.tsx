@@ -54,6 +54,7 @@ describe('Room Component - Feature Levantar a Mão (Desktop)', () => {
       dismissHandToast: mockDismissHandToast,
       lowerStudentHand: mockLowerStudentHand,
       sendChatMessage: vi.fn(),
+      pinChatMessage: vi.fn(),
       sendStreamPause: vi.fn(),
       startPublishing: vi.fn(),
       changeStream: vi.fn(),
@@ -116,6 +117,7 @@ describe('Room Component - Feature Levantar a Mão (Desktop)', () => {
       dismissHandToast: mockDismissHandToast,
       lowerStudentHand: mockLowerStudentHand,
       sendChatMessage: vi.fn(),
+      pinChatMessage: vi.fn(),
       sendStreamPause: vi.fn(),
       startPublishing: vi.fn(),
       changeStream: vi.fn(),
@@ -144,5 +146,128 @@ describe('Room Component - Feature Levantar a Mão (Desktop)', () => {
     const dismissBtn = screen.getByTitle(/Dispensar aviso/i);
     fireEvent.click(dismissBtn);
     expect(mockDismissHandToast).toHaveBeenCalledTimes(1);
+  });
+
+  it('deve exibir botão de fixar ao lado de todas as mensagens (alunos e professor), respeitar o limite de 3 fixadas e decodificar entidades HTML de caracteres especiais', async () => {
+    const mockPinChatMessage = vi.fn();
+
+    vi.spyOn(publisherModule, 'useWebRTCPublisher').mockReturnValue({
+      isPublishing: true,
+      connectionState: 'connected',
+      error: null,
+      messages: [
+        {
+          id: 'msg-1',
+          sender_id: 'prof-1',
+          sender_name: 'Professor',
+          sender_role: 'professor',
+          content: 'Aviso 1: use &lt;div class=&#34;box&#34;&gt; e &#39;aspas&#39; &amp; tags',
+          timestamp: '2026-10-07T10:00:00Z',
+          is_private: false,
+          pinned: true,
+        },
+        {
+          id: 'msg-2',
+          sender_id: 'aluno-1',
+          sender_name: 'Maria Silva',
+          sender_role: 'aluno',
+          content: 'Mensagem fixada 2 do aluno',
+          timestamp: '2026-10-07T10:01:00Z',
+          is_private: false,
+          pinned: true,
+        },
+        {
+          id: 'msg-3',
+          sender_id: 'aluno-2',
+          sender_name: 'João Santos',
+          sender_role: 'aluno',
+          content: 'Mensagem fixada 3 do aluno',
+          timestamp: '2026-10-07T10:02:00Z',
+          is_private: false,
+          pinned: true,
+        },
+        {
+          id: 'msg-4',
+          sender_id: 'aluno-3',
+          sender_name: 'Carlos Oliveira',
+          sender_role: 'aluno',
+          content: 'Quarta mensagem não fixada',
+          timestamp: '2026-10-07T10:03:00Z',
+          is_private: false,
+          pinned: false,
+        },
+        {
+          id: 'msg-priv-1',
+          sender_id: 'aluno-1',
+          sender_name: 'Maria Silva',
+          sender_role: 'aluno',
+          content: 'Dúvida privada sobre &lt;script&gt;',
+          timestamp: '2026-10-07T10:04:00Z',
+          is_private: true,
+          pinned: false,
+        },
+      ],
+      participants: [
+        {
+          participant_id: 'aluno-1',
+          name: 'Maria Silva',
+          role: 'aluno',
+          student_id: '20241TADS0001',
+        },
+      ] as any,
+      lastHandRaised: null,
+      dismissHandToast: mockDismissHandToast,
+      lowerStudentHand: mockLowerStudentHand,
+      sendChatMessage: vi.fn(),
+      pinChatMessage: mockPinChatMessage,
+      sendStreamPause: vi.fn(),
+      startPublishing: vi.fn(),
+      changeStream: vi.fn(),
+      stopPublishing: vi.fn(),
+      endSession: vi.fn(),
+    });
+
+    render(<Room room={dummyRoom} onCloseRoom={vi.fn()} />);
+
+    const advanceBtn = screen.getByRole('button', { name: /Avançar e Iniciar Transmissão/i });
+    await waitFor(() => {
+      expect(advanceBtn).toBeEnabled();
+    });
+    fireEvent.click(advanceBtn);
+
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: /Chat & Turma/i })).toBeInTheDocument();
+    });
+
+    // Abre a sidebar de Chat
+    fireEvent.click(screen.getByRole('button', { name: /Chat & Turma/i }));
+
+    // Deve exibir o banner de Mensagens Fixadas (3/3)
+    expect(screen.getByTestId('pinned-public-section')).toBeInTheDocument();
+    expect(screen.getByText(/Mensagens Fixadas \(3\/3\)/i)).toBeInTheDocument();
+
+    // Deve decodificar corretamente ', ", <>, & nas mensagens
+    expect(
+      screen.getAllByText(`Aviso 1: use <div class="box"> e 'aspas' & tags`).length
+    ).toBeGreaterThanOrEqual(1);
+
+    // A 4ª mensagem não fixada deve ter o botão desabilitado pois o limite de 3 foi atingido
+    const fourthPinBtn = screen.getByTestId('pin-msg-btn-msg-4');
+    expect(fourthPinBtn).toBeDisabled();
+    expect(fourthPinBtn).toHaveAttribute('title', expect.stringMatching(/Limite máximo de 3 mensagens fixadas atingido/i));
+
+    // Já as mensagens fixadas continuam podendo ser desafixadas pelo professor
+    const firstPinBtn = screen.getByTestId('pin-msg-btn-msg-1');
+    expect(firstPinBtn).not.toBeDisabled();
+    fireEvent.click(firstPinBtn);
+    expect(mockPinChatMessage).toHaveBeenCalledWith('msg-1', false, false);
+
+    // No chat privado, o limite é independente por conversa e o botão de fixar deve estar disponível
+    fireEvent.click(screen.getByRole('button', { name: /Dúvidas Privadas/i }));
+    expect(screen.getByText('Dúvida privada sobre <script>')).toBeInTheDocument();
+    const privPinBtn = screen.getByTestId('pin-msg-btn-msg-priv-1');
+    expect(privPinBtn).not.toBeDisabled();
+    fireEvent.click(privPinBtn);
+    expect(mockPinChatMessage).toHaveBeenCalledWith('msg-priv-1', true, true, 'aluno-1');
   });
 });

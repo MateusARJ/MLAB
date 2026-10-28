@@ -286,6 +286,17 @@ export function useWebRTCPublisher({
             }
           } else if (msg.type === 'chat-message') {
             setMessages((prev) => [...prev, msg.payload]);
+          } else if (msg.type === 'chat-message-pinned') {
+            const pinUpdate = msg.payload;
+            if (pinUpdate && pinUpdate.message_id) {
+              setMessages((prev) =>
+                prev.map((m) =>
+                  (m.message_id || m.id) === pinUpdate.message_id
+                    ? { ...m, pinned: !!pinUpdate.pinned }
+                    : m
+                )
+              );
+            }
           } else if (msg.type === 'chat-history') {
             if (msg.payload && Array.isArray(msg.payload.messages)) {
               setMessages(msg.payload.messages);
@@ -511,6 +522,46 @@ export function useWebRTCPublisher({
     }
   }, []);
 
+  const pinChatMessage = useCallback(
+    (messageId: string, pinned: boolean, isPrivate: boolean = false, targetId?: string) => {
+      if (!messageId) return;
+      setMessages((prev) => {
+        if (pinned) {
+          const currentPinnedCount = prev.filter((m) => {
+            if (!m.pinned) return false;
+            if ((m.message_id || m.id) === messageId) return false;
+            if (!isPrivate) return m.is_private !== true;
+            return (
+              m.is_private === true &&
+              (!targetId || m.participant_id === targetId || m.target_id === targetId)
+            );
+          }).length;
+          if (currentPinnedCount >= 3) {
+            return prev;
+          }
+        }
+        return prev.map((m) =>
+          (m.message_id || m.id) === messageId ? { ...m, pinned } : m
+        );
+      });
+
+      if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+        wsRef.current.send(
+          JSON.stringify({
+            type: 'pin-message',
+            payload: {
+              message_id: messageId,
+              pinned,
+              is_private: isPrivate,
+              target_id: targetId,
+            },
+          })
+        );
+      }
+    },
+    []
+  );
+
   const sendStreamPause = useCallback((paused: boolean) => {
     if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
       wsRef.current.send(
@@ -556,6 +607,7 @@ export function useWebRTCPublisher({
     dismissHandToast,
     lowerStudentHand,
     sendChatMessage,
+    pinChatMessage,
     sendStreamPause,
     startPublishing,
     changeStream,
