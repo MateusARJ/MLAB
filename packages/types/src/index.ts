@@ -245,6 +245,15 @@ export interface CaptureSource {
   name: string;
   thumbnail: string;
   type: CaptureSourceType;
+  /** display_id do Electron (somente telas) — usado para mapear o cursor no monitor correto */
+  displayId?: string;
+}
+
+export interface CursorState {
+  /** true = cursor deve aparecer para os alunos e na gravação */
+  visible: boolean;
+  /** Retângulo do cursor normalizado [0..1] relativo à fonte capturada; null = fora da fonte */
+  rect: { x: number; y: number; w: number; h: number } | null;
 }
 
 export type RecordingFormat = 'webm';
