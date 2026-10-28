@@ -148,6 +148,17 @@ export function useWebRTCSubscriber(token: string, roomInfo: { room_id: string; 
         const msg = JSON.parse(evt.data);
         if (msg.type === 'chat-message') {
           setMessages((prev) => [...prev, msg.payload]);
+        } else if (msg.type === 'chat-message-pinned') {
+          const pinUpdate = msg.payload;
+          if (pinUpdate && pinUpdate.message_id) {
+            setMessages((prev) =>
+              prev.map((m) =>
+                (m.message_id || m.id) === pinUpdate.message_id
+                  ? { ...m, pinned: !!pinUpdate.pinned }
+                  : m
+              )
+            );
+          }
         } else if (msg.type === 'chat-history') {
           if (msg.payload && Array.isArray(msg.payload.messages)) {
             setMessages(msg.payload.messages);
