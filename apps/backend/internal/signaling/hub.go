@@ -23,6 +23,9 @@ const (
 	chatWindowShortMax = 5
 	chatWindowLong     = 60 * time.Second
 	chatWindowLongMax  = 30
+
+	// Limite máximo de mensagens fixadas pelo professor por escopo (público ou privado).
+	maxPinnedMessages = 3
 )
 
 // envelope empacota uma mensagem recebida com seu remetente.
@@ -98,8 +101,10 @@ type Hub struct {
 	chatLimits   map[string]*chatTracker
 	streamPaused bool // indica se a transmissão está pausada pelo professor
 
-	chatHistory []ChatRecvPayload   // mensagens públicas da turma mantidas em memória na sessão
-	sharedFiles []FileSharedPayload // arquivos compartilhados pelo professor mantidos em memória na sessão
+	chatHistory   []ChatRecvPayload          // mensagens públicas da turma mantidas em memória na sessão
+	sharedFiles   []FileSharedPayload        // arquivos compartilhados pelo professor mantidos em memória na sessão
+	pinnedPublic  map[string]bool            // IDs de mensagens públicas fixadas pelo professor (máx 3)
+	pinnedPrivate map[string]map[string]bool // targetID -> IDs de mensagens privadas fixadas pelo professor (máx 3)
 
 	register   chan *Client
 	unregister chan *Client
@@ -114,12 +119,14 @@ type Hub struct {
 // newHub cria e inicia um Hub para a sala especificada.
 func newHub(roomID string, sfu SFU) *Hub {
 	h := &Hub{
-		roomID:      roomID,
-		clients:     make(map[string]*Client),
-		chatLimits:  make(map[string]*chatTracker),
-		chatHistory: make([]ChatRecvPayload, 0, 50),
-		sharedFiles: make([]FileSharedPayload, 0, 10),
-		status:      SessionWaiting,
+		roomID:        roomID,
+		clients:       make(map[string]*Client),
+		chatLimits:    make(map[string]*chatTracker),
+		chatHistory:   make([]ChatRecvPayload, 0, 50),
+		sharedFiles:   make([]FileSharedPayload, 0, 10),
+		pinnedPublic:  make(map[string]bool),
+		pinnedPrivate: make(map[string]map[string]bool),
+		status:        SessionWaiting,
 		register:    make(chan *Client),
 		unregister:  make(chan *Client),
 		inbound:     make(chan *envelope, 256),
@@ -306,6 +313,8 @@ func (h *Hub) route(env *envelope) {
 		h.onRaiseHand(c, env.msg)
 	case TypeLowerHand:
 		h.onLowerHand(c, env.msg)
+	case TypePinMessage:
+		h.onPinMessage(c, env.msg)
 	case TypeEndSession:
 		h.onEndSession(c)
 	default:
@@ -698,6 +707,83 @@ func (h *Hub) onLowerHand(c *Client, msg WsMessage) {
 	}
 
 	c.sendError("FORBIDDEN", "operação não permitida")
+}
+
+func (h *Hub) onPinMessage(c *Client, msg WsMessage) {
+	if c.role != RoleProfessor {
+		c.sendError("FORBIDDEN", "apenas o professor pode fixar mensagens")
+		return
+	}
+
+	var p PinMessageSendPayload
+	if err := json.Unmarshal(msg.Payload, &p); err != nil || strings.TrimSpace(p.MessageID) == "" {
+		c.sendError("INVALID_PAYLOAD", "payload de pin-message inválido")
+		return
+	}
+
+	if !p.IsPrivate {
+		if h.pinnedPublic == nil {
+			h.pinnedPublic = make(map[string]bool)
+		}
+		if p.Pinned {
+			if !h.pinnedPublic[p.MessageID] && len(h.pinnedPublic) >= maxPinnedMessages {
+				c.sendError("PIN_LIMIT_REACHED", "limite máximo de 3 mensagens fixadas atingido")
+				return
+			}
+			h.pinnedPublic[p.MessageID] = true
+		} else {
+			delete(h.pinnedPublic, p.MessageID)
+		}
+
+		for i := range h.chatHistory {
+			if h.chatHistory[i].MessageID == p.MessageID {
+				h.chatHistory[i].Pinned = p.Pinned
+				break
+			}
+		}
+
+		h.broadcastAll(TypeChatMessagePinned, ChatMessagePinnedPayload{
+			MessageID: p.MessageID,
+			Pinned:    p.Pinned,
+			IsPrivate: false,
+		})
+		return
+	}
+
+	// Mensagem privada: escopo por conversa privada (target_id do aluno ou geral)
+	if h.pinnedPrivate == nil {
+		h.pinnedPrivate = make(map[string]map[string]bool)
+	}
+	scopeKey := p.TargetID
+	if scopeKey == "" {
+		scopeKey = "__private__"
+	}
+	if h.pinnedPrivate[scopeKey] == nil {
+		h.pinnedPrivate[scopeKey] = make(map[string]bool)
+	}
+
+	if p.Pinned {
+		if !h.pinnedPrivate[scopeKey][p.MessageID] && len(h.pinnedPrivate[scopeKey]) >= maxPinnedMessages {
+			c.sendError("PIN_LIMIT_REACHED", "limite máximo de 3 mensagens fixadas atingido")
+			return
+		}
+		h.pinnedPrivate[scopeKey][p.MessageID] = true
+	} else {
+		delete(h.pinnedPrivate[scopeKey], p.MessageID)
+	}
+
+	pinnedEvent := buildMsg(TypeChatMessagePinned, ChatMessagePinnedPayload{
+		MessageID: p.MessageID,
+		Pinned:    p.Pinned,
+		IsPrivate: true,
+		TargetID:  p.TargetID,
+	})
+
+	for _, client := range h.clients {
+		if client.role == RoleProfessor || (p.TargetID != "" && client.participantID == p.TargetID) {
+			client.safeSend(pinnedEvent)
+		}
+	}
 }
 
 // ── Broadcast helpers ─────────────────────────────────────────────────────────
