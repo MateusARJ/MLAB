@@ -37,7 +37,8 @@
   },
   "dependencies": {
     "@mlab/types": "*",
-    "@mlab/ui": "*"
+    "@mlab/ui": "*",
+    "koffi": "^3.3.4"
   },
   "devDependencies": {
     "@testing-library/jest-dom": "^6.4.8",
@@ -72,6 +73,9 @@
     "files": [
       "out/**/*",
       "resources/**/*"
+    ],
+    "asarUnpack": [
+      "**/node_modules/koffi/**/*"
     ],
     "extraResources": [
       {
