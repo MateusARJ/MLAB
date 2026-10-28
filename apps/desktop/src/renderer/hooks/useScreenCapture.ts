@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import type { CaptureSource, CaptureSourceType } from '@mlab/types';
+import { createCursorMaskedTrack, type MaskedVideoTrackResult } from '../media/createCursorMaskedTrack';
 
 export type Source = CaptureSource;
 
@@ -20,6 +21,7 @@ export function useScreenCapture(initialMode: CaptureSourceType = 'screen', init
   const systemAudioStreamRef = useRef<MediaStream | null>(null);
   const systemGainNodeRef = useRef<GainNode | null>(null);
   const mixerDestinationRef = useRef<MediaStreamAudioDestinationNode | null>(null);
+  const maskedTracksRef = useRef<MaskedVideoTrackResult[]>([]);
 
   const loadSources = useCallback(async (mode: CaptureSourceType) => {
     if (window.electronAPI && window.electronAPI.getScreenSources) {
@@ -174,6 +176,31 @@ export function useScreenCapture(initialMode: CaptureSourceType = 'screen', init
       } else {
         systemAudioStreamRef.current = null;
         setHasSystemAudio(false);
+      }
+
+      // Envolve a faixa de vídeo no pipeline de ocultação contextual do cursor (quando suportado)
+      // e inicia o rastreamento nativo de presença do cursor no processo Main
+      if (videoTrack) {
+        const masked = createCursorMaskedTrack(videoTrack);
+        maskedTracksRef.current.push(masked);
+        if (masked.active && masked.track !== videoTrack) {
+          if (typeof mediaStream.removeTrack === 'function') {
+            mediaStream.removeTrack(videoTrack);
+          }
+          if (typeof mediaStream.addTrack === 'function') {
+            mediaStream.addTrack(masked.track);
+          }
+        }
+      }
+
+      if (window.electronAPI && typeof window.electronAPI.startCursorTracking === 'function') {
+        window.electronAPI
+          .startCursorTracking({
+            sourceId: source.id,
+            type: source.type || (source.id.startsWith('screen') ? 'screen' : 'window'),
+            displayId: source.displayId,
+          })
+          .catch(() => {});
       }
 
       // Tenta anexar microfone do professor com processamento DSP anti-microfonia (RF-10, RN-10)
@@ -378,15 +405,30 @@ export function useScreenCapture(initialMode: CaptureSourceType = 'screen', init
 
   const toggleVideoPause = useCallback(() => {
     if (stream) {
+      const nextEnabled = videoPaused; // inverte estado
       const videoTracks = stream.getVideoTracks();
       videoTracks.forEach((track) => {
-        track.enabled = videoPaused; // inverte estado
+        track.enabled = nextEnabled;
+      });
+      maskedTracksRef.current.forEach((m) => {
+        m.setEnabled(nextEnabled);
       });
       setVideoPaused(!videoPaused);
     }
   }, [stream, videoPaused]);
 
   const stopCapture = useCallback(() => {
+    if (window.electronAPI && typeof window.electronAPI.stopCursorTracking === 'function') {
+      window.electronAPI.stopCursorTracking().catch(() => {});
+    }
+    if (maskedTracksRef.current.length > 0) {
+      maskedTracksRef.current.forEach((m) => {
+        try {
+          m.dispose();
+        } catch {}
+      });
+      maskedTracksRef.current = [];
+    }
     if (stream) {
       stream.getTracks().forEach((t) => t.stop());
       setStream(null);

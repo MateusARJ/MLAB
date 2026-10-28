@@ -361,6 +361,36 @@ describe('useScreenCapture & Audio Feedback Suppression (Anti-Microfonia)', () =
       'Visual Studio Code',
     ]);
   });
+
+  it('deve iniciar o rastreamento de cursor no selectSource e encerrá-lo no stopCapture', async () => {
+    const startSpy = vi.fn().mockResolvedValue(true);
+    const stopSpy = vi.fn().mockResolvedValue(undefined);
+    window.electronAPI.startCursorTracking = startSpy;
+    window.electronAPI.stopCursorTracking = stopSpy;
+
+    const { result } = renderHook(() => useScreenCapture('window'));
+
+    await act(async () => {
+      await result.current.selectSource({
+        id: 'window:999:0',
+        name: 'Vídeo Aula - Edge',
+        type: 'window',
+        thumbnail: '',
+      });
+    });
+
+    expect(startSpy).toHaveBeenCalledWith({
+      sourceId: 'window:999:0',
+      type: 'window',
+      displayId: undefined,
+    });
+
+    act(() => {
+      result.current.stopCapture();
+    });
+
+    expect(stopSpy).toHaveBeenCalled();
+  });
 });
 
 describe('useWebRTCPublisher SDP Transformation (Opus DTX & Anti-Microfonia)', () => {

@@ -30,6 +30,9 @@ window.electronAPI = {
   setActiveRoom: vi.fn().mockResolvedValue(undefined),
   setContentProtection: vi.fn().mockResolvedValue(true),
   captureWindowToClipboard: vi.fn().mockResolvedValue(true),
+  startCursorTracking: vi.fn().mockResolvedValue(true),
+  stopCursorTracking: vi.fn().mockResolvedValue(undefined),
+  onCursorState: vi.fn().mockImplementation(() => () => {}),
 };
 
 if (typeof window !== 'undefined') {
