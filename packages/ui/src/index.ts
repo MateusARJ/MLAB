@@ -51,4 +51,20 @@ export {
   Touch_1Filled,
   VolumeUp,
   VolumeMute,
+  Pin,
+  PinFilled,
 } from '@carbon/icons-react';
+
+/**
+ * Decodifica com segurança as 5 entidades HTML geradas por html.EscapeString do Go
+ * para exibição em nós de texto puro do React (sem usar innerHTML/dangerouslySetInnerHTML).
+ */
+export function decodeChatEntities(text: string): string {
+  if (!text) return '';
+  return text
+    .replace(/&#39;|&apos;/g, "'")
+    .replace(/&#34;|&quot;/g, '"')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&amp;/g, '&');
+}

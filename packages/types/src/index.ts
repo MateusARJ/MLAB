@@ -81,6 +81,7 @@ export interface ChatMessage {
   role: Role;
   content: string;
   sentAt: string;
+  pinned?: boolean;
 }
 
 // ── Auth ─────────────────────────────────────────────────────────────────────
@@ -154,6 +155,8 @@ export type WsMessageType =
   | 'participant-left'
   | 'room-closed'
   | 'chat-message'
+  | 'pin-message'
+  | 'chat-message-pinned'
   | 'ice-servers'
   | 'raise-hand'
   | 'lower-hand'
@@ -208,6 +211,27 @@ export interface ChatMessagePayload {
   target_id?: string;
   sentAt?: string;
   sent_at?: string;
+  pinned?: boolean;
+}
+
+export interface PinMessagePayload {
+  messageId?: string;
+  message_id?: string;
+  pinned: boolean;
+  isPrivate?: boolean;
+  is_private?: boolean;
+  targetId?: string;
+  target_id?: string;
+}
+
+export interface ChatMessagePinnedPayload {
+  messageId?: string;
+  message_id?: string;
+  pinned: boolean;
+  isPrivate?: boolean;
+  is_private?: boolean;
+  targetId?: string;
+  target_id?: string;
 }
 
 export interface IceServer {
@@ -268,4 +292,3 @@ export interface SystemMediaPermissions {
   microphone: MediaPermissionStatus;
   screen: MediaPermissionStatus;
 }
-
