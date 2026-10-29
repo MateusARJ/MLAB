@@ -475,6 +475,125 @@ describe('Room Component (Desktop)', () => {
 
     expect(screen.queryByRole('button', { name: /Atualizar IP e Links da Rede/i })).not.toBeInTheDocument();
   });
+
+  it('deve manter setContentProtection(true) ativo ao clicar em Alterar Modo / Fonte durante transmissão de Tela Cheia para não expor o MLab', async () => {
+    const setContentProtectionMock = vi.fn().mockResolvedValue(true);
+    window.electronAPI.setContentProtection = setContentProtectionMock;
+
+    render(<Room room={dummyRoom} onCloseRoom={vi.fn()} />);
+
+    await waitFor(() => {
+      expect(screen.getByText('Tela Inteira 1')).toBeInTheDocument();
+    });
+
+    // Na montagem da sala, setContentProtection(true) já deve ser ativado
+    expect(setContentProtectionMock).toHaveBeenCalledWith(true);
+
+    const advanceBtn = screen.getByRole('button', { name: /Avançar e Iniciar Transmissão/i });
+    await waitFor(() => {
+      expect(advanceBtn).toBeEnabled();
+    });
+    fireEvent.click(advanceBtn);
+
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: /Alterar Modo \/ Fonte/i })).toBeInTheDocument();
+    });
+
+    setContentProtectionMock.mockClear();
+
+    // Clica em Alterar Modo / Fonte enquanto em modo Tela Cheia
+    fireEvent.click(screen.getByRole('button', { name: /Alterar Modo \/ Fonte/i }));
+
+    // NUNCA deve chamar setContentProtection(false) ao clicar em Alterar Modo / Fonte
+    expect(setContentProtectionMock).not.toHaveBeenCalledWith(false);
+    expect(setContentProtectionMock).toHaveBeenCalledWith(true);
+  });
+
+  it('deve renderizar a barra vertical de Marcação (estilo PDF) e Lupa no lado esquerdo do visualizador e responder a cliques e atalhos de teclado', async () => {
+    render(<Room room={dummyRoom} onCloseRoom={vi.fn()} />);
+
+    await waitFor(() => {
+      expect(screen.getByText('Tela Inteira 1')).toBeInTheDocument();
+    });
+
+    const advanceBtn = screen.getByRole('button', { name: /Avançar e Iniciar Transmissão/i });
+    await waitFor(() => {
+      expect(advanceBtn).toBeEnabled();
+    });
+    fireEvent.click(advanceBtn);
+
+    await waitFor(() => {
+      expect(screen.getByTestId('annotation-toolbar')).toBeInTheDocument();
+    });
+
+    // Verifica que todas as ferramentas estão presentes na barra lateral esquerda
+    const cursorBtn = screen.getByTestId('tool-btn-cursor');
+    const penBtn = screen.getByTestId('tool-btn-pen');
+    const highlighterBtn = screen.getByTestId('tool-btn-highlighter');
+    const arrowBtn = screen.getByTestId('tool-btn-arrow');
+    const rectBtn = screen.getByTestId('tool-btn-rect');
+    const eraserBtn = screen.getByTestId('tool-btn-eraser');
+    const spotlightBtn = screen.getByTestId('tool-btn-spotlight');
+    const paletteBtn = screen.getByTestId('tool-btn-palette');
+    const undoBtn = screen.getByTestId('tool-btn-undo');
+    const redoBtn = screen.getByTestId('tool-btn-redo');
+    const clearBtn = screen.getByTestId('tool-btn-clear');
+    const canvas = screen.getByTestId('annotation-canvas');
+
+    expect(cursorBtn).toBeInTheDocument();
+    expect(penBtn).toBeInTheDocument();
+    expect(highlighterBtn).toBeInTheDocument();
+    expect(arrowBtn).toBeInTheDocument();
+    expect(rectBtn).toBeInTheDocument();
+    expect(eraserBtn).toBeInTheDocument();
+    expect(spotlightBtn).toBeInTheDocument();
+    expect(paletteBtn).toBeInTheDocument();
+    expect(undoBtn).toBeDisabled();
+    expect(redoBtn).toBeDisabled();
+    expect(clearBtn).toBeDisabled();
+    expect(canvas).toBeInTheDocument();
+
+    // Atalho 'M' seleciona o Marcador (Marca-Texto PDF)
+    fireEvent.keyDown(window, { key: 'm' });
+    expect(canvas).toHaveStyle({ cursor: 'crosshair' });
+
+    // Desenha um traço no canvas de anotação
+    fireEvent.mouseDown(canvas, { button: 0, clientX: 100, clientY: 100 });
+    fireEvent.mouseMove(canvas, { clientX: 300, clientY: 100 });
+    fireEvent.mouseUp(canvas);
+
+    // Após desenhar, Desfazer e Limpar ficam habilitados
+    expect(undoBtn).not.toBeDisabled();
+    expect(clearBtn).not.toBeDisabled();
+
+    // Atalho Ctrl+Z desfaz o traço e habilita Refazer
+    fireEvent.keyDown(window, { key: 'z', ctrlKey: true });
+    expect(undoBtn).toBeDisabled();
+    expect(redoBtn).not.toBeDisabled();
+
+    // Atalho Ctrl+Y refaz o traço
+    fireEvent.keyDown(window, { key: 'y', ctrlKey: true });
+    expect(undoBtn).not.toBeDisabled();
+
+    // Atalho 'L' ativa a Lupa / Foco no mouse
+    fireEvent.keyDown(window, { key: 'l' });
+    fireEvent.keyDown(window, { key: 'v' });
+    // Com Cursor selecionado mas Lupa ativa, o cursor permanece crosshair
+    expect(canvas).toHaveStyle({ cursor: 'crosshair' });
+
+    // Abre o popover de Cores, Espessura e Zoom da Lupa
+    fireEvent.click(paletteBtn);
+    expect(screen.getByTestId('annotation-palette-popover')).toBeInTheDocument();
+    expect(screen.getByText(/Cor da Marcação/i)).toBeInTheDocument();
+    expect(screen.getByText(/Espessura do Traço/i)).toBeInTheDocument();
+    expect(screen.getByText(/Zoom da Lupa/i)).toBeInTheDocument();
+
+    // Esc desativa a Lupa, fecha o popover e volta para o Cursor Padrão
+    fireEvent.keyDown(window, { key: 'Escape' });
+    expect(screen.queryByTestId('annotation-palette-popover')).not.toBeInTheDocument();
+    expect(canvas).toHaveStyle({ cursor: 'default' });
+  });
 });
+
 
 

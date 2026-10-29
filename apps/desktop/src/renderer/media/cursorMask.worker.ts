@@ -1,4 +1,4 @@
-import type { CursorState } from '@mlab/types';
+import type { AnnotationOverlayState, AnnotationStroke, CursorState } from '@mlab/types';
 
 interface InitMessage {
   type: 'init';
@@ -11,11 +11,29 @@ interface CursorMessage {
   state: CursorState;
 }
 
-type WorkerInboundMessage = InitMessage | CursorMessage;
+interface AnnotationsMessage {
+  type: 'annotations';
+  state: AnnotationOverlayState;
+}
+
+type WorkerInboundMessage = InitMessage | CursorMessage | AnnotationsMessage;
 
 let currentState: CursorState = {
   visible: true,
   rect: null,
+};
+
+let currentAnnotations: AnnotationOverlayState = {
+  strokes: [],
+  activeStroke: null,
+  spotlight: {
+    enabled: false,
+    x: 0.5,
+    y: 0.5,
+    radius: 0.14,
+    zoom: 1,
+    activeInViewer: false,
+  },
 };
 
 let lastCursorRect: { x: number; y: number; w: number; h: number } | null = null;
@@ -53,6 +71,13 @@ self.onmessage = (evt: MessageEvent<WorkerInboundMessage>) => {
 
   if (data.type === 'cursor') {
     updateCursorState(data.state);
+    return;
+  }
+
+  if (data.type === 'annotations') {
+    if (data.state) {
+      currentAnnotations = data.state;
+    }
     return;
   }
 
@@ -175,16 +200,147 @@ async function runPipeline(
     outCtx.drawImage(blurCanvas, 0, 0, 32, 32, px.x, px.y, px.w, px.h);
   };
 
+  const drawStrokeOnCanvas = (
+    ctx: OffscreenCanvasRenderingContext2D,
+    stroke: AnnotationStroke,
+    w: number,
+    h: number
+  ) => {
+    const pts = stroke.points;
+    if (!pts || pts.length === 0) return;
+
+    const scale = Math.max(1, w / 1280);
+    ctx.save();
+    ctx.strokeStyle = stroke.color;
+    ctx.fillStyle = stroke.color;
+
+    if (stroke.tool === 'highlighter') {
+      ctx.globalAlpha = 0.35;
+      ctx.lineWidth = stroke.size * 3.2 * scale;
+      ctx.lineCap = 'butt';
+      ctx.lineJoin = 'round';
+    } else {
+      ctx.globalAlpha = 1;
+      ctx.lineWidth = stroke.size * scale;
+      ctx.lineCap = 'round';
+      ctx.lineJoin = 'round';
+    }
+
+    if (stroke.tool === 'pen' || stroke.tool === 'highlighter') {
+      ctx.beginPath();
+      const first = pts[0];
+      ctx.moveTo(first.x * w, first.y * h);
+      if (pts.length === 1) {
+        ctx.lineTo(first.x * w + 0.5, first.y * h + 0.5);
+      } else {
+        for (let i = 1; i < pts.length; i++) {
+          ctx.lineTo(pts[i].x * w, pts[i].y * h);
+        }
+      }
+      ctx.stroke();
+    } else if (stroke.tool === 'rect' && pts.length >= 2) {
+      const p0 = pts[0];
+      const p1 = pts[pts.length - 1];
+      const rx = Math.min(p0.x, p1.x) * w;
+      const ry = Math.min(p0.y, p1.y) * h;
+      const rw = Math.abs(p1.x - p0.x) * w;
+      const rh = Math.abs(p1.y - p0.y) * h;
+      ctx.strokeRect(rx, ry, rw, rh);
+    } else if (stroke.tool === 'arrow' && pts.length >= 2) {
+      const p0 = pts[0];
+      const p1 = pts[pts.length - 1];
+      const x0 = p0.x * w;
+      const y0 = p0.y * h;
+      const x1 = p1.x * w;
+      const y1 = p1.y * h;
+      const headLen = Math.max(12, stroke.size * 3.5 * scale);
+      const angle = Math.atan2(y1 - y0, x1 - x0);
+
+      ctx.beginPath();
+      ctx.moveTo(x0, y0);
+      ctx.lineTo(x1, y1);
+      ctx.stroke();
+
+      ctx.beginPath();
+      ctx.moveTo(x1, y1);
+      ctx.lineTo(x1 - headLen * Math.cos(angle - Math.PI / 6), y1 - headLen * Math.sin(angle - Math.PI / 6));
+      ctx.lineTo(x1 - headLen * Math.cos(angle + Math.PI / 6), y1 - headLen * Math.sin(angle + Math.PI / 6));
+      ctx.closePath();
+      ctx.fill();
+    }
+
+    ctx.restore();
+  };
+
+  const renderAnnotationsAndSpotlight = (
+    ctx: OffscreenCanvasRenderingContext2D,
+    canvas: OffscreenCanvas,
+    ann: AnnotationOverlayState,
+    cursorRect: { x: number; y: number; w: number; h: number } | null
+  ) => {
+    for (let i = 0; i < ann.strokes.length; i++) {
+      drawStrokeOnCanvas(ctx, ann.strokes[i], width, height);
+    }
+    if (ann.activeStroke) {
+      drawStrokeOnCanvas(ctx, ann.activeStroke, width, height);
+    }
+
+    if (ann.spotlight.enabled) {
+      let normX = ann.spotlight.x;
+      let normY = ann.spotlight.y;
+      if (!ann.spotlight.activeInViewer && cursorRect) {
+        normX = Math.min(1, Math.max(0, cursorRect.x + cursorRect.w * 0.35));
+        normY = Math.min(1, Math.max(0, cursorRect.y + cursorRect.h * 0.35));
+      }
+
+      const cx = normX * width;
+      const cy = normY * height;
+      const minDim = Math.min(width, height);
+      const radius = Math.max(36, ann.spotlight.radius * minDim);
+      const zoom = ann.spotlight.zoom || 1;
+
+      if (zoom > 1) {
+        ctx.save();
+        ctx.beginPath();
+        ctx.arc(cx, cy, radius, 0, Math.PI * 2);
+        ctx.clip();
+        const srcW = (radius * 2) / zoom;
+        const srcH = (radius * 2) / zoom;
+        const srcX = cx - srcW / 2;
+        const srcY = cy - srcH / 2;
+        ctx.drawImage(canvas, srcX, srcY, srcW, srcH, cx - radius, cy - radius, radius * 2, radius * 2);
+        ctx.restore();
+      }
+
+      ctx.save();
+      ctx.beginPath();
+      ctx.rect(0, 0, width, height);
+      ctx.arc(cx, cy, radius, 0, Math.PI * 2, true);
+      ctx.fillStyle = 'rgba(0, 0, 0, 0.76)';
+      ctx.fill('evenodd');
+
+      ctx.beginPath();
+      ctx.arc(cx, cy, radius, 0, Math.PI * 2);
+      ctx.strokeStyle = 'rgba(56, 189, 248, 0.9)';
+      ctx.lineWidth = Math.max(2, 2.5 * (width / 1280));
+      ctx.stroke();
+      ctx.restore();
+    }
+  };
+
   try {
     while (true) {
       const { done, value: frame } = await reader.read();
       if (done || !frame) break;
 
       const state = currentState;
+      const ann = currentAnnotations;
+      const hasOverlay =
+        ann.strokes.length > 0 || ann.activeStroke !== null || ann.spotlight.enabled === true;
       const now = performance.now();
 
-      // Caminho rápido (passthrough zero-copy): cursor visível, fora da fonte ou pipeline degradado
-      if (degraded || state.visible || !state.rect) {
+      // Caminho rápido (passthrough zero-copy): cursor visível, sem marcações/lupa ou pipeline degradado
+      if (degraded || ((state.visible || !state.rect) && !hasOverlay)) {
         if (!degraded && ensureCanvases(frame.codedWidth || frame.displayWidth, frame.codedHeight || frame.displayHeight)) {
           if (!plateInitialized || now - lastPlateUpdateAt >= 90) {
             try {
@@ -198,7 +354,7 @@ async function runPipeline(
         continue;
       }
 
-      // Caminho de ocultação do cursor (state.visible === false && state.rect !== null)
+      // Caminho de composição (ocultação do cursor e/ou marcações + lupa)
       const t0 = performance.now();
       const fw = frame.codedWidth || frame.displayWidth;
       const fh = frame.codedHeight || frame.displayHeight;
@@ -211,23 +367,30 @@ async function runPipeline(
 
       try {
         outCtx.drawImage(frame, 0, 0, width, height);
-        const px = toPixelRect(state.rect);
 
-        if (px.w > 0 && px.h > 0) {
-          const stationaryMs = now - cursorStationarySince;
-          const hadOverlapOnInit = !plateInitialized || rectsOverlap(state.rect, lastCursorRect);
+        if (!state.visible && state.rect) {
+          const px = toPixelRect(state.rect);
 
-          if (plateInitialized && (!hadOverlapOnInit || stationaryMs < 350)) {
-            outCtx.drawImage(plateCanvas, px.x, px.y, px.w, px.h, px.x, px.y, px.w, px.h);
-          } else {
-            inpaintFromNeighborhood(px);
+          if (px.w > 0 && px.h > 0) {
+            const stationaryMs = now - cursorStationarySince;
+            const hadOverlapOnInit = !plateInitialized || rectsOverlap(state.rect, lastCursorRect);
+
+            if (plateInitialized && (!hadOverlapOnInit || stationaryMs < 350)) {
+              outCtx.drawImage(plateCanvas, px.x, px.y, px.w, px.h, px.x, px.y, px.w, px.h);
+            } else {
+              inpaintFromNeighborhood(px);
+            }
           }
         }
 
-        // Mantém o restante da placa de fundo atualizado a cada 90ms mesmo com cursor oculto
+        // Mantém o restante da placa de fundo atualizado a cada 90ms
         if (!plateInitialized || now - lastPlateUpdateAt >= 90) {
           updatePlatePreservingCursor(frame, state.rect);
           lastPlateUpdateAt = now;
+        }
+
+        if (hasOverlay) {
+          renderAnnotationsAndSpotlight(outCtx, outCanvas, ann, state.rect);
         }
 
         const cleanFrame = new VideoFrame(outCanvas, {
@@ -240,7 +403,7 @@ async function runPipeline(
 
         const dt = performance.now() - t0;
         avgProcessMs = avgProcessMs === 0 ? dt : avgProcessMs * 0.92 + dt * 0.08;
-        if (avgProcessMs > 8.5) {
+        if (!hasOverlay && avgProcessMs > 8.5) {
           degraded = true;
           try {
             self.postMessage({ type: 'degraded', avgProcessMs });

@@ -200,6 +200,11 @@ ipcMain.handle('get-screen-sources', async (event, type?: 'screen' | 'window') =
   try {
     const types: ('screen' | 'window')[] = type ? [type] : ['screen', 'window']
     const selfWin = BrowserWindow.fromWebContents(event.sender)
+    if (activeRoom && selfWin && !selfWin.isDestroyed()) {
+      try {
+        selfWin.setContentProtection(true)
+      } catch {}
+    }
     const selfMediaSourceId =
       selfWin && typeof selfWin.getMediaSourceId === 'function' ? selfWin.getMediaSourceId() : null
 

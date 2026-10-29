@@ -1,8 +1,15 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
-import type { CaptureSource } from '@mlab/types';
+import type {
+  AnnotationPoint,
+  AnnotationStroke,
+  AnnotationTool,
+  CaptureSource,
+  SpotlightState,
+} from '@mlab/types';
 import { useScreenCapture } from '../hooks/useScreenCapture';
 import { useLocalRecorder } from '../hooks/useLocalRecorder';
 import { useWebRTCPublisher } from '../hooks/useWebRTCPublisher';
+import { setAnnotationOverlayState } from '../media/createCursorMaskedTrack';
 import { getStoredToken } from '../services/auth';
 import { closeRoom, getRoomLink } from '../services/room';
 import mlabLogo from '../assets/MLAB-logo.png';
@@ -36,6 +43,17 @@ import {
   VolumeMute,
   Pin,
   PinFilled,
+  Cursor_1,
+  Pen,
+  Draw,
+  ArrowUpRight,
+  SquareOutline,
+  Erase,
+  ZoomIn,
+  ColorPalette,
+  Undo,
+  Redo,
+  TrashCan,
   decodeChatEntities,
 } from '@mlab/ui';
 
@@ -153,6 +171,86 @@ export const Room: React.FC<RoomProps> = ({ room, onCloseRoom }) => {
 
   // Sub-aba de Chat: público vs privado
   const [chatSubTab, setChatSubTab] = useState<'public' | 'private'>('public');
+
+  // ── Ferramentas de Marcação (Estilo PDF) e Lupa / Foco ─────────────────────
+  const [activeTool, setActiveTool] = useState<AnnotationTool>('cursor');
+  const [strokeColor, setStrokeColor] = useState<string>('#ef4444');
+  const [strokeSize, setStrokeSize] = useState<number>(4);
+  const [strokes, setStrokes] = useState<AnnotationStroke[]>([]);
+  const [redoStrokes, setRedoStrokes] = useState<AnnotationStroke[]>([]);
+  const [activeStroke, setActiveStroke] = useState<AnnotationStroke | null>(null);
+  const [showPalettePopover, setShowPalettePopover] = useState<boolean>(false);
+  const [spotlight, setSpotlight] = useState<SpotlightState>({
+    enabled: false,
+    x: 0.5,
+    y: 0.5,
+    radius: 0.14,
+    zoom: 1,
+    activeInViewer: false,
+  });
+  const annotationCanvasRef = useRef<HTMLCanvasElement | null>(null);
+  const isDrawingRef = useRef<boolean>(false);
+  const hadCanvasDrawRef = useRef<boolean>(false);
+
+  const ANNOTATION_COLORS = [
+    { hex: '#ef4444', name: 'Vermelho' },
+    { hex: '#facc15', name: 'Amarelo (Marca-texto)' },
+    { hex: '#38bdf8', name: 'Azul' },
+    { hex: '#22c55e', name: 'Verde' },
+    { hex: '#c084fc', name: 'Roxo' },
+    { hex: '#ffffff', name: 'Branco' },
+  ];
+
+  const handleSelectTool = useCallback((tool: AnnotationTool) => {
+    setActiveTool(tool);
+    setShowPalettePopover(false);
+    if (tool === 'highlighter' && strokeColor === '#ef4444') {
+      setStrokeColor('#facc15');
+    } else if (tool === 'pen' && strokeColor === '#facc15') {
+      setStrokeColor('#ef4444');
+    }
+  }, [strokeColor]);
+
+  const handleToggleSpotlight = useCallback(() => {
+    setSpotlight((prev) => ({
+      ...prev,
+      enabled: !prev.enabled,
+    }));
+  }, []);
+
+  const handleCycleSpotlightZoom = useCallback(() => {
+    setSpotlight((prev) => {
+      const nextZoom: 1 | 1.5 | 2 = prev.zoom === 1 ? 1.5 : prev.zoom === 1.5 ? 2 : 1;
+      return {
+        ...prev,
+        zoom: nextZoom,
+      };
+    });
+  }, []);
+
+  const handleUndoAnnotation = useCallback(() => {
+    setStrokes((prev) => {
+      if (prev.length === 0) return prev;
+      const last = prev[prev.length - 1];
+      setRedoStrokes((rPrev) => [...rPrev, last]);
+      return prev.slice(0, -1);
+    });
+  }, []);
+
+  const handleRedoAnnotation = useCallback(() => {
+    setRedoStrokes((rPrev) => {
+      if (rPrev.length === 0) return rPrev;
+      const restored = rPrev[rPrev.length - 1];
+      setStrokes((prev) => [...prev, restored]);
+      return rPrev.slice(0, -1);
+    });
+  }, []);
+
+  const handleClearAnnotations = useCallback(() => {
+    setStrokes([]);
+    setRedoStrokes([]);
+    setActiveStroke(null);
+  }, []);
 
   const copyToClipboard = useCallback(async (text: string) => {
     if (!text) return;
@@ -288,8 +386,13 @@ export const Room: React.FC<RoomProps> = ({ room, onCloseRoom }) => {
     prevMessagesLength.current = messages.length;
   }, [messages, isSidebarOpen]);
 
-  // Restaura setContentProtection(false) ao sair da sala e escuta atalhos de captura
+  // Ativa setContentProtection(true) na montagem da sala para evitar que o MLab apareça
+  // nas miniaturas ou na transmissão em Tela Cheia, restaurando false apenas ao sair da sala.
   useEffect(() => {
+    if (window.electronAPI && typeof window.electronAPI.setContentProtection === 'function') {
+      window.electronAPI.setContentProtection(true).catch(() => {});
+    }
+
     const handleKeyUp = (e: KeyboardEvent) => {
       const target = e.target as HTMLElement | null;
       const isEditable =
@@ -318,8 +421,355 @@ export const Room: React.FC<RoomProps> = ({ room, onCloseRoom }) => {
       if (window.electronAPI && typeof window.electronAPI.setContentProtection === 'function') {
         window.electronAPI.setContentProtection(false).catch(() => {});
       }
+      setAnnotationOverlayState({
+        strokes: [],
+        activeStroke: null,
+        spotlight: {
+          enabled: false,
+          x: 0.5,
+          y: 0.5,
+          radius: 0.14,
+          zoom: 1,
+          activeInViewer: false,
+        },
+      });
     };
   }, [handleTakeScreenshot]);
+
+  // Atalhos de teclado para as ferramentas de Marcação (estilo PDF) e Lupa na sessão ao vivo
+  useEffect(() => {
+    if (!isLiveSession) return;
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement | null;
+      const isEditable =
+        target &&
+        (target.tagName === 'INPUT' ||
+          target.tagName === 'TEXTAREA' ||
+          target.tagName === 'SELECT' ||
+          target.isContentEditable);
+      if (isEditable) return;
+
+      if ((e.ctrlKey || e.metaKey) && !e.shiftKey && (e.key === 'z' || e.key === 'Z')) {
+        e.preventDefault();
+        handleUndoAnnotation();
+        return;
+      }
+      if (
+        ((e.ctrlKey || e.metaKey) && (e.key === 'y' || e.key === 'Y')) ||
+        ((e.ctrlKey || e.metaKey) && e.shiftKey && (e.key === 'z' || e.key === 'Z'))
+      ) {
+        e.preventDefault();
+        handleRedoAnnotation();
+        return;
+      }
+      if (
+        ((e.ctrlKey || e.metaKey) && e.shiftKey && (e.key === 'x' || e.key === 'X')) ||
+        e.key === 'Delete'
+      ) {
+        e.preventDefault();
+        handleClearAnnotations();
+        return;
+      }
+
+      if (e.ctrlKey || e.altKey || e.metaKey) return;
+
+      const key = e.key.toLowerCase();
+      if (key === 'escape') {
+        e.preventDefault();
+        setActiveTool('cursor');
+        setShowPalettePopover(false);
+        setSpotlight((prev) => ({ ...prev, enabled: false }));
+      } else if (key === 'v' || key === '1') {
+        e.preventDefault();
+        handleSelectTool('cursor');
+      } else if (key === 'p' || key === '2') {
+        e.preventDefault();
+        handleSelectTool('pen');
+      } else if (key === 'm' || key === 'h' || key === '3') {
+        e.preventDefault();
+        handleSelectTool('highlighter');
+      } else if (key === 'a' || key === '4') {
+        e.preventDefault();
+        handleSelectTool('arrow');
+      } else if (key === 'r' || key === '5') {
+        e.preventDefault();
+        handleSelectTool('rect');
+      } else if (key === 'e' || key === 'b' || key === '6') {
+        e.preventDefault();
+        handleSelectTool('eraser');
+      } else if (key === 'l' || key === 'f' || key === '7') {
+        e.preventDefault();
+        handleToggleSpotlight();
+      } else if (key === 'z') {
+        e.preventDefault();
+        handleCycleSpotlightZoom();
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [
+    isLiveSession,
+    handleSelectTool,
+    handleToggleSpotlight,
+    handleCycleSpotlightZoom,
+    handleUndoAnnotation,
+    handleRedoAnnotation,
+    handleClearAnnotations,
+  ]);
+
+  // Sincroniza o estado das marcações e da Lupa com o pipeline de vídeo (WebRTC + Gravação)
+  // e desenha em tempo real no canvas sobreposto do visualizador do professor
+  useEffect(() => {
+    setAnnotationOverlayState({
+      strokes,
+      activeStroke,
+      spotlight,
+    });
+
+    const hasContent = strokes.length > 0 || activeStroke !== null || spotlight.enabled;
+    if (!hasContent && !hadCanvasDrawRef.current) return;
+    hadCanvasDrawRef.current = hasContent;
+
+    const canvas = annotationCanvasRef.current;
+    if (!canvas) return;
+    let ctx: CanvasRenderingContext2D | null = null;
+    try {
+      ctx = canvas.getContext('2d');
+    } catch {
+      ctx = null;
+    }
+    if (!ctx) return;
+
+    const w = canvas.width;
+    const h = canvas.height;
+    ctx.clearRect(0, 0, w, h);
+
+    const drawStroke = (s: AnnotationStroke) => {
+      const pts = s.points;
+      if (!pts || pts.length === 0) return;
+      const scale = Math.max(1, w / 1280);
+
+      ctx.save();
+      ctx.strokeStyle = s.color;
+      ctx.fillStyle = s.color;
+
+      if (s.tool === 'highlighter') {
+        ctx.globalAlpha = 0.35;
+        ctx.lineWidth = s.size * 3.2 * scale;
+        ctx.lineCap = 'butt';
+        ctx.lineJoin = 'round';
+      } else {
+        ctx.globalAlpha = 1;
+        ctx.lineWidth = s.size * scale;
+        ctx.lineCap = 'round';
+        ctx.lineJoin = 'round';
+      }
+
+      if (s.tool === 'pen' || s.tool === 'highlighter') {
+        ctx.beginPath();
+        ctx.moveTo(pts[0].x * w, pts[0].y * h);
+        if (pts.length === 1) {
+          ctx.lineTo(pts[0].x * w + 0.5, pts[0].y * h + 0.5);
+        } else {
+          for (let i = 1; i < pts.length; i++) {
+            ctx.lineTo(pts[i].x * w, pts[i].y * h);
+          }
+        }
+        ctx.stroke();
+      } else if (s.tool === 'rect' && pts.length >= 2) {
+        const p0 = pts[0];
+        const p1 = pts[pts.length - 1];
+        ctx.strokeRect(
+          Math.min(p0.x, p1.x) * w,
+          Math.min(p0.y, p1.y) * h,
+          Math.abs(p1.x - p0.x) * w,
+          Math.abs(p1.y - p0.y) * h
+        );
+      } else if (s.tool === 'arrow' && pts.length >= 2) {
+        const p0 = pts[0];
+        const p1 = pts[pts.length - 1];
+        const x0 = p0.x * w;
+        const y0 = p0.y * h;
+        const x1 = p1.x * w;
+        const y1 = p1.y * h;
+        const headLen = Math.max(12, s.size * 3.5 * scale);
+        const angle = Math.atan2(y1 - y0, x1 - x0);
+
+        ctx.beginPath();
+        ctx.moveTo(x0, y0);
+        ctx.lineTo(x1, y1);
+        ctx.stroke();
+
+        ctx.beginPath();
+        ctx.moveTo(x1, y1);
+        ctx.lineTo(x1 - headLen * Math.cos(angle - Math.PI / 6), y1 - headLen * Math.sin(angle - Math.PI / 6));
+        ctx.lineTo(x1 - headLen * Math.cos(angle + Math.PI / 6), y1 - headLen * Math.sin(angle + Math.PI / 6));
+        ctx.closePath();
+        ctx.fill();
+      }
+
+      ctx.restore();
+    };
+
+    strokes.forEach(drawStroke);
+    if (activeStroke) {
+      drawStroke(activeStroke);
+    }
+
+    if (spotlight.enabled) {
+      const cx = spotlight.x * w;
+      const cy = spotlight.y * h;
+      const radius = Math.max(36, spotlight.radius * Math.min(w, h));
+
+      ctx.save();
+      ctx.beginPath();
+      ctx.rect(0, 0, w, h);
+      ctx.arc(cx, cy, radius, 0, Math.PI * 2, true);
+      ctx.fillStyle = 'rgba(0, 0, 0, 0.74)';
+      ctx.fill('evenodd');
+
+      ctx.beginPath();
+      ctx.arc(cx, cy, radius, 0, Math.PI * 2);
+      ctx.strokeStyle = 'rgba(56, 189, 248, 0.9)';
+      ctx.lineWidth = Math.max(2, 2.5 * (w / 1280));
+      ctx.stroke();
+      ctx.restore();
+    }
+  }, [strokes, activeStroke, spotlight]);
+
+  // Acompanha a posição do mouse no SO quando a Lupa está ativa e o mouse está fora do visualizador
+  useEffect(() => {
+    if (!spotlight.enabled) return;
+    if (!window.electronAPI || typeof window.electronAPI.onCursorState !== 'function') return;
+
+    const unsub = window.electronAPI.onCursorState((state) => {
+      if (state.rect) {
+        const nx = Math.min(1, Math.max(0, state.rect.x + state.rect.w * 0.35));
+        const ny = Math.min(1, Math.max(0, state.rect.y + state.rect.h * 0.35));
+        setSpotlight((prev) => {
+          if (prev.activeInViewer) return prev;
+          return { ...prev, x: nx, y: ny };
+        });
+      }
+    });
+    return () => {
+      try {
+        unsub();
+      } catch {}
+    };
+  }, [spotlight.enabled]);
+
+  const getNormalizedCanvasPoint = (e: React.MouseEvent<HTMLCanvasElement>): AnnotationPoint => {
+    const canvas = annotationCanvasRef.current;
+    if (!canvas) return { x: 0.5, y: 0.5 };
+    const rect = canvas.getBoundingClientRect();
+    if (rect.width <= 0 || rect.height <= 0) return { x: 0.5, y: 0.5 };
+    return {
+      x: Math.min(1, Math.max(0, (e.clientX - rect.left) / rect.width)),
+      y: Math.min(1, Math.max(0, (e.clientY - rect.top) / rect.height)),
+    };
+  };
+
+  const eraseStrokesNearPoint = useCallback((pt: AnnotationPoint) => {
+    const threshold = 0.03;
+    setStrokes((prev) =>
+      prev.filter((stroke) => {
+        return !stroke.points.some((p) => {
+          const dx = p.x - pt.x;
+          const dy = p.y - pt.y;
+          return Math.sqrt(dx * dx + dy * dy) <= threshold;
+        });
+      })
+    );
+  }, []);
+
+  const handleCanvasMouseDown = (e: React.MouseEvent<HTMLCanvasElement>) => {
+    if (e.button !== 0) return;
+    const pt = getNormalizedCanvasPoint(e);
+
+    if (spotlight.enabled) {
+      setSpotlight((prev) => ({ ...prev, x: pt.x, y: pt.y, activeInViewer: true }));
+    }
+
+    if (activeTool === 'cursor') return;
+
+    isDrawingRef.current = true;
+    if (activeTool === 'eraser') {
+      eraseStrokesNearPoint(pt);
+      return;
+    }
+
+    const newStroke: AnnotationStroke = {
+      id: `stroke-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+      tool: activeTool,
+      color: strokeColor,
+      size: strokeSize,
+      points: [pt],
+    };
+    setActiveStroke(newStroke);
+  };
+
+  const handleCanvasMouseMove = (e: React.MouseEvent<HTMLCanvasElement>) => {
+    const pt = getNormalizedCanvasPoint(e);
+
+    if (spotlight.enabled) {
+      setSpotlight((prev) => ({ ...prev, x: pt.x, y: pt.y, activeInViewer: true }));
+    }
+
+    if (!isDrawingRef.current) return;
+
+    if (activeTool === 'eraser') {
+      eraseStrokesNearPoint(pt);
+      return;
+    }
+
+    setActiveStroke((prev) => {
+      if (!prev) return null;
+      if (prev.tool === 'rect' || prev.tool === 'arrow') {
+        return {
+          ...prev,
+          points: [prev.points[0], pt],
+        };
+      }
+      return {
+        ...prev,
+        points: [...prev.points, pt],
+      };
+    });
+  };
+
+  const handleCanvasMouseUp = () => {
+    if (!isDrawingRef.current) return;
+    isDrawingRef.current = false;
+    setActiveStroke((current) => {
+      if (current && current.points.length > 0) {
+        setStrokes((prev) => [...prev, current]);
+        setRedoStrokes([]);
+      }
+      return null;
+    });
+  };
+
+  const handleCanvasMouseLeave = () => {
+    if (spotlight.enabled) {
+      setSpotlight((prev) => ({ ...prev, activeInViewer: false }));
+    }
+    if (isDrawingRef.current) {
+      handleCanvasMouseUp();
+    }
+  };
+
+  const handleCanvasWheel = (e: React.WheelEvent<HTMLCanvasElement>) => {
+    if (!spotlight.enabled) return;
+    e.preventDefault();
+    const delta = e.deltaY < 0 ? 0.015 : -0.015;
+    setSpotlight((prev) => ({
+      ...prev,
+      radius: Math.min(0.35, Math.max(0.06, prev.radius + delta)),
+    }));
+  };
 
   const handleToggleSidebar = () => {
     setIsSidebarOpen((prev) => {
@@ -512,8 +962,10 @@ export const Room: React.FC<RoomProps> = ({ room, onCloseRoom }) => {
 
   const handleReconfigure = useCallback(() => {
     setIsLiveSession(false);
+    // Mantém setContentProtection(true) ativo durante a troca de modo/fonte para que
+    // a janela do MLab nunca apareça na transmissão de Tela Cheia para os alunos.
     if (window.electronAPI && typeof window.electronAPI.setContentProtection === 'function') {
-      window.electronAPI.setContentProtection(false).catch(() => {});
+      window.electronAPI.setContentProtection(true).catch(() => {});
     }
   }, []);
 
@@ -935,53 +1387,289 @@ export const Room: React.FC<RoomProps> = ({ room, onCloseRoom }) => {
                   </div>
                 </div>
 
-                {/* Pré-visualização Estática no Modo Tela Cheia (Anti-Espelho sem botões) */}
+                {/* Visualizador da Transmissão + Barra Vertical de Marcação e Lupa no Lado Esquerdo */}
                 <div style={styles.previewArea}>
-                  {captureMode === 'screen' ? (
-                    <div style={styles.staticPreviewBox}>
-                      {currentThumbnail || selectedSource?.thumbnail || tentativeSource?.thumbnail ? (
-                        <img
-                          src={currentThumbnail || selectedSource?.thumbnail || tentativeSource?.thumbnail}
-                          alt="Pré-visualização da Tela Cheia"
-                          style={{ ...styles.previewMedia, opacity: videoPaused ? 0.3 : 1 }}
-                        />
-                      ) : (
-                        <div style={styles.screenShieldCard}>
-                          <span style={styles.screenShieldIcon}><Screen size={44} /></span>
-                          <h3 style={styles.screenShieldTitle}>Sua Tela Inteira está Sendo Transmitida</h3>
-                          <p style={styles.screenShieldSubtitle}>
-                            A transmissão está ativa e os alunos estão assistindo em tempo real.
-                          </p>
-                        </div>
-                      )}
+                  {/* Barra Vertical de Marcação (Estilo Editor de PDF) e Lupa — Lado Esquerdo, de Cima para Baixo */}
+                  <div
+                    style={styles.annotationToolbarLeft}
+                    data-testid="annotation-toolbar"
+                    role="toolbar"
+                    aria-label="Ferramentas de Marcação e Lupa"
+                  >
+                    <button
+                      type="button"
+                      onClick={() => handleSelectTool('cursor')}
+                      style={activeTool === 'cursor' ? styles.annotationToolBtnActive : styles.annotationToolBtn}
+                      title="Cursor Padrão — Navegação normal (Atalho: V / 1 / Esc)"
+                      aria-label="Cursor Padrão"
+                      data-testid="tool-btn-cursor"
+                    >
+                      <Cursor_1 size={16} />
+                      <span style={styles.shortcutHintBadge}>V</span>
+                    </button>
 
-                      {/* Badge Informativo Estático */}
-                      <div style={styles.staticOverlayBadge}>
-                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}><Screen size={14} /> Tela Inteira Ativa • Imagem Estática</span>
+                    <button
+                      type="button"
+                      onClick={() => handleSelectTool('pen')}
+                      style={activeTool === 'pen' ? styles.annotationToolBtnActive : styles.annotationToolBtn}
+                      title="Pincel / Caneta Livre — Desenhar e circular (Atalho: P / 2)"
+                      aria-label="Pincel"
+                      data-testid="tool-btn-pen"
+                    >
+                      <Pen size={16} />
+                      <span style={styles.shortcutHintBadge}>P</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => handleSelectTool('highlighter')}
+                      style={activeTool === 'highlighter' ? styles.annotationToolBtnActive : styles.annotationToolBtn}
+                      title="Marcador / Marca-Texto PDF — Realçar texto e código (Atalho: M / H / 3)"
+                      aria-label="Marcador"
+                      data-testid="tool-btn-highlighter"
+                    >
+                      <Draw size={16} />
+                      <span style={styles.shortcutHintBadge}>M</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => handleSelectTool('arrow')}
+                      style={activeTool === 'arrow' ? styles.annotationToolBtnActive : styles.annotationToolBtn}
+                      title="Seta Indicativa — Apontar elemento na tela (Atalho: A / 4)"
+                      aria-label="Seta"
+                      data-testid="tool-btn-arrow"
+                    >
+                      <ArrowUpRight size={16} />
+                      <span style={styles.shortcutHintBadge}>A</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => handleSelectTool('rect')}
+                      style={activeTool === 'rect' ? styles.annotationToolBtnActive : styles.annotationToolBtn}
+                      title="Retângulo de Destaque — Enquadrar área ou bloco (Atalho: R / 5)"
+                      aria-label="Retângulo"
+                      data-testid="tool-btn-rect"
+                    >
+                      <SquareOutline size={16} />
+                      <span style={styles.shortcutHintBadge}>R</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => handleSelectTool('eraser')}
+                      style={activeTool === 'eraser' ? styles.annotationToolBtnActive : styles.annotationToolBtn}
+                      title="Borracha — Apagar marcações tocadas (Atalho: E / B / 6)"
+                      aria-label="Borracha"
+                      data-testid="tool-btn-eraser"
+                    >
+                      <Erase size={16} />
+                      <span style={styles.shortcutHintBadge}>E</span>
+                    </button>
+
+                    <div style={styles.annotationToolbarDivider} />
+
+                    <button
+                      type="button"
+                      onClick={handleToggleSpotlight}
+                      style={spotlight.enabled ? styles.annotationToolBtnSpotlightActive : styles.annotationToolBtn}
+                      title="Lupa / Foco no Mouse — Escurece a tela e destaca apenas o ponto do mouse (Atalho: L / F / 7 • Scroll ajusta raio • Z alterna zoom)"
+                      aria-label="Lupa"
+                      data-testid="tool-btn-spotlight"
+                    >
+                      <ZoomIn size={16} />
+                      <span style={styles.shortcutHintBadge}>L</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => setShowPalettePopover((prev) => !prev)}
+                      style={showPalettePopover ? styles.annotationToolBtnActive : styles.annotationToolBtn}
+                      title="Cor da Marcação, Espessura do Traço e Zoom da Lupa (Atalho Zoom: Z)"
+                      aria-label="Cores e Espessura"
+                      data-testid="tool-btn-palette"
+                    >
+                      <ColorPalette size={16} />
+                      <span
+                        style={{
+                          ...styles.colorDotIndicator,
+                          backgroundColor: strokeColor,
+                        }}
+                      />
+                    </button>
+
+                    <div style={styles.annotationToolbarDivider} />
+
+                    <button
+                      type="button"
+                      onClick={handleUndoAnnotation}
+                      disabled={strokes.length === 0}
+                      style={strokes.length === 0 ? styles.annotationToolBtnDisabled : styles.annotationToolBtn}
+                      title="Desfazer última marcação (Atalho: Ctrl+Z)"
+                      aria-label="Desfazer"
+                      data-testid="tool-btn-undo"
+                    >
+                      <Undo size={15} />
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={handleRedoAnnotation}
+                      disabled={redoStrokes.length === 0}
+                      style={redoStrokes.length === 0 ? styles.annotationToolBtnDisabled : styles.annotationToolBtn}
+                      title="Refazer marcação (Atalho: Ctrl+Y / Ctrl+Shift+Z)"
+                      aria-label="Refazer"
+                      data-testid="tool-btn-redo"
+                    >
+                      <Redo size={15} />
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={handleClearAnnotations}
+                      disabled={strokes.length === 0 && !activeStroke}
+                      style={
+                        strokes.length === 0 && !activeStroke
+                          ? styles.annotationToolBtnDisabled
+                          : styles.annotationToolBtnDanger
+                      }
+                      title="Limpar todas as marcações da tela (Atalho: Ctrl+Shift+X / Delete)"
+                      aria-label="Limpar Marcações"
+                      data-testid="tool-btn-clear"
+                    >
+                      <TrashCan size={15} />
+                    </button>
+                  </div>
+
+                  {/* Popover Flutuante de Cores, Espessura e Nível de Zoom da Lupa */}
+                  {showPalettePopover && (
+                    <div style={styles.palettePopoverBox} data-testid="annotation-palette-popover">
+                      <div style={styles.paletteSectionTitle}>Cor da Marcação</div>
+                      <div style={styles.paletteColorsRow}>
+                        {ANNOTATION_COLORS.map((c) => (
+                          <button
+                            key={c.hex}
+                            type="button"
+                            onClick={() => setStrokeColor(c.hex)}
+                            title={c.name}
+                            aria-label={`Cor ${c.name}`}
+                            style={{
+                              ...styles.colorSwatchBtn,
+                              backgroundColor: c.hex,
+                              border: strokeColor === c.hex ? '2px solid #ffffff' : '1px solid rgba(255,255,255,0.25)',
+                              transform: strokeColor === c.hex ? 'scale(1.15)' : 'scale(1)',
+                            }}
+                          />
+                        ))}
                       </div>
 
-                      {videoPaused && (
-                        <div style={styles.pausedOverlayBadge}>
-                          Transmissão Pausada
-                        </div>
-                      )}
-                    </div>
-                  ) : (
-                    <div style={styles.videoContainer}>
-                      <video
-                        ref={videoRef}
-                        autoPlay
-                        playsInline
-                        muted
-                        style={{ ...styles.previewMedia, opacity: videoPaused ? 0.3 : 1 }}
-                      />
-                      {videoPaused && (
-                        <div style={styles.pausedOverlayBadge}>
-                          Transmissão Pausada
-                        </div>
-                      )}
+                      <div style={styles.paletteSectionTitle}>Espessura do Traço</div>
+                      <div style={styles.paletteSizesRow}>
+                        {[
+                          { label: 'Fina', value: 3 },
+                          { label: 'Média', value: 5 },
+                          { label: 'Grossa', value: 9 },
+                        ].map((sz) => (
+                          <button
+                            key={sz.value}
+                            type="button"
+                            onClick={() => setStrokeSize(sz.value)}
+                            style={strokeSize === sz.value ? styles.sizeOptionBtnActive : styles.sizeOptionBtn}
+                          >
+                            {sz.label}
+                          </button>
+                        ))}
+                      </div>
+
+                      <div style={styles.paletteSectionTitle}>Zoom da Lupa (Atalho: Z)</div>
+                      <div style={styles.paletteSizesRow}>
+                        {([1, 1.5, 2] as const).map((zm) => (
+                          <button
+                            key={zm}
+                            type="button"
+                            onClick={() => setSpotlight((prev) => ({ ...prev, zoom: zm }))}
+                            style={spotlight.zoom === zm ? styles.sizeOptionBtnActive : styles.sizeOptionBtn}
+                          >
+                            {zm === 1 ? '1x (Foco)' : `${zm}x`}
+                          </button>
+                        ))}
+                      </div>
                     </div>
                   )}
+
+                  {/* Área Central do Visualizador com Camada de Marcação e Lupa */}
+                  <div style={styles.previewStageBox}>
+                    {captureMode === 'screen' ? (
+                      <div style={styles.staticPreviewBox}>
+                        {currentThumbnail || selectedSource?.thumbnail || tentativeSource?.thumbnail ? (
+                          <img
+                            src={currentThumbnail || selectedSource?.thumbnail || tentativeSource?.thumbnail}
+                            alt="Pré-visualização da Tela Cheia"
+                            style={{ ...styles.previewMedia, opacity: videoPaused ? 0.3 : 1 }}
+                          />
+                        ) : (
+                          <div style={styles.screenShieldCard}>
+                            <span style={styles.screenShieldIcon}><Screen size={44} /></span>
+                            <h3 style={styles.screenShieldTitle}>Sua Tela Inteira está Sendo Transmitida</h3>
+                            <p style={styles.screenShieldSubtitle}>
+                              A transmissão está ativa e os alunos estão assistindo em tempo real.
+                            </p>
+                          </div>
+                        )}
+
+                        {/* Badge Informativo Estático */}
+                        <div style={styles.staticOverlayBadge}>
+                          <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}><Screen size={14} /> Tela Inteira Ativa • Imagem Estática</span>
+                        </div>
+
+                        {videoPaused && (
+                          <div style={styles.pausedOverlayBadge}>
+                            Transmissão Pausada
+                          </div>
+                        )}
+                      </div>
+                    ) : (
+                      <div style={styles.videoContainer}>
+                        <video
+                          ref={videoRef}
+                          autoPlay
+                          playsInline
+                          muted
+                          style={{ ...styles.previewMedia, opacity: videoPaused ? 0.3 : 1 }}
+                        />
+                        {videoPaused && (
+                          <div style={styles.pausedOverlayBadge}>
+                            Transmissão Pausada
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Canvas Interativo de Marcações (Estilo PDF) e Lupa / Foco */}
+                    <canvas
+                      ref={annotationCanvasRef}
+                      width={1280}
+                      height={720}
+                      data-testid="annotation-canvas"
+                      onMouseDown={handleCanvasMouseDown}
+                      onMouseMove={handleCanvasMouseMove}
+                      onMouseUp={handleCanvasMouseUp}
+                      onMouseLeave={handleCanvasMouseLeave}
+                      onWheel={handleCanvasWheel}
+                      style={{
+                        ...styles.annotationCanvasOverlay,
+                        cursor:
+                          activeTool === 'cursor'
+                            ? spotlight.enabled
+                              ? 'crosshair'
+                              : 'default'
+                            : activeTool === 'eraser'
+                            ? 'cell'
+                            : 'crosshair',
+                      }}
+                    />
+                  </div>
 
                   {/* Notificação Flutuante de Mão Levantada (quando a sidebar estiver recolhida) */}
                   {lastHandRaised && !isSidebarOpen && (
@@ -3526,6 +4214,195 @@ const styles: { [key: string]: React.CSSProperties } = {
     fontSize: '12px',
     fontWeight: '700',
     cursor: 'pointer',
+  },
+  annotationToolbarLeft: {
+    position: 'absolute',
+    left: '12px',
+    top: '50%',
+    transform: 'translateY(-50%)',
+    zIndex: 25,
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'center',
+    gap: '4px',
+    padding: '8px 6px',
+    backgroundColor: 'rgba(15, 23, 42, 0.92)',
+    border: '1px solid #334155',
+    borderRadius: '10px',
+    boxShadow: '0 8px 24px rgba(0, 0, 0, 0.65)',
+    backdropFilter: 'blur(8px)',
+  },
+  annotationToolBtn: {
+    position: 'relative',
+    width: '34px',
+    height: '32px',
+    borderRadius: '7px',
+    border: '1px solid transparent',
+    backgroundColor: 'transparent',
+    color: '#cbd5e1',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    cursor: 'pointer',
+    transition: 'all 0.15s ease',
+  },
+  annotationToolBtnActive: {
+    position: 'relative',
+    width: '34px',
+    height: '32px',
+    borderRadius: '7px',
+    border: '1px solid #38bdf8',
+    backgroundColor: 'rgba(56, 189, 248, 0.2)',
+    color: '#38bdf8',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    cursor: 'pointer',
+    boxShadow: '0 0 10px rgba(56, 189, 248, 0.25)',
+  },
+  annotationToolBtnSpotlightActive: {
+    position: 'relative',
+    width: '34px',
+    height: '32px',
+    borderRadius: '7px',
+    border: '1px solid #facc15',
+    backgroundColor: 'rgba(250, 204, 21, 0.22)',
+    color: '#facc15',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    cursor: 'pointer',
+    boxShadow: '0 0 12px rgba(250, 204, 21, 0.35)',
+  },
+  annotationToolBtnDisabled: {
+    position: 'relative',
+    width: '34px',
+    height: '30px',
+    borderRadius: '7px',
+    border: '1px solid transparent',
+    backgroundColor: 'transparent',
+    color: '#475569',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    cursor: 'not-allowed',
+    opacity: 0.45,
+  },
+  annotationToolBtnDanger: {
+    position: 'relative',
+    width: '34px',
+    height: '30px',
+    borderRadius: '7px',
+    border: '1px solid rgba(239, 68, 68, 0.35)',
+    backgroundColor: 'rgba(239, 68, 68, 0.12)',
+    color: '#f87171',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    cursor: 'pointer',
+  },
+  shortcutHintBadge: {
+    position: 'absolute',
+    bottom: '1px',
+    right: '3px',
+    fontSize: '8px',
+    fontWeight: '700',
+    color: '#94a3b8',
+    lineHeight: 1,
+    pointerEvents: 'none',
+  },
+  colorDotIndicator: {
+    position: 'absolute',
+    bottom: '3px',
+    right: '3px',
+    width: '7px',
+    height: '7px',
+    borderRadius: '50%',
+    border: '1px solid #0f172a',
+  },
+  annotationToolbarDivider: {
+    width: '22px',
+    height: '1px',
+    backgroundColor: '#334155',
+    margin: '2px 0',
+  },
+  palettePopoverBox: {
+    position: 'absolute',
+    left: '64px',
+    top: '50%',
+    transform: 'translateY(-50%)',
+    zIndex: 30,
+    backgroundColor: 'rgba(15, 23, 42, 0.96)',
+    border: '1px solid #334155',
+    borderRadius: '10px',
+    padding: '12px',
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '8px',
+    boxShadow: '0 10px 28px rgba(0, 0, 0, 0.7)',
+    minWidth: '175px',
+  },
+  paletteSectionTitle: {
+    fontSize: '10px',
+    fontWeight: '700',
+    color: '#94a3b8',
+    textTransform: 'uppercase',
+    letterSpacing: '0.04em',
+  },
+  paletteColorsRow: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '8px',
+  },
+  colorSwatchBtn: {
+    width: '20px',
+    height: '20px',
+    borderRadius: '50%',
+    cursor: 'pointer',
+    padding: 0,
+    transition: 'transform 0.12s ease',
+  },
+  paletteSizesRow: {
+    display: 'flex',
+    gap: '6px',
+  },
+  sizeOptionBtn: {
+    flex: 1,
+    padding: '4px 6px',
+    borderRadius: '5px',
+    border: '1px solid #334155',
+    backgroundColor: '#1e293b',
+    color: '#cbd5e1',
+    fontSize: '11px',
+    fontWeight: '500',
+    cursor: 'pointer',
+  },
+  sizeOptionBtnActive: {
+    flex: 1,
+    padding: '4px 6px',
+    borderRadius: '5px',
+    border: '1px solid #38bdf8',
+    backgroundColor: 'rgba(56, 189, 248, 0.2)',
+    color: '#38bdf8',
+    fontSize: '11px',
+    fontWeight: '700',
+    cursor: 'pointer',
+  },
+  previewStageBox: {
+    width: '100%',
+    height: '100%',
+    position: 'relative',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  annotationCanvasOverlay: {
+    position: 'absolute',
+    inset: 0,
+    width: '100%',
+    height: '100%',
+    zIndex: 15,
+    pointerEvents: 'auto',
   },
 };
 
