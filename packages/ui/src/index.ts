@@ -53,6 +53,17 @@ export {
   VolumeMute,
   Pin,
   PinFilled,
+  Cursor_1,
+  Pen,
+  Draw,
+  ArrowUpRight,
+  SquareOutline,
+  Erase,
+  ZoomIn,
+  ColorPalette,
+  Undo,
+  Redo,
+  TrashCan,
 } from '@carbon/icons-react';
 
 /**

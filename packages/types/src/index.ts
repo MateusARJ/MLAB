@@ -292,3 +292,40 @@ export interface SystemMediaPermissions {
   microphone: MediaPermissionStatus;
   screen: MediaPermissionStatus;
 }
+
+// ── Annotation & Spotlight Tools (PDF-style Editor + Lupa) ───────────────────
+
+export type AnnotationTool = 'cursor' | 'pen' | 'highlighter' | 'arrow' | 'rect' | 'eraser';
+
+export interface AnnotationPoint {
+  x: number;
+  y: number;
+}
+
+export interface AnnotationStroke {
+  id: string;
+  tool: 'pen' | 'highlighter' | 'arrow' | 'rect';
+  color: string;
+  size: number;
+  points: AnnotationPoint[];
+}
+
+export interface SpotlightState {
+  enabled: boolean;
+  /** Coordenada X normalizada [0..1] do centro do foco */
+  x: number;
+  /** Coordenada Y normalizada [0..1] do centro do foco */
+  y: number;
+  /** Raio normalizado [0..1] em relação à menor dimensão do quadro */
+  radius: number;
+  /** Nível de ampliação dentro da lupa (1 = apenas foco luminoso, 1.5x ou 2x = lente de aumento) */
+  zoom: 1 | 1.5 | 2;
+  /** true quando o mouse está sendo movido diretamente sobre o visualizador do MLab */
+  activeInViewer?: boolean;
+}
+
+export interface AnnotationOverlayState {
+  strokes: AnnotationStroke[];
+  activeStroke: AnnotationStroke | null;
+  spotlight: SpotlightState;
+}
