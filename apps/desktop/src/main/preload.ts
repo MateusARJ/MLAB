@@ -1,5 +1,12 @@
 import { contextBridge, ipcRenderer, clipboard } from 'electron'
-import type { CaptureSource, CaptureSourceType, CursorState, RecordingFormat } from '@mlab/types'
+import type {
+  AnnotationSessionState,
+  AnnotationShortcutCommand,
+  CaptureSource,
+  CaptureSourceType,
+  CursorState,
+  RecordingFormat
+} from '@mlab/types'
 
 /**
  * Preload script — expõe APIs do Electron ao renderer de forma segura.
@@ -81,6 +88,36 @@ export interface ElectronAPI {
    * Inscreve um callback para receber atualizações de visibilidade e posição do cursor.
    */
   onCursorState: (cb: (state: CursorState) => void) => () => void
+
+  /**
+   * Inicia a janela de overlay transparente externa de marcação e lupa (invisível na captura dos alunos).
+   */
+  startAnnotationOverlay: () => Promise<boolean>
+
+  /**
+   * Encerra a janela de overlay transparente externa de marcação e lupa.
+   */
+  stopAnnotationOverlay: () => Promise<void>
+
+  /**
+   * Sincroniza o estado das marcações e da lupa entre a janela do MLab e o overlay externo.
+   */
+  syncAnnotationState: (state: AnnotationSessionState) => Promise<void>
+
+  /**
+   * Controla se os cliques de mouse devem atravessar o overlay externo (click-through) ou ser capturados para desenho/barra.
+   */
+  setAnnotationOverlayIgnoreMouse: (ignore: boolean) => Promise<void>
+
+  /**
+   * Inscreve um callback para receber atualizações de estado da sessão de marcação e lupa.
+   */
+  onAnnotationStateSync: (cb: (state: AnnotationSessionState) => void) => () => void
+
+  /**
+   * Inscreve um callback para receber comandos de atalhos globais do SO (Alt+Shift+...).
+   */
+  onAnnotationShortcutCommand: (cb: (command: AnnotationShortcutCommand) => void) => () => void
 }
 
 const api: ElectronAPI = {
@@ -112,6 +149,33 @@ const api: ElectronAPI = {
     return () => {
       ipcRenderer.removeListener('cursor-state', listener)
     }
+  },
+  startAnnotationOverlay: () => ipcRenderer.invoke('annotation-overlay:start'),
+  stopAnnotationOverlay: () => ipcRenderer.invoke('annotation-overlay:stop'),
+  syncAnnotationState: (state) => ipcRenderer.invoke('annotation-overlay:sync-state', state),
+  setAnnotationOverlayIgnoreMouse: (ignore) =>
+    ipcRenderer.invoke('annotation-overlay:set-ignore-mouse', ignore),
+  onAnnotationStateSync: (cb) => {
+    const listener = (_event: unknown, state: AnnotationSessionState) => {
+      if (state && typeof cb === 'function') {
+        cb(state)
+      }
+    }
+    ipcRenderer.on('annotation-overlay:state', listener)
+    return () => {
+      ipcRenderer.removeListener('annotation-overlay:state', listener)
+    }
+  },
+  onAnnotationShortcutCommand: (cb) => {
+    const listener = (_event: unknown, command: AnnotationShortcutCommand) => {
+      if (command && typeof cb === 'function') {
+        cb(command)
+      }
+    }
+    ipcRenderer.on('annotation-overlay:shortcut', listener)
+    return () => {
+      ipcRenderer.removeListener('annotation-overlay:shortcut', listener)
+    }
   }
 }
 
@@ -123,4 +187,3 @@ declare global {
     electronAPI: ElectronAPI
   }
 }
-

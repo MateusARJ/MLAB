@@ -1,6 +1,8 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import type {
   AnnotationPoint,
+  AnnotationSessionState,
+  AnnotationShortcutCommand,
   AnnotationStroke,
   AnnotationTool,
   CaptureSource,
@@ -35,6 +37,8 @@ import {
   Renew,
   Play,
   Close,
+  Maximize,
+  Minimize,
   Education,
   Idea,
   Touch_1,
@@ -54,6 +58,8 @@ import {
   Undo,
   Redo,
   TrashCan,
+  Draggable,
+  ChevronLeft,
   decodeChatEntities,
 } from '@mlab/ui';
 
@@ -180,6 +186,8 @@ export const Room: React.FC<RoomProps> = ({ room, onCloseRoom }) => {
   const [redoStrokes, setRedoStrokes] = useState<AnnotationStroke[]>([]);
   const [activeStroke, setActiveStroke] = useState<AnnotationStroke | null>(null);
   const [showPalettePopover, setShowPalettePopover] = useState<boolean>(false);
+  const [isToolbarCollapsed, setIsToolbarCollapsed] = useState<boolean>(false);
+  const [toolbarPos, setToolbarPos] = useState<{ x: number; y: number } | null>(null);
   const [spotlight, setSpotlight] = useState<SpotlightState>({
     enabled: false,
     x: 0.5,
@@ -188,9 +196,15 @@ export const Room: React.FC<RoomProps> = ({ room, onCloseRoom }) => {
     zoom: 1,
     activeInViewer: false,
   });
+  const spotlightCoordsRef = useRef<{ x: number; y: number }>({ x: 0.5, y: 0.5 });
+  const rafRoomCanvasDrawRef = useRef<number>(0);
+  const previewAreaRef = useRef<HTMLDivElement | null>(null);
   const annotationCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const isDrawingRef = useRef<boolean>(false);
   const hadCanvasDrawRef = useRef<boolean>(false);
+  const isDraggingToolbarRef = useRef<boolean>(false);
+  const dragToolbarMovedRef = useRef<boolean>(false);
+  const syncingFromExternalRef = useRef<boolean>(false);
 
   const ANNOTATION_COLORS = [
     { hex: '#ef4444', name: 'Vermelho' },
@@ -200,6 +214,63 @@ export const Room: React.FC<RoomProps> = ({ room, onCloseRoom }) => {
     { hex: '#c084fc', name: 'Roxo' },
     { hex: '#ffffff', name: 'Branco' },
   ];
+
+  const handleToggleToolbarCollapse = useCallback(() => {
+    if (isToolbarCollapsed && dragToolbarMovedRef.current) {
+      dragToolbarMovedRef.current = false;
+      return;
+    }
+    dragToolbarMovedRef.current = false;
+    setShowPalettePopover(false);
+    setIsToolbarCollapsed((prev) => !prev);
+  }, [isToolbarCollapsed]);
+
+  const handleStartDragToolbar = useCallback(
+    (e: React.MouseEvent) => {
+      if (e.button !== 0) return;
+      e.stopPropagation();
+      const container = previewAreaRef.current;
+      const containerRect = container
+        ? container.getBoundingClientRect()
+        : { left: 0, top: 0, width: 1280, height: 720 };
+      const effectiveW = containerRect.width > 0 ? containerRect.width : 1280;
+      const effectiveH = containerRect.height > 0 ? containerRect.height : 720;
+
+      const currentX = toolbarPos ? toolbarPos.x : 12;
+      const currentY = toolbarPos ? toolbarPos.y : Math.max(12, Math.round(effectiveH * 0.15));
+      const offsetX = e.clientX - containerRect.left - currentX;
+      const offsetY = e.clientY - containerRect.top - currentY;
+
+      isDraggingToolbarRef.current = true;
+      dragToolbarMovedRef.current = false;
+
+      const onMouseMove = (moveEvent: MouseEvent) => {
+        if (!isDraggingToolbarRef.current) return;
+        const rawX = moveEvent.clientX - containerRect.left - offsetX;
+        const rawY = moveEvent.clientY - containerRect.top - offsetY;
+        const nextX = Math.max(8, Math.min(effectiveW - 56, Math.round(rawX)));
+        const nextY = Math.max(8, Math.min(effectiveH - 56, Math.round(rawY)));
+        if (Math.abs(nextX - currentX) > 3 || Math.abs(nextY - currentY) > 3) {
+          dragToolbarMovedRef.current = true;
+        }
+        setToolbarPos({ x: nextX, y: nextY });
+      };
+
+      const onMouseUp = () => {
+        isDraggingToolbarRef.current = false;
+        window.removeEventListener('mousemove', onMouseMove);
+        window.removeEventListener('mouseup', onMouseUp);
+        window.removeEventListener('pointermove', onMouseMove);
+        window.removeEventListener('pointerup', onMouseUp);
+      };
+
+      window.addEventListener('mousemove', onMouseMove);
+      window.addEventListener('mouseup', onMouseUp);
+      window.addEventListener('pointermove', onMouseMove);
+      window.addEventListener('pointerup', onMouseUp);
+    },
+    [toolbarPos]
+  );
 
   const handleSelectTool = useCallback((tool: AnnotationTool) => {
     setActiveTool(tool);
@@ -486,9 +557,12 @@ export const Room: React.FC<RoomProps> = ({ room, onCloseRoom }) => {
       } else if (key === 'p' || key === '2') {
         e.preventDefault();
         handleSelectTool('pen');
-      } else if (key === 'm' || key === 'h' || key === '3') {
+      } else if (key === 'm' || key === '3') {
         e.preventDefault();
         handleSelectTool('highlighter');
+      } else if (key === 'h') {
+        e.preventDefault();
+        handleToggleToolbarCollapse();
       } else if (key === 'a' || key === '4') {
         e.preventDefault();
         handleSelectTool('arrow');
@@ -512,6 +586,7 @@ export const Room: React.FC<RoomProps> = ({ room, onCloseRoom }) => {
   }, [
     isLiveSession,
     handleSelectTool,
+    handleToggleToolbarCollapse,
     handleToggleSpotlight,
     handleCycleSpotlightZoom,
     handleUndoAnnotation,
@@ -519,15 +594,126 @@ export const Room: React.FC<RoomProps> = ({ room, onCloseRoom }) => {
     handleClearAnnotations,
   ]);
 
-  // Sincroniza o estado das marcações e da Lupa com o pipeline de vídeo (WebRTC + Gravação)
-  // e desenha em tempo real no canvas sobreposto do visualizador do professor
+  // Inicia/para a janela de overlay externo de Marcação e Lupa durante a sessão ao vivo
   useEffect(() => {
-    setAnnotationOverlayState({
+    if (!isLiveSession) {
+      window.electronAPI?.stopAnnotationOverlay?.().catch(() => {});
+      return;
+    }
+    window.electronAPI?.startAnnotationOverlay?.().catch(() => {});
+    return () => {
+      window.electronAPI?.stopAnnotationOverlay?.().catch(() => {});
+    };
+  }, [isLiveSession]);
+
+  // Recebe atualizações de estado vindas da barra flutuante externa (fora do MLab)
+  useEffect(() => {
+    if (!isLiveSession || !window.electronAPI?.onAnnotationStateSync) return;
+    const unsubscribe = window.electronAPI.onAnnotationStateSync((nextState) => {
+      syncingFromExternalRef.current = true;
+      setActiveTool(nextState.activeTool);
+      setStrokeColor(nextState.strokeColor);
+      setStrokeSize(nextState.strokeSize);
+      setStrokes(nextState.strokes);
+      setRedoStrokes(nextState.redoStrokes);
+      setActiveStroke(nextState.activeStroke);
+      setSpotlight(nextState.spotlight);
+      const nextCollapsed =
+        typeof nextState.collapsed === 'boolean'
+          ? nextState.collapsed
+          : typeof (nextState as any).isToolbarCollapsed === 'boolean'
+          ? (nextState as any).isToolbarCollapsed
+          : undefined;
+      if (typeof nextCollapsed === 'boolean') {
+        setIsToolbarCollapsed(nextCollapsed);
+      }
+      setTimeout(() => {
+        syncingFromExternalRef.current = false;
+      }, 0);
+    });
+    return () => {
+      if (typeof unsubscribe === 'function') unsubscribe();
+    };
+  }, [isLiveSession]);
+
+  // Recebe comandos de atalho global (Alt+Shift+...) acionados mesmo quando o professor está fora do MLab
+  useEffect(() => {
+    if (!isLiveSession || !window.electronAPI?.onAnnotationShortcutCommand) return;
+    const unsubscribe = window.electronAPI.onAnnotationShortcutCommand((cmd: any) => {
+      const action = typeof cmd === 'string' ? cmd : cmd?.action;
+      if (action === 'select-tool' && cmd?.tool) {
+        handleSelectTool(cmd.tool);
+      } else if (action === 'tool-cursor') {
+        handleSelectTool('cursor');
+      } else if (action === 'tool-pen') {
+        handleSelectTool('pen');
+      } else if (action === 'tool-highlighter') {
+        handleSelectTool('highlighter');
+      } else if (action === 'tool-arrow') {
+        handleSelectTool('arrow');
+      } else if (action === 'tool-rect') {
+        handleSelectTool('rect');
+      } else if (action === 'tool-eraser') {
+        handleSelectTool('eraser');
+      } else if (action === 'toggle-spotlight') {
+        handleToggleSpotlight();
+      } else if (action === 'cycle-zoom') {
+        handleCycleSpotlightZoom();
+      } else if (action === 'undo') {
+        handleUndoAnnotation();
+      } else if (action === 'redo') {
+        handleRedoAnnotation();
+      } else if (action === 'clear') {
+        handleClearAnnotations();
+      } else if (action === 'toggle-collapse') {
+        handleToggleToolbarCollapse();
+      }
+    });
+    return () => {
+      if (typeof unsubscribe === 'function') unsubscribe();
+    };
+  }, [
+    isLiveSession,
+    handleSelectTool,
+    handleToggleSpotlight,
+    handleCycleSpotlightZoom,
+    handleUndoAnnotation,
+    handleRedoAnnotation,
+    handleClearAnnotations,
+    handleToggleToolbarCollapse,
+  ]);
+
+  // Envia o estado atual de Marcação e Lupa para a janela de overlay externo via IPC
+  useEffect(() => {
+    if (!isLiveSession) return;
+    if (syncingFromExternalRef.current) {
+      syncingFromExternalRef.current = false;
+      return;
+    }
+    window.electronAPI?.syncAnnotationState?.({
+      activeTool,
+      strokeColor,
+      strokeSize,
       strokes,
+      redoStrokes,
       activeStroke,
       spotlight,
+      collapsed: isToolbarCollapsed,
     });
+  }, [
+    isLiveSession,
+    activeTool,
+    strokeColor,
+    strokeSize,
+    strokes,
+    redoStrokes,
+    activeStroke,
+    spotlight,
+    isToolbarCollapsed,
+  ]);
 
+  // Renderiza em alta performance no canvas sobreposto do visualizador do professor
+  const renderRoomAnnotationCanvas = useCallback(() => {
     const hasContent = strokes.length > 0 || activeStroke !== null || spotlight.enabled;
     if (!hasContent && !hadCanvasDrawRef.current) return;
     hadCanvasDrawRef.current = hasContent;
@@ -545,6 +731,8 @@ export const Room: React.FC<RoomProps> = ({ room, onCloseRoom }) => {
     const w = canvas.width;
     const h = canvas.height;
     ctx.clearRect(0, 0, w, h);
+
+    if (!hasContent) return;
 
     const drawStroke = (s: AnnotationStroke) => {
       const pts = s.points;
@@ -619,15 +807,27 @@ export const Room: React.FC<RoomProps> = ({ room, onCloseRoom }) => {
     }
 
     if (spotlight.enabled) {
-      const cx = spotlight.x * w;
-      const cy = spotlight.y * h;
+      const pos = spotlightCoordsRef.current;
+      const cx = (spotlight.activeInViewer ? spotlight.x : pos.x) * w;
+      const cy = (spotlight.activeInViewer ? spotlight.y : pos.y) * h;
       const radius = Math.max(36, spotlight.radius * Math.min(w, h));
 
       ctx.save();
-      ctx.beginPath();
-      ctx.rect(0, 0, w, h);
-      ctx.arc(cx, cy, radius, 0, Math.PI * 2, true);
+      // Otimização de renderização rápida por quadrantes ao redor da lupa
       ctx.fillStyle = 'rgba(0, 0, 0, 0.74)';
+      const left = Math.max(0, cx - radius);
+      const right = Math.min(w, cx + radius);
+      const top = Math.max(0, cy - radius);
+      const bottom = Math.min(h, cy + radius);
+
+      if (top > 0) ctx.fillRect(0, 0, w, top);
+      if (bottom < h) ctx.fillRect(0, bottom, w, h - bottom);
+      if (left > 0) ctx.fillRect(0, top, left, bottom - top);
+      if (right < w) ctx.fillRect(right, top, w - right, bottom - top);
+
+      ctx.beginPath();
+      ctx.rect(left, top, right - left, bottom - top);
+      ctx.arc(cx, cy, radius, 0, Math.PI * 2, true);
       ctx.fill('evenodd');
 
       ctx.beginPath();
@@ -637,9 +837,30 @@ export const Room: React.FC<RoomProps> = ({ room, onCloseRoom }) => {
       ctx.stroke();
       ctx.restore();
     }
-  }, [strokes, activeStroke, spotlight]);
+  }, [strokes, activeStroke, spotlight.enabled, spotlight.radius, spotlight.activeInViewer, spotlight.x, spotlight.y]);
 
-  // Acompanha a posição do mouse no SO quando a Lupa está ativa e o mouse está fora do visualizador
+  // Sincroniza o estado das marcações e da Lupa com o pipeline de vídeo (WebRTC + Gravação)
+  useEffect(() => {
+    setAnnotationOverlayState({
+      strokes,
+      activeStroke,
+      spotlight,
+      captureMode,
+      externalOverlayActive: isLiveSession && Boolean(window.electronAPI?.startAnnotationOverlay),
+    });
+    renderRoomAnnotationCanvas();
+  }, [
+    strokes,
+    activeStroke,
+    spotlight.enabled,
+    spotlight.radius,
+    spotlight.zoom,
+    captureMode,
+    isLiveSession,
+    renderRoomAnnotationCanvas,
+  ]);
+
+  // Acompanha a posição do mouse no SO quando a Lupa está ativa desacoplado do estado React (Zero CPU lag)
   useEffect(() => {
     if (!spotlight.enabled) return;
     if (!window.electronAPI || typeof window.electronAPI.onCursorState !== 'function') return;
@@ -648,18 +869,25 @@ export const Room: React.FC<RoomProps> = ({ room, onCloseRoom }) => {
       if (state.rect) {
         const nx = Math.min(1, Math.max(0, state.rect.x + state.rect.w * 0.35));
         const ny = Math.min(1, Math.max(0, state.rect.y + state.rect.h * 0.35));
-        setSpotlight((prev) => {
-          if (prev.activeInViewer) return prev;
-          return { ...prev, x: nx, y: ny };
-        });
+        spotlightCoordsRef.current = { x: nx, y: ny };
+        if (!rafRoomCanvasDrawRef.current) {
+          rafRoomCanvasDrawRef.current = requestAnimationFrame(() => {
+            rafRoomCanvasDrawRef.current = 0;
+            renderRoomAnnotationCanvas();
+          });
+        }
       }
     });
     return () => {
       try {
         unsub();
       } catch {}
+      if (rafRoomCanvasDrawRef.current) {
+        cancelAnimationFrame(rafRoomCanvasDrawRef.current);
+        rafRoomCanvasDrawRef.current = 0;
+      }
     };
-  }, [spotlight.enabled]);
+  }, [spotlight.enabled, renderRoomAnnotationCanvas]);
 
   const getNormalizedCanvasPoint = (e: React.MouseEvent<HTMLCanvasElement>): AnnotationPoint => {
     const canvas = annotationCanvasRef.current;
@@ -690,7 +918,13 @@ export const Room: React.FC<RoomProps> = ({ room, onCloseRoom }) => {
     const pt = getNormalizedCanvasPoint(e);
 
     if (spotlight.enabled) {
-      setSpotlight((prev) => ({ ...prev, x: pt.x, y: pt.y, activeInViewer: true }));
+      spotlightCoordsRef.current = { x: pt.x, y: pt.y };
+      if (!rafRoomCanvasDrawRef.current) {
+        rafRoomCanvasDrawRef.current = requestAnimationFrame(() => {
+          rafRoomCanvasDrawRef.current = 0;
+          renderRoomAnnotationCanvas();
+        });
+      }
     }
 
     if (activeTool === 'cursor') return;
@@ -715,7 +949,13 @@ export const Room: React.FC<RoomProps> = ({ room, onCloseRoom }) => {
     const pt = getNormalizedCanvasPoint(e);
 
     if (spotlight.enabled) {
-      setSpotlight((prev) => ({ ...prev, x: pt.x, y: pt.y, activeInViewer: true }));
+      spotlightCoordsRef.current = { x: pt.x, y: pt.y };
+      if (!rafRoomCanvasDrawRef.current) {
+        rafRoomCanvasDrawRef.current = requestAnimationFrame(() => {
+          rafRoomCanvasDrawRef.current = 0;
+          renderRoomAnnotationCanvas();
+        });
+      }
     }
 
     if (!isDrawingRef.current) return;
@@ -831,16 +1071,9 @@ export const Room: React.FC<RoomProps> = ({ room, onCloseRoom }) => {
     }
   }, [selectedSource?.id, currentSource?.id]);
 
-  useEffect(() => {
-    if (!isLiveSession || captureMode !== 'screen') return;
-
-    const handleWindowFocus = () => {
-      handleRefreshScreenCapture();
-    };
-
-    window.addEventListener('focus', handleWindowFocus);
-    return () => window.removeEventListener('focus', handleWindowFocus);
-  }, [isLiveSession, captureMode, handleRefreshScreenCapture]);
+  // Evita chamar desktopCapturer.getSources() automaticamente no evento focus durante a transmissão ao vivo,
+  // pois enumerar e gerar miniaturas de todas as telas via DWM/WGC causa micro-travamento na captura de vídeo ativa.
+  void handleRefreshScreenCapture;
 
   // Identifica telas/monitores disponíveis para alternância rápida
   const screenSources = sources.filter((s) => s.type === 'screen' || s.id.startsWith('screen'));
@@ -1388,163 +1621,231 @@ export const Room: React.FC<RoomProps> = ({ room, onCloseRoom }) => {
                 </div>
 
                 {/* Visualizador da Transmissão + Barra Vertical de Marcação e Lupa no Lado Esquerdo */}
-                <div style={styles.previewArea}>
-                  {/* Barra Vertical de Marcação (Estilo Editor de PDF) e Lupa — Lado Esquerdo, de Cima para Baixo */}
+                <div ref={previewAreaRef} style={styles.previewArea}>
+                  {/* Barra Vertical de Marcação (Estilo Editor de PDF) e Lupa — Posicionável e Retrátil */}
                   <div
-                    style={styles.annotationToolbarLeft}
+                    style={{
+                      ...styles.annotationToolbarLeft,
+                      ...(toolbarPos
+                        ? {
+                            left: `${toolbarPos.x}px`,
+                            top: `${toolbarPos.y}px`,
+                            transform: 'none',
+                          }
+                        : {}),
+                    }}
                     data-testid="annotation-toolbar"
+                    data-collapsed={isToolbarCollapsed ? 'true' : 'false'}
                     role="toolbar"
                     aria-label="Ferramentas de Marcação e Lupa"
                   >
-                    <button
-                      type="button"
-                      onClick={() => handleSelectTool('cursor')}
-                      style={activeTool === 'cursor' ? styles.annotationToolBtnActive : styles.annotationToolBtn}
-                      title="Cursor Padrão — Navegação normal (Atalho: V / 1 / Esc)"
-                      aria-label="Cursor Padrão"
-                      data-testid="tool-btn-cursor"
-                    >
-                      <Cursor_1 size={16} />
-                      <span style={styles.shortcutHintBadge}>V</span>
-                    </button>
+                    {isToolbarCollapsed ? (
+                      <button
+                        type="button"
+                        onPointerDown={handleStartDragToolbar}
+                        onClick={handleToggleToolbarCollapse}
+                        style={styles.annotationCollapsedFabBtn}
+                        title="Expandir Ferramentas de Marcação e Lupa (Arraste para posicionar • Atalho: H)"
+                        aria-label="Expandir Ferramentas de Marcação"
+                        data-testid="tool-btn-collapse"
+                      >
+                        <Pen size={17} />
+                        <span
+                          style={{
+                            ...styles.colorDotIndicator,
+                            backgroundColor: spotlight.enabled ? '#facc15' : strokeColor,
+                          }}
+                        />
+                      </button>
+                    ) : (
+                      <>
+                        {/* Alça de Arrasto + Botão Retrair no Topo da Barra */}
+                        <div style={styles.annotationToolbarHeaderRow}>
+                          <div
+                            onPointerDown={handleStartDragToolbar}
+                            style={styles.annotationDragHandle}
+                            title="Arraste para posicionar a barra onde preferir"
+                            data-testid="annotation-drag-handle"
+                          >
+                            <Draggable size={13} />
+                          </div>
+                          <button
+                            type="button"
+                            onClick={handleToggleToolbarCollapse}
+                            style={styles.annotationCollapseMiniBtn}
+                            title="Retrair barra em ícone compacto (Atalho: H)"
+                            aria-label="Retrair Ferramentas de Marcação"
+                            data-testid="tool-btn-collapse"
+                          >
+                            <ChevronLeft size={13} />
+                          </button>
+                        </div>
 
-                    <button
-                      type="button"
-                      onClick={() => handleSelectTool('pen')}
-                      style={activeTool === 'pen' ? styles.annotationToolBtnActive : styles.annotationToolBtn}
-                      title="Pincel / Caneta Livre — Desenhar e circular (Atalho: P / 2)"
-                      aria-label="Pincel"
-                      data-testid="tool-btn-pen"
-                    >
-                      <Pen size={16} />
-                      <span style={styles.shortcutHintBadge}>P</span>
-                    </button>
+                        <div style={styles.annotationToolbarDivider} />
 
-                    <button
-                      type="button"
-                      onClick={() => handleSelectTool('highlighter')}
-                      style={activeTool === 'highlighter' ? styles.annotationToolBtnActive : styles.annotationToolBtn}
-                      title="Marcador / Marca-Texto PDF — Realçar texto e código (Atalho: M / H / 3)"
-                      aria-label="Marcador"
-                      data-testid="tool-btn-highlighter"
-                    >
-                      <Draw size={16} />
-                      <span style={styles.shortcutHintBadge}>M</span>
-                    </button>
+                        <button
+                          type="button"
+                          onClick={() => handleSelectTool('cursor')}
+                          style={activeTool === 'cursor' ? styles.annotationToolBtnActive : styles.annotationToolBtn}
+                          title="Cursor Padrão — Navegação normal (Atalho: V / 1 / Esc)"
+                          aria-label="Cursor Padrão"
+                          data-testid="tool-btn-cursor"
+                        >
+                          <Cursor_1 size={16} />
+                          <span style={styles.shortcutHintBadge}>V</span>
+                        </button>
 
-                    <button
-                      type="button"
-                      onClick={() => handleSelectTool('arrow')}
-                      style={activeTool === 'arrow' ? styles.annotationToolBtnActive : styles.annotationToolBtn}
-                      title="Seta Indicativa — Apontar elemento na tela (Atalho: A / 4)"
-                      aria-label="Seta"
-                      data-testid="tool-btn-arrow"
-                    >
-                      <ArrowUpRight size={16} />
-                      <span style={styles.shortcutHintBadge}>A</span>
-                    </button>
+                        <button
+                          type="button"
+                          onClick={() => handleSelectTool('pen')}
+                          style={activeTool === 'pen' ? styles.annotationToolBtnActive : styles.annotationToolBtn}
+                          title="Pincel / Caneta Livre — Desenhar e circular (Atalho: P / 2)"
+                          aria-label="Pincel"
+                          data-testid="tool-btn-pen"
+                        >
+                          <Pen size={16} />
+                          <span style={styles.shortcutHintBadge}>P</span>
+                        </button>
 
-                    <button
-                      type="button"
-                      onClick={() => handleSelectTool('rect')}
-                      style={activeTool === 'rect' ? styles.annotationToolBtnActive : styles.annotationToolBtn}
-                      title="Retângulo de Destaque — Enquadrar área ou bloco (Atalho: R / 5)"
-                      aria-label="Retângulo"
-                      data-testid="tool-btn-rect"
-                    >
-                      <SquareOutline size={16} />
-                      <span style={styles.shortcutHintBadge}>R</span>
-                    </button>
+                        <button
+                          type="button"
+                          onClick={() => handleSelectTool('highlighter')}
+                          style={activeTool === 'highlighter' ? styles.annotationToolBtnActive : styles.annotationToolBtn}
+                          title="Marcador / Marca-Texto PDF — Realçar texto e código (Atalho: M / 3)"
+                          aria-label="Marcador"
+                          data-testid="tool-btn-highlighter"
+                        >
+                          <Draw size={16} />
+                          <span style={styles.shortcutHintBadge}>M</span>
+                        </button>
 
-                    <button
-                      type="button"
-                      onClick={() => handleSelectTool('eraser')}
-                      style={activeTool === 'eraser' ? styles.annotationToolBtnActive : styles.annotationToolBtn}
-                      title="Borracha — Apagar marcações tocadas (Atalho: E / B / 6)"
-                      aria-label="Borracha"
-                      data-testid="tool-btn-eraser"
-                    >
-                      <Erase size={16} />
-                      <span style={styles.shortcutHintBadge}>E</span>
-                    </button>
+                        <button
+                          type="button"
+                          onClick={() => handleSelectTool('arrow')}
+                          style={activeTool === 'arrow' ? styles.annotationToolBtnActive : styles.annotationToolBtn}
+                          title="Seta Indicativa — Apontar elemento na tela (Atalho: A / 4)"
+                          aria-label="Seta"
+                          data-testid="tool-btn-arrow"
+                        >
+                          <ArrowUpRight size={16} />
+                          <span style={styles.shortcutHintBadge}>A</span>
+                        </button>
 
-                    <div style={styles.annotationToolbarDivider} />
+                        <button
+                          type="button"
+                          onClick={() => handleSelectTool('rect')}
+                          style={activeTool === 'rect' ? styles.annotationToolBtnActive : styles.annotationToolBtn}
+                          title="Retângulo de Destaque — Enquadrar área ou bloco (Atalho: R / 5)"
+                          aria-label="Retângulo"
+                          data-testid="tool-btn-rect"
+                        >
+                          <SquareOutline size={16} />
+                          <span style={styles.shortcutHintBadge}>R</span>
+                        </button>
 
-                    <button
-                      type="button"
-                      onClick={handleToggleSpotlight}
-                      style={spotlight.enabled ? styles.annotationToolBtnSpotlightActive : styles.annotationToolBtn}
-                      title="Lupa / Foco no Mouse — Escurece a tela e destaca apenas o ponto do mouse (Atalho: L / F / 7 • Scroll ajusta raio • Z alterna zoom)"
-                      aria-label="Lupa"
-                      data-testid="tool-btn-spotlight"
-                    >
-                      <ZoomIn size={16} />
-                      <span style={styles.shortcutHintBadge}>L</span>
-                    </button>
+                        <button
+                          type="button"
+                          onClick={() => handleSelectTool('eraser')}
+                          style={activeTool === 'eraser' ? styles.annotationToolBtnActive : styles.annotationToolBtn}
+                          title="Borracha — Apagar marcações tocadas (Atalho: E / B / 6)"
+                          aria-label="Borracha"
+                          data-testid="tool-btn-eraser"
+                        >
+                          <Erase size={16} />
+                          <span style={styles.shortcutHintBadge}>E</span>
+                        </button>
 
-                    <button
-                      type="button"
-                      onClick={() => setShowPalettePopover((prev) => !prev)}
-                      style={showPalettePopover ? styles.annotationToolBtnActive : styles.annotationToolBtn}
-                      title="Cor da Marcação, Espessura do Traço e Zoom da Lupa (Atalho Zoom: Z)"
-                      aria-label="Cores e Espessura"
-                      data-testid="tool-btn-palette"
-                    >
-                      <ColorPalette size={16} />
-                      <span
-                        style={{
-                          ...styles.colorDotIndicator,
-                          backgroundColor: strokeColor,
-                        }}
-                      />
-                    </button>
+                        <div style={styles.annotationToolbarDivider} />
 
-                    <div style={styles.annotationToolbarDivider} />
+                        <button
+                          type="button"
+                          onClick={handleToggleSpotlight}
+                          style={spotlight.enabled ? styles.annotationToolBtnSpotlightActive : styles.annotationToolBtn}
+                          title="Lupa / Foco no Mouse — Escurece a tela e destaca apenas o ponto do mouse (Atalho: L / F / 7 • Scroll ajusta raio • Z alterna zoom)"
+                          aria-label="Lupa"
+                          data-testid="tool-btn-spotlight"
+                        >
+                          <ZoomIn size={16} />
+                          <span style={styles.shortcutHintBadge}>L</span>
+                        </button>
 
-                    <button
-                      type="button"
-                      onClick={handleUndoAnnotation}
-                      disabled={strokes.length === 0}
-                      style={strokes.length === 0 ? styles.annotationToolBtnDisabled : styles.annotationToolBtn}
-                      title="Desfazer última marcação (Atalho: Ctrl+Z)"
-                      aria-label="Desfazer"
-                      data-testid="tool-btn-undo"
-                    >
-                      <Undo size={15} />
-                    </button>
+                        <button
+                          type="button"
+                          onClick={() => setShowPalettePopover((prev) => !prev)}
+                          style={showPalettePopover ? styles.annotationToolBtnActive : styles.annotationToolBtn}
+                          title="Cor da Marcação, Espessura do Traço e Zoom da Lupa (Atalho Zoom: Z)"
+                          aria-label="Cores e Espessura"
+                          data-testid="tool-btn-palette"
+                        >
+                          <ColorPalette size={16} />
+                          <span
+                            style={{
+                              ...styles.colorDotIndicator,
+                              backgroundColor: strokeColor,
+                            }}
+                          />
+                        </button>
 
-                    <button
-                      type="button"
-                      onClick={handleRedoAnnotation}
-                      disabled={redoStrokes.length === 0}
-                      style={redoStrokes.length === 0 ? styles.annotationToolBtnDisabled : styles.annotationToolBtn}
-                      title="Refazer marcação (Atalho: Ctrl+Y / Ctrl+Shift+Z)"
-                      aria-label="Refazer"
-                      data-testid="tool-btn-redo"
-                    >
-                      <Redo size={15} />
-                    </button>
+                        <div style={styles.annotationToolbarDivider} />
 
-                    <button
-                      type="button"
-                      onClick={handleClearAnnotations}
-                      disabled={strokes.length === 0 && !activeStroke}
-                      style={
-                        strokes.length === 0 && !activeStroke
-                          ? styles.annotationToolBtnDisabled
-                          : styles.annotationToolBtnDanger
-                      }
-                      title="Limpar todas as marcações da tela (Atalho: Ctrl+Shift+X / Delete)"
-                      aria-label="Limpar Marcações"
-                      data-testid="tool-btn-clear"
-                    >
-                      <TrashCan size={15} />
-                    </button>
+                        <button
+                          type="button"
+                          onClick={handleUndoAnnotation}
+                          disabled={strokes.length === 0}
+                          style={strokes.length === 0 ? styles.annotationToolBtnDisabled : styles.annotationToolBtn}
+                          title="Desfazer última marcação (Atalho: Ctrl+Z)"
+                          aria-label="Desfazer"
+                          data-testid="tool-btn-undo"
+                        >
+                          <Undo size={15} />
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={handleRedoAnnotation}
+                          disabled={redoStrokes.length === 0}
+                          style={redoStrokes.length === 0 ? styles.annotationToolBtnDisabled : styles.annotationToolBtn}
+                          title="Refazer marcação (Atalho: Ctrl+Y / Ctrl+Shift+Z)"
+                          aria-label="Refazer"
+                          data-testid="tool-btn-redo"
+                        >
+                          <Redo size={15} />
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={handleClearAnnotations}
+                          disabled={strokes.length === 0 && !activeStroke}
+                          style={
+                            strokes.length === 0 && !activeStroke
+                              ? styles.annotationToolBtnDisabled
+                              : styles.annotationToolBtnDanger
+                          }
+                          title="Limpar todas as marcações da tela (Atalho: Ctrl+Shift+X / Delete)"
+                          aria-label="Limpar Marcações"
+                          data-testid="tool-btn-clear"
+                        >
+                          <TrashCan size={15} />
+                        </button>
+                      </>
+                    )}
                   </div>
 
                   {/* Popover Flutuante de Cores, Espessura e Nível de Zoom da Lupa */}
-                  {showPalettePopover && (
-                    <div style={styles.palettePopoverBox} data-testid="annotation-palette-popover">
+                  {showPalettePopover && !isToolbarCollapsed && (
+                    <div
+                      style={{
+                        ...styles.palettePopoverBox,
+                        ...(toolbarPos
+                          ? {
+                              left: `${toolbarPos.x + 54}px`,
+                              top: `${toolbarPos.y}px`,
+                              transform: 'none',
+                            }
+                          : {}),
+                      }}
+                      data-testid="annotation-palette-popover"
+                    >
                       <div style={styles.paletteSectionTitle}>Cor da Marcação</div>
                       <div style={styles.paletteColorsRow}>
                         {ANNOTATION_COLORS.map((c) => (
@@ -4231,6 +4532,52 @@ const styles: { [key: string]: React.CSSProperties } = {
     borderRadius: '10px',
     boxShadow: '0 8px 24px rgba(0, 0, 0, 0.65)',
     backdropFilter: 'blur(8px)',
+    userSelect: 'none',
+  },
+  annotationToolbarHeaderRow: {
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    width: '100%',
+    gap: '2px',
+  },
+  annotationDragHandle: {
+    flex: 1,
+    height: '20px',
+    borderRadius: '5px',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    color: '#94a3b8',
+    cursor: 'grab',
+  },
+  annotationCollapseMiniBtn: {
+    width: '20px',
+    height: '20px',
+    borderRadius: '5px',
+    border: 'none',
+    backgroundColor: 'rgba(51, 65, 85, 0.45)',
+    color: '#cbd5e1',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    cursor: 'pointer',
+    padding: 0,
+  },
+  annotationCollapsedFabBtn: {
+    position: 'relative',
+    width: '36px',
+    height: '36px',
+    borderRadius: '10px',
+    border: '1px solid #38bdf8',
+    backgroundColor: 'rgba(56, 189, 248, 0.18)',
+    color: '#38bdf8',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    cursor: 'grab',
+    padding: 0,
+    boxShadow: '0 0 12px rgba(56, 189, 248, 0.28)',
   },
   annotationToolBtn: {
     position: 'relative',

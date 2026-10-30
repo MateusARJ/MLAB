@@ -23,6 +23,11 @@ export class CursorPresenceTracker {
   private powerSaveId: number | null = null;
   private lastCursor: Point | null = null;
   private lastSentJson = '';
+  private stateListener: ((state: CursorState) => void) | null = null;
+
+  public setStateListener(cb: ((state: CursorState) => void) | null): void {
+    this.stateListener = cb;
+  }
 
   private getNativeTracker(): NativeWindowTracker | null {
     if (this.nativeTracker === undefined) {
@@ -64,13 +69,18 @@ export class CursorPresenceTracker {
       try {
         const state =
           target.type === 'window'
-            ? this.computeWindowState(win, tracker, targetWindowId)
+            ? this.computeWindowState(win, tracker, targetWindowId, mlabWindowId)
             : this.computeScreenState(win, tracker, mlabWindowId, target.displayId);
 
         const serialized = JSON.stringify(state);
         if (serialized !== this.lastSentJson) {
           this.lastSentJson = serialized;
           win.webContents.send('cursor-state', state);
+          if (this.stateListener) {
+            try {
+              this.stateListener(state);
+            } catch {}
+          }
         }
       } catch {
         // Nunca interrompe o loop por falha transitória de consulta ao SO
@@ -85,8 +95,19 @@ export class CursorPresenceTracker {
   private computeWindowState(
     win: BrowserWindow,
     tracker: NativeWindowTracker | null,
-    targetWindowId: bigint | null
+    targetWindowId: bigint | null,
+    mlabWindowId: bigint | null = null
   ): CursorState {
+    const isWinFocused = !win.isDestroyed() && win.isFocused() && !win.isMinimized();
+    let cursorInMlab = false;
+    if (isWinFocused && win.isVisible()) {
+      try {
+        const cursorDip = screen.getCursorScreenPoint();
+        const b = win.getBounds();
+        cursorInMlab = containsPoint({ x: b.x, y: b.y, w: b.width, h: b.height }, cursorDip);
+      } catch {}
+    }
+
     if (tracker && targetWindowId !== null) {
       const snap = tracker.queryWindow(targetWindowId);
       const velocity = this.computeVelocity(snap.cursor);
@@ -105,18 +126,35 @@ export class CursorPresenceTracker {
         target: targetWindowId,
       });
 
+      const isMlabUnder =
+        mlabWindowId !== null && mlabWindowId > 0n
+          ? snap.windowUnderCursorId === mlabWindowId
+          : cursorInMlab;
+
       const rect = toNormalizedCursorRect(snap.cursor, snap.targetBounds, scale, velocity);
+      const targetBounds = snap.targetBounds
+        ? {
+            x: Math.round(snap.targetBounds.x / scale),
+            y: Math.round(snap.targetBounds.y / scale),
+            w: Math.round(snap.targetBounds.w / scale),
+            h: Math.round(snap.targetBounds.h / scale),
+          }
+        : null;
+
       return {
         visible,
         rect: rect ? this.roundRect(rect) : null,
+        targetBounds,
+        mlabFocused: isWinFocused && cursorInMlab && isMlabUnder && !visible,
       };
     }
 
     // Fallback seguro caso o tracker nativo não esteja disponível
-    const mlabFocused = !win.isDestroyed() && win.isFocused();
     return {
-      visible: !mlabFocused,
+      visible: !isWinFocused,
       rect: null,
+      targetBounds: null,
+      mlabFocused: isWinFocused && cursorInMlab,
     };
   }
 
@@ -143,6 +181,7 @@ export class CursorPresenceTracker {
     };
 
     let visible = true;
+    const isWinFocused = !win.isDestroyed() && win.isFocused() && !win.isMinimized();
     if (!win.isDestroyed() && win.isVisible() && !win.isMinimized()) {
       const b = win.getBounds();
       const mlabRect: Rect = { x: b.x, y: b.y, w: b.width, h: b.height };
@@ -162,6 +201,8 @@ export class CursorPresenceTracker {
     return {
       visible,
       rect: rect ? this.roundRect(rect) : null,
+      targetBounds: displayRect,
+      mlabFocused: isWinFocused && !visible,
     };
   }
 

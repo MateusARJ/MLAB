@@ -593,6 +593,62 @@ describe('Room Component (Desktop)', () => {
     expect(screen.queryByTestId('annotation-palette-popover')).not.toBeInTheDocument();
     expect(canvas).toHaveStyle({ cursor: 'default' });
   });
+
+  it('permite retrair, expandir e reposicionar (arrastar) a barra vertical de marcação e sincroniza com o overlay externo via IPC', async () => {
+    const startAnnotationOverlayMock = vi.fn().mockResolvedValue(undefined);
+    const stopAnnotationOverlayMock = vi.fn().mockResolvedValue(undefined);
+    const syncAnnotationStateMock = vi.fn();
+
+    window.electronAPI = {
+      ...window.electronAPI,
+      startAnnotationOverlay: startAnnotationOverlayMock,
+      stopAnnotationOverlay: stopAnnotationOverlayMock,
+      syncAnnotationState: syncAnnotationStateMock,
+    } as any;
+
+    const { unmount } = render(<Room room={dummyRoom} onCloseRoom={vi.fn()} />);
+
+    await waitFor(() => {
+      expect(screen.getByText('Tela Inteira 1')).toBeInTheDocument();
+    });
+
+    const advanceBtn = screen.getByRole('button', { name: /Avançar e Iniciar Transmissão/i });
+    await waitFor(() => {
+      expect(advanceBtn).toBeEnabled();
+    });
+    fireEvent.click(advanceBtn);
+
+    await waitFor(() => {
+      expect(screen.getByTestId('annotation-toolbar')).toBeInTheDocument();
+    });
+
+    // Inicia o overlay externo quando entra na sessão ao vivo
+    expect(startAnnotationOverlayMock).toHaveBeenCalled();
+    expect(syncAnnotationStateMock).toHaveBeenCalled();
+
+    const toolbar = screen.getByTestId('annotation-toolbar');
+    expect(toolbar).toHaveAttribute('data-collapsed', 'false');
+
+    // Arrasta a barra pela alça de arrasto para reposicionar
+    const dragHandle = screen.getByTestId('annotation-drag-handle');
+    fireEvent.pointerDown(dragHandle, { button: 0, clientX: 20, clientY: 120 });
+    fireEvent.pointerMove(window, { clientX: 90, clientY: 180 });
+    fireEvent.pointerUp(window);
+
+    // Retrai a barra em ícone compacto pelo botão ou atalho 'H'
+    const collapseBtn = screen.getByTestId('tool-btn-collapse');
+    fireEvent.click(collapseBtn);
+    expect(toolbar).toHaveAttribute('data-collapsed', 'true');
+    expect(screen.queryByTestId('tool-btn-pen')).not.toBeInTheDocument();
+
+    // Expande novamente com o atalho 'H'
+    fireEvent.keyDown(window, { key: 'h' });
+    expect(toolbar).toHaveAttribute('data-collapsed', 'false');
+    expect(screen.getByTestId('tool-btn-pen')).toBeInTheDocument();
+
+    unmount();
+    expect(stopAnnotationOverlayMock).toHaveBeenCalled();
+  });
 });
 
 
