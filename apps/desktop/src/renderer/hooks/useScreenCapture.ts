@@ -22,6 +22,8 @@ export function useScreenCapture(initialMode: CaptureSourceType = 'screen', init
   const systemGainNodeRef = useRef<GainNode | null>(null);
   const mixerDestinationRef = useRef<MediaStreamAudioDestinationNode | null>(null);
   const maskedTracksRef = useRef<MaskedVideoTrackResult[]>([]);
+  const streamRef = useRef<MediaStream | null>(null);
+  streamRef.current = stream;
 
   const loadSources = useCallback(async (mode: CaptureSourceType) => {
     if (window.electronAPI && window.electronAPI.getScreenSources) {
@@ -52,6 +54,7 @@ export function useScreenCapture(initialMode: CaptureSourceType = 'screen', init
     // Quando o usuário volta do navegador ou outra aplicação para o MLab,
     // atualiza as fontes automaticamente para reconhecer abas ou janelas recém-abertas
     const handleFocus = () => {
+      if (streamRef.current) return;
       loadSources(captureMode);
     };
 
@@ -157,7 +160,7 @@ export function useScreenCapture(initialMode: CaptureSourceType = 'screen', init
       const videoTrack = mediaStream.getVideoTracks()[0];
       if (videoTrack) {
         // @ts-ignore
-        videoTrack.contentHint = 'detail';
+        videoTrack.contentHint = 'motion';
         const settings = videoTrack.getSettings();
         console.log(`[Capture] Resolução capturada: ${settings.width}x${settings.height} @ ${settings.frameRate}fps (alvo: ${effectiveFps}fps)`);
       }
@@ -178,9 +181,13 @@ export function useScreenCapture(initialMode: CaptureSourceType = 'screen', init
         setHasSystemAudio(false);
       }
 
-      // Envolve a faixa de vídeo no pipeline de ocultação contextual do cursor (quando suportado)
-      // e inicia o rastreamento nativo de presença do cursor no processo Main
-      if (videoTrack) {
+      // No modo tela cheia ('screen'), a janela de overlay externa transparente (FloatingAnnotationOverlay)
+      // com setContentProtection(false) já é capturada nativamente pelo Windows Graphics Capture (WGC)
+      // via GPU Direct3D 11 a 60 FPS com zero uso de CPU.
+      // A faixa bruta da GPU é utilizada diretamente para máximo desempenho e fluidez, sem intermediários.
+      const isScreenMode = (source.type || (source.id.startsWith('screen') ? 'screen' : 'window')) === 'screen';
+
+      if (videoTrack && !isScreenMode) {
         const masked = createCursorMaskedTrack(videoTrack);
         maskedTracksRef.current.push(masked);
         if (masked.active && masked.track !== videoTrack) {

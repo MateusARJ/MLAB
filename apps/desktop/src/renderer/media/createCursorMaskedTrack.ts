@@ -18,6 +18,8 @@ const DEFAULT_ANNOTATION_STATE: AnnotationOverlayState = {
     zoom: 1,
     activeInViewer: false,
   },
+  captureMode: 'screen',
+  externalOverlayActive: true,
 };
 
 let currentAnnotationState: AnnotationOverlayState = DEFAULT_ANNOTATION_STATE;
@@ -134,15 +136,9 @@ export function createCursorMaskedTrack(rawVideoTrack: MediaStreamTrack): Masked
       [processor.readable, generator.writable]
     );
 
-    if (
-      currentAnnotationState.strokes.length > 0 ||
-      currentAnnotationState.activeStroke !== null ||
-      currentAnnotationState.spotlight.enabled
-    ) {
-      try {
-        worker.postMessage({ type: 'annotations', state: currentAnnotationState });
-      } catch {}
-    }
+    try {
+      worker.postMessage({ type: 'annotations', state: currentAnnotationState });
+    } catch {}
 
     let unsubscribeCursor: (() => void) | null = null;
     if (window.electronAPI && typeof window.electronAPI.onCursorState === 'function') {

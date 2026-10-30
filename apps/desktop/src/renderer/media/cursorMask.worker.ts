@@ -34,6 +34,8 @@ let currentAnnotations: AnnotationOverlayState = {
     zoom: 1,
     activeInViewer: false,
   },
+  captureMode: 'screen',
+  externalOverlayActive: true,
 };
 
 let lastCursorRect: { x: number; y: number; w: number; h: number } | null = null;
@@ -113,14 +115,25 @@ async function runPipeline(
   let degraded = false;
   let avgProcessMs = 0;
 
-  const ensureCanvases = (w: number, h: number): boolean => {
+  const ensureOutCanvas = (w: number, h: number): boolean => {
     if (w <= 0 || h <= 0 || typeof OffscreenCanvas === 'undefined') return false;
-    if (outCanvas && width === w && height === h) return true;
+    if (outCanvas && width === w && height === h && outCtx) return true;
 
     width = w;
     height = h;
     outCanvas = new OffscreenCanvas(w, h);
     outCtx = outCanvas.getContext('2d', { alpha: false });
+    plateCanvas = null;
+    plateCtx = null;
+    plateInitialized = false;
+    return !!outCtx;
+  };
+
+  const ensureCursorMaskCanvases = (w: number, h: number): boolean => {
+    if (!ensureOutCanvas(w, h)) return false;
+    if (plateCanvas && plateCtx && patchCanvas && patchCtx && blurCanvas && blurCtx) {
+      return true;
+    }
     plateCanvas = new OffscreenCanvas(w, h);
     plateCtx = plateCanvas.getContext('2d', { alpha: false });
     patchCanvas = new OffscreenCanvas(256, 256);
@@ -128,7 +141,7 @@ async function runPipeline(
     blurCanvas = new OffscreenCanvas(32, 32);
     blurCtx = blurCanvas.getContext('2d', { alpha: false });
     plateInitialized = false;
-    return !!(outCtx && plateCtx && patchCtx && blurCtx);
+    return !!(plateCtx && patchCtx && blurCtx);
   };
 
   const toPixelRect = (norm: { x: number; y: number; w: number; h: number }) => {
@@ -139,10 +152,6 @@ async function runPipeline(
     return { x, y, w, h };
   };
 
-  /**
-   * Atualiza o background plate preservando a região onde o cursor está no momento,
-   * evitando gravar o desenho do ponteiro na placa de fundo limpa.
-   */
   const updatePlatePreservingCursor = (
     frame: VideoFrame,
     cursorNorm: { x: number; y: number; w: number; h: number } | null
@@ -165,17 +174,12 @@ async function runPipeline(
     const saveW = Math.min(patchCanvas.width, px.w);
     const saveH = Math.min(patchCanvas.height, px.h);
 
-    // Salva a região limpa anterior antes de atualizar o restante do quadro
     patchCtx.drawImage(plateCanvas, px.x, px.y, px.w, px.h, 0, 0, saveW, saveH);
     plateCtx.drawImage(frame, 0, 0, width, height);
     plateCtx.drawImage(patchCanvas, 0, 0, saveW, saveH, px.x, px.y, px.w, px.h);
     lastCursorRect = cursorNorm;
   };
 
-  /**
-   * Preenche o retângulo do cursor interpolando a vizinhança imediata do quadro ao vivo
-   * quando o cursor fica estacionado sobre vídeo em movimento.
-   */
   const inpaintFromNeighborhood = (px: { x: number; y: number; w: number; h: number }) => {
     if (!outCtx || !outCanvas || !blurCtx || !blurCanvas) return;
     const margin = 10;
@@ -185,9 +189,7 @@ async function runPipeline(
     const sh = Math.min(height - sy, px.h + margin * 2);
     if (sw <= 0 || sh <= 0) return;
 
-    // Copia as bordas externas ao redor do cursor para um buffer reduzido e reescala suavizado
     blurCtx.clearRect(0, 0, 32, 32);
-    // Topo e base ao redor do cursor
     if (px.y > margin) {
       blurCtx.drawImage(outCanvas, sx, sy, sw, margin, 0, 0, 32, 16);
     }
@@ -313,10 +315,22 @@ async function runPipeline(
       }
 
       ctx.save();
+      ctx.fillStyle = 'rgba(0, 0, 0, 0.72)';
+      // Otimização de alta performance: 4 retângulos ao redor da caixa delimitadora do círculo
+      // (reduz em 95% o cálculo de rasterização evenodd no OffscreenCanvas da CPU)
+      const left = Math.max(0, cx - radius);
+      const right = Math.min(width, cx + radius);
+      const top = Math.max(0, cy - radius);
+      const bottom = Math.min(height, cy + radius);
+
+      if (top > 0) ctx.fillRect(0, 0, width, top);
+      if (bottom < height) ctx.fillRect(0, bottom, width, height - bottom);
+      if (left > 0) ctx.fillRect(0, top, left, bottom - top);
+      if (right < width) ctx.fillRect(right, top, width - right, bottom - top);
+
       ctx.beginPath();
-      ctx.rect(0, 0, width, height);
+      ctx.rect(left, top, right - left, bottom - top);
       ctx.arc(cx, cy, radius, 0, Math.PI * 2, true);
-      ctx.fillStyle = 'rgba(0, 0, 0, 0.76)';
       ctx.fill('evenodd');
 
       ctx.beginPath();
@@ -335,31 +349,30 @@ async function runPipeline(
 
       const state = currentState;
       const ann = currentAnnotations;
-      const hasOverlay =
+      const hasAnyAnnotation =
         ann.strokes.length > 0 || ann.activeStroke !== null || ann.spotlight.enabled === true;
-      const now = performance.now();
 
-      // Caminho rápido (passthrough zero-copy): cursor visível, sem marcações/lupa ou pipeline degradado
-      if (degraded || ((state.visible || !state.rect) && !hasOverlay)) {
-        if (!degraded && ensureCanvases(frame.codedWidth || frame.displayWidth, frame.codedHeight || frame.displayHeight)) {
-          if (!plateInitialized || now - lastPlateUpdateAt >= 90) {
-            try {
-              updatePlatePreservingCursor(frame, state.rect);
-              lastPlateUpdateAt = now;
-            } catch {}
-          }
-        }
+      // No modo 'screen' com a janela de overlay externa ativa (sem setContentProtection),
+      // o próprio capturador de tela do SO (WGC) já captura os traços e a Lupa a 60fps via GPU,
+      // exceto quando o professor ativa ampliação óptica (zoom > 1) na Lupa.
+      const capturedNativelyByScreen =
+        ann.captureMode === 'screen' &&
+        ann.externalOverlayActive === true &&
+        !(ann.spotlight.enabled && (ann.spotlight.zoom || 1) > 1);
+
+      const hasOverlayInWorker = hasAnyAnnotation && !capturedNativelyByScreen;
+
+      // Caminho rápido 100% Zero-Copy: nenhuma operação de OffscreenCanvas quando sem overlay no worker
+      if (!hasOverlayInWorker) {
         await writer.write(frame);
         frame.close();
         continue;
       }
 
-      // Caminho de composição (ocultação do cursor e/ou marcações + lupa)
-      const t0 = performance.now();
       const fw = frame.codedWidth || frame.displayWidth;
       const fh = frame.codedHeight || frame.displayHeight;
 
-      if (!ensureCanvases(fw, fh) || !outCtx || !outCanvas || !plateCtx || !plateCanvas) {
+      if (!ensureOutCanvas(fw, fh) || !outCtx || !outCanvas) {
         await writer.write(frame);
         frame.close();
         continue;
@@ -367,31 +380,7 @@ async function runPipeline(
 
       try {
         outCtx.drawImage(frame, 0, 0, width, height);
-
-        if (!state.visible && state.rect) {
-          const px = toPixelRect(state.rect);
-
-          if (px.w > 0 && px.h > 0) {
-            const stationaryMs = now - cursorStationarySince;
-            const hadOverlapOnInit = !plateInitialized || rectsOverlap(state.rect, lastCursorRect);
-
-            if (plateInitialized && (!hadOverlapOnInit || stationaryMs < 350)) {
-              outCtx.drawImage(plateCanvas, px.x, px.y, px.w, px.h, px.x, px.y, px.w, px.h);
-            } else {
-              inpaintFromNeighborhood(px);
-            }
-          }
-        }
-
-        // Mantém o restante da placa de fundo atualizado a cada 90ms
-        if (!plateInitialized || now - lastPlateUpdateAt >= 90) {
-          updatePlatePreservingCursor(frame, state.rect);
-          lastPlateUpdateAt = now;
-        }
-
-        if (hasOverlay) {
-          renderAnnotationsAndSpotlight(outCtx, outCanvas, ann, state.rect);
-        }
+        renderAnnotationsAndSpotlight(outCtx, outCanvas, ann, state.rect);
 
         const cleanFrame = new VideoFrame(outCanvas, {
           timestamp: frame.timestamp,
@@ -400,17 +389,7 @@ async function runPipeline(
         frame.close();
         await writer.write(cleanFrame);
         cleanFrame.close();
-
-        const dt = performance.now() - t0;
-        avgProcessMs = avgProcessMs === 0 ? dt : avgProcessMs * 0.92 + dt * 0.08;
-        if (!hasOverlay && avgProcessMs > 8.5) {
-          degraded = true;
-          try {
-            self.postMessage({ type: 'degraded', avgProcessMs });
-          } catch {}
-        }
       } catch {
-        // Fallback imediato em caso de erro de composição no frame
         try {
           await writer.write(frame);
         } catch {}

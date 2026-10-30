@@ -124,7 +124,17 @@ func (r *Room) handlePublisherOffer(publisherID, sdp string) (string, error) {
 		}
 
 		// Repasse de pacotes RTP em memória (Zero gravação em disco, RNF-15 / RNF-16)
-		buf := make([]byte, 4096)
+		if receiver != nil {
+			go func() {
+				rtcpBuf := make([]byte, 1500)
+				for {
+					if _, _, rtcpErr := receiver.Read(rtcpBuf); rtcpErr != nil {
+						return
+					}
+				}
+			}()
+		}
+		buf := make([]byte, 16384)
 		for {
 			n, _, err := remoteTrack.Read(buf)
 			if err != nil {
@@ -166,6 +176,7 @@ func (r *Room) handlePublisherOffer(publisherID, sdp string) (string, error) {
 func (r *Room) createSubscriberOffer(subscriberID, publisherID string) (string, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
+
 
 	// Se já existe um PeerConnection com oferta pendente com SDP local válido, reutiliza a oferta existente
 	if existingPC, exists := r.subscribers[subscriberID]; exists {
@@ -227,6 +238,11 @@ func (r *Room) createSubscriberOffer(subscriberID, publisherID string) (string, 
 				}
 			}()
 		}
+	} else {
+		// Garante que o SDP contenha sempre a seção m=video e credenciais ICE válidas mesmo se a mídia ainda estiver inicializando
+		_, _ = pc.AddTransceiverFromKind(webrtc.RTPCodecTypeVideo, webrtc.RTPTransceiverInit{
+			Direction: webrtc.RTPTransceiverDirectionSendonly,
+		})
 	}
 
 	if r.audioTrack != nil {
@@ -258,7 +274,8 @@ func (r *Room) createSubscriberOffer(subscriberID, publisherID string) (string, 
 
 	subSDP := pc.LocalDescription().SDP
 	re := regexp.MustCompile(`(m=video [^\r\n]+)\r\n`)
-	subSDP = re.ReplaceAllString(subSDP, "$1\r\nb=AS:8000\r\nb=TIAS:8000000\r\n")
+	subSDP = re.ReplaceAllString(subSDP, "$1\r\nb=AS:6000\r\nb=TIAS:6000000\r\n")
+
 	return subSDP, nil
 }
 
@@ -300,7 +317,7 @@ func (r *Room) handleSubscriberAnswer(subscriberID, sdp string) error {
 
 func (r *Room) startLivenessKeyFrameTicker() {
 	go func() {
-		ticker := time.NewTicker(3 * time.Second)
+		ticker := time.NewTicker(10 * time.Second)
 		defer ticker.Stop()
 		for {
 			select {
@@ -347,7 +364,7 @@ func (r *Room) sendPLILocked() {
 		_ = r.publisherPC.WriteRTCP([]rtcp.Packet{
 			&rtcp.PictureLossIndication{MediaSSRC: r.publisherVideoSSRC},
 			&rtcp.ReceiverEstimatedMaximumBitrate{
-				Bitrate: 10_000_000, // REMB amplo de até 10 Mbps para dar vazão plena a 1080p 60fps sem estrangulamento
+				Bitrate: 8_000_000, // REMB dinâmico de 7 Mbps (headroom ótimo para 1080p 60fps sem estourar buffers de Wi-Fi)
 				SSRCs:   []uint32{r.publisherVideoSSRC},
 			},
 		})
