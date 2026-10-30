@@ -77,6 +77,23 @@ export function useWebRTCSubscriber(token: string, roomInfo: { room_id: string; 
       hasSubscribedStateRef.current = true;
 
       pc.ontrack = (event) => {
+        // Reduz o buffer de jitter para zero para latência ultra-baixa em tempo real (< 100ms)
+        const receiver = event.receiver;
+        if (receiver) {
+          try {
+            // @ts-ignore
+            if ('playoutDelayHint' in receiver) {
+              // @ts-ignore
+              receiver.playoutDelayHint = 0;
+            }
+            // @ts-ignore
+            if ('jitterBufferTarget' in receiver) {
+              // @ts-ignore
+              receiver.jitterBufferTarget = 0;
+            }
+          } catch {}
+        }
+
         setStream((prev) => {
           const activePrevTracks = prev ? prev.getTracks().filter((t) => t.readyState === 'live') : [];
           if (activePrevTracks.some((t) => t.id === event.track.id)) {
@@ -253,6 +270,15 @@ export function useWebRTCSubscriber(token: string, roomInfo: { room_id: string; 
                 sdp: msg.payload.sdp,
               })
             );
+            // Garante que todos os receptores WebRTC (vídeo e áudio) operem em ultra-baixa latência (zero playout delay)
+            currentPc.getReceivers().forEach((receiver) => {
+              try {
+                // @ts-ignore
+                if ('playoutDelayHint' in receiver) receiver.playoutDelayHint = 0;
+                // @ts-ignore
+                if ('jitterBufferTarget' in receiver) receiver.jitterBufferTarget = 0;
+              } catch {}
+            });
             const answer = await currentPc.createAnswer();
             await currentPc.setLocalDescription(answer);
             if (ws.readyState === WebSocket.OPEN) {

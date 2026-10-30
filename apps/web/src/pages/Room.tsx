@@ -299,10 +299,22 @@ export const Room: React.FC<RoomProps> = ({ token, roomInfo, onLeave }) => {
       const videoEl = videoRef.current;
       if (!videoEl || videoEl.paused || videoEl.ended) return;
 
+      // 1. Compensação ativa de drift de latência do elemento <video> (trava o aluno no 'ao vivo' instantâneo)
+      if (videoEl.buffered && videoEl.buffered.length > 0) {
+        try {
+          const liveEdge = videoEl.buffered.end(videoEl.buffered.length - 1);
+          const latencyLag = liveEdge - videoEl.currentTime;
+          if (latencyLag > 0.35 && Number.isFinite(liveEdge)) {
+            videoEl.currentTime = Math.max(0, liveEdge - 0.04);
+          }
+        } catch {}
+      }
+
+      // 2. Detecção de estagnação de quadros
       const currentTime = videoEl.currentTime;
       if (currentTime === lastTime && currentTime > 0) {
         freezeCount++;
-        // Se a reprodução estagnar por 2 intervalos (1.6s) mesmo sem pausar, solicita Keyframe imediato ao SFU
+        // Se a reprodução estagnar por 2 intervalos (500ms) mesmo sem pausar, solicita Keyframe imediato ao SFU
         if (freezeCount >= 2) {
           if (typeof requestKeyframe === 'function') {
             requestKeyframe();
@@ -313,7 +325,7 @@ export const Room: React.FC<RoomProps> = ({ token, roomInfo, onLeave }) => {
         lastTime = currentTime;
         freezeCount = 0;
       }
-    }, 800);
+    }, 250);
 
     return () => clearInterval(interval);
   }, [stream, isStreamPaused, connectionStatus, requestKeyframe]);

@@ -6,6 +6,7 @@ import (
 	"os"
 	"sync"
 
+	"github.com/pion/interceptor"
 	"github.com/pion/webrtc/v3"
 	"github.com/screenshare/classroom/internal/room"
 )
@@ -70,9 +71,15 @@ func NewSFUService(cfg Config) (*SFUService, error) {
 		return nil, fmt.Errorf("falha ao registrar codecs padrao: %w", err)
 	}
 
+	interceptorRegistry := &interceptor.Registry{}
+	if err := webrtc.RegisterDefaultInterceptors(mediaEngine, interceptorRegistry); err != nil {
+		return nil, fmt.Errorf("falha ao registrar interceptors padrao (NACK/TWCC/RTCP): %w", err)
+	}
+
 	api := webrtc.NewAPI(
 		webrtc.WithSettingEngine(settingEngine),
 		webrtc.WithMediaEngine(mediaEngine),
+		webrtc.WithInterceptorRegistry(interceptorRegistry),
 	)
 
 	return &SFUService{

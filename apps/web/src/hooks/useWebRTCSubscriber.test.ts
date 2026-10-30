@@ -48,6 +48,7 @@ describe('useWebRTCSubscriber Hook', () => {
       setLocalDescription = vi.fn().mockResolvedValue(undefined);
       addIceCandidate = vi.fn().mockResolvedValue(undefined);
       setConfiguration = vi.fn();
+      getReceivers = vi.fn().mockReturnValue([]);
 
       constructor(config: any) {
         this.iceServers = config?.iceServers;
@@ -92,6 +93,42 @@ describe('useWebRTCSubscriber Hook', () => {
         payload: {},
       })
     );
+  });
+
+  it('deve configurar playoutDelayHint=0 e jitterBufferTarget=0 no receptor ao receber faixa de vídeo/áudio para ultra-baixa latência', async () => {
+    const { result } = renderHook(() => useWebRTCSubscriber(dummyToken, dummyRoomInfo));
+
+    await act(async () => {
+      if (mockWsInstance.onopen) {
+        mockWsInstance.onopen();
+      }
+    });
+
+    const activePc = mockPcInstances[mockPcInstances.length - 1];
+    expect(activePc).toBeDefined();
+
+    const mockReceiver: any = {
+      playoutDelayHint: 1.5,
+      jitterBufferTarget: 1000,
+    };
+    const mockTrack = {
+      id: 'video-track-1',
+      kind: 'video',
+      readyState: 'live',
+    };
+
+    await act(async () => {
+      if (activePc.ontrack) {
+        activePc.ontrack({
+          receiver: mockReceiver,
+          track: mockTrack,
+        });
+      }
+    });
+
+    expect(mockReceiver.playoutDelayHint).toBe(0);
+    expect(mockReceiver.jitterBufferTarget).toBe(0);
+    expect(result.current.stream).toBeDefined();
   });
 
   it('deve armazenar mensagens anteriores ao receber evento chat-history', async () => {
