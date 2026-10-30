@@ -5,8 +5,20 @@ import type {
   AnnotationShortcutCommand,
   CursorState,
 } from '@mlab/types';
+import { DoubleCtrlDetector } from './doubleCtrlDetector';
 
 const GLOBAL_SHORTCUT_MAP: Array<{ accelerator: string; command: AnnotationShortcutCommand }> = [
+  // Atalhos diretos (Alt+...) para evitar conflito com alternância de idioma do Windows (Alt+Shift)
+  { accelerator: 'Alt+H', command: 'toggle-collapse' },
+  { accelerator: 'Alt+V', command: 'tool-cursor' },
+  { accelerator: 'Alt+P', command: 'tool-pen' },
+  { accelerator: 'Alt+M', command: 'tool-highlighter' },
+  { accelerator: 'Alt+A', command: 'tool-arrow' },
+  { accelerator: 'Alt+R', command: 'tool-rect' },
+  { accelerator: 'Alt+E', command: 'tool-eraser' },
+  { accelerator: 'Alt+L', command: 'toggle-spotlight' },
+  { accelerator: 'Alt+Z', command: 'cycle-zoom' },
+  // Atalhos legados/fallback com Alt+Shift+...
   { accelerator: 'Alt+Shift+H', command: 'toggle-collapse' },
   { accelerator: 'Alt+Shift+V', command: 'tool-cursor' },
   { accelerator: 'Alt+Shift+P', command: 'tool-pen' },
@@ -31,10 +43,18 @@ export class AnnotationOverlayManager {
   private lastIgnoreMouse: boolean | null = null;
   private lastMlabFocused: boolean | null = null;
   private lastCursorState: CursorState | null = null;
+  private doubleCtrlDetector: DoubleCtrlDetector | null = null;
 
   public start(mainWin: BrowserWindow, preloadPath: string): boolean {
     this.mainWin = mainWin;
     this.registerGlobalShortcuts();
+
+    if (!this.doubleCtrlDetector) {
+      this.doubleCtrlDetector = new DoubleCtrlDetector(() => {
+        this.dispatchShortcutCommand('toggle-spotlight');
+      });
+      this.doubleCtrlDetector.start();
+    }
 
     if (this.overlayWin && !this.overlayWin.isDestroyed()) {
       try {
@@ -63,7 +83,7 @@ export class AnnotationOverlayManager {
         alwaysOnTop: true,
         skipTaskbar: true,
         hasShadow: false,
-        focusable: false,
+        focusable: true,
         resizable: false,
         movable: false,
         fullscreenable: false,
@@ -290,10 +310,20 @@ export class AnnotationOverlayManager {
         this.mainWin.webContents.send('annotation-overlay:shortcut', command);
       } catch {}
     }
+    if (this.overlayWin && !this.overlayWin.isDestroyed() && !this.overlayWin.webContents.isDestroyed()) {
+      try {
+        this.overlayWin.webContents.send('annotation-overlay:shortcut', command);
+      } catch {}
+    }
   }
 
   public stop(): void {
     this.unregisterGlobalShortcuts();
+    if (this.doubleCtrlDetector) {
+      this.doubleCtrlDetector.stop();
+      this.doubleCtrlDetector.dispose();
+      this.doubleCtrlDetector = null;
+    }
     this.lastState = null;
     this.lastIgnoreMouse = null;
     this.lastTargetBoundsKey = '';

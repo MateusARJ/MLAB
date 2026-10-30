@@ -205,6 +205,8 @@ export const Room: React.FC<RoomProps> = ({ room, onCloseRoom }) => {
   const isDraggingToolbarRef = useRef<boolean>(false);
   const dragToolbarMovedRef = useRef<boolean>(false);
   const syncingFromExternalRef = useRef<boolean>(false);
+  const roomCtrlReleaseTimeRef = useRef<number>(0);
+  const roomOtherKeyDuringCtrlRef = useRef<boolean>(false);
 
   const ANNOTATION_COLORS = [
     { hex: '#ef4444', name: 'Vermelho' },
@@ -275,6 +277,11 @@ export const Room: React.FC<RoomProps> = ({ room, onCloseRoom }) => {
   const handleSelectTool = useCallback((tool: AnnotationTool) => {
     setActiveTool(tool);
     setShowPalettePopover(false);
+    // EXCLUSIVIDADE: Desativa a Lupa ao selecionar qualquer ferramenta de desenho ou cursor
+    setSpotlight((prev) => ({
+      ...prev,
+      enabled: false,
+    }));
     if (tool === 'highlighter' && strokeColor === '#ef4444') {
       setStrokeColor('#facc15');
     } else if (tool === 'pen' && strokeColor === '#facc15') {
@@ -283,10 +290,19 @@ export const Room: React.FC<RoomProps> = ({ room, onCloseRoom }) => {
   }, [strokeColor]);
 
   const handleToggleSpotlight = useCallback(() => {
-    setSpotlight((prev) => ({
-      ...prev,
-      enabled: !prev.enabled,
-    }));
+    setShowPalettePopover(false);
+    setSpotlight((prev) => {
+      const willEnable = !prev.enabled;
+      if (willEnable) {
+        // EXCLUSIVIDADE: Ao ativar a Lupa, passa a ferramenta ativa para 'cursor'
+        // garantindo que apenas a Lupa fique destacada na barra
+        setActiveTool('cursor');
+      }
+      return {
+        ...prev,
+        enabled: willEnable,
+      };
+    });
   }, []);
 
   const handleCycleSpotlightZoom = useCallback(() => {
@@ -543,6 +559,30 @@ export const Room: React.FC<RoomProps> = ({ room, onCloseRoom }) => {
         return;
       }
 
+      // Detecção de Duplo Toque no Ctrl (Double-tap Ctrl local)
+      if (e.key === 'Control') {
+        const now = Date.now();
+        const delta = now - roomCtrlReleaseTimeRef.current;
+        if (
+          roomCtrlReleaseTimeRef.current > 0 &&
+          delta <= 420 &&
+          !roomOtherKeyDuringCtrlRef.current
+        ) {
+          roomCtrlReleaseTimeRef.current = 0;
+          roomOtherKeyDuringCtrlRef.current = false;
+          handleToggleSpotlight();
+          return;
+        }
+        return;
+      }
+
+      // Se outra tecla for pressionada enquanto o Ctrl estiver ativo (ex: Ctrl+C, Ctrl+Z),
+      // anula o duplo toque para não disparar a Lupa acidentalmente.
+      if (e.ctrlKey || e.metaKey) {
+        roomOtherKeyDuringCtrlRef.current = true;
+        roomCtrlReleaseTimeRef.current = 0;
+      }
+
       if (e.ctrlKey || e.altKey || e.metaKey) return;
 
       const key = e.key.toLowerCase();
@@ -562,6 +602,7 @@ export const Room: React.FC<RoomProps> = ({ room, onCloseRoom }) => {
         handleSelectTool('highlighter');
       } else if (key === 'h') {
         e.preventDefault();
+        setShowPalettePopover(false);
         handleToggleToolbarCollapse();
       } else if (key === 'a' || key === '4') {
         e.preventDefault();
@@ -581,8 +622,23 @@ export const Room: React.FC<RoomProps> = ({ room, onCloseRoom }) => {
       }
     };
 
+    const handleKeyUp = (e: KeyboardEvent) => {
+      if (e.key === 'Control') {
+        if (!roomOtherKeyDuringCtrlRef.current) {
+          roomCtrlReleaseTimeRef.current = Date.now();
+        } else {
+          roomCtrlReleaseTimeRef.current = 0;
+        }
+        roomOtherKeyDuringCtrlRef.current = false;
+      }
+    };
+
     window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
+    window.addEventListener('keyup', handleKeyUp);
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+      window.removeEventListener('keyup', handleKeyUp);
+    };
   }, [
     isLiveSession,
     handleSelectTool,
@@ -1761,18 +1817,18 @@ export const Room: React.FC<RoomProps> = ({ room, onCloseRoom }) => {
                           type="button"
                           onClick={handleToggleSpotlight}
                           style={spotlight.enabled ? styles.annotationToolBtnSpotlightActive : styles.annotationToolBtn}
-                          title="Lupa / Foco no Mouse — Escurece a tela e destaca apenas o ponto do mouse (Atalho: L / F / 7 • Scroll ajusta raio • Z alterna zoom)"
+                          title="Lupa / Foco no Mouse — Escurece a tela e destaca apenas o ponto do mouse (Atalho: 2 cliques no Ctrl • Tecla L • Scroll ajusta raio • Z alterna zoom)"
                           aria-label="Lupa"
                           data-testid="tool-btn-spotlight"
                         >
                           <ZoomIn size={16} />
-                          <span style={styles.shortcutHintBadge}>L</span>
+                          <span style={styles.shortcutHintBadge}>Ctrl</span>
                         </button>
 
                         <button
                           type="button"
                           onClick={() => setShowPalettePopover((prev) => !prev)}
-                          style={showPalettePopover ? styles.annotationToolBtnActive : styles.annotationToolBtn}
+                          style={showPalettePopover ? styles.annotationToolBtnPaletteOpen : styles.annotationToolBtn}
                           title="Cor da Marcação, Espessura do Traço e Zoom da Lupa (Atalho Zoom: Z)"
                           aria-label="Cores e Espessura"
                           data-testid="tool-btn-palette"
@@ -4620,6 +4676,20 @@ const styles: { [key: string]: React.CSSProperties } = {
     justifyContent: 'center',
     cursor: 'pointer',
     boxShadow: '0 0 12px rgba(250, 204, 21, 0.35)',
+  },
+  annotationToolBtnPaletteOpen: {
+    position: 'relative',
+    width: '34px',
+    height: '32px',
+    borderRadius: '7px',
+    border: '1px solid rgba(255, 255, 255, 0.35)',
+    backgroundColor: 'rgba(255, 255, 255, 0.12)',
+    color: '#f8fafc',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    cursor: 'pointer',
+    boxShadow: '0 0 10px rgba(255, 255, 255, 0.15)',
   },
   annotationToolBtnDisabled: {
     position: 'relative',

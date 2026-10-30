@@ -18,6 +18,7 @@ describe('FloatingAnnotationOverlay Component & Adaptive Orientation', () => {
       setAnnotationOverlayIgnoreMouse: vi.fn().mockResolvedValue(undefined),
       onAnnotationStateSync: vi.fn().mockReturnValue(() => {}),
       onCursorState: vi.fn().mockReturnValue(() => {}),
+      onAnnotationShortcutCommand: vi.fn().mockReturnValue(() => {}),
     } as any;
   });
 
@@ -152,6 +153,86 @@ describe('FloatingAnnotationOverlay Component & Adaptive Orientation', () => {
       });
 
       expect(toolbar).toHaveStyle({ opacity: '1', pointerEvents: 'auto' });
+    });
+
+    it('deve garantir exclusividade mútua estrita entre ferramentas de desenho, Lupa e menu de paleta', () => {
+      render(<FloatingAnnotationOverlay />);
+
+      const penBtn = screen.getByTestId('external-tool-pen');
+      const spotlightBtn = screen.getByTestId('external-tool-spotlight');
+      const highlighterBtn = screen.getByTestId('external-tool-highlighter');
+      const paletteBtn = screen.getByTestId('external-tool-palette');
+
+      // 1. Clica no Pincel: Pincel ativo
+      fireEvent.click(penBtn);
+      expect(penBtn).toHaveStyle({ borderColor: '#38bdf8' });
+      expect(spotlightBtn).toHaveStyle({ borderColor: 'transparent' });
+
+      // 2. Clica na Lupa: Lupa fica ativa, Pincel desativa com exclusividade mútua
+      fireEvent.click(spotlightBtn);
+      expect(spotlightBtn).toHaveStyle({ borderColor: '#facc15' });
+      expect(penBtn).toHaveStyle({ borderColor: 'transparent' });
+
+      // 3. Clica no Marca-texto: Marca-texto fica ativo, Lupa desativa
+      fireEvent.click(highlighterBtn);
+      expect(highlighterBtn).toHaveStyle({ borderColor: '#38bdf8' });
+      expect(spotlightBtn).toHaveStyle({ borderColor: 'transparent' });
+
+      // 4. Clica na Paleta: abre o popover sem aplicar estilo de ferramenta ativa
+      fireEvent.click(paletteBtn);
+      expect(screen.getByTestId('external-palette-popover')).toBeInTheDocument();
+      // O botão de paleta não deve ter a cor ciano da ferramenta de desenho
+      expect(paletteBtn).not.toHaveStyle({ borderColor: '#38bdf8' });
+      // Clicar no Pincel fecha a paleta automaticamente
+      fireEvent.click(penBtn);
+      expect(screen.queryByTestId('external-palette-popover')).not.toBeInTheDocument();
+    });
+
+    it('deve alternar a Lupa ao receber 2 cliques rápidos na tecla Ctrl (Double-tap Ctrl)', () => {
+      render(<FloatingAnnotationOverlay />);
+
+      const spotlightBtn = screen.getByTestId('external-tool-spotlight');
+      expect(spotlightBtn).toHaveStyle({ borderColor: 'transparent' });
+
+      // Duplo clique na tecla Control
+      fireEvent.keyDown(window, { key: 'Control' });
+      fireEvent.keyUp(window, { key: 'Control' });
+      fireEvent.keyDown(window, { key: 'Control' });
+
+      // Lupa deve estar ligada
+      expect(spotlightBtn).toHaveStyle({ borderColor: '#facc15' });
+      expect(window.electronAPI.syncAnnotationState).toHaveBeenCalledWith(
+        expect.objectContaining({
+          spotlight: expect.objectContaining({ enabled: true }),
+        })
+      );
+    });
+
+    it('deve responder aos comandos de atalho recebidos via onAnnotationShortcutCommand', () => {
+      let shortcutCb: (cmd: any) => void = () => {};
+      window.electronAPI.onAnnotationShortcutCommand = vi.fn().mockImplementation((cb) => {
+        shortcutCb = cb;
+        return () => {};
+      });
+
+      render(<FloatingAnnotationOverlay />);
+
+      const penBtn = screen.getByTestId('external-tool-pen');
+      const spotlightBtn = screen.getByTestId('external-tool-spotlight');
+
+      // Comando tool-pen via atalho IPC
+      act(() => {
+        shortcutCb('tool-pen');
+      });
+      expect(penBtn).toHaveStyle({ borderColor: '#38bdf8' });
+      expect(spotlightBtn).toHaveStyle({ borderColor: 'transparent' });
+
+      // Comando toggle-spotlight via atalho IPC
+      act(() => {
+        shortcutCb('toggle-spotlight');
+      });
+      expect(spotlightBtn).toHaveStyle({ borderColor: '#facc15' });
+      expect(penBtn).toHaveStyle({ borderColor: 'transparent' });
     });
   });
 });

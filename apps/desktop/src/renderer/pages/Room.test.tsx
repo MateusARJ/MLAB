@@ -575,10 +575,18 @@ describe('Room Component (Desktop)', () => {
     fireEvent.keyDown(window, { key: 'y', ctrlKey: true });
     expect(undoBtn).not.toBeDisabled();
 
-    // Atalho 'L' ativa a Lupa / Foco no mouse
+    // Atalho 'L' ativa a Lupa / Foco no mouse (com cursor crosshair para direcionar o foco)
     fireEvent.keyDown(window, { key: 'l' });
+    expect(canvas).toHaveStyle({ cursor: 'crosshair' });
+
+    // Com exclusividade mútua, selecionar 'V' (Cursor Padrão) desativa a Lupa
     fireEvent.keyDown(window, { key: 'v' });
-    // Com Cursor selecionado mas Lupa ativa, o cursor permanece crosshair
+    expect(canvas).toHaveStyle({ cursor: 'default' });
+
+    // Novo atalho: 2 cliques na tecla Ctrl (Double-tap Ctrl) ativa a Lupa
+    fireEvent.keyDown(window, { key: 'Control' });
+    fireEvent.keyUp(window, { key: 'Control' });
+    fireEvent.keyDown(window, { key: 'Control' });
     expect(canvas).toHaveStyle({ cursor: 'crosshair' });
 
     // Abre o popover de Cores, Espessura e Zoom da Lupa

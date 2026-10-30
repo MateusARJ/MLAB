@@ -119,6 +119,9 @@ export const FloatingAnnotationOverlay: React.FC = () => {
   const mlabFocusedRef = useRef<boolean>(mlabFocused);
   mlabFocusedRef.current = mlabFocused;
 
+  const lastCtrlReleaseTimeRef = useRef<number>(0);
+  const hadOtherKeyDuringCtrlRef = useRef<boolean>(false);
+
   const dragStartOffsetRef = useRef<{
     dx: number;
     dy: number;
@@ -196,6 +199,125 @@ export const FloatingAnnotationOverlay: React.FC = () => {
     lastIgnoreMouseRef.current = nextIgnore;
     window.electronAPI.setAnnotationOverlayIgnoreMouse(nextIgnore).catch(() => {});
   }, []);
+
+  const handleSelectTool = useCallback(
+    (tool: AnnotationTool) => {
+      const cur = stateRef.current;
+      setShowPalettePopover(false);
+      let nextColor = cur.strokeColor;
+      if (tool === 'highlighter' && cur.strokeColor === '#ef4444') {
+        nextColor = '#facc15';
+      } else if (tool === 'pen' && cur.strokeColor === '#facc15') {
+        nextColor = '#ef4444';
+      }
+      const next: AnnotationSessionState = {
+        ...cur,
+        activeTool: tool,
+        strokeColor: nextColor,
+        // EXCLUSIVIDADE: Desativa a Lupa imediatamente ao selecionar qualquer ferramenta de desenho ou cursor
+        spotlight: {
+          ...cur.spotlight,
+          enabled: false,
+        },
+      };
+      pushStateToMain(next);
+      updateIgnoreMouse(tool);
+    },
+    [pushStateToMain, updateIgnoreMouse]
+  );
+
+  const handleToggleSpotlight = useCallback(() => {
+    const cur = stateRef.current;
+    const willEnable = !cur.spotlight.enabled;
+    setShowPalettePopover(false);
+    const next: AnnotationSessionState = {
+      ...cur,
+      // EXCLUSIVIDADE: Ao ativar a Lupa, o modo de desenho volta para 'cursor' (apontador)
+      // para que apenas a Lupa fique acesa e não haja conflito com o pincel
+      activeTool: willEnable ? 'cursor' : cur.activeTool,
+      spotlight: {
+        ...cur.spotlight,
+        enabled: willEnable,
+      },
+    };
+    pushStateToMain(next);
+    if (willEnable) {
+      updateIgnoreMouse('cursor');
+    }
+  }, [pushStateToMain, updateIgnoreMouse]);
+
+  // Recebe comandos de atalho globais (Alt+..., Alt+Shift+... e duplo clique no Ctrl via Main)
+  useEffect(() => {
+    if (!window.electronAPI || typeof window.electronAPI.onAnnotationShortcutCommand !== 'function') return;
+    const unsub = window.electronAPI.onAnnotationShortcutCommand((cmd: any) => {
+      const action = typeof cmd === 'string' ? cmd : cmd?.action;
+      if (action === 'select-tool' && cmd?.tool) {
+        handleSelectTool(cmd.tool);
+      } else if (action === 'tool-cursor') {
+        handleSelectTool('cursor');
+      } else if (action === 'tool-pen') {
+        handleSelectTool('pen');
+      } else if (action === 'tool-highlighter') {
+        handleSelectTool('highlighter');
+      } else if (action === 'tool-arrow') {
+        handleSelectTool('arrow');
+      } else if (action === 'tool-rect') {
+        handleSelectTool('rect');
+      } else if (action === 'tool-eraser') {
+        handleSelectTool('eraser');
+      } else if (action === 'toggle-spotlight') {
+        handleToggleSpotlight();
+      } else if (action === 'cycle-zoom') {
+        const cur = stateRef.current;
+        const nextZoom: 1 | 1.5 | 2 =
+          cur.spotlight.zoom === 1 ? 1.5 : cur.spotlight.zoom === 1.5 ? 2 : 1;
+        pushStateToMain({
+          ...cur,
+          spotlight: { ...cur.spotlight, zoom: nextZoom },
+        });
+      } else if (action === 'toggle-collapse') {
+        setShowPalettePopover(false);
+        const cur = stateRef.current;
+        pushStateToMain({
+          ...cur,
+          collapsed: !cur.collapsed,
+        });
+      } else if (action === 'undo') {
+        const cur = stateRef.current;
+        if (cur.strokes.length > 0) {
+          const last = cur.strokes[cur.strokes.length - 1];
+          pushStateToMain({
+            ...cur,
+            strokes: cur.strokes.slice(0, -1),
+            redoStrokes: [...cur.redoStrokes, last],
+          });
+        }
+      } else if (action === 'redo') {
+        const cur = stateRef.current;
+        if (cur.redoStrokes.length > 0) {
+          const restored = cur.redoStrokes[cur.redoStrokes.length - 1];
+          pushStateToMain({
+            ...cur,
+            strokes: [...cur.strokes, restored],
+            redoStrokes: cur.redoStrokes.slice(0, -1),
+          });
+        }
+      } else if (action === 'clear') {
+        const cur = stateRef.current;
+        pushStateToMain({
+          ...cur,
+          strokes: [],
+          redoStrokes: [],
+          activeStroke: null,
+        });
+      }
+    });
+    return () => {
+      try {
+        unsub();
+      } catch {}
+    };
+  }, [handleSelectTool, handleToggleSpotlight, pushStateToMain]);
 
   // Recebe sincronização de estado vinda da janela principal (Room.tsx)
   useEffect(() => {
@@ -276,10 +398,35 @@ export const FloatingAnnotationOverlay: React.FC = () => {
     };
   }, [updateIgnoreMouse]);
 
-  // Atalhos de tecla única enquanto o professor está interagindo na camada de overlay
+  // Atalhos de teclado enquanto o professor está interagindo na camada de overlay
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       const cur = stateRef.current;
+
+      // Detecção de Duplo Toque no Ctrl (Double-tap Ctrl local)
+      if (e.key === 'Control') {
+        const now = Date.now();
+        const delta = now - lastCtrlReleaseTimeRef.current;
+        if (
+          lastCtrlReleaseTimeRef.current > 0 &&
+          delta <= 420 &&
+          !hadOtherKeyDuringCtrlRef.current
+        ) {
+          lastCtrlReleaseTimeRef.current = 0;
+          hadOtherKeyDuringCtrlRef.current = false;
+          handleToggleSpotlight();
+          return;
+        }
+        return;
+      }
+
+      // Se outra tecla for pressionada enquanto o Ctrl estiver ativo (ex: Ctrl+C, Ctrl+V),
+      // anula o duplo toque para evitar acionar a Lupa acidentalmente.
+      if (e.ctrlKey || e.metaKey) {
+        hadOtherKeyDuringCtrlRef.current = true;
+        lastCtrlReleaseTimeRef.current = 0;
+      }
+
       if ((e.ctrlKey || e.metaKey) && !e.shiftKey && (e.key === 'z' || e.key === 'Z')) {
         e.preventDefault();
         if (cur.strokes.length > 0) {
@@ -325,6 +472,7 @@ export const FloatingAnnotationOverlay: React.FC = () => {
       const key = e.key.toLowerCase();
       if (key === 'escape') {
         e.preventDefault();
+        setShowPalettePopover(false);
         const next: AnnotationSessionState = {
           ...cur,
           activeTool: 'cursor',
@@ -334,42 +482,25 @@ export const FloatingAnnotationOverlay: React.FC = () => {
         updateIgnoreMouse('cursor');
       } else if (key === 'v' || key === '1') {
         e.preventDefault();
-        pushStateToMain({ ...cur, activeTool: 'cursor' });
-        updateIgnoreMouse('cursor');
+        handleSelectTool('cursor');
       } else if (key === 'p' || key === '2') {
         e.preventDefault();
-        pushStateToMain({
-          ...cur,
-          activeTool: 'pen',
-          strokeColor: cur.strokeColor === '#facc15' ? '#ef4444' : cur.strokeColor,
-        });
-        updateIgnoreMouse('pen');
+        handleSelectTool('pen');
       } else if (key === 'm' || key === '3') {
         e.preventDefault();
-        pushStateToMain({
-          ...cur,
-          activeTool: 'highlighter',
-          strokeColor: cur.strokeColor === '#ef4444' ? '#facc15' : cur.strokeColor,
-        });
-        updateIgnoreMouse('highlighter');
+        handleSelectTool('highlighter');
       } else if (key === 'a' || key === '4') {
         e.preventDefault();
-        pushStateToMain({ ...cur, activeTool: 'arrow' });
-        updateIgnoreMouse('arrow');
+        handleSelectTool('arrow');
       } else if (key === 'r' || key === '5') {
         e.preventDefault();
-        pushStateToMain({ ...cur, activeTool: 'rect' });
-        updateIgnoreMouse('rect');
+        handleSelectTool('rect');
       } else if (key === 'e' || key === 'b' || key === '6') {
         e.preventDefault();
-        pushStateToMain({ ...cur, activeTool: 'eraser' });
-        updateIgnoreMouse('eraser');
+        handleSelectTool('eraser');
       } else if (key === 'l' || key === 'f' || key === '7') {
         e.preventDefault();
-        pushStateToMain({
-          ...cur,
-          spotlight: { ...cur.spotlight, enabled: !cur.spotlight.enabled },
-        });
+        handleToggleSpotlight();
       } else if (key === 'z') {
         e.preventDefault();
         const nextZoom: 1 | 1.5 | 2 =
@@ -380,6 +511,7 @@ export const FloatingAnnotationOverlay: React.FC = () => {
         });
       } else if (key === 'h') {
         e.preventDefault();
+        setShowPalettePopover(false);
         pushStateToMain({
           ...cur,
           collapsed: !cur.collapsed,
@@ -387,9 +519,24 @@ export const FloatingAnnotationOverlay: React.FC = () => {
       }
     };
 
+    const handleKeyUp = (e: KeyboardEvent) => {
+      if (e.key === 'Control') {
+        if (!hadOtherKeyDuringCtrlRef.current) {
+          lastCtrlReleaseTimeRef.current = Date.now();
+        } else {
+          lastCtrlReleaseTimeRef.current = 0;
+        }
+        hadOtherKeyDuringCtrlRef.current = false;
+      }
+    };
+
     window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [pushStateToMain, updateIgnoreMouse]);
+    window.addEventListener('keyup', handleKeyUp);
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+      window.removeEventListener('keyup', handleKeyUp);
+    };
+  }, [handleSelectTool, handleToggleSpotlight, pushStateToMain, updateIgnoreMouse]);
 
   // Renderiza as marcações e a Lupa no canvas transparente (capturado diretamente pelo WGC em modo Tela Cheia)
   const renderOverlayCanvas = useCallback(() => {
@@ -651,24 +798,6 @@ export const FloatingAnnotationOverlay: React.FC = () => {
     if (isDraggingToolbarRef.current) return;
     isHoveringToolbarRef.current = false;
     updateIgnoreMouse(stateRef.current.activeTool);
-  };
-
-  const handleSelectTool = (tool: AnnotationTool) => {
-    const cur = stateRef.current;
-    setShowPalettePopover(false);
-    let nextColor = cur.strokeColor;
-    if (tool === 'highlighter' && cur.strokeColor === '#ef4444') {
-      nextColor = '#facc15';
-    } else if (tool === 'pen' && cur.strokeColor === '#facc15') {
-      nextColor = '#ef4444';
-    }
-    const next: AnnotationSessionState = {
-      ...cur,
-      activeTool: tool,
-      strokeColor: nextColor,
-    };
-    pushStateToMain(next);
-    updateIgnoreMouse(tool);
   };
 
   // Chamado pelo botão Minimizar quando a barra está expandida
@@ -1096,25 +1225,20 @@ export const FloatingAnnotationOverlay: React.FC = () => {
 
             <button
               type="button"
-              onClick={() =>
-                pushStateToMain({
-                  ...sessionState,
-                  spotlight: { ...spotlight, enabled: !spotlight.enabled },
-                })
-              }
+              onClick={handleToggleSpotlight}
               style={spotlight.enabled ? overlayStyles.toolBtnSpotlight : overlayStyles.toolBtn}
-              title="Lupa / Foco no Mouse (Atalho: L / Alt+Shift+L)"
+              title="Lupa / Foco no Mouse (Atalho: 2 cliques no Ctrl / L / Alt+L)"
               data-testid="external-tool-spotlight"
             >
               <ZoomIn size={16} />
-              <span style={overlayStyles.shortcutBadge}>L</span>
+              <span style={overlayStyles.shortcutBadge}>Ctrl</span>
             </button>
 
             <button
               type="button"
               onClick={() => setShowPalettePopover((p) => !p)}
-              style={showPalettePopover ? overlayStyles.toolBtnActive : overlayStyles.toolBtn}
-              title="Cor, Espessura e Zoom da Lupa (Atalho Zoom: Z / Alt+Shift+Z)"
+              style={showPalettePopover ? overlayStyles.toolBtnPaletteOpen : overlayStyles.toolBtn}
+              title="Cor, Espessura e Zoom da Lupa (Atalho Zoom: Z / Alt+Z)"
               data-testid="external-tool-palette"
             >
               <ColorPalette size={16} />
@@ -1319,6 +1443,19 @@ const overlayStyles: Record<string, React.CSSProperties> = {
     border: '1px solid #facc15',
     backgroundColor: 'rgba(250, 204, 21, 0.24)',
     color: '#facc15',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    cursor: 'pointer',
+  },
+  toolBtnPaletteOpen: {
+    position: 'relative',
+    width: '34px',
+    height: '32px',
+    borderRadius: '7px',
+    border: '1px solid rgba(255, 255, 255, 0.35)',
+    backgroundColor: 'rgba(255, 255, 255, 0.12)',
+    color: '#f8fafc',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
