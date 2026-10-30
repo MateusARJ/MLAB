@@ -64,6 +64,9 @@ export {
   Undo,
   Redo,
   TrashCan,
+  Draggable,
+  ChevronLeft,
+  ChevronRight,
 } from '@carbon/icons-react';
 
 /**

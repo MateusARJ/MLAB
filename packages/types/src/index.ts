@@ -278,6 +278,10 @@ export interface CursorState {
   visible: boolean;
   /** Retângulo do cursor normalizado [0..1] relativo à fonte capturada; null = fora da fonte */
   rect: { x: number; y: number; w: number; h: number } | null;
+  /** Limites em coordenadas DIP da tela da fonte capturada (monitor ou janela) */
+  targetBounds?: { x: number; y: number; w: number; h: number } | null;
+  /** true quando a janela principal do MLab está em foco ou sob o cursor */
+  mlabFocused?: boolean;
 }
 
 export type RecordingFormat = 'webm';
@@ -328,4 +332,32 @@ export interface AnnotationOverlayState {
   strokes: AnnotationStroke[];
   activeStroke: AnnotationStroke | null;
   spotlight: SpotlightState;
+  captureMode?: CaptureSourceType;
+  externalOverlayActive?: boolean;
+}
+
+export type AnnotationShortcutCommand =
+  | 'toggle-collapse'
+  | 'tool-cursor'
+  | 'tool-pen'
+  | 'tool-highlighter'
+  | 'tool-arrow'
+  | 'tool-rect'
+  | 'tool-eraser'
+  | 'toggle-spotlight'
+  | 'cycle-zoom'
+  | 'undo'
+  | 'redo'
+  | 'clear';
+
+export interface AnnotationSessionState {
+  activeTool: AnnotationTool;
+  strokeColor: string;
+  strokeSize: number;
+  strokes: AnnotationStroke[];
+  redoStrokes: AnnotationStroke[];
+  activeStroke: AnnotationStroke | null;
+  spotlight: SpotlightState;
+  collapsed: boolean;
+  toolbarPos?: { x: number; y: number } | null;
 }
