@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { createRoom } from '../services/room';
 import mlabLogo from '../assets/MLAB-logo.png';
 import {
@@ -44,6 +44,19 @@ export const Dashboard: React.FC<DashboardProps> = ({ onEnterRoom, onLogout }) =
     shortMdnsLink?: string;
   } | null>(null);
   const [error, setError] = useState<string | null>(null);
+
+  // Permite abrir a sala pressionando Enter assim que os links forem gerados
+  useEffect(() => {
+    if (!currentRoom) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        onEnterRoom(currentRoom);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [currentRoom, onEnterRoom]);
 
   const handleCreateRoom = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -149,6 +162,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ onEnterRoom, onLogout }) =
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
                 placeholder="Ex: Algoritmos - Turma 04"
+                autoFocus
                 required
               />
               <Button
@@ -265,8 +279,9 @@ export const Dashboard: React.FC<DashboardProps> = ({ onEnterRoom, onLogout }) =
                 onClick={() => onEnterRoom(currentRoom)}
                 icon={<Play size={20} />}
                 style={{ marginTop: '12px' }}
+                autoFocus
               >
-                Abrir Sala de Transmissão
+                Abrir Sala de Transmissão (Enter)
               </Button>
             </div>
           )}
