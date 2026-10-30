@@ -39,11 +39,13 @@ export class DoubleCtrlDetector {
   private wasCtrlDown = false;
   private otherKeyPressed = false;
   private firstCtrlReleaseTime = 0;
+  private lastTriggerTime = 0;
   private getAsyncKeyState: GetAsyncKeyStateFn | null = null;
   private onDoubleCtrl: () => void;
 
-  public static readonly MIN_INTERVAL_MS = 35;
-  public static readonly MAX_INTERVAL_MS = 420;
+  public static readonly MIN_INTERVAL_MS = 0;
+  public static readonly MAX_INTERVAL_MS = 600;
+  public static readonly COOLDOWN_MS = 350;
 
   constructor(onDoubleCtrl: () => void, customGetAsyncKeyState?: GetAsyncKeyStateFn) {
     this.onDoubleCtrl = onDoubleCtrl;
@@ -86,6 +88,7 @@ export class DoubleCtrlDetector {
     this.wasCtrlDown = false;
     this.otherKeyPressed = false;
     this.firstCtrlReleaseTime = 0;
+    this.lastTriggerTime = 0;
   }
 
   public dispose(): void {
@@ -119,13 +122,17 @@ export class DoubleCtrlDetector {
 
         if (this.firstCtrlReleaseTime > 0) {
           const delta = now - this.firstCtrlReleaseTime;
+          const isCooldownActive =
+            this.lastTriggerTime > 0 && now - this.lastTriggerTime < DoubleCtrlDetector.COOLDOWN_MS;
           if (
+            !isCooldownActive &&
             delta >= DoubleCtrlDetector.MIN_INTERVAL_MS &&
             delta <= DoubleCtrlDetector.MAX_INTERVAL_MS &&
             !anyOtherKeyDown
           ) {
             // Duplo toque detectado! Dispara imediatamente no segundo down
             this.firstCtrlReleaseTime = 0;
+            this.lastTriggerTime = now;
             triggered = true;
             try {
               this.onDoubleCtrl();

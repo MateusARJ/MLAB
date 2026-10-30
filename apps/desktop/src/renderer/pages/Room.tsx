@@ -528,6 +528,8 @@ export const Room: React.FC<RoomProps> = ({ room, onCloseRoom }) => {
     if (!isLiveSession) return;
 
     const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.repeat) return;
+
       const target = e.target as HTMLElement | null;
       const isEditable =
         target &&
@@ -560,18 +562,22 @@ export const Room: React.FC<RoomProps> = ({ room, onCloseRoom }) => {
       }
 
       // Detecção de Duplo Toque no Ctrl (Double-tap Ctrl local)
-      if (e.key === 'Control') {
+      const isCtrlKey = e.key === 'Control' || e.code === 'ControlLeft' || e.code === 'ControlRight';
+      if (isCtrlKey) {
         const now = Date.now();
         const delta = now - roomCtrlReleaseTimeRef.current;
         if (
           roomCtrlReleaseTimeRef.current > 0 &&
-          delta <= 420 &&
+          delta <= 600 &&
           !roomOtherKeyDuringCtrlRef.current
         ) {
           roomCtrlReleaseTimeRef.current = 0;
           roomOtherKeyDuringCtrlRef.current = false;
           handleToggleSpotlight();
           return;
+        }
+        if (delta > 600) {
+          roomCtrlReleaseTimeRef.current = 0;
         }
         return;
       }
@@ -623,7 +629,8 @@ export const Room: React.FC<RoomProps> = ({ room, onCloseRoom }) => {
     };
 
     const handleKeyUp = (e: KeyboardEvent) => {
-      if (e.key === 'Control') {
+      const isCtrlKey = e.key === 'Control' || e.code === 'ControlLeft' || e.code === 'ControlRight';
+      if (isCtrlKey) {
         if (!roomOtherKeyDuringCtrlRef.current) {
           roomCtrlReleaseTimeRef.current = Date.now();
         } else {

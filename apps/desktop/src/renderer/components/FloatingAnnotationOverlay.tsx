@@ -401,21 +401,26 @@ export const FloatingAnnotationOverlay: React.FC = () => {
   // Atalhos de teclado enquanto o professor está interagindo na camada de overlay
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.repeat) return;
       const cur = stateRef.current;
 
       // Detecção de Duplo Toque no Ctrl (Double-tap Ctrl local)
-      if (e.key === 'Control') {
+      const isCtrlKey = e.key === 'Control' || e.code === 'ControlLeft' || e.code === 'ControlRight';
+      if (isCtrlKey) {
         const now = Date.now();
         const delta = now - lastCtrlReleaseTimeRef.current;
         if (
           lastCtrlReleaseTimeRef.current > 0 &&
-          delta <= 420 &&
+          delta <= 600 &&
           !hadOtherKeyDuringCtrlRef.current
         ) {
           lastCtrlReleaseTimeRef.current = 0;
           hadOtherKeyDuringCtrlRef.current = false;
           handleToggleSpotlight();
           return;
+        }
+        if (lastCtrlReleaseTimeRef.current > 0 && delta > 600) {
+          lastCtrlReleaseTimeRef.current = 0;
         }
         return;
       }
@@ -520,7 +525,8 @@ export const FloatingAnnotationOverlay: React.FC = () => {
     };
 
     const handleKeyUp = (e: KeyboardEvent) => {
-      if (e.key === 'Control') {
+      const isCtrlKey = e.key === 'Control' || e.code === 'ControlLeft' || e.code === 'ControlRight';
+      if (isCtrlKey) {
         if (!hadOtherKeyDuringCtrlRef.current) {
           lastCtrlReleaseTimeRef.current = Date.now();
         } else {

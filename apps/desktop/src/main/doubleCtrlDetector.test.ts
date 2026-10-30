@@ -101,13 +101,73 @@ describe('DoubleCtrlDetector (Main Process)', () => {
     ctrlDown = false;
     detector.tick(now);
 
-    // Espera 500ms (> 420ms)
-    now += 500;
+    // Espera 700ms (> 600ms)
+    now += 700;
 
     // Toque 2: Pressiona
     ctrlDown = true;
     expect(detector.tick(now)).toBe(false);
     expect(onDoubleCtrl).not.toHaveBeenCalled();
+  });
+
+  it('não deve disparar repetidamente dentro do cooldown de 350ms', () => {
+    let ctrlDown = false;
+
+    const mockGetAsyncKeyState = (vKey: number) => {
+      return vKey === 0x11 && ctrlDown ? 0x8000 : 0;
+    };
+
+    const onDoubleCtrl = vi.fn();
+    const detector = new DoubleCtrlDetector(onDoubleCtrl, mockGetAsyncKeyState);
+
+    let now = 4000;
+
+    // Duplo clique válido 1 (Trigger 1)
+    ctrlDown = true;
+    detector.tick(now);
+    now += 50;
+    ctrlDown = false;
+    detector.tick(now); // release em 4050
+    now += 100;
+    ctrlDown = true;
+    expect(detector.tick(now)).toBe(true); // trigger em 4150
+    expect(onDoubleCtrl).toHaveBeenCalledTimes(1);
+
+    // Solta Ctrl
+    now += 50;
+    ctrlDown = false;
+    detector.tick(now); // 4200
+
+    // Tenta outro duplo clique 100ms depois (< 350ms de 4150)
+    now += 50;
+    ctrlDown = true;
+    detector.tick(now); // 4250
+    now += 50;
+    ctrlDown = false;
+    detector.tick(now); // 4300
+    now += 50;
+    ctrlDown = true;
+    expect(detector.tick(now)).toBe(false); // 4350 (< 4150 + 350 = 4500)
+    expect(onDoubleCtrl).toHaveBeenCalledTimes(1);
+
+    // Solta Ctrl
+    now += 50;
+    ctrlDown = false;
+    detector.tick(now); // 4400
+
+    // Avança o tempo para além do intervalo máximo e do cooldown (> 600ms e > 350ms)
+    now = 5200;
+
+    // Novo duplo clique válido após expiração (Trigger 2)
+    ctrlDown = true;
+    expect(detector.tick(now)).toBe(false); // 5200 - primeiro toque (delta de 4400 expirado > 600ms)
+    now += 50;
+    ctrlDown = false;
+    detector.tick(now); // 5250 - solta primeiro toque
+    now += 100;
+    ctrlDown = true;
+    expect(detector.tick(now)).toBe(true); // 5350 - segundo toque dispara!
+    expect(onDoubleCtrl).toHaveBeenCalledTimes(2);
   });
 
   it('deve gerenciar início e parada do timer corretamente', () => {

@@ -44,6 +44,7 @@ export class AnnotationOverlayManager {
   private lastMlabFocused: boolean | null = null;
   private lastCursorState: CursorState | null = null;
   private doubleCtrlDetector: DoubleCtrlDetector | null = null;
+  private lastSpotlightToggleTime = 0;
 
   public start(mainWin: BrowserWindow, preloadPath: string): boolean {
     this.mainWin = mainWin;
@@ -186,11 +187,16 @@ export class AnnotationOverlayManager {
   }
 
   public syncState(sender: WebContents, state: AnnotationSessionState): void {
+    const prevSpotlightEnabled = this.lastState?.spotlight?.enabled;
     const mergedState: AnnotationSessionState = {
       ...state,
       toolbarPos: state.toolbarPos !== undefined ? state.toolbarPos : this.lastState?.toolbarPos,
     };
     this.lastState = mergedState;
+
+    if (prevSpotlightEnabled !== undefined && prevSpotlightEnabled !== mergedState.spotlight?.enabled) {
+      this.lastSpotlightToggleTime = Date.now();
+    }
 
     if (
       this.overlayWin &&
@@ -305,6 +311,41 @@ export class AnnotationOverlayManager {
   }
 
   private dispatchShortcutCommand(command: AnnotationShortcutCommand): void {
+    if (command === 'toggle-spotlight') {
+      const now = Date.now();
+      // Se a Lupa foi alternada recentemente (< 350ms) por sincronização do Renderer local,
+      // ignora o evento para prevenir cancelamento mútuo instantâneo (double toggle).
+      if (now - this.lastSpotlightToggleTime < 350) {
+        return;
+      }
+      this.lastSpotlightToggleTime = now;
+
+      // Para o toggle da Lupa, atualiza o estado canônico absoluto e transmite para evitar corrida de duplo toggle
+      if (this.lastState) {
+        const willEnable = !this.lastState.spotlight.enabled;
+        const updatedState: AnnotationSessionState = {
+          ...this.lastState,
+          activeTool: willEnable ? 'cursor' : this.lastState.activeTool,
+          spotlight: {
+            ...this.lastState.spotlight,
+            enabled: willEnable,
+          },
+        };
+        this.lastState = updatedState;
+        if (this.mainWin && !this.mainWin.isDestroyed() && !this.mainWin.webContents.isDestroyed()) {
+          try {
+            this.mainWin.webContents.send('annotation-overlay:state', updatedState);
+          } catch {}
+        }
+        if (this.overlayWin && !this.overlayWin.isDestroyed() && !this.overlayWin.webContents.isDestroyed()) {
+          try {
+            this.overlayWin.webContents.send('annotation-overlay:state', updatedState);
+          } catch {}
+        }
+        return;
+      }
+    }
+
     if (this.mainWin && !this.mainWin.isDestroyed() && !this.mainWin.webContents.isDestroyed()) {
       try {
         this.mainWin.webContents.send('annotation-overlay:shortcut', command);
@@ -325,6 +366,7 @@ export class AnnotationOverlayManager {
       this.doubleCtrlDetector = null;
     }
     this.lastState = null;
+    this.lastSpotlightToggleTime = 0;
     this.lastIgnoreMouse = null;
     this.lastTargetBoundsKey = '';
     this.lastMlabFocused = null;
