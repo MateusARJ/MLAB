@@ -15,6 +15,7 @@ export interface CursorTrackingTarget {
   sourceId: string;
   type: CaptureSourceType;
   displayId?: string;
+  allowedSourceIds?: string[];
 }
 
 export class CursorPresenceTracker {
@@ -24,6 +25,10 @@ export class CursorPresenceTracker {
   private lastCursor: Point | null = null;
   private lastSentJson = '';
   private stateListener: ((state: CursorState) => void) | null = null;
+  private allowedWindowMap: Map<bigint, string> = new Map();
+  private currentActiveSourceId: string | null = null;
+  private currentTargetWindowId: bigint | null = null;
+  private lastUnauthorizedState = false;
 
   public setStateListener(cb: ((state: CursorState) => void) | null): void {
     this.stateListener = cb;
@@ -47,7 +52,19 @@ export class CursorPresenceTracker {
     }
 
     const tracker = this.getNativeTracker();
-    const targetWindowId = target.type === 'window' ? parseWindowHandle(target.sourceId) : null;
+    this.allowedWindowMap.clear();
+    this.currentActiveSourceId = target.sourceId;
+    this.currentTargetWindowId = target.type === 'window' ? parseWindowHandle(target.sourceId) : null;
+    this.lastUnauthorizedState = false;
+
+    if (target.allowedSourceIds && target.allowedSourceIds.length > 0) {
+      for (const sId of target.allowedSourceIds) {
+        const h = parseWindowHandle(sId);
+        if (h !== null) {
+          this.allowedWindowMap.set(h, sId);
+        }
+      }
+    }
 
     let mlabWindowId: bigint | null = null;
     try {
@@ -67,9 +84,34 @@ export class CursorPresenceTracker {
       }
 
       try {
+        // Rastreamento dinâmico de foco para múltiplas janelas autorizadas
+        if (target.type === 'window' && this.allowedWindowMap.size > 1 && tracker) {
+          const snap = tracker.queryWindow(this.currentTargetWindowId || 0n);
+          const fg = snap.foregroundWindowId;
+          if (fg !== null && fg > 0n) {
+            if (this.allowedWindowMap.has(fg)) {
+              if (this.lastUnauthorizedState) {
+                this.lastUnauthorizedState = false;
+                win.webContents.send('active-window-unauthorized', { isUnauthorized: false });
+              }
+              const matchedSourceId = this.allowedWindowMap.get(fg)!;
+              if (matchedSourceId !== this.currentActiveSourceId) {
+                this.currentActiveSourceId = matchedSourceId;
+                this.currentTargetWindowId = fg;
+                win.webContents.send('active-window-changed', { sourceId: matchedSourceId });
+              }
+            } else if (mlabWindowId === null || fg !== mlabWindowId) {
+              if (!this.lastUnauthorizedState) {
+                this.lastUnauthorizedState = true;
+                win.webContents.send('active-window-unauthorized', { isUnauthorized: true });
+              }
+            }
+          }
+        }
+
         const state =
           target.type === 'window'
-            ? this.computeWindowState(win, tracker, targetWindowId, mlabWindowId)
+            ? this.computeWindowState(win, tracker, this.currentTargetWindowId, mlabWindowId)
             : this.computeScreenState(win, tracker, mlabWindowId, target.displayId);
 
         const serialized = JSON.stringify(state);
@@ -233,6 +275,10 @@ export class CursorPresenceTracker {
     }
     this.lastCursor = null;
     this.lastSentJson = '';
+    this.allowedWindowMap.clear();
+    this.currentActiveSourceId = null;
+    this.currentTargetWindowId = null;
+    this.lastUnauthorizedState = false;
   }
 
   public stop(): void {

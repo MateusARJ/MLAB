@@ -110,9 +110,9 @@ describe('Room Component - Feature Levantar a Mão (Desktop)', () => {
       messages: [],
       participants: [],
       lastHandRaised: {
-        studentId: 'part-aluno-1',
-        studentName: 'Lucas Lima',
-        raisedAt: '2026-10-07T10:05:00Z',
+        participant_id: 'part-aluno-1',
+        name: 'Lucas Lima',
+        timestamp: Date.now(),
       },
       dismissHandToast: mockDismissHandToast,
       lowerStudentHand: mockLowerStudentHand,

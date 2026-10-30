@@ -69,7 +69,7 @@ export function useScreenCapture(initialMode: CaptureSourceType = 'screen', init
     setSelectedSource(null);
   }, []);
 
-  const selectSource = useCallback(async (source: CaptureSource, fps?: 30 | 60): Promise<MediaStream | null> => {
+  const selectSource = useCallback(async (source: CaptureSource, fps?: 30 | 60, allowedSourceIds?: string[]): Promise<MediaStream | null> => {
     setSelectedSource(source);
     const effectiveFps = fps || targetFps;
     if (fps && fps !== targetFps) {
@@ -206,6 +206,7 @@ export function useScreenCapture(initialMode: CaptureSourceType = 'screen', init
             sourceId: source.id,
             type: source.type || (source.id.startsWith('screen') ? 'screen' : 'window'),
             displayId: source.displayId,
+            allowedSourceIds: allowedSourceIds && allowedSourceIds.length > 0 ? allowedSourceIds : undefined,
           })
           .catch(() => {});
       }

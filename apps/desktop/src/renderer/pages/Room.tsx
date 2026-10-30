@@ -1,8 +1,6 @@
-import React, { useState, useRef, useEffect, useCallback } from 'react';
+import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import type {
   AnnotationPoint,
-  AnnotationSessionState,
-  AnnotationShortcutCommand,
   AnnotationStroke,
   AnnotationTool,
   CaptureSource,
@@ -37,8 +35,6 @@ import {
   Renew,
   Play,
   Close,
-  Maximize,
-  Minimize,
   Education,
   Idea,
   Touch_1,
@@ -107,6 +103,10 @@ export const Room: React.FC<RoomProps> = ({ room, onCloseRoom }) => {
   const [wantRecord, setWantRecord] = useState<boolean>(false);
   const [qualityProfile, setQualityProfile] = useState<'1080p_30' | '1080p_60'>('1080p_60');
   const [tentativeSource, setTentativeSource] = useState<CaptureSource | null>(null);
+  const [selectedWindowSources, setSelectedWindowSources] = useState<CaptureSource[]>([]);
+  const [activeWindowSource, setActiveWindowSource] = useState<CaptureSource | null>(null);
+  const currentActiveWindowSourceRef = useRef<CaptureSource | null>(null);
+  const [isPrivacyShieldActive, setIsPrivacyShieldActive] = useState<boolean>(false);
   const [isLiveSession, setIsLiveSession] = useState<boolean>(false);
   const [saveSuccessMsg, setSaveSuccessMsg] = useState<string | null>(null);
   const [copiedMdns, setCopiedMdns] = useState<boolean>(false);
@@ -399,7 +399,30 @@ export const Room: React.FC<RoomProps> = ({ room, onCloseRoom }) => {
   } = useScreenCapture('screen');
 
   // Fonte ativa no setup derivada sincronamente para evitar condição de corrida em testes/CI
-  const currentSource = tentativeSource || (sources.length > 0 ? sources[0] : null);
+  const currentSource = useMemo(() => {
+    if (captureMode === 'screen') {
+      return (
+        tentativeSource ||
+        sources.find((s) => s.type === 'screen' || s.id.startsWith('screen')) ||
+        (sources.length > 0 ? sources[0] : null)
+      );
+    }
+    // No modo window:
+    const windowSources = sources.filter((s) => s.type === 'window' || s.id.startsWith('window'));
+    if (selectedWindowSources.length > 0) {
+      if (tentativeSource && selectedWindowSources.some((s) => s.id === tentativeSource.id)) {
+        return tentativeSource;
+      }
+      return selectedWindowSources[0];
+    }
+    if (
+      tentativeSource &&
+      (tentativeSource.type === 'window' || tentativeSource.id.startsWith('window'))
+    ) {
+      return tentativeSource;
+    }
+    return windowSources.length > 0 ? windowSources[0] : (sources.length > 0 ? sources[0] : null);
+  }, [captureMode, tentativeSource, sources, selectedWindowSources]);
 
   const handleSelectQuality = useCallback((profile: '1080p_30' | '1080p_60') => {
     setQualityProfile(profile);
@@ -1105,12 +1128,69 @@ export const Room: React.FC<RoomProps> = ({ room, onCloseRoom }) => {
     }
   }, [stream, isLiveSession]);
 
-  // Se o usuário selecionou uma fonte nas miniaturas da lista
+  // Auto-seleciona a tela principal ou janela inicial sempre que fontes carregarem
   useEffect(() => {
-    if (sources.length > 0 && !tentativeSource) {
-      setTentativeSource(sources[0]);
+    if (sources.length > 0) {
+      if (captureMode === 'screen') {
+        const primary =
+          sources.find((s) => s.type === 'screen' || s.id.startsWith('screen')) || sources[0];
+        if (!tentativeSource || tentativeSource.type !== 'screen') {
+          setTentativeSource(primary);
+        }
+      } else if (captureMode === 'window') {
+        const windowSources = sources.filter(
+          (s) => s.type === 'window' || s.id.startsWith('window')
+        );
+        if (windowSources.length > 0) {
+          setSelectedWindowSources((prev) => {
+            const valid = prev.filter((p) => windowSources.some((s) => s.id === p.id));
+            if (valid.length > 0) return valid;
+            return [windowSources[0]];
+          });
+        }
+      }
     }
-  }, [sources, tentativeSource]);
+  }, [sources, captureMode]);
+
+  const handleToggleWindowSelection = useCallback((src: CaptureSource) => {
+    setSelectedWindowSources((prev) => {
+      const exists = prev.some((s) => s.id === src.id);
+      if (exists) {
+        if (prev.length <= 1) return prev;
+        return prev.filter((s) => s.id !== src.id);
+      } else {
+        return [...prev, src];
+      }
+    });
+  }, []);
+
+  // Rastreamento dinâmico de foco para Múltiplas Janelas na sessão ao vivo
+  useEffect(() => {
+    if (!isLiveSession || captureMode !== 'window' || !window.electronAPI) return;
+
+    const unsubChanged = window.electronAPI.onActiveWindowChanged?.(async (data: { sourceId: string }) => {
+      const targetSrc = selectedWindowSources.find((s) => s.id === data.sourceId);
+      if (!targetSrc || targetSrc.id === currentActiveWindowSourceRef.current?.id) return;
+      currentActiveWindowSourceRef.current = targetSrc;
+      setActiveWindowSource(targetSrc);
+      setIsPrivacyShieldActive(false);
+
+      const fps = qualityProfile === '1080p_60' ? 60 : 30;
+      const newStream = await selectSource(targetSrc, fps, selectedWindowSources.map((s) => s.id));
+      if (newStream) {
+        await changeStream(newStream);
+      }
+    });
+
+    const unsubUnauthorized = window.electronAPI.onActiveWindowUnauthorized?.((data: { isUnauthorized: boolean }) => {
+      setIsPrivacyShieldActive(Boolean(data?.isUnauthorized));
+    });
+
+    return () => {
+      if (typeof unsubChanged === 'function') unsubChanged();
+      if (typeof unsubUnauthorized === 'function') unsubUnauthorized();
+    };
+  }, [isLiveSession, captureMode, selectedWindowSources, qualityProfile, selectSource, changeStream]);
 
   useEffect(() => {
     const thumb = selectedSource?.thumbnail || currentSource?.thumbnail;
@@ -1146,10 +1226,18 @@ export const Room: React.FC<RoomProps> = ({ room, onCloseRoom }) => {
       await window.electronAPI.setContentProtection(true).catch(() => {});
     }
     const fps = qualityProfile === '1080p_60' ? 60 : 30;
-    const newStream = await selectSource(source, fps);
+    const allowedIds =
+      captureMode === 'window' && selectedWindowSources.length > 0
+        ? selectedWindowSources.map((s) => s.id)
+        : undefined;
+    const newStream = await selectSource(source, fps, allowedIds);
     if (source.thumbnail) {
       setCurrentThumbnail(source.thumbnail);
     }
+    setActiveWindowSource(source);
+    currentActiveWindowSourceRef.current = source;
+    setIsPrivacyShieldActive(false);
+
     if (newStream) {
       if (micMuted) {
         newStream.getAudioTracks().forEach((t) => {
@@ -1158,7 +1246,7 @@ export const Room: React.FC<RoomProps> = ({ room, onCloseRoom }) => {
       }
       await changeStream(newStream);
     }
-  }, [selectSource, micMuted, changeStream, qualityProfile]);
+  }, [selectSource, micMuted, changeStream, qualityProfile, captureMode, selectedWindowSources]);
 
   // Carrega arquivos iniciais da sala
   useEffect(() => {
@@ -1197,13 +1285,22 @@ export const Room: React.FC<RoomProps> = ({ room, onCloseRoom }) => {
     }
 
     const fps = qualityProfile === '1080p_60' ? 60 : 30;
-    const activeStream = await selectSource(sourceToUse, fps);
+    const allowedIds =
+      captureMode === 'window' && selectedWindowSources.length > 0
+        ? selectedWindowSources.map((s) => s.id)
+        : undefined;
+
+    const activeStream = await selectSource(sourceToUse, fps, allowedIds);
     if (!activeStream) {
       if (window.electronAPI && typeof window.electronAPI.setContentProtection === 'function') {
         window.electronAPI.setContentProtection(false).catch(() => {});
       }
       return;
     }
+
+    setActiveWindowSource(sourceToUse);
+    currentActiveWindowSourceRef.current = sourceToUse;
+    setIsPrivacyShieldActive(false);
 
     setIsLiveSession(true);
 
@@ -1230,7 +1327,19 @@ export const Room: React.FC<RoomProps> = ({ room, onCloseRoom }) => {
         startPublishing(activeStream);
       }
     }
-  }, [currentSource, selectSource, qualityProfile, wantRecord, startRecording, isPublishing, connectionState, changeStream, startPublishing]);
+  }, [
+    currentSource,
+    selectSource,
+    qualityProfile,
+    captureMode,
+    selectedWindowSources,
+    wantRecord,
+    startRecording,
+    isPublishing,
+    connectionState,
+    changeStream,
+    startPublishing,
+  ]);
 
   const handleEndSession = useCallback(async () => {
     if (wantRecord && recordingStatus === 'recording') {
@@ -1519,7 +1628,8 @@ export const Room: React.FC<RoomProps> = ({ room, onCloseRoom }) => {
                   type="button"
                   onClick={() => {
                     setCaptureMode('screen');
-                    setTentativeSource(null);
+                    const primary = sources.find((s) => s.type === 'screen') || sources[0] || null;
+                    setTentativeSource(primary);
                   }}
                   style={captureMode === 'screen' ? styles.modeTabActive : styles.modeTab}
                 >
@@ -1530,39 +1640,129 @@ export const Room: React.FC<RoomProps> = ({ room, onCloseRoom }) => {
                   onClick={() => {
                     setCaptureMode('window');
                     setTentativeSource(null);
+                    const windowSources = sources.filter(
+                      (s) => s.type === 'window' || s.id.startsWith('window')
+                    );
+                    if (windowSources.length > 0) {
+                      setSelectedWindowSources([windowSources[0]]);
+                    } else {
+                      setSelectedWindowSources([]);
+                    }
                   }}
                   style={captureMode === 'window' ? styles.modeTabActive : styles.modeTab}
                 >
-                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}><Application size={16} /> Janela / Aba Específica (Isola a Aplicação)</span>
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}><Application size={16} /> Janela / Aba Específica (Múltiplas Selecionáveis)</span>
                 </button>
               </div>
 
-              {captureMode === 'window' && (
-                <div style={styles.windowHintBox}>
-                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', verticalAlign: 'middle', marginRight: '4px' }}><Idea size={16} /></span><strong>Dica:</strong> Certifique-se de que a janela ou navegador esteja aberto na Área de Trabalho (não minimizado na barra de tarefas) para que seja listado.
-                </div>
-              )}
-
-              <div style={styles.sourceGrid}>
-                {sources.length === 0 ? (
-                  <p style={styles.noSources}>Nenhuma fonte detectada para este modo.</p>
-                ) : (
-                  sources.map((src) => {
-                    const isSelected = currentSource?.id === src.id;
-                    return (
-                      <div
-                        key={src.id}
-                        onClick={() => setTentativeSource(src)}
-                        style={isSelected ? styles.sourceCardSelected : styles.sourceCard}
-                      >
-                        <img src={src.thumbnail} alt={src.name} style={styles.thumbnail} />
-                        <span style={styles.sourceName}>{src.name}</span>
-                        {isSelected && <span style={styles.selectedBadge}><Checkmark size={12} style={{ marginRight: '4px' }} />Selecionada</span>}
+              {captureMode === 'screen' ? (
+                <div style={styles.autoScreenCard}>
+                  <div style={styles.autoScreenLeft}>
+                    {currentSource?.thumbnail ? (
+                      <img src={currentSource.thumbnail} alt={currentSource.name} style={styles.autoScreenThumb} />
+                    ) : (
+                      <div style={styles.autoScreenPlaceholder}>
+                        <Screen size={48} />
                       </div>
-                    );
-                  })
-                )}
-              </div>
+                    )}
+                    <div style={styles.autoScreenDetails}>
+                      <div style={styles.autoScreenHeaderRow}>
+                        <span style={styles.autoScreenTitle}>{currentSource?.name || 'Monitor Principal'}</span>
+                        <span style={styles.autoSelectedBadge}>
+                          <Checkmark size={13} style={{ marginRight: '4px' }} /> Selecionado Automaticamente
+                        </span>
+                      </div>
+                      <p style={styles.autoScreenDesc}>
+                        A tela inteira será transmitida em alta resolução. Toda a sua navegação, trocas de aplicativos e menus do Windows serão transmitidos em tempo real para os alunos.
+                      </p>
+                      {sources.length > 1 && (
+                        <div style={styles.monitorPillsRow}>
+                          <span style={styles.monitorPillsLabel}>Alternar monitor:</span>
+                          {sources.map((src) => {
+                            const isSelected = currentSource?.id === src.id;
+                            return (
+                              <button
+                                key={src.id}
+                                type="button"
+                                onClick={() => setTentativeSource(src)}
+                                style={isSelected ? styles.monitorPillActive : styles.monitorPill}
+                              >
+                                {src.name} {isSelected ? '(Ativo)' : ''}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <>
+                  <div style={styles.windowHintBox}>
+                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', verticalAlign: 'middle', marginRight: '4px' }}><Idea size={16} /></span><strong>Dica:</strong> Certifique-se de que a janela ou navegador esteja aberto na Área de Trabalho (não minimizado na barra de tarefas) para que seja listado.
+                  </div>
+
+                  <div style={styles.multiWindowBar}>
+                    <div style={styles.multiWindowBarLeft}>
+                      <span style={styles.multiWindowCounterBadge}>
+                        {selectedWindowSources.length} {selectedWindowSources.length === 1 ? 'janela autorizada' : 'janelas autorizadas'}
+                      </span>
+                      <span style={styles.multiWindowHint}>
+                        O MLab transmite a janela autorizada que você estiver usando. Aplicativos não selecionados (ex: WhatsApp, e-mails pessoais) ficam ocultos e protegidos.
+                      </span>
+                    </div>
+                    <div style={styles.multiWindowBarActions}>
+                      <button
+                        type="button"
+                        onClick={() => setSelectedWindowSources([...sources])}
+                        style={styles.multiWindowActionBtn}
+                        title="Autorizar todas as janelas abertas"
+                      >
+                        Selecionar Todas
+                      </button>
+                      {selectedWindowSources.length > 1 && (
+                        <button
+                          type="button"
+                          onClick={() => setSelectedWindowSources(sources.length > 0 ? [sources[0]] : [])}
+                          style={styles.multiWindowActionBtn}
+                          title="Transmitir apenas a primeira janela"
+                        >
+                          Apenas a Primeira
+                        </button>
+                      )}
+                    </div>
+                  </div>
+
+                  <div style={styles.sourceGrid}>
+                    {sources.length === 0 ? (
+                      <p style={styles.noSources}>Nenhuma janela detectada. Certifique-se de que a janela desejada não está minimizada.</p>
+                    ) : (
+                      sources.map((src) => {
+                        const isSelected = selectedWindowSources.some((s) => s.id === src.id);
+                        return (
+                          <div
+                            key={src.id}
+                            onClick={() => handleToggleWindowSelection(src)}
+                            style={isSelected ? styles.sourceCardSelected : styles.sourceCard}
+                            title={isSelected ? 'Clique para desmarcar esta janela' : 'Clique para autorizar esta janela'}
+                          >
+                            <img src={src.thumbnail} alt={src.name} style={styles.thumbnail} />
+                            <span style={styles.sourceName}>{src.name}</span>
+                            <div style={isSelected ? styles.windowCheckboxChecked : styles.windowCheckbox}>
+                              {isSelected ? <Checkmark size={12} /> : null}
+                            </div>
+                            {isSelected && (
+                              <span style={styles.selectedBadge}>
+                                <Checkmark size={12} style={{ marginRight: '4px' }} />Autorizada
+                              </span>
+                            )}
+                          </div>
+                        );
+                      })
+                    )}
+                  </div>
+                </>
+              )}
             </div>
 
             {/* 3. Qualidade da Transmissão */}
@@ -1636,9 +1836,17 @@ export const Room: React.FC<RoomProps> = ({ room, onCloseRoom }) => {
                       <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}><UserMultiple size={14} /> {studentsOnly.length} {studentsOnly.length === 1 ? 'Aluno' : 'Alunos'}</span>
                     </span>
                     <span style={styles.statusInfo}>
-                      Modo: {captureMode === 'screen' ? 'Tela Cheia' : 'Janela Específica'} (
-                      {selectedSource?.name || 'Fonte Ativa'})
+                      Modo: {captureMode === 'screen' ? 'Tela Cheia' : (selectedWindowSources.length > 1 ? `Janela Específica (Múltiplas - ${selectedWindowSources.length} autorizadas)` : 'Janela Específica')} (
+                      {activeWindowSource?.name || selectedSource?.name || 'Fonte Ativa'})
                     </span>
+                    {isPrivacyShieldActive && (
+                      <span
+                        style={styles.privacyShieldBadge}
+                        title="Proteção de privacidade ativa: você está em um aplicativo não autorizado. A transmissão está protegida e mantida na janela da aula."
+                      >
+                        🔒 Proteção de Privacidade Ativa
+                      </span>
+                    )}
                   </div>
 
                   <div style={styles.statusRight}>
@@ -2041,7 +2249,7 @@ export const Room: React.FC<RoomProps> = ({ room, onCloseRoom }) => {
                       <div style={styles.handToastContent}>
                         <Touch_1Filled size={18} style={{ color: '#0f62fe', flexShrink: 0 }} />
                         <div style={styles.handToastText}>
-                          <span style={styles.handToastStrong}>{lastHandRaised.studentName}</span> levantou a mão.
+                          <span style={styles.handToastStrong}>{lastHandRaised.name}</span> levantou a mão.
                         </div>
                       </div>
                       <div style={styles.handToastActions}>
@@ -2068,6 +2276,33 @@ export const Room: React.FC<RoomProps> = ({ room, onCloseRoom }) => {
                     </div>
                   )}
                 </div>
+
+                {/* Seletor rápido de janelas autorizadas quando houver múltiplas */}
+                {captureMode === 'window' && selectedWindowSources.length > 1 && (
+                  <div style={styles.windowPillsBar}>
+                    <span style={styles.windowPillsLabel}>
+                      Janelas da Aula ({selectedWindowSources.length}):
+                    </span>
+                    <div style={styles.windowPillsList}>
+                      {selectedWindowSources.map((src) => {
+                        const isActive = (activeWindowSource?.id || selectedSource?.id) === src.id;
+                        return (
+                          <button
+                            key={src.id}
+                            type="button"
+                            onClick={() => handleSwitchScreen(src)}
+                            style={isActive ? styles.windowPillActive : styles.windowPill}
+                            title={`Alternar para transmitir agora: ${src.name}`}
+                          >
+                            <span style={isActive ? styles.windowPillDotActive : styles.windowPillDot} />
+                            <span style={styles.windowPillText}>{src.name}</span>
+                            {isActive && <span style={styles.windowPillActiveBadge}>No Ar</span>}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
 
                 {/* Barra de Controles de Transmissão */}
                 <div style={styles.controlsBar}>
@@ -4827,6 +5062,273 @@ const styles: { [key: string]: React.CSSProperties } = {
     height: '100%',
     zIndex: 15,
     pointerEvents: 'auto',
+  },
+  // Auto Screen Selection Styles
+  autoScreenCard: {
+    backgroundColor: '#0f172a',
+    border: '2px solid rgba(56, 189, 248, 0.4)',
+    borderRadius: '10px',
+    padding: '16px',
+    boxShadow: '0 4px 16px rgba(0, 0, 0, 0.3)',
+  },
+  autoScreenLeft: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '16px',
+    flexWrap: 'wrap',
+  },
+  autoScreenThumb: {
+    width: '200px',
+    height: '115px',
+    objectFit: 'cover',
+    borderRadius: '6px',
+    border: '2px solid #38bdf8',
+    backgroundColor: '#000',
+  },
+  autoScreenPlaceholder: {
+    width: '200px',
+    height: '115px',
+    borderRadius: '6px',
+    border: '1px solid #334155',
+    backgroundColor: '#172033',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    color: '#64748b',
+  },
+  autoScreenDetails: {
+    flex: 1,
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '8px',
+    minWidth: '220px',
+  },
+  autoScreenHeaderRow: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '12px',
+    flexWrap: 'wrap',
+  },
+  autoScreenTitle: {
+    fontSize: '15px',
+    fontWeight: '700',
+    color: '#f8fafc',
+  },
+  autoSelectedBadge: {
+    display: 'inline-flex',
+    alignItems: 'center',
+    fontSize: '11px',
+    fontWeight: '700',
+    backgroundColor: 'rgba(56, 189, 248, 0.18)',
+    color: '#38bdf8',
+    border: '1px solid #38bdf8',
+    padding: '2px 8px',
+    borderRadius: '4px',
+  },
+  autoScreenDesc: {
+    fontSize: '13px',
+    color: '#94a3b8',
+    margin: 0,
+    lineHeight: '1.4',
+  },
+  monitorPillsRow: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '8px',
+    marginTop: '4px',
+    flexWrap: 'wrap',
+  },
+  monitorPillsLabel: {
+    fontSize: '12px',
+    color: '#94a3b8',
+    fontWeight: '600',
+  },
+  monitorPill: {
+    padding: '4px 10px',
+    borderRadius: '6px',
+    border: '1px solid #334155',
+    backgroundColor: '#172033',
+    color: '#cbd5e1',
+    fontSize: '12px',
+    cursor: 'pointer',
+  },
+  monitorPillActive: {
+    padding: '4px 10px',
+    borderRadius: '6px',
+    border: '1px solid #38bdf8',
+    backgroundColor: 'rgba(56, 189, 248, 0.2)',
+    color: '#38bdf8',
+    fontSize: '12px',
+    fontWeight: '600',
+    cursor: 'pointer',
+  },
+  // Multi-Window Selection Styles
+  multiWindowBar: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    backgroundColor: '#0f172a',
+    border: '1px solid #1e293b',
+    borderRadius: '8px',
+    padding: '10px 14px',
+    gap: '12px',
+    flexWrap: 'wrap',
+  },
+  multiWindowBarLeft: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '10px',
+    flexWrap: 'wrap',
+    flex: 1,
+  },
+  multiWindowCounterBadge: {
+    display: 'inline-flex',
+    alignItems: 'center',
+    padding: '3px 8px',
+    borderRadius: '6px',
+    backgroundColor: 'rgba(56, 189, 248, 0.15)',
+    color: '#38bdf8',
+    border: '1px solid rgba(56, 189, 248, 0.3)',
+    fontSize: '12px',
+    fontWeight: '700',
+  },
+  multiWindowHint: {
+    fontSize: '12px',
+    color: '#94a3b8',
+  },
+  multiWindowBarActions: {
+    display: 'flex',
+    gap: '8px',
+  },
+  multiWindowActionBtn: {
+    padding: '5px 10px',
+    borderRadius: '6px',
+    border: '1px solid #334155',
+    backgroundColor: '#1e293b',
+    color: '#e2e8f0',
+    fontSize: '12px',
+    fontWeight: '500',
+    cursor: 'pointer',
+  },
+  windowCheckbox: {
+    position: 'absolute',
+    top: '8px',
+    left: '8px',
+    width: '20px',
+    height: '20px',
+    borderRadius: '4px',
+    border: '1.5px solid #64748b',
+    backgroundColor: 'rgba(15, 23, 42, 0.75)',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 2,
+  },
+  windowCheckboxChecked: {
+    position: 'absolute',
+    top: '8px',
+    left: '8px',
+    width: '20px',
+    height: '20px',
+    borderRadius: '4px',
+    border: '1.5px solid #38bdf8',
+    backgroundColor: '#0284c7',
+    color: '#ffffff',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 2,
+  },
+  privacyShieldBadge: {
+    display: 'inline-flex',
+    alignItems: 'center',
+    padding: '3px 8px',
+    borderRadius: '6px',
+    backgroundColor: 'rgba(234, 179, 8, 0.18)',
+    color: '#facc15',
+    border: '1px solid rgba(234, 179, 8, 0.4)',
+    fontSize: '11px',
+    fontWeight: '600',
+    marginLeft: '8px',
+  },
+  windowPillsBar: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '10px',
+    backgroundColor: '#0b1120',
+    borderTop: '1px solid #1e293b',
+    padding: '6px 16px',
+    overflowX: 'auto',
+  },
+  windowPillsLabel: {
+    fontSize: '11px',
+    fontWeight: '700',
+    color: '#94a3b8',
+    textTransform: 'uppercase',
+    letterSpacing: '0.04em',
+    whiteSpace: 'nowrap',
+  },
+  windowPillsList: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '6px',
+  },
+  windowPill: {
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: '6px',
+    padding: '4px 10px',
+    borderRadius: '6px',
+    border: '1px solid #334155',
+    backgroundColor: '#0f172a',
+    color: '#94a3b8',
+    fontSize: '12px',
+    cursor: 'pointer',
+    maxWidth: '180px',
+  },
+  windowPillActive: {
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: '6px',
+    padding: '4px 10px',
+    borderRadius: '6px',
+    border: '1px solid #38bdf8',
+    backgroundColor: 'rgba(56, 189, 248, 0.18)',
+    color: '#f8fafc',
+    fontSize: '12px',
+    fontWeight: '600',
+    cursor: 'pointer',
+    maxWidth: '200px',
+  },
+  windowPillDot: {
+    width: '6px',
+    height: '6px',
+    borderRadius: '50%',
+    backgroundColor: '#64748b',
+    flexShrink: 0,
+  },
+  windowPillDotActive: {
+    width: '6px',
+    height: '6px',
+    borderRadius: '50%',
+    backgroundColor: '#22c55e',
+    boxShadow: '0 0 6px #22c55e',
+    flexShrink: 0,
+  },
+  windowPillText: {
+    whiteSpace: 'nowrap',
+    overflow: 'hidden',
+    textOverflow: 'ellipsis',
+  },
+  windowPillActiveBadge: {
+    fontSize: '9px',
+    fontWeight: '700',
+    backgroundColor: '#22c55e',
+    color: '#090d16',
+    padding: '1px 4px',
+    borderRadius: '4px',
+    textTransform: 'uppercase',
+    flexShrink: 0,
   },
 };
 

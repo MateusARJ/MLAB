@@ -1,4 +1,4 @@
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor, act } from '@testing-library/react';
 import { describe, it, expect, vi } from 'vitest';
 import { Room } from './Room';
 
@@ -656,6 +656,148 @@ describe('Room Component (Desktop)', () => {
 
     unmount();
     expect(stopAnnotationOverlayMock).toHaveBeenCalled();
+  });
+
+  it('deve selecionar a Tela Cheia (Monitor Principal) automaticamente sem necessidade de clique e habilitar avanço imediato', async () => {
+    render(<Room room={dummyRoom} onCloseRoom={vi.fn()} />);
+
+    // Monitor principal vem selecionado por padrão com badge indicativa
+    await waitFor(() => {
+      expect(screen.getByText('Tela Inteira 1')).toBeInTheDocument();
+      expect(screen.getByText(/Selecionado Automaticamente/i)).toBeInTheDocument();
+    });
+
+    // O botão de avanço já deve estar habilitado imediatamente sem necessidade de clique prévio
+    const advanceBtn = screen.getByRole('button', { name: /Avançar e Iniciar Transmissão/i });
+    expect(advanceBtn).toBeEnabled();
+  });
+
+  it('deve permitir selecionar múltiplas janelas, exibir contador de janelas autorizadas e botões de ação rápida', async () => {
+    // Fornece múltiplas janelas mockadas
+    (window.electronAPI.getScreenSources as any).mockImplementation((type?: string) => {
+      if (type === 'window') {
+        return Promise.resolve([
+          { id: 'window:10', name: 'VS Code', type: 'window', thumbnail: 'data:image/png;base64,aaa' },
+          { id: 'window:20', name: 'Terminal PowerShell', type: 'window', thumbnail: 'data:image/png;base64,bbb' },
+          { id: 'window:30', name: 'Calculadora', type: 'window', thumbnail: 'data:image/png;base64,ccc' },
+        ]);
+      }
+      return Promise.resolve([
+        { id: 'screen:1', name: 'Tela Inteira 1', type: 'screen', thumbnail: 'data:image/png;base64,111' },
+      ]);
+    });
+
+    render(<Room room={dummyRoom} onCloseRoom={vi.fn()} />);
+
+    // Alterna para modo Janela
+    const windowTab = screen.getByRole('button', { name: /Janela \/ Aba Específica/i });
+    fireEvent.click(windowTab);
+
+    await waitFor(() => {
+      expect(screen.getByText('VS Code')).toBeInTheDocument();
+      expect(screen.getByText('Terminal PowerShell')).toBeInTheDocument();
+    });
+
+    // Por padrão a primeira janela já vem autorizada
+    expect(screen.getByText(/1 janela autorizada/i)).toBeInTheDocument();
+
+    // Clica para autorizar também o Terminal
+    fireEvent.click(screen.getByText('Terminal PowerShell'));
+
+    await waitFor(() => {
+      expect(screen.getByText(/2 janelas autorizadas/i)).toBeInTheDocument();
+    });
+
+    // Clica em "Selecionar Todas"
+    const selectAllBtn = screen.getByRole('button', { name: /Selecionar Todas/i });
+    fireEvent.click(selectAllBtn);
+
+    await waitFor(() => {
+      expect(screen.getByText(/3 janelas autorizadas/i)).toBeInTheDocument();
+    });
+
+    // Clica em "Apenas a Primeira"
+    const firstOnlyBtn = screen.getByRole('button', { name: /Apenas a Primeira/i });
+    fireEvent.click(firstOnlyBtn);
+
+    await waitFor(() => {
+      expect(screen.getByText(/1 janela autorizada/i)).toBeInTheDocument();
+    });
+  });
+
+  it('deve exibir indicador de Múltiplas Janelas e alternar janelas autorizadas ou exibir proteção de privacidade', async () => {
+    let activeWindowCallback: ((data: { sourceId: string }) => void) | null = null;
+    let unauthorizedCallback: ((data: { isUnauthorized: boolean }) => void) | null = null;
+
+    (window.electronAPI.onActiveWindowChanged as any).mockImplementation((cb: any) => {
+      activeWindowCallback = cb;
+      return () => {
+        activeWindowCallback = null;
+      };
+    });
+
+    (window.electronAPI.onActiveWindowUnauthorized as any).mockImplementation((cb: any) => {
+      unauthorizedCallback = cb;
+      return () => {
+        unauthorizedCallback = null;
+      };
+    });
+
+    (window.electronAPI.getScreenSources as any).mockImplementation((type?: string) => {
+      if (type === 'window') {
+        return Promise.resolve([
+          { id: 'window:10', name: 'VS Code', type: 'window', thumbnail: 'data:image/png;base64,aaa' },
+          { id: 'window:20', name: 'Navegador Web', type: 'window', thumbnail: 'data:image/png;base64,bbb' },
+        ]);
+      }
+      return Promise.resolve([
+        { id: 'screen:1', name: 'Tela Inteira 1', type: 'screen', thumbnail: 'data:image/png;base64,111' },
+      ]);
+    });
+
+    render(<Room room={dummyRoom} onCloseRoom={vi.fn()} />);
+
+    // Alterna para modo Janela e autoriza as 2 janelas
+    fireEvent.click(screen.getByRole('button', { name: /Janela \/ Aba Específica/i }));
+
+    await waitFor(() => {
+      expect(screen.getByText('VS Code')).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: /Selecionar Todas/i }));
+
+    await waitFor(() => {
+      expect(screen.getByText(/2 janelas autorizadas/i)).toBeInTheDocument();
+    });
+
+    // Inicia transmissão ao vivo
+    const advanceBtn = screen.getByRole('button', { name: /Avançar e Iniciar Transmissão/i });
+    fireEvent.click(advanceBtn);
+
+    await waitFor(() => {
+      expect(screen.getByText(/Janela Específica \(Múltiplas - 2 autorizadas\)/i)).toBeInTheDocument();
+      expect(screen.getByText(/Janelas da Aula \(2\):/i)).toBeInTheDocument();
+    });
+
+    // Simula evento do SO de proteção de privacidade (app não autorizado focado pelo professor)
+    expect(unauthorizedCallback).toBeTruthy();
+    act(() => {
+      unauthorizedCallback!({ isUnauthorized: true });
+    });
+
+    await waitFor(() => {
+      expect(screen.getByText(/Proteção de Privacidade Ativa/i)).toBeInTheDocument();
+    });
+
+    // Simula volta para o VS Code (app autorizado)
+    act(() => {
+      unauthorizedCallback!({ isUnauthorized: false });
+      activeWindowCallback!({ sourceId: 'window:10' });
+    });
+
+    await waitFor(() => {
+      expect(screen.queryByText(/Proteção de Privacidade Ativa/i)).not.toBeInTheDocument();
+    });
   });
 });
 

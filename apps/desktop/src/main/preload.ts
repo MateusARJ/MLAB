@@ -72,17 +72,29 @@ export interface ElectronAPI {
 
   /**
    * Inicia o rastreamento de presença e posição do cursor para ocultação contextual na transmissão.
+   * Suporta também modo de múltiplas janelas via `allowedSourceIds`.
    */
   startCursorTracking: (target: {
     sourceId: string
     type: CaptureSourceType
     displayId?: string
+    allowedSourceIds?: string[]
   }) => Promise<boolean>
 
   /**
-   * Encerra o rastreamento de presença do cursor.
+   * Encerra o rastreamento de presença do cursor e de múltiplas janelas.
    */
   stopCursorTracking: () => Promise<void>
+
+  /**
+   * Inscreve um callback para ser notificado quando a janela ativa mudar entre as janelas autorizadas pelo professor.
+   */
+  onActiveWindowChanged: (cb: (data: { sourceId: string }) => void) => () => void
+
+  /**
+   * Inscreve um callback para ser notificado quando uma janela não autorizada estiver em primeiro plano.
+   */
+  onActiveWindowUnauthorized: (cb: (data: { isUnauthorized: boolean }) => void) => () => void
 
   /**
    * Inscreve um callback para receber atualizações de visibilidade e posição do cursor.
@@ -175,6 +187,28 @@ const api: ElectronAPI = {
     ipcRenderer.on('annotation-overlay:shortcut', listener)
     return () => {
       ipcRenderer.removeListener('annotation-overlay:shortcut', listener)
+    }
+  },
+  onActiveWindowChanged: (cb) => {
+    const listener = (_event: unknown, data: { sourceId: string }) => {
+      if (data && typeof cb === 'function') {
+        cb(data)
+      }
+    }
+    ipcRenderer.on('active-window-changed', listener)
+    return () => {
+      ipcRenderer.removeListener('active-window-changed', listener)
+    }
+  },
+  onActiveWindowUnauthorized: (cb) => {
+    const listener = (_event: unknown, data: { isUnauthorized: boolean }) => {
+      if (data && typeof cb === 'function') {
+        cb(data)
+      }
+    }
+    ipcRenderer.on('active-window-unauthorized', listener)
+    return () => {
+      ipcRenderer.removeListener('active-window-unauthorized', listener)
     }
   }
 }

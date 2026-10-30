@@ -32,7 +32,15 @@ window.electronAPI = {
   captureWindowToClipboard: vi.fn().mockResolvedValue(true),
   startCursorTracking: vi.fn().mockResolvedValue(true),
   stopCursorTracking: vi.fn().mockResolvedValue(undefined),
+  onActiveWindowChanged: vi.fn().mockImplementation(() => () => {}),
+  onActiveWindowUnauthorized: vi.fn().mockImplementation(() => () => {}),
   onCursorState: vi.fn().mockImplementation(() => () => {}),
+  startAnnotationOverlay: vi.fn().mockResolvedValue(true),
+  stopAnnotationOverlay: vi.fn().mockResolvedValue(undefined),
+  syncAnnotationState: vi.fn().mockResolvedValue(undefined),
+  setAnnotationOverlayIgnoreMouse: vi.fn().mockResolvedValue(undefined),
+  onAnnotationStateSync: vi.fn().mockImplementation(() => () => {}),
+  onAnnotationShortcutCommand: vi.fn().mockImplementation(() => () => {}),
 };
 
 if (typeof window !== 'undefined') {
