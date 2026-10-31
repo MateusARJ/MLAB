@@ -81,23 +81,6 @@ function formatFileSize(bytes: number): string {
   return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
 }
 
-function isLanLink(link?: string): boolean {
-  if (!link) return false;
-  try {
-    const url = new URL(link.startsWith('http') ? link : `http://${link}`);
-    const host = url.hostname.toLowerCase();
-    return (
-      host.endsWith('.local') ||
-      host === 'localhost' ||
-      /^10\./.test(host) ||
-      /^192\.168\./.test(host) ||
-      /^172\.(1[6-9]|2[0-9]|3[0-1])\./.test(host)
-    );
-  } catch {
-    return false;
-  }
-}
-
 export const Room: React.FC<RoomProps> = ({ room, onCloseRoom }) => {
   // Configuração pré-transmissão
   const [wantRecord, setWantRecord] = useState<boolean>(false);
@@ -3096,31 +3079,6 @@ const styles: { [key: string]: React.CSSProperties } = {
     userSelect: 'text',
     cursor: 'default',
   },
-  lanBadge: {
-    fontSize: '11px',
-    padding: '2px 8px',
-    borderRadius: '12px',
-    backgroundColor: 'rgba(15, 98, 254, 0.15)',
-    color: '#4589ff',
-    fontWeight: '600',
-    border: '1px solid rgba(15, 98, 254, 0.3)',
-    display: 'inline-flex',
-    alignItems: 'center',
-    cursor: 'default',
-  },
-  screenshotBtn: {
-    padding: '8px 14px',
-    borderRadius: '6px',
-    border: '1px solid #334155',
-    backgroundColor: '#1e293b',
-    color: '#38bdf8',
-    fontSize: '13px',
-    fontWeight: '600',
-    cursor: 'pointer',
-    display: 'inline-flex',
-    alignItems: 'center',
-    gap: '6px',
-  },
   screenshotSuccessBanner: {
     padding: '10px 16px',
     borderRadius: '8px',
@@ -3154,32 +3112,6 @@ const styles: { [key: string]: React.CSSProperties } = {
     fontWeight: '600',
     cursor: 'not-allowed',
     opacity: 0.7,
-  },
-  copyBtn: {
-    padding: '8px 14px',
-    borderRadius: '6px',
-    border: '1px solid #334155',
-    backgroundColor: '#1e293b',
-    color: '#38bdf8',
-    fontSize: '13px',
-    fontWeight: '600',
-    cursor: 'pointer',
-    display: 'flex',
-    alignItems: 'center',
-    gap: '6px',
-  },
-  copyBtnSuccess: {
-    padding: '8px 14px',
-    borderRadius: '6px',
-    border: '1px solid #22c55e',
-    backgroundColor: 'rgba(34, 197, 94, 0.15)',
-    color: '#4ade80',
-    fontSize: '13px',
-    fontWeight: '600',
-    cursor: 'pointer',
-    display: 'flex',
-    alignItems: 'center',
-    gap: '6px',
   },
   permissionAlert: {
     backgroundColor: 'rgba(239, 68, 68, 0.15)',
@@ -3592,28 +3524,6 @@ const styles: { [key: string]: React.CSSProperties } = {
     fontSize: '14px',
     color: '#e2e8f0',
   },
-  qualityInfoBox: {
-    backgroundColor: '#0f172a',
-    border: '1px solid #1e293b',
-    borderRadius: '8px',
-    padding: '14px 16px',
-    display: 'flex',
-    flexDirection: 'column',
-    gap: '10px',
-  },
-  qualityBadgeActive: {
-    display: 'inline-flex',
-    alignItems: 'center',
-    width: 'fit-content',
-    gap: '6px',
-    backgroundColor: 'rgba(56, 189, 248, 0.15)',
-    border: '1px solid #38bdf8',
-    color: '#38bdf8',
-    fontWeight: '700',
-    fontSize: '13px',
-    padding: '4px 10px',
-    borderRadius: '6px',
-  },
   qualityDetails: {
     display: 'flex',
     flexWrap: 'wrap',
@@ -3793,54 +3703,6 @@ const styles: { [key: string]: React.CSSProperties } = {
     alignItems: 'center',
     gap: '10px',
   },
-  refreshCaptureBtn: {
-    padding: '4px 10px',
-    borderRadius: '6px',
-    border: '1px solid #38bdf8',
-    backgroundColor: 'rgba(56, 189, 248, 0.15)',
-    color: '#38bdf8',
-    fontSize: '11px',
-    fontWeight: '600',
-    cursor: 'pointer',
-    display: 'flex',
-    alignItems: 'center',
-    gap: '4px',
-  },
-  toggleLiveVideoBtn: {
-    padding: '4px 10px',
-    borderRadius: '6px',
-    border: '1px solid #64748b',
-    backgroundColor: '#1e293b',
-    color: '#cbd5e1',
-    fontSize: '11px',
-    cursor: 'pointer',
-  },
-  liveMirrorWarningBadge: {
-    position: 'absolute',
-    bottom: '12px',
-    right: '12px',
-    backgroundColor: 'rgba(239, 68, 68, 0.90)',
-    color: '#ffffff',
-    fontSize: '11px',
-    fontWeight: '600',
-    padding: '6px 12px',
-    borderRadius: '8px',
-    border: '1px solid rgba(239, 68, 68, 0.9)',
-    backdropFilter: 'blur(6px)',
-    display: 'flex',
-    alignItems: 'center',
-    gap: '10px',
-  },
-  shieldActivateBtn: {
-    padding: '4px 10px',
-    borderRadius: '6px',
-    border: '1px solid #ffffff',
-    backgroundColor: 'rgba(255, 255, 255, 0.25)',
-    color: '#ffffff',
-    fontSize: '11px',
-    fontWeight: '700',
-    cursor: 'pointer',
-  },
   videoContainer: {
     width: '100%',
     height: '100%',
@@ -3890,11 +3752,6 @@ const styles: { [key: string]: React.CSSProperties } = {
     alignItems: 'center',
     gap: '10px',
     zIndex: 10,
-  },
-  video: {
-    width: '100%',
-    height: '100%',
-    objectFit: 'contain',
   },
   controlsBar: {
     flexShrink: 0,
@@ -4417,27 +4274,6 @@ const styles: { [key: string]: React.CSSProperties } = {
     outline: 'none',
     cursor: 'pointer',
   },
-  privatePromptNotice: {
-    padding: '12px',
-    fontSize: '12px',
-    color: '#94a3b8',
-    textAlign: 'center',
-    backgroundColor: '#111c30',
-    borderTop: '1px solid #1e293b',
-  },
-  targetIndicatorBoxMuted: {
-    display: 'flex',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    backgroundColor: 'rgba(99, 102, 241, 0.08)',
-    padding: '6px 10px',
-    borderRadius: '6px',
-    border: '1px dashed rgba(99, 102, 241, 0.3)',
-  },
-  targetIndicatorTextMuted: {
-    fontSize: '11px',
-    color: '#a5b4fc',
-  },
   studentsTabContent: {
     flex: 1,
     display: 'flex',
@@ -4702,100 +4538,6 @@ const styles: { [key: string]: React.CSSProperties } = {
     backgroundColor: 'rgba(34, 197, 94, 0.1)',
     padding: '2px 6px',
     borderRadius: '4px',
-  },
-  // Privacy Shield Styles
-  privacyConfigBox: {
-    backgroundColor: '#0d1526',
-    border: '1px solid #1e293b',
-    borderRadius: '8px',
-    padding: '12px 16px',
-    marginTop: '14px',
-  },
-  privacyConfigHeader: {
-    display: 'flex',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: '6px',
-  },
-  privacyTitle: {
-    fontSize: '13px',
-    fontWeight: '600',
-    color: '#f8fafc',
-  },
-  privacyConfigureBtn: {
-    backgroundColor: '#1e293b',
-    color: '#38bdf8',
-    border: '1px solid #334155',
-    borderRadius: '6px',
-    padding: '4px 10px',
-    fontSize: '12px',
-    cursor: 'pointer',
-    fontWeight: '500',
-  },
-  privacySubtitle: {
-    fontSize: '12px',
-    color: '#94a3b8',
-    margin: '0 0 10px 0',
-  },
-  privacyChipsRow: {
-    display: 'flex',
-    flexWrap: 'wrap',
-    gap: '8px',
-  },
-  privacyChip: {
-    backgroundColor: '#172033',
-    color: '#94a3b8',
-    border: '1px solid #1e293b',
-    borderRadius: '16px',
-    padding: '4px 12px',
-    fontSize: '12px',
-    cursor: 'pointer',
-  },
-  privacyChipActive: {
-    backgroundColor: 'rgba(239, 68, 68, 0.15)',
-    color: '#f87171',
-    border: '1px solid #ef4444',
-    borderRadius: '16px',
-    padding: '4px 12px',
-    fontSize: '12px',
-    cursor: 'pointer',
-    fontWeight: '600',
-  },
-  controlBtnActivePrivacy: {
-    backgroundColor: '#dc2626',
-    color: '#ffffff',
-    border: '1px solid #ef4444',
-    borderRadius: '6px',
-    padding: '8px 14px',
-    fontSize: '13px',
-    fontWeight: '600',
-    cursor: 'pointer',
-  },
-  privacyAlertBanner: {
-    backgroundColor: 'rgba(220, 38, 38, 0.95)',
-    color: '#ffffff',
-    padding: '10px 16px',
-    borderRadius: '8px',
-    fontSize: '13px',
-    fontWeight: '600',
-    marginBottom: '12px',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    boxShadow: '0 4px 12px rgba(220, 38, 38, 0.3)',
-  },
-  privacyAlertText: {
-    flex: 1,
-  },
-  privacyBannerResumeBtn: {
-    backgroundColor: '#ffffff',
-    color: '#dc2626',
-    border: 'none',
-    borderRadius: '6px',
-    padding: '6px 14px',
-    fontSize: '12px',
-    fontWeight: '700',
-    cursor: 'pointer',
   },
   annotationToolbarLeft: {
     position: 'absolute',
@@ -5221,18 +4963,6 @@ const styles: { [key: string]: React.CSSProperties } = {
     alignItems: 'center',
     justifyContent: 'center',
     zIndex: 2,
-  },
-  privacyShieldBadge: {
-    display: 'inline-flex',
-    alignItems: 'center',
-    padding: '3px 8px',
-    borderRadius: '6px',
-    backgroundColor: 'rgba(234, 179, 8, 0.18)',
-    color: '#facc15',
-    border: '1px solid rgba(234, 179, 8, 0.4)',
-    fontSize: '11px',
-    fontWeight: '600',
-    marginLeft: '8px',
   },
   windowPillsBar: {
     display: 'flex',

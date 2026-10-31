@@ -302,46 +302,6 @@ ipcMain.handle(
   }
 )
 
-// ── IPC: Verificação e solicitação de permissões de SO (Microfone e Tela) ─────
-
-ipcMain.handle('check-media-permissions', async () => {
-  let micStatus = 'granted'
-  let screenStatus = 'granted'
-
-  try {
-    if (process.platform === 'darwin' || process.platform === 'win32') {
-      if (typeof systemPreferences.getMediaAccessStatus === 'function') {
-        micStatus = systemPreferences.getMediaAccessStatus('microphone')
-        screenStatus = systemPreferences.getMediaAccessStatus('screen')
-      }
-    }
-  } catch (err) {
-    console.warn('Falha ao consultar getMediaAccessStatus:', err)
-  }
-
-  return {
-    microphone: micStatus,
-    screen: screenStatus
-  }
-})
-
-ipcMain.handle('request-media-permissions', async () => {
-  let micGranted = true
-  try {
-    if (process.platform === 'darwin' && typeof systemPreferences.askForMediaAccess === 'function') {
-      micGranted = await systemPreferences.askForMediaAccess('microphone')
-    }
-  } catch (err) {
-    console.warn('Falha ao solicitar permissão de microfone:', err)
-    micGranted = false
-  }
-
-  return {
-    microphone: micGranted,
-    screen: true
-  }
-})
-
 // ── Gerenciamento da sala ativa para encerramento gracioso ao fechar o app ────
 
 let activeRoom: { id: string; token?: string } | null = null

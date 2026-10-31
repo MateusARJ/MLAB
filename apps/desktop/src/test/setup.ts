@@ -18,14 +18,6 @@ window.electronAPI = {
     success: true,
     filePath: 'C:/fake/path/aula-mlab.webm',
   }),
-  checkMediaPermissions: vi.fn().mockResolvedValue({
-    microphone: 'granted',
-    screen: 'granted',
-  }),
-  requestMediaPermissions: vi.fn().mockResolvedValue({
-    microphone: true,
-    screen: true,
-  }),
   copyToClipboard: vi.fn().mockResolvedValue(true),
   setActiveRoom: vi.fn().mockResolvedValue(undefined),
   setContentProtection: vi.fn().mockResolvedValue(true),
