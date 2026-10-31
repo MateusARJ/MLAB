@@ -1304,10 +1304,11 @@ export const Room: React.FC<RoomProps> = ({ room, onCloseRoom }) => {
 
     setIsLiveSession(true);
 
-    // Quando o professor começa a transmitir a tela, o microfone deve ficar desligado por padrão
+    // Sincroniza o estado de áudio (microfone e som do sistema) com base no estado atual configurado pelo professor
     if (activeStream) {
+      const isAudioActive = !micMuted || !systemAudioMuted;
       activeStream.getAudioTracks().forEach((track) => {
-        track.enabled = false;
+        track.enabled = isAudioActive;
       });
     }
 
@@ -1339,6 +1340,8 @@ export const Room: React.FC<RoomProps> = ({ room, onCloseRoom }) => {
     connectionState,
     changeStream,
     startPublishing,
+    micMuted,
+    systemAudioMuted,
   ]);
 
   const handleEndSession = useCallback(async () => {
@@ -1483,14 +1486,6 @@ export const Room: React.FC<RoomProps> = ({ room, onCloseRoom }) => {
                 >
                   {copiedMdns ? <Checkmark size={14} /> : <Copy size={14} />}
                 </IconButton>
-                {isLanLink(links.mdnsLink || links.link) && (
-                  <span
-                    style={styles.lanBadge}
-                    title="Transmissão operando diretamente na rede local (sem necessidade de internet externa)"
-                  >
-                    Rede Local (LAN)
-                  </span>
-                )}
               </div>
 
               {/* Link Direto IP */}
@@ -1507,14 +1502,6 @@ export const Room: React.FC<RoomProps> = ({ room, onCloseRoom }) => {
                 >
                   {copiedIp ? <Checkmark size={14} /> : <Copy size={14} />}
                 </IconButton>
-                {isLanLink(links.ipLink || links.link) && (
-                  <span
-                    style={styles.lanBadge}
-                    title="Transmissão operando diretamente na rede local (sem necessidade de internet externa)"
-                  >
-                    Rede Local (LAN)
-                  </span>
-                )}
               </div>
             </div>
           </div>
@@ -1839,14 +1826,6 @@ export const Room: React.FC<RoomProps> = ({ room, onCloseRoom }) => {
                       Modo: {captureMode === 'screen' ? 'Tela Cheia' : (selectedWindowSources.length > 1 ? `Janela Específica (Múltiplas - ${selectedWindowSources.length} autorizadas)` : 'Janela Específica')} (
                       {activeWindowSource?.name || selectedSource?.name || 'Fonte Ativa'})
                     </span>
-                    {isPrivacyShieldActive && (
-                      <span
-                        style={styles.privacyShieldBadge}
-                        title="Proteção de privacidade ativa: você está em um aplicativo não autorizado. A transmissão está protegida e mantida na janela da aula."
-                      >
-                        🔒 Proteção de Privacidade Ativa
-                      </span>
-                    )}
                   </div>
 
                   <div style={styles.statusRight}>
@@ -2843,9 +2822,9 @@ export const Room: React.FC<RoomProps> = ({ room, onCloseRoom }) => {
                           );
                         })()}
 
-                        {/* Formulário exclusivo do Chat Privado — Sempre visível sem exigir clique prévio no aluno */}
-                        <form onSubmit={handleSendPrivateChat} style={styles.chatForm}>
-                          {targetStudent ? (
+                        {/* Formulário exclusivo do Chat Privado — Visível apenas quando houver aluno selecionado */}
+                        {targetStudent ? (
+                          <form onSubmit={handleSendPrivateChat} style={styles.chatForm}>
                             <div style={styles.targetIndicatorBox}>
                               <span style={styles.targetIndicatorText}>
                                 <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}><Locked size={14} /> Respondendo em privado para: <strong>{targetStudent.name}</strong> {targetStudent.student_id && `(${targetStudent.student_id})`}</span>
@@ -2859,40 +2838,36 @@ export const Room: React.FC<RoomProps> = ({ room, onCloseRoom }) => {
                                 <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}><Close size={14} /> Ver Todas</span>
                               </button>
                             </div>
-                          ) : (
-                            <div style={styles.targetIndicatorBoxMuted}>
-                              <span style={styles.targetIndicatorTextMuted}>
-                                <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}><Locked size={14} /> Chat Privado: {studentsOnly.length === 1 ? `Mensagem direta para ${studentsOnly[0].name}` : 'Selecione um aluno acima ou digite para responder'}</span>
+
+                            <div style={styles.chatInputRow}>
+                              <input
+                                type="text"
+                                value={privateChatInput}
+                                onChange={(e) => setPrivateChatInput(e.target.value)}
+                                placeholder={`Mensagem privada para ${targetStudent.name}...`}
+                                style={styles.chatInput}
+                              />
+                              <button
+                                type="submit"
+                                disabled={!privateChatInput.trim()}
+                                style={{
+                                  ...styles.sendPrivateBtn,
+                                  opacity: !privateChatInput.trim() ? 0.5 : 1,
+                                }}
+                              >
+                                Enviar Privado
+                              </button>
+                            </div>
+                          </form>
+                        ) : (
+                          <div style={styles.privateSelectPromptBox}>
+                            <div style={styles.privateSelectPromptText}>
+                              <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                                <Locked size={14} /> Modo de visualização geral. Selecione um aluno no menu acima para enviar uma mensagem privada.
                               </span>
                             </div>
-                          )}
-
-                          <div style={styles.chatInputRow}>
-                            <input
-                              type="text"
-                              value={privateChatInput}
-                              onChange={(e) => setPrivateChatInput(e.target.value)}
-                              placeholder={
-                                targetStudent
-                                  ? `Mensagem privada para ${targetStudent.name}...`
-                                  : studentsOnly.length === 1
-                                  ? `Mensagem privada para ${studentsOnly[0].name}...`
-                                  : 'Mensagem privada para o aluno...'
-                              }
-                              style={styles.chatInput}
-                            />
-                            <button
-                              type="submit"
-                              disabled={!privateChatInput.trim()}
-                              style={{
-                                ...styles.sendPrivateBtn,
-                                opacity: !privateChatInput.trim() ? 0.5 : 1,
-                              }}
-                            >
-                              Enviar Privado
-                            </button>
                           </div>
-                        </form>
+                        )}
                       </>
                     )}
                   </div>
@@ -4151,6 +4126,14 @@ const styles: { [key: string]: React.CSSProperties } = {
     fontWeight: '700',
     padding: '1px 5px',
     borderRadius: '8px',
+  },
+  privateSelectPromptBox: {
+    padding: '10px 14px',
+    backgroundColor: '#0f172a',
+    borderTop: '1px solid #1e293b',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   privateSelectPromptText: {
     padding: '6px 10px',

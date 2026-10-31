@@ -132,7 +132,7 @@ if (typeof window !== 'undefined') {
     navigator.mediaDevices = {};
   }
   // @ts-ignore
-  navigator.mediaDevices.getUserMedia = vi.fn().mockResolvedValue(new globalThis.MediaStream());
+  navigator.mediaDevices.getUserMedia = vi.fn().mockImplementation(() => Promise.resolve(new globalThis.MediaStream()));
 
   // Mock global de fetch para evitar ECONNREFUSED em testes ao acessar endpoints locais
   // @ts-ignore

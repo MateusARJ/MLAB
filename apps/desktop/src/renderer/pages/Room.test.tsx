@@ -1,6 +1,7 @@
 import { render, screen, fireEvent, waitFor, act } from '@testing-library/react';
 import { describe, it, expect, vi } from 'vitest';
 import { Room } from './Room';
+import * as publisherModule from '../hooks/useWebRTCPublisher';
 
 describe('Room Component (Desktop)', () => {
   const dummyRoom = {
@@ -351,21 +352,22 @@ describe('Room Component (Desktop)', () => {
     // Input público não deve estar visível
     expect(screen.queryByPlaceholderText('Mensagem pública para toda a turma...')).not.toBeInTheDocument();
 
-    // Campo de digitação do chat privado deve estar visível imediatamente, sem exigir clique prévio no aluno
-    const privateInput = screen.getByPlaceholderText(/Mensagem privada para o aluno/i);
-    expect(privateInput).toBeInTheDocument();
-    fireEvent.change(privateInput, { target: { value: 'Resposta confidencial' } });
-    expect((privateInput as HTMLInputElement).value).toBe('Resposta confidencial');
+    // Sem aluno selecionado: o campo de texto e o botão de envio NÃO devem ser renderizados
+    expect(screen.queryByPlaceholderText(/Mensagem privada/i)).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /Enviar Privado/i })).not.toBeInTheDocument();
+
+    // Em seu lugar, deve exibir a barra sutil de orientação de visualização geral com ícone de cadeado (sem emojis)
+    expect(screen.getByText(/Modo de visualização geral\. Selecione um aluno no menu acima para enviar uma mensagem privada\./i)).toBeInTheDocument();
 
     // Retorna para a aba pública e garante que o texto digitado anteriormente permaneceu isolado e intacto
     fireEvent.click(screen.getByRole('button', { name: /Turma \(Público\)/i }));
     const restoredPublicInput = screen.getByPlaceholderText('Mensagem pública para toda a turma...');
     expect((restoredPublicInput as HTMLInputElement).value).toBe('Dúvida geral turma');
 
-    // Volta para a aba privada e garante que o texto do privado também continuou isolado e intacto
+    // Volta para a aba privada e garante que o modo de visualização geral permanece ativo
     fireEvent.click(screen.getByRole('button', { name: /Dúvidas Privadas/i }));
-    const restoredPrivateInput = screen.getByPlaceholderText(/Mensagem privada para o aluno/i);
-    expect((restoredPrivateInput as HTMLInputElement).value).toBe('Resposta confidencial');
+    expect(screen.queryByPlaceholderText(/Mensagem privada/i)).not.toBeInTheDocument();
+    expect(screen.getByText(/Modo de visualização geral/i)).toBeInTheDocument();
   });
 
   it('deve garantir que o elemento de video de preview local tenha muted ativado no DOM para evitar microfonia interna', async () => {
@@ -464,14 +466,14 @@ describe('Room Component (Desktop)', () => {
     });
   });
 
-  it('deve exibir os badges de Rede Local (LAN) tanto no Link Fixo quanto no Link IP Direto sem o botão de recarregar', async () => {
+  it('deve exibir o Link Fixo e o Link IP Direto sem badges de Rede Local (LAN) e sem botão de recarregar', async () => {
     render(<Room room={dummyRoom} onCloseRoom={vi.fn()} />);
 
     expect(screen.getByText(dummyRoom.mdnsLink)).toBeInTheDocument();
     expect(screen.getByText(dummyRoom.ipLink)).toBeInTheDocument();
 
-    const lanBadges = screen.getAllByText('Rede Local (LAN)');
-    expect(lanBadges).toHaveLength(2);
+    // Badges de Rede Local (LAN) foram removidos para manter o cabeçalho limpo
+    expect(screen.queryByText('Rede Local (LAN)')).not.toBeInTheDocument();
 
     expect(screen.queryByRole('button', { name: /Atualizar IP e Links da Rede/i })).not.toBeInTheDocument();
   });
@@ -785,9 +787,8 @@ describe('Room Component (Desktop)', () => {
       unauthorizedCallback!({ isUnauthorized: true });
     });
 
-    await waitFor(() => {
-      expect(screen.getByText(/Proteção de Privacidade Ativa/i)).toBeInTheDocument();
-    });
+    // O badge visual foi removido da barra de status conforme solicitado, não devendo poluir a tela
+    expect(screen.queryByText(/Proteção de Privacidade Ativa/i)).not.toBeInTheDocument();
 
     // Simula volta para o VS Code (app autorizado)
     act(() => {
@@ -796,8 +797,164 @@ describe('Room Component (Desktop)', () => {
     });
 
     await waitFor(() => {
-      expect(screen.queryByText(/Proteção de Privacidade Ativa/i)).not.toBeInTheDocument();
+      expect(screen.getByText(/Janela Específica \(Múltiplas - 2 autorizadas\)/i)).toBeInTheDocument();
     });
+  });
+
+  it('no chat privado, oculta o formulário de envio quando nenhum aluno está selecionado e reexibe ao selecionar um aluno', async () => {
+    const mockParticipants = [
+      {
+        participant_id: 'part-aluno-1',
+        name: 'Lucas Silva',
+        role: 'aluno',
+        student_id: '20241TADS001',
+      },
+      {
+        participant_id: 'part-aluno-2',
+        name: 'Mariana Costa',
+        role: 'aluno',
+        student_id: '20241TADS002',
+      },
+    ];
+
+    vi.spyOn(publisherModule, 'useWebRTCPublisher').mockReturnValue({
+      isPublishing: true,
+      connectionState: 'connected',
+      error: null,
+      messages: [],
+      participants: mockParticipants,
+      lastHandRaised: null,
+      dismissHandToast: vi.fn(),
+      lowerStudentHand: vi.fn(),
+      sendChatMessage: vi.fn(),
+      pinChatMessage: vi.fn(),
+      sendStreamPause: vi.fn(),
+      startPublishing: vi.fn(),
+      changeStream: vi.fn(),
+      endSession: vi.fn(),
+    });
+
+    render(<Room room={dummyRoom} onCloseRoom={vi.fn()} />);
+
+    await waitFor(() => {
+      expect(screen.getByText('Tela Inteira 1')).toBeInTheDocument();
+    });
+
+    const advanceBtn = screen.getByRole('button', { name: /Avançar e Iniciar Transmissão/i });
+    fireEvent.click(advanceBtn);
+
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: /Alterar Modo \/ Fonte/i })).toBeInTheDocument();
+    });
+
+    // Abre o chat e muda para aba de Dúvidas Privadas
+    fireEvent.click(screen.getByRole('button', { name: /Chat & Turma/i }));
+    fireEvent.click(screen.getByRole('button', { name: /Dúvidas Privadas/i }));
+
+    // Inicialmente sem aluno selecionado:
+    // O formulário de envio (input e botão Enviar Privado) NÃO deve existir no DOM
+    expect(screen.queryByPlaceholderText(/Mensagem privada/i)).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /Enviar Privado/i })).not.toBeInTheDocument();
+
+    // Deve exibir o aviso limpo (sem emojis) de modo de visualização geral
+    expect(screen.getByText(/Modo de visualização geral\. Selecione um aluno no menu acima para enviar uma mensagem privada\./i)).toBeInTheDocument();
+
+    // Seleciona um aluno no dropdown
+    const studentSelect = screen.getByRole('combobox');
+    fireEvent.change(studentSelect, { target: { value: 'part-aluno-1' } });
+
+    // Agora o campo de texto e o botão de envio reaparecem imediatamente
+    await waitFor(() => {
+      expect(screen.getByPlaceholderText('Mensagem privada para Lucas Silva...')).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: /Enviar Privado/i })).toBeInTheDocument();
+    });
+
+    // O aviso de visualização geral não deve mais estar visível
+    expect(screen.queryByText(/Modo de visualização geral/i)).not.toBeInTheDocument();
+
+    // Clica no botão "Ver Todas" para desselecionar o aluno
+    const clearTargetBtn = screen.getByRole('button', { name: /Ver Todas/i });
+    fireEvent.click(clearTargetBtn);
+
+    // O formulário e o botão de envio devem sumir novamente e o aviso reaparecer
+    await waitFor(() => {
+      expect(screen.queryByPlaceholderText(/Mensagem privada/i)).not.toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: /Enviar Privado/i })).not.toBeInTheDocument();
+      expect(screen.getByText(/Modo de visualização geral\. Selecione um aluno no menu acima para enviar uma mensagem privada\./i)).toBeInTheDocument();
+    });
+  });
+
+  it('deve preservar o áudio ativo ao alternar modo ou fonte de transmissão quando o professor estiver desmutado', async () => {
+    let capturedStream: any = null;
+    const mockChangeStream = vi.fn().mockImplementation((stream: any) => {
+      capturedStream = stream;
+    });
+
+    vi.spyOn(publisherModule, 'useWebRTCPublisher').mockImplementation((props: any) => {
+      capturedStream = props.stream;
+      return {
+        isPublishing: true,
+        connectionState: 'connected',
+        error: null,
+        messages: [],
+        participants: [],
+        lastHandRaised: null,
+        dismissHandToast: vi.fn(),
+        lowerStudentHand: vi.fn(),
+        sendChatMessage: vi.fn(),
+        pinChatMessage: vi.fn(),
+        sendStreamPause: vi.fn(),
+        startPublishing: vi.fn(),
+        changeStream: mockChangeStream,
+        endSession: vi.fn(),
+      };
+    });
+
+    render(<Room room={dummyRoom} onCloseRoom={vi.fn()} />);
+
+    await waitFor(() => {
+      expect(screen.getByText('Tela Inteira 1')).toBeInTheDocument();
+    });
+
+    // Inicia sessão ao vivo
+    const advanceBtn = screen.getByRole('button', { name: /Avançar e Iniciar Transmissão/i });
+    fireEvent.click(advanceBtn);
+
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: /Alterar Modo \/ Fonte/i })).toBeInTheDocument();
+    });
+
+    // Ativa o microfone
+    const micBtn = screen.getByRole('button', { name: /Desmutar Microfone/i });
+    fireEvent.click(micBtn);
+
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: /Mutar Microfone/i })).toBeInTheDocument();
+    });
+
+    // Clica em "Alterar Modo / Fonte"
+    const changeModeBtn = screen.getByRole('button', { name: /Alterar Modo \/ Fonte/i });
+    fireEvent.click(changeModeBtn);
+
+    // Na tela de configuração, avança novamente para a transmissão
+    const resumeBtn = screen.getByRole('button', { name: /Avançar e Iniciar Transmissão/i });
+    fireEvent.click(resumeBtn);
+
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: /Alterar Modo \/ Fonte/i })).toBeInTheDocument();
+    });
+
+    // O microfone continua exibindo "Mutar Microfone" (ativo)
+    expect(screen.getByRole('button', { name: /Mutar Microfone/i })).toBeInTheDocument();
+
+    // E as faixas de áudio continuam ativadas (enabled: true), sem terem sido silenciadas
+    if (capturedStream && capturedStream.getAudioTracks) {
+      const audioTracks = capturedStream.getAudioTracks();
+      expect(audioTracks.length).toBeGreaterThan(0);
+      audioTracks.forEach((track: any) => {
+        expect(track.enabled).toBe(true);
+      });
+    }
   });
 });
 
