@@ -2,6 +2,7 @@ package signaling
 
 import (
 	"encoding/json"
+	"fmt"
 	"strings"
 	"testing"
 	"time"
@@ -645,5 +646,25 @@ func TestHub_PrivateChat_Routing(t *testing.T) {
 		if m.IsPrivate {
 			t.Fatalf("mensagem privada encontrada no histórico: %+v", m)
 		}
+	}
+}
+
+// 003/T314 — o histórico guarda só as 200 mensagens públicas mais recentes (RN-304).
+func TestHub_ChatHistory_KeepsLatest200(t *testing.T) {
+	hub := newHub("room-test-history-cap", nil)
+	for i := 1; i <= 201; i++ {
+		// Remetentes distintos para não acionar o rate limit por participante.
+		sender := &Client{hub: hub, send: make(chan []byte, 4), participantID: fmt.Sprintf("prof-%03d", i), roomID: "room-test-history-cap", role: RoleProfessor, name: "Professor"}
+		hub.onChatMessage(sender, WsMessage{Type: TypeChatMessage, Payload: []byte(fmt.Sprintf(`{"content":"mensagem %03d"}`, i))})
+	}
+
+	if len(hub.chatHistory) != 200 {
+		t.Fatalf("expected 200 messages in history, got %d", len(hub.chatHistory))
+	}
+	if first := hub.chatHistory[0].Content; first != "mensagem 002" {
+		t.Errorf("expected oldest kept message to be 'mensagem 002', got %q", first)
+	}
+	if last := hub.chatHistory[199].Content; last != "mensagem 201" {
+		t.Errorf("expected newest message to be 'mensagem 201', got %q", last)
 	}
 }

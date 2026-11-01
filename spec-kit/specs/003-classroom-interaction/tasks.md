@@ -2,7 +2,7 @@
 
 Feature: `003-classroom-interaction`
 Prerequisites: spec/clarify/plan/checklist/analyze aprovados
-Status: READY-FOR-IMPLEMENTATION (T313–T314)
+Status: DONE (T301–T314)
 
 As tasks T301–T312 são **retroativas**: registram entregas já existentes, com a evidência que sustenta o `[x]`.
 Elas não autorizam alteração de comportamento.
@@ -44,7 +44,7 @@ Allowed Paths: `apps/backend/internal/signaling/**`, `apps/desktop/src/renderer/
 Prohibited Paths: `apps/backend/internal/webrtc/**`, `apps/backend/internal/auth/**`
 Checks:
 - [x] Evidência: `hub.go` (`chatHistory`, limite 200); `hub_test.go` (`TestHub_ChatHistory_StoredAndSentOnRegister`).
-- [ ] Teste do limite de 200 e da exclusão de privadas → T314.
+- [x] Teste do limite de 200 → T314; exclusão de privadas → T313.
 
 ### T306 — Compartilhamento de arquivos (RF-306, RN-305)
 [x] T306
@@ -113,10 +113,10 @@ Checks:
 - [x] `go test -count=1 ./...` verde (`TestHub_PrivateChat_Routing`). Nenhuma mudança em código de produção.
 
 ### T314 — Teste do limite do histórico de chat
-[ ] T314
+[x] T314
 Depends On: T305
 Allowed Paths: `apps/backend/internal/signaling/hub_test.go`
 Prohibited Paths: `apps/backend/internal/signaling/hub.go`, `apps/**` (exceto o arquivo permitido)
 Checks:
-- [ ] Após 201 mensagens públicas, `chatHistory` tem 200 e a mais antiga foi descartada.
-- [ ] `go test -count=1 ./...` verde. Nenhuma mudança em código de produção.
+- [x] Após 201 mensagens públicas, `chatHistory` tem 200 e a mais antiga foi descartada.
+- [x] `go test -count=1 ./...` verde (`TestHub_ChatHistory_KeepsLatest200`). Nenhuma mudança em código de produção.
