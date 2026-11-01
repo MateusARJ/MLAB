@@ -84,15 +84,16 @@ Checks:
 - [ ] Smoke A2, A9, A15, A16, A17 (LAN, `mlab.local`, ngrok, celular) — **pendente de execução manual**. Se algum cenário legítimo falhar, acrescentar a origem à allowlist; nunca voltar a aceitar qualquer origem.
 
 ### T207 — S7: endurecimento do Electron
-[ ] T207
+[x] T207
 Depends On: T206
 Allowed Paths: `apps/desktop/src/main/**`, `apps/desktop/src/test/setup.ts`
 Prohibited Paths: `apps/backend/**`, `apps/web/**`, `apps/desktop/src/renderer/media/**`
 Checks:
-- [ ] `setWindowOpenHandler` nega janelas; http/https abertos com `shell.openExternal`; `will-navigate` bloqueado para fora da origem do app (janela principal e overlay).
-- [ ] `copyToClipboard` passa a usar IPC `write-clipboard-text` (API exposta inalterada).
-- [ ] `sandbox: true` na janela principal e no overlay, sujeito ao gate C-203.
-- [ ] Suítes verdes. Smoke: A4–A8, A11, A12.
+- [x] `setWindowOpenHandler` nega janelas; http/https abertos com `shell.openExternal`; `will-navigate` bloqueado para fora da origem do app (janela principal e overlay).
+- [x] `copyToClipboard` passa a usar IPC `write-clipboard-text` (API exposta inalterada).
+- [x] `sandbox: true` na janela principal e no overlay, sujeito ao gate C-203.
+- [x] Suítes verdes: desktop 95/95 (`navigationGuard.test.ts`); `tsc` sem erro novo; `electron-vite build` OK; preload compilado só faz `require("electron")`.
+- [ ] Smoke A4–A8, A11, A12 no app empacotado (Windows e Linux) — **pendente de execução manual**. Gate C-203: se algum item falhar por causa do sandbox, reverter só o commit do sandbox e registrar exceção no `converge.md`.
 
 ### T208 — S8: remover caminho absoluto local
 [ ] T208

@@ -134,7 +134,8 @@ function createWindow(): void {
     minHeight: 600,
     webPreferences: {
       preload: getPreloadPath(),
-      sandbox: false,
+      // Sandbox do renderer (002/S7): o preload só usa contextBridge e ipcRenderer.
+      sandbox: true,
       contextIsolation: true,
       nodeIntegration: false,
       backgroundThrottling: false
