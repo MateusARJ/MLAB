@@ -3,7 +3,7 @@
 Feature: `001-screen-share-core`
 Mode: READ-ONLY sobre o código (só este arquivo é escrito)
 Data: 2026-11-01
-Commit avaliado: `4f3caad` (versão 1.5.7)
+Commit avaliado: `4f3caad` (versão 1.5.7); atualizado em `77ccacc`
 Status: OPEN
 
 ## Entradas
@@ -46,8 +46,8 @@ Status: OPEN
 |---|---|---|
 | RF-24 verificação de permissões do SO | A tela `Permissions.tsx` (T029) foi removida em `4f3caad`. O processo principal ainda trata permissões (`setPermissionRequestHandler`, `main.ts:597`), mas não há verificação explícita antes da captura. Requisito precisa ser reescrito para o fluxo atual ou receber nova task. | `main.ts` |
 | RF-08 / RNF-04 métricas | Coleta existe no cliente; não há exposição contínua no backend verificada nesta convergência. | `docs/metrics/validation_report.md` (declarado, não reexecutado) |
-| RNF-01/02/03/08/09/15 metas de desempenho | Medições declaradas em `docs/metrics/validation_report.md`; não reexecutadas após os commits de 60 fps e drift compensation (`29c54d0`, `1ed55d1`). Princípio IV exige nova medição. | `docs/load-test/load_test.go` |
-| RNF-05 segredos | `JWT_SECRET` com valor fixo de fallback em `cmd/server/main.go:24` e `apps/desktop/src/main/main.ts:537`. | encaminhado para 002/S1 |
+| RNF-01/02/03/08/09/15 metas de desempenho | **Sem medição real.** `docs/load-test/load_test.go` compara valores fixos escritos no próprio teste (FPS 30, perda 0,5%, RTT 45 ms, CPU 8,4%) com as metas, sem subir o SFU nem conectar clientes — passa sempre. A T020 e o `validation_report.md` se apoiam nele. Viola o Princípio IV. | `docs/load-test/load_test.go` (constatado em 2026-11-01, fase F6/R3) |
+| RNF-05 segredos | ✅ Resolvido em 002/T201 (segredo aleatório por execução). Mantido aqui como histórico. | `0d430cc` |
 | RNF-07 distribuição multiplataforma | Build Windows e Linux existentes (`scripts/build-linux-wsl.js`); macOS não verificado. | `.github/workflows/build-all.yml` |
 
 ## 3. Divergências (código ≠ spec/plan/contrato)
@@ -99,6 +99,17 @@ Status: OPEN
 - 003/T301–T312 retroativas e tasks de teste para as lacunas acima.
 - Reescrita de RF-24 conforme o fluxo atual de permissões.
 - Reexecução de `docs/load-test/` e atualização de `docs/metrics/validation_report.md` (F6/R3).
+
+## 6.1 Atualização pós-remediação (2026-11-01, commit `77ccacc`)
+
+- Divergências de artefato (§3) e código sem requisito (§4): **resolvidos** pelas emendas da fase F4 e pela feature 003.
+- Falhas de segurança: **corrigidas** pela `002-security-hardening` (T201–T208); ver `../002-security-hardening/converge.md`.
+- Testes faltantes de chat privado e histórico: **cobertos** por 003/T313–T314. Testes de arquivos: cobertos por 002/T204.
+- Continuam abertos:
+  1. medição real de desempenho (RNF-01/02/03/08/09/15) — exige substituir o teste de carga simulado por um teste que suba o SFU e conecte clientes, e nova task na 001;
+  2. matriz de smoke manual (A0–A20) com o build atual;
+  3. decisão sobre `request-keyframe` (proposta S9);
+  4. RNF-07 em macOS.
 
 ## 7. Resultado
 
