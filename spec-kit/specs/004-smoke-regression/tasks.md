@@ -55,13 +55,14 @@ Checks:
 - [x] Publisher WebRTC numa segunda página (canvas + oscilador) sinalizando pelo WS do professor.
 
 ### T406 — Specs do E2E
-[ ] T406
+[x] T406
 Depends On: T405
 Allowed Paths: `apps/web/e2e/**`
 Prohibited Paths: `apps/web/src/**`, `apps/backend/**`
 Checks:
-- [ ] A3, A9, A10, A13, A14, A15, A18 (cliente), A20 no desktop; A9, A10, A13 no mobile (RF-402).
-- [ ] `npm run test:e2e -w @mlab/web` executado e resultado registrado.
+- [x] A3, A9, A10, A13, A14, A15, A18 (cliente), A20 no desktop; A9, A10, A13 no mobile (RF-402).
+- [x] `npm run test:e2e -w @mlab/web` executado e resultado registrado.
+- [x] Execução de 2026-11-01: desktop 7/8 OK, mobile 3/3 OK. A20 FALHA: o web não trata a mensagem `error` e não mostra aviso de `CHAT_RATE_LIMITED` (contraria o plan da 001, §10b). Observação: A3 só passa com o aluno já assistindo; encerrar a sala com o aluno ainda em "Sincronizando" deixou o aluno em "reconnecting" numa execução.
 
 ### T407 — Roteiro manual
 [x] T407
