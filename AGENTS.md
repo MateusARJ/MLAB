@@ -6,17 +6,17 @@ Este arquivo governa todo o repositório. O projeto utiliza Spec-Driven Developm
 
 A ordem de autoridade é obrigatória:
 
-1. `AGENTS.md` — regras operacionais do agente.
-2. `.specify/memory/constitution.md` — princípios e gates do projeto.
-3. `specs/<feature>/spec.md` — comportamento e requisitos aprovados.
-4. `specs/<feature>/clarify.md` — ambiguidades resolvidas.
-5. `specs/<feature>/plan.md` — arquitetura e decisões técnicas da feature.
-6. `specs/<feature>/contracts/` — contratos entre módulos/serviços.
-7. `specs/<feature>/tasks.md` — ordem e escopo de implementação.
-8. `specs/<feature>/analyze.md` e `checklists/` — validação antes da implementação.
+1. `AGENTS.md` (raiz) — regras operacionais do agente.
+2. `spec-kit/.specify/memory/constitution.md` — princípios e gates do projeto.
+3. `spec-kit/specs/<feature>/spec.md` — comportamento e requisitos aprovados.
+4. `spec-kit/specs/<feature>/clarify.md` — ambiguidades resolvidas.
+5. `spec-kit/specs/<feature>/plan.md` — arquitetura e decisões técnicas da feature.
+6. `spec-kit/specs/<feature>/contracts/` — contratos entre módulos/serviços.
+7. `spec-kit/specs/<feature>/tasks.md` — ordem e escopo de implementação.
+8. `spec-kit/specs/<feature>/analyze.md` e `checklists/` — validação antes da implementação.
 9. Código existente — evidência do estado atual, nunca autorização automática para alterar comportamento.
 
-Antes de qualquer tarefa, leia `.specify/memory/context-loading.md` e carregue somente o contexto exigido pela fase corrente.
+Antes de qualquer tarefa, leia `spec-kit/.specify/memory/context-loading.md` e carregue somente o contexto exigido pela fase corrente.
 
 ## 2. Escopo do sistema
 
@@ -32,17 +32,26 @@ O sistema é uma plataforma de transmissão de tela para aula ao vivo, composta 
 ### Estrutura do repositório (Monorepo Turborepo — ADR 0001)
 
 ```text
-screenshare/
+mlab/
+├── AGENTS.md       ← este arquivo (regras canônicas)
+├── CLAUDE.md       ← importa AGENTS.md
 ├── turbo.json
 ├── package.json
 ├── apps/
 │   ├── desktop/    ← Electron + React (professor)
 │   ├── web/        ← React + Vite (alunos)
 │   └── backend/    ← Go (API + SFU)
-└── packages/
-    ├── types/      ← DTOs TypeScript compartilhados
-    └── ui/         ← Componentes React compartilhados (opcional)
+├── packages/
+│   ├── types/      ← DTOs TypeScript compartilhados
+│   └── ui/         ← Componentes React compartilhados
+├── docs/           ← requisitos detalhados, métricas, testes de carga
+└── spec-kit/
+    ├── .specify/   ← constitution, comandos, templates, validador
+    ├── specs/      ← features (spec, clarify, plan, tasks, analyze, contracts)
+    └── docs/adrs/  ← decisões arquiteturais
 ```
+
+Todos os paths citados neste arquivo são relativos à raiz do repositório.
 
 ### Regra de arquitetura WebRTC
 
@@ -207,7 +216,7 @@ ADRs aprovadas existentes:
 Fluxo:
 
 1. parar;
-2. criar `docs/adrs/NNNN-*.md` a partir do template;
+2. criar `spec-kit/docs/adrs/NNNN-*.md` a partir de `spec-kit/.specify/templates/adr-template.md`;
 3. registrar contexto, alternativas, decisão e impactos;
 4. aguardar aprovação humana;
 5. somente depois atualizar spec/plan/tasks, se necessário.

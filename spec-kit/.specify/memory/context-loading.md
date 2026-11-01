@@ -1,18 +1,20 @@
 # Context Loading
 
+Paths relativos à raiz do repositório. `spec.md`, `clarify.md` etc. referem-se a `spec-kit/specs/<feature>/`.
+
 Carregamento progressivo obrigatório por fase.
 
 ## Constitution
 
 Ler:
-- `AGENTS.md`
-- `.specify/memory/constitution.md`
+- `AGENTS.md` (raiz)
+- `spec-kit/.specify/memory/constitution.md`
 
 ## Specify
 
 Ler:
-- `AGENTS.md`
-- `.specify/memory/constitution.md`
+- `AGENTS.md` (raiz)
+- `spec-kit/.specify/memory/constitution.md`
 - contexto de produto fornecido pelo usuário
 - apenas specs relacionadas, se a feature for evolução de uma existente
 
@@ -57,4 +59,4 @@ Ler:
 - artefatos upstream necessários para aquela tarefa
 - arquivos-alvo reais
 
-Nunca carregue toda a pasta `.specify/` sem necessidade.
+Nunca carregue toda a pasta `spec-kit/.specify/` sem necessidade.

@@ -1,6 +1,6 @@
 # /speckit.specify
 
-Crie ou atualize `specs/<feature>/spec.md`.
+Crie ou atualize `spec-kit/specs/<feature>/spec.md`.
 
 Regras:
 - não implementar código;

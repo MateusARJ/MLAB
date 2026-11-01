@@ -28,7 +28,7 @@ e baixa latência.
 Monorepo gerenciado pelo Turborepo (ref: ADR 0001).
 
 ```text
-screenshare/
+mlab/
 ├── turbo.json
 ├── package.json
 ├── apps/
