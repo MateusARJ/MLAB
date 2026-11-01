@@ -454,14 +454,14 @@ Checks:
 ## Emenda de 2026-11-01: medição real de carga
 
 ### T034 — Teste de carga real do SFU (40 espectadores)
-[ ] T034
+[x] T034
 Depends On: T020, T031
 Allowed Paths: `apps/backend/internal/webrtc/loadtest_test.go`, `apps/backend/internal/webrtc/loadtest_cpu_*_test.go`, `apps/backend/package.json` (script `test:load`), `docs/load-test/**`, `docs/metrics/**`
 Prohibited Paths: `apps/backend/internal/webrtc/*.go` que não sejam de teste, `apps/backend/internal/signaling/**`, `apps/desktop/**`, `apps/web/**`, `packages/**`
 Checks:
-- [ ] Teste com build tag `loadtest` sobe o `SFUService` real, um publisher Pion (VP8 sintético, 30 FPS, ~4 Mbps) e 40 assinantes Pion.
-- [ ] Mede FPS, bitrate, perda pós-NACK, tempo de entrada, latência de encaminhamento, upload do publisher, CPU e memória do processo.
-- [ ] Reprova se algum assinante ficar sem mídia, FPS mínimo < 25 ou perda ≥ 2%.
-- [ ] `go test ./...` sem a tag continua igual (o teste não roda no dia a dia).
-- [ ] `docs/load-test/load_test.go` (simulado) apagado; `docs/load-test/README.md` explica como rodar.
-- [ ] Resultado da execução registrado em `docs/metrics/`, com o que foi e o que não foi medido.
+- [x] Teste com build tag `loadtest` sobe o `SFUService` real, um publisher Pion (VP8 sintético, 30 FPS, ~4 Mbps) e 40 assinantes Pion.
+- [x] Mede FPS, bitrate, perda pós-NACK, tempo de entrada, latência de encaminhamento, upload do publisher, CPU e memória do processo.
+- [x] Reprova se algum assinante ficar sem mídia, FPS mínimo < 25 ou perda ≥ 2%.
+- [x] `go test ./...` sem a tag continua igual (o teste não roda no dia a dia).
+- [x] `docs/load-test/load_test.go` (simulado) apagado; `docs/load-test/README.md` explica como rodar.
+- [x] Resultado registrado em `docs/metrics/loadtest-2026-11-01.md`: 40/40 e 50/50 assinantes, 30 FPS, 4,05 Mbps, perda 0%. Achado A-1 (entradas simultâneas serializadas, ~0,6 s por aluno) encaminhado ao `converge.md`. RNF-08 e RNF-15 isolado seguem manuais (C-07).
