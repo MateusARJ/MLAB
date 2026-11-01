@@ -1,6 +1,6 @@
 # Contract: Room API
 
-Status: READY
+Status: READY (revisado em 2026-11-01)
 Feature: `001-screen-share-core`
 
 ## Purpose
@@ -23,21 +23,25 @@ HTTP/JSON. Authorization via Bearer JWT em todos os endpoints protegidos.
 
 ## Endpoints
 
-### POST /auth/login
+### POST /auth/session
 
-Autenticação do professor. Definido em `contracts/auth.md`.
+Sessão do professor (pré-condição dos endpoints protegidos). Definido em `contracts/auth.md`.
+Não existe login por e-mail e senha (ADR 0006).
 
 ---
 
 ### POST /rooms
 
-Cria uma nova sala. Exclusivo para professor.
+Cria a sala do professor. Exclusivo para professor. Se o mesmo professor (`sub`) já tiver uma sala, ela é encerrada e
+removida antes da criação da nova (RN-06).
 
 **Authorization:** Bearer JWT (`role: professor`).
 
 **Request:**
 ```json
 {
+  "title": "string (opcional)",
+  "professor_name": "string (opcional; padrão: claim name)",
   "max_participants": 50
 }
 ```
@@ -46,12 +50,18 @@ Cria uma nova sala. Exclusivo para professor.
 ```json
 {
   "room_id": "uuid",
-  "slug": "string",
-  "link": "https://<host>/sala/<slug>",
+  "slug": "{titulo-da-sala}/{nome-do-professor}",
+  "link": "http://<host>/sala/{titulo}/{professor}",
+  "ip_link": "string (opcional)",
+  "mdns_link": "string (opcional, mlab.local)",
+  "short_ip_link": "string (opcional)",
+  "short_mdns_link": "string (opcional)",
   "status": "waiting",
   "created_at": "ISO8601"
 }
 ```
+
+- Título vazio gera o segmento `sala`; nome vazio gera `professor`.
 
 **Errors:** `401 Unauthorized`, `403 Forbidden`.
 
@@ -67,7 +77,11 @@ Retorna o link único de acesso dos alunos para a sala. Exclusivo para professor
 ```json
 {
   "room_id": "uuid",
-  "link": "https://<host>/sala/<slug>"
+  "link": "string",
+  "ip_link": "string (opcional)",
+  "mdns_link": "string (opcional)",
+  "short_ip_link": "string (opcional)",
+  "short_mdns_link": "string (opcional)"
 }
 ```
 
@@ -75,9 +89,10 @@ Retorna o link único de acesso dos alunos para a sala. Exclusivo para professor
 
 ---
 
-### POST /rooms/{roomId}/join
+### POST /rooms/{roomId}/join e POST /rooms/{sala}/{prof}/join
 
-Aluno informa Nome e Matrícula e recebe um JWT de sessão.
+Aluno informa Nome e Matrícula e recebe um JWT de sessão. `{roomId}` aceita o UUID ou o slug; a forma
+`/{sala}/{prof}` corresponde ao link fixo do professor.
 
 **Authorization:** sem autenticação prévia (endpoint público do link único).
 
@@ -95,15 +110,53 @@ Aluno informa Nome e Matrícula e recebe um JWT de sessão.
   "token": "string (JWT aluno)",
   "expires_at": "ISO8601",
   "participant_id": "uuid",
-  "room_status": "waiting | publishing"
+  "room_status": "waiting | publishing",
+  "room_id": "uuid (canônico)",
+  "ws_url": "ws://<host>/ws/rooms/{room_id}/signal",
+  "ice_servers": [{ "urls": ["string"] }],
+  "professor_name": "string (opcional)",
+  "room_title": "string (opcional)"
 }
 ```
 
 **Errors:**
-- `400 Bad Request` — campos vazios ou inválidos.
+- `400 Bad Request` — campos vazios ou inválidos (inclui matrícula fora do padrão — `003-classroom-interaction`, US-17).
 - `404 Room not found` — slug/id inexistente.
 - `409 Room closed` — sala já encerrada.
 - `429 Participant limit reached` — sala cheia.
+
+---
+
+### GET /rooms/{roomId}/info e GET /rooms/{sala}/{prof}/info
+
+Dados públicos da sala para a tela de entrada do aluno. Sem autenticação.
+
+**Response 200:**
+```json
+{ "room_id": "uuid", "slug": "string", "title": "string", "professor_name": "string", "status": "waiting | publishing | reconnecting | closed" }
+```
+
+**Errors:** `404 Room not found`.
+
+---
+
+### GET /rooms/active
+
+Sala ativa no servidor (usada pelo web app para redirecionar o aluno que abre a raiz `/`). Sem autenticação.
+Prioridade: sala em `publishing`; depois a sala em `waiting` criada mais recentemente.
+
+**Response 200:** `room_id`, `slug`, `title`, `professor_name`, `status`, `link`, `ip_link`, `mdns_link`, `short_ip_link`, `short_mdns_link`.
+
+**Errors:** `404` — nenhuma sala ativa.
+
+> A regra de prioridade passa a ser determinística com `002-security-hardening`/S5.
+
+---
+
+### Arquivos da sala
+
+`POST /rooms/{roomId}/files`, `GET /rooms/{roomId}/files` e `GET /rooms/{roomId}/files/{fileId}/download` são
+definidos em `spec-kit/specs/003-classroom-interaction/contracts/files.md`.
 
 ---
 
@@ -128,8 +181,10 @@ Encerra a sala. Exclusivo para professor dono da sala.
 |---|---|---|
 | `POST /rooms` | ✅ | ❌ |
 | `GET /rooms/{id}/link` | ✅ (dono) | ❌ |
-| `POST /rooms/{id}/join` | ❌ | ✅ |
+| `POST /rooms/{id}/join` (e `/{sala}/{prof}/join`) | ❌ | ✅ |
 | `POST /rooms/{id}/close` | ✅ (dono) | ❌ |
+| `GET /rooms/{id}/info` | público | público |
+| `GET /rooms/active` | público | público |
 
 ## Compatibility
 
