@@ -154,6 +154,7 @@ Nota: implementado antecipadamente dentro do T006 (packages/types/src/index.ts).
 
 ### T008 — apps/backend — módulo auth
 [x] T008
+> Nota: `POST /auth/login`, bcrypt e o store de professores são removidos em `002-security-hardening`/S3 (ADR 0006). Os demais itens desta task (JWT, middleware) permanecem válidos.
 Depends On: T007
 Allowed Paths: `apps/backend/internal/auth/**`, `apps/backend/cmd/**`
 Checks:
@@ -219,6 +220,7 @@ Checks: `npm run dev` (desktop) abre janela Electron; contextBridge exposto corr
 
 ### T014 — apps/desktop — UI Login
 [x] T014
+> **REMOVIDA — feature descontinuada.** O login do professor foi descontinuado por decisão do produto (ADR 0006). `Login.tsx` e `Login.test.tsx` foram apagados em `4f3caad`; o backend residual é removido em `002-security-hardening`/S3. Mantida apenas como histórico.
 Depends On: T013, T008
 Allowed Paths: `apps/desktop/src/renderer/pages/Login.tsx`, `apps/desktop/src/renderer/services/**`
 Checks:
@@ -366,6 +368,7 @@ Checks:
 
 ### T029 — apps/desktop — Fluxo e aceite de permissões de microfone e captura de tela no pós-login do professor
 [x] T029
+> **SUPERSEDED.** A tela `Permissions.tsx` foi removida em `4f3caad`. O tratamento de permissões permanece no processo principal (`setPermissionRequestHandler`). RF-24 será reescrito para o fluxo atual (ver `converge.md` §2).
 Depends On: T028
 Allowed Paths: `apps/desktop/src/**`, `packages/types/src/index.ts`
 Prohibited Paths: `apps/web/**`, `apps/backend/**`
