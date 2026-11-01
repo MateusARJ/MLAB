@@ -6,7 +6,7 @@ const { mockSendChatMessage, mockToggleHand, mockSubscriberState } = vi.hoisted(
   mockSendChatMessage: vi.fn(),
   mockToggleHand: vi.fn(),
   mockSubscriberState: {
-    connectionStatus: 'connected' as 'connecting' | 'connected' | 'reconnecting' | 'closed',
+    connectionStatus: 'connected' as 'connecting' | 'connected' | 'reconnecting' | 'closed' | 'duplicate',
     isHandRaised: false,
     messages: [
       { id: 'pub-1', sender_name: 'Professor Girafales', sender_role: 'professor', content: 'Bem-vindos a aula!', is_private: false, pinned: false },
@@ -242,6 +242,15 @@ describe('Room Component (Web Subscriber)', () => {
     expect(mockLeave).toHaveBeenCalledWith(
       expect.stringMatching(/A transmissão foi encerrada pelo professor/i)
     );
+  });
+
+  it('deve informar sessao aberta em outra aba quando a conexao cair com 4001', () => {
+    mockSubscriberState.connectionStatus = 'duplicate';
+    const mockLeave = vi.fn();
+    render(<Room token={dummyToken} roomInfo={dummyRoomInfo} onLeave={mockLeave} />);
+
+    expect(mockLeave).toHaveBeenCalledWith('Sua sessão foi aberta em outra aba ou dispositivo.');
+    expect(mockLeave).not.toHaveBeenCalledWith(expect.stringMatching(/encerrada pelo professor/i));
   });
 
   it('deve ocultar o botao de menu da sidebar retratil quando arquivos estiver aberto em tela cheia e exibir o botao de x', () => {

@@ -129,6 +129,23 @@ test('A3 professor encerra a sala e o aluno volta para a entrada com aviso', asy
   await expect(page.getByRole('alert')).toContainText(/encerrada/i);
 });
 
+test('A19 mesma matrícula em outra aba encerra a sessão anterior com aviso', async ({ page, prof, browser }) => {
+  await joinAsStudent(page, prof.slug, 'Aluno Aba 1', MATRICULA);
+
+  const otherContext = await browser.newContext();
+  try {
+    const other = await otherContext.newPage();
+    await joinAsStudent(other, prof.slug, 'Aluno Aba 2', MATRICULA);
+
+    // RN-04 (001) + C-502 (005): a sessão anterior cai com 4001 e volta à entrada com o aviso.
+    await expect(page).toHaveURL(/\/entrar$/, { timeout: 10_000 });
+    await expect(page.getByRole('alert')).toContainText(/outra aba ou dispositivo/i);
+    await expect(other).toHaveURL(/\/ao-vivo$/);
+  } finally {
+    await otherContext.close();
+  }
+});
+
 test('A20 aluno recebe aviso de limite do chat sem ser desconectado', async ({ page, prof }) => {
   await joinAsStudent(page, prof.slug, 'Aluno Rate', MATRICULA);
   const input = page.getByPlaceholder('Mensagem para toda a turma...');

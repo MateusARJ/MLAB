@@ -89,7 +89,10 @@ export const Room: React.FC<RoomProps> = ({ token, roomInfo, onLeave }) => {
 
   // Quando o professor encerra a transmissão (connectionStatus === 'closed'), redireciona de volta para a tela de credenciais
   useEffect(() => {
-    if (connectionStatus === 'closed') {
+    if (connectionStatus === 'duplicate') {
+      // RN-04: outra sessão do mesmo aluno assumiu o lugar desta (005/C-502).
+      onLeave('Sua sessão foi aberta em outra aba ou dispositivo.');
+    } else if (connectionStatus === 'closed') {
       onLeave('A transmissão foi encerrada pelo professor. Por favor, insira suas credenciais novamente.');
     }
   }, [connectionStatus, onLeave]);

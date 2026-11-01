@@ -15,7 +15,7 @@ export function useWebRTCSubscriber(token: string, roomInfo: { room_id: string; 
   const [stream, setStream] = useState<MediaStream | null>(null);
   const [autoplayBlocked, setAutoplayBlocked] = useState(false);
   const [connectionStatus, setConnectionStatus] = useState<
-    'connecting' | 'connected' | 'reconnecting' | 'closed' | 'publishing' | 'waiting'
+    'connecting' | 'connected' | 'reconnecting' | 'closed' | 'duplicate' | 'publishing' | 'waiting'
   >('connecting');
   const [isStreamPaused, setIsStreamPaused] = useState<boolean>(false);
   const [sharedFiles, setSharedFiles] = useState<any[]>([]);
@@ -314,12 +314,19 @@ export function useWebRTCSubscriber(token: string, roomInfo: { room_id: string; 
     ws.onclose = (evt) => {
       if (isCleanedUpRef.current) return;
 
-      // Trata encerramento intencional da sala pelo professor ou sessão duplicada (RN-04 / erro 4001 / 4004 / 1000)
+      // Sessão aberta em outra aba ou dispositivo (RN-04 — 4001 Duplicate Session): não reconecta.
+      if (evt.code === 4001) {
+        isClosedRef.current = true;
+        connectionStatusRef.current = 'duplicate';
+        setConnectionStatus('duplicate');
+        return;
+      }
+
+      // Trata encerramento intencional da sala pelo professor (4004 / 1000)
       if (
         isClosedRef.current ||
         connectionStatusRef.current === 'closed' ||
         evt.code === 1000 ||
-        evt.code === 4001 ||
         evt.code === 4004
       ) {
         isClosedRef.current = true;

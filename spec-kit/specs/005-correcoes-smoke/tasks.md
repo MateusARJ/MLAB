@@ -22,8 +22,9 @@ Depends On: T501
 Allowed Paths: `apps/web/src/hooks/**`, `apps/web/src/pages/Room.tsx`, `apps/web/src/pages/Room.test.tsx`, `apps/web/e2e/**`
 Prohibited Paths: `apps/web/src/pages/Join.tsx`, `apps/backend/**`, `apps/desktop/**`
 Checks:
-- [ ] Close 4001 → estado `duplicate`, sem reconexão; `Room.tsx` chama `onLeave` com a mensagem de C-502.
-- [ ] Teste unitário do hook; E2E A19 no navegador.
+- [x] Close 4001 → estado `duplicate`, sem reconexão; `Room.tsx` chama `onLeave` com a mensagem de C-502.
+- [x] Teste unitário do hook (vitest verde, tsc ok).
+- [ ] E2E A19 no navegador: teste escrito em `e2e/aluno.e2e.ts`, ainda não executado (Chromium do Playwright não instalado em 2026-11-01).
 
 ### T503 — Aviso de limite do chat no web (#19)
 [ ] T503

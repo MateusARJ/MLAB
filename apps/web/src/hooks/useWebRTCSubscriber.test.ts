@@ -215,4 +215,24 @@ describe('useWebRTCSubscriber Hook', () => {
       })
     );
   });
+
+  it('deve ir para duplicate sem reconectar ao receber close 4001 (RN-04)', async () => {
+    vi.useFakeTimers();
+    try {
+      const { result } = renderHook(() => useWebRTCSubscriber(dummyToken, dummyRoomInfo));
+      const firstWs = mockWsInstance;
+
+      await act(async () => {
+        firstWs.onclose({ code: 4001, reason: 'Duplicate Session' });
+      });
+      await act(async () => {
+        vi.advanceTimersByTime(35000);
+      });
+
+      expect(result.current.connectionStatus).toBe('duplicate');
+      expect(mockWsInstance).toBe(firstWs); // nenhuma nova conexão aberta
+    } finally {
+      vi.useRealTimers();
+    }
+  });
 });
