@@ -15,6 +15,7 @@ Allowed Paths:
 - `specs/001-screen-share-core/spec.md`
 - `specs/001-screen-share-core/plan.md`
 - `specs/001-screen-share-core/contracts/**`
+Prohibited Paths: `apps/**`, `packages/**` *(registrado retroativamente em 2026-11-01 — ver `analyze.md` I-09)*
 
 Checks:
 - [x] C-01 respondida — JWT com Nome + Matrícula.
@@ -30,6 +31,7 @@ Allowed Paths:
 - `specs/001-screen-share-core/clarify.md`
 - `specs/001-screen-share-core/spec.md`
 - `specs/001-screen-share-core/plan.md`
+Prohibited Paths: `apps/**`, `packages/**` *(registrado retroativamente em 2026-11-01 — ver `analyze.md` I-09)*
 
 Checks:
 - [x] C-02 respondida — 50 participantes, configurável.
@@ -45,6 +47,7 @@ Allowed Paths:
 - `specs/001-screen-share-core/plan.md`
 - `specs/001-screen-share-core/contracts/**`
 - `docs/adrs/**`
+Prohibited Paths: `apps/**`, `packages/**` *(registrado retroativamente em 2026-11-01 — ver `analyze.md` I-09)*
 
 Checks:
 - [x] C-03 respondida — Pion WebRTC.
@@ -62,6 +65,7 @@ Allowed Paths:
 - `specs/001-screen-share-core/clarify.md`
 - `specs/001-screen-share-core/plan.md`
 - `specs/001-screen-share-core/contracts/**`
+Prohibited Paths: `apps/**`, `packages/**` *(registrado retroativamente em 2026-11-01 — ver `analyze.md` I-09)*
 
 Checks:
 - [x] C-04 respondida — TURN obrigatório (coturn).
@@ -79,6 +83,7 @@ Allowed Paths:
 - `docs/adrs/**`
 - `AGENTS.md`
 - `.specify/memory/project-context.md`
+Prohibited Paths: `apps/**`, `packages/**` *(registrado retroativamente em 2026-11-01 — ver `analyze.md` I-09)*
 
 Checks:
 - [x] C-05 respondida — Turborepo.
@@ -98,6 +103,7 @@ Allowed Paths:
 - `specs/001-screen-share-core/plan.md`
 - `docs/adrs/**`
 - `AGENTS.md`
+Prohibited Paths: `apps/**`, `packages/**` *(registrado retroativamente em 2026-11-01 — ver `analyze.md` I-09)*
 
 Checks:
 - [x] C-06 respondida — Electron.
@@ -116,6 +122,7 @@ Allowed Paths:
 - `specs/001-screen-share-core/**`
 - `specs/001-screen-share-core/contracts/**`
 - `specs/001-screen-share-core/plan.md`
+Prohibited Paths: `apps/**`, `packages/**` *(registrado retroativamente em 2026-11-01 — ver `analyze.md` I-09)*
 
 Checks:
 - [x] checklist APPROVED — `checklists/requirements.md` Status: APPROVED.
@@ -147,6 +154,7 @@ Checks:
 [x] T007
 Depends On: T006
 Allowed Paths: `packages/types/**`
+Prohibited Paths: `apps/desktop/**`, `apps/web/**`, `apps/backend/**`, `spec-kit/specs/**` *(registrado retroativamente em 2026-11-01 — ver `analyze.md` I-09)*
 Checks:
 - [x] Tipos importados sem erro em `apps/desktop` — turbo run lint 5/5 OK.
 - [x] Tipos importados sem erro em `apps/web` — turbo run lint 5/5 OK.
@@ -157,6 +165,7 @@ Nota: implementado antecipadamente dentro do T006 (packages/types/src/index.ts).
 > Nota: `POST /auth/login`, bcrypt e o store de professores são removidos em `002-security-hardening`/S3 (ADR 0006). Os demais itens desta task (JWT, middleware) permanecem válidos.
 Depends On: T007
 Allowed Paths: `apps/backend/internal/auth/**`, `apps/backend/cmd/**`
+Prohibited Paths: `apps/desktop/**`, `apps/web/**`, `packages/**`, `spec-kit/specs/**` *(registrado retroativamente em 2026-11-01 — ver `analyze.md` I-09)*
 Checks:
 - [x] Código escrito conforme `contracts/auth.md` (model, jwt, handler, middleware, store).
 - [x] `POST /auth/login` implementado com bcrypt + JWT HS256.
@@ -167,6 +176,7 @@ Checks:
 [x] T009
 Depends On: T008
 Allowed Paths: `apps/backend/internal/room/**`
+Prohibited Paths: `apps/desktop/**`, `apps/web/**`, `packages/**`, `spec-kit/specs/**` *(registrado retroativamente em 2026-11-01 — ver `analyze.md` I-09)*
 Checks:
 - [x] `POST /rooms` — cria sala com slug legível, retorna link.
 - [x] `GET /rooms/{id}/link` — professor obtém link (verifica propriedade).
@@ -179,6 +189,7 @@ Checks:
 [x] T010
 Depends On: T009
 Allowed Paths: `apps/backend/internal/signaling/**`
+Prohibited Paths: `apps/desktop/**`, `apps/web/**`, `packages/**`, `spec-kit/specs/**` *(registrado retroativamente em 2026-11-01 — ver `analyze.md` I-09)*
 Checks:
 - [x] Upgrade WebSocket com JWT validation (query param `?token=`).
 - [x] Hub por sala: register/unregister, broadcast, broadcastExcept.
@@ -194,6 +205,7 @@ Checks:
 [x] T011
 Depends On: T010
 Allowed Paths: `apps/backend/internal/webrtc/**`
+Prohibited Paths: `apps/desktop/**`, `apps/web/**`, `packages/**`, `spec-kit/specs/**` *(registrado retroativamente em 2026-11-01 — ver `analyze.md` I-09)*
 Checks:
 - [x] Professor publica tela + áudio em tracks independentes (RF-05, RF-10, RN-10).
 - [x] SFU aloca portas UDP na faixa 50000–50100 (RNF-14).
@@ -205,6 +217,7 @@ Checks:
 [x] T012
 Depends On: T010
 Allowed Paths: `apps/backend/internal/chat/**`
+Prohibited Paths: `apps/desktop/**`, `apps/web/**`, `packages/**`, `spec-kit/specs/**` *(registrado retroativamente em 2026-11-01 — ver `analyze.md` I-09)*
 Checks:
 - [x] Mensagem enviada por participante chega a todos com nome e papel `[Professor]` / `[Aluno]` (RF-09, RF-16).
 - [x] Timestamp `sent_at` gerado no servidor e mensagens vazias descartadas (RF-17, RN-17).
@@ -216,6 +229,7 @@ Checks:
 [x] T013
 Depends On: T007
 Allowed Paths: `apps/desktop/**`
+Prohibited Paths: `apps/web/**`, `apps/backend/**`, `packages/**`, `spec-kit/specs/**` *(registrado retroativamente em 2026-11-01 — ver `analyze.md` I-09)*
 Checks: `npm run dev` (desktop) abre janela Electron; contextBridge exposto corretamente; suíte de testes Vitest configurada.
 
 ### T014 — apps/desktop — UI Login
@@ -223,6 +237,7 @@ Checks: `npm run dev` (desktop) abre janela Electron; contextBridge exposto corr
 > **REMOVIDA — feature descontinuada.** O login do professor foi descontinuado por decisão do produto (ADR 0006). `Login.tsx` e `Login.test.tsx` foram apagados em `4f3caad`; o backend residual é removido em `002-security-hardening`/S3. Mantida apenas como histórico.
 Depends On: T013, T008
 Allowed Paths: `apps/desktop/src/renderer/pages/Login.tsx`, `apps/desktop/src/renderer/services/**`
+Prohibited Paths: `apps/web/**`, `apps/backend/**`, `packages/**`, `spec-kit/specs/**` *(registrado retroativamente em 2026-11-01 — ver `analyze.md` I-09)*
 Checks:
 - [x] Professor faz login com credenciais válidas, obtém JWT de 8h e é redirecionado ao Dashboard (RF-12, RN-01).
 - [x] Testes de componente React (`Login.test.tsx`): renderização do formulário, validação de campos e erro de login.
@@ -231,6 +246,7 @@ Checks:
 [x] T015
 Depends On: T014, T009
 Allowed Paths: `apps/desktop/src/renderer/pages/Dashboard.tsx`
+Prohibited Paths: `apps/web/**`, `apps/backend/**`, `packages/**`, `spec-kit/specs/**` *(registrado retroativamente em 2026-11-01 — ver `analyze.md` I-09)*
 Checks:
 - [x] Professor cria sala, obtém slug único e copia link de convite; sala aparece em status "waiting" (RF-13, RN-05, RN-06).
 - [x] Testes de componente React (`Dashboard.test.tsx`): cópia de link único e estado da sala.
@@ -239,6 +255,7 @@ Checks:
 [x] T016
 Depends On: T015, T011, T012
 Allowed Paths: `apps/desktop/src/renderer/pages/Room.tsx`, `apps/desktop/src/renderer/hooks/**`
+Prohibited Paths: `apps/web/**`, `apps/backend/**`, `packages/**`, `spec-kit/specs/**` *(registrado retroativamente em 2026-11-01 — ver `analyze.md` I-09)*
 Checks:
 - [x] Checagem prévia de permissões do SO para tela e microfone (RF-24).
 - [x] Seletor nativo de monitores e janelas via `desktopCapturer` (RF-04).
@@ -250,12 +267,14 @@ Checks:
 [x] T017
 Depends On: T007
 Allowed Paths: `apps/web/**`
+Prohibited Paths: `apps/desktop/**`, `apps/backend/**`, `packages/**`, `spec-kit/specs/**` *(registrado retroativamente em 2026-11-01 — ver `analyze.md` I-09)*
 Checks: `npm run dev` (web) abre no navegador sem erro; rota `/sala/:slug` existe; suíte de testes Vitest configurada.
 
 ### T018 — apps/web — página Join
 [x] T018
 Depends On: T017, T009
 Allowed Paths: `apps/web/src/pages/Join.tsx`, `apps/web/src/services/**`
+Prohibited Paths: `apps/desktop/**`, `apps/backend/**`, `packages/**`, `spec-kit/specs/**` *(registrado retroativamente em 2026-11-01 — ver `analyze.md` I-09)*
 Checks:
 - [x] Aluno informa Nome e Matrícula; campos vazios bloqueados (RF-11, RN-02).
 - [x] Sessão única por aluno: reconexão com mesmo aluno desconecta sessão anterior com `4001 Duplicate Session` (RN-04).
@@ -265,6 +284,7 @@ Checks:
 [x] T019
 Depends On: T018, T011, T012
 Allowed Paths: `apps/web/src/pages/Room.tsx`, `apps/web/src/hooks/**`, `apps/web/src/components/**`
+Prohibited Paths: `apps/desktop/**`, `apps/backend/**`, `packages/**`, `spec-kit/specs/**` *(registrado retroativamente em 2026-11-01 — ver `analyze.md` I-09)*
 Checks:
 - [x] Aluno recebe vídeo e áudio do professor sem permissão de publicação (RF-03, RN-09).
 - [x] Autoplay Policy tratada com botão interativo "Clique para Ativar Som" (RF-21).
@@ -277,12 +297,14 @@ Checks:
 [x] T020
 Depends On: T019
 Allowed Paths: `docs/load-test/**`
+Prohibited Paths: `apps/**`, `packages/**` *(registrado retroativamente em 2026-11-01 — ver `analyze.md` I-09)*
 Checks: 40 clientes simulados assinam a stream; FPS ≥ 25, packet loss < 2%, RTT < 300ms, upload do professor fixo entre 3-6 Mbps e CPU do servidor < 15% (RF-08, RNF-01 a RNF-09, RNF-15).
 
 ### T021 — Medição de métricas e validação dos RNFs
 [x] T021
 Depends On: T020
 Allowed Paths: `docs/metrics/**`, `specs/001-screen-share-core/analyze.md`
+Prohibited Paths: `apps/**`, `packages/**` *(registrado retroativamente em 2026-11-01 — ver `analyze.md` I-09)*
 Checks: todos os RNFs (01–17) têm evidência de medição; relatório de homologação de critérios de aceite (CS-01 a CS-08) concluído em `docs/metrics/validation_report.md`.
 
 ---
@@ -384,6 +406,7 @@ Checks:
 [x] T030
 Depends On: T009, T018, T020
 Allowed Paths: `apps/backend/internal/room/**`, `apps/web/src/**`, `packages/types/src/**`
+Prohibited Paths: `apps/desktop/**`, `spec-kit/specs/**` *(registrado retroativamente em 2026-11-01 — ver `analyze.md` I-09)*
 Checks:
 - [x] `POST /rooms/{id}/join` aceita tanto UUID quanto slug legível (ex: `uniform-lima-4770`).
 - [x] `JoinResponse` inclui `room_id` (UUID canônico), `ws_url` (`ws://localhost:8080/ws/rooms/{room.ID}/signal`) e `ice_servers`.
@@ -395,6 +418,7 @@ Checks:
 [x] T031
 Depends On: T011, T019, T030
 Allowed Paths: `apps/web/src/**`, `apps/backend/internal/webrtc/**`, `apps/backend/internal/signaling/**`
+Prohibited Paths: `apps/desktop/**`, `packages/**`, `spec-kit/specs/**` *(registrado retroativamente em 2026-11-01 — ver `analyze.md` I-09)*
 Checks:
 - [x] Hook `useWebRTCSubscriber` implementa máquina de estados de sinalização WebRTC completa (`subscribe-request`, `offer`, `answer`, `ice-candidate`, `ontrack`), recebendo e renderizando o stream de tela e áudio do professor.
 - [x] Correção de tela preta via solicitação de IDR Keyframes (RTCP PLI) no SFU Pion de forma periódica e imediata ao ingresso de novos alunos.
@@ -405,6 +429,7 @@ Checks:
 [x] T032
 Depends On: T009, T013
 Allowed Paths: `apps/backend/internal/room/**`, `apps/backend/internal/auth/**`
+Prohibited Paths: `apps/desktop/**`, `apps/web/**`, `packages/**`, `spec-kit/specs/**` *(registrado retroativamente em 2026-11-01 — ver `analyze.md` I-09)*
 Checks:
 - [x] Slug da sala determinístico gerado a partir do email/login do professor (`slugFromEmail`, ex: `professor@screenshare.local` -> `professor`).
 - [x] Reutilização da sala pré-existente no store (`GetRoomByOwnerID`) para manter link e identificador canônico fixos entre sessões.
@@ -414,6 +439,7 @@ Checks:
 [x] T033
 Depends On: T032
 Allowed Paths: `apps/backend/internal/**`, `apps/web/**`, `docs/requirements/**`
+Prohibited Paths: `apps/desktop/**`, `packages/**`, `spec-kit/specs/**` *(registrado retroativamente em 2026-11-01 — ver `analyze.md` I-09)*
 Checks:
 - [x] Resolução automática de URL base e WebSocket via `NGROK_URL`, `PUBLIC_URL` e detecção de IP primário de rede (`getOutboundIP()`).
 - [x] Suporte a NAT 1-to-1 IP no SFU Pion (`NAT_1TO1_IP` / `PUBLIC_IP`).
