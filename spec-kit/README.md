@@ -63,17 +63,13 @@ constitution -> specify -> clarify -> plan -> checklist -> tasks -> analyze -> i
 
 ## Estado atual
 
-A feature `001-screen-share-core` foi implementada até a tarefa **T033** (versão 1.5.7).
-Depois disso o código recebeu funcionalidades sem spec/task correspondente e a validação
-formal (`npm run spec:check`) está em **FAIL**.
+| Feature | Estado | Converge |
+|---|---|---|
+| `001-screen-share-core` | artefatos emendados (ADRs 0005/0006), analyze PASS | OPEN — falta medição real de desempenho e smoke manual |
+| `002-security-hardening` | T201–T208 concluídas | OPEN — falta smoke manual; S9 e teste de carga real aguardam decisão |
+| `003-classroom-interaction` | retroativa, T301–T314 concluídas | — |
 
-O realinhamento está em andamento conforme
-[`docs/plano-remediacao-speckit-seguranca.md`](docs/plano-remediacao-speckit-seguranca.md):
-
-1. `converge` da 001 registrando todos os gaps;
-2. ADRs 0005 (operação LAN offline) e 0006 (descontinuação do login e sessão local do professor);
-3. emendas da 001 e feature retroativa `003-classroom-interaction`;
-4. feature `002-security-hardening`.
+Histórico do realinhamento: [`docs/plano-remediacao-speckit-seguranca.md`](docs/plano-remediacao-speckit-seguranca.md).
 
 ## Validação
 

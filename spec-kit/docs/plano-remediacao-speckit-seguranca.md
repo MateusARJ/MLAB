@@ -1,7 +1,7 @@
 # Plano de Remediação — Spec Kit + Segurança
 
 Data: 2026-11-01
-Status: PROPOSTO (aguarda aprovação humana)
+Status: EXECUTADO (F0–F6) em 2026-11-01 — aprovado integralmente pelo dono do produto; pendências em `specs/002-security-hardening/converge.md`
 Base: análise de 2026-10-31 (commit `4f3caad`, versão 1.5.7)
 Revisão 2 (2026-11-01): **o login do professor (e-mail/senha) foi descontinuado por decisão do dono do produto** e será removido por completo — código, testes, tipos, contratos e requisitos. O sistema funciona exclusivamente com a sessão por nome (ADR 0006).
 
