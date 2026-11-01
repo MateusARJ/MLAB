@@ -1,7 +1,6 @@
 package auth
 
 import (
-	"context"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -10,7 +9,6 @@ import (
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
-	"golang.org/x/crypto/bcrypt"
 )
 
 func TestSignAndParseProfessorToken(t *testing.T) {
@@ -104,25 +102,18 @@ func TestParseToken_Expired(t *testing.T) {
 	}
 }
 
-func TestInMemoryStore_FindProfessorByEmail(t *testing.T) {
-	store := NewInMemoryStore()
+func TestLoginEndpointRemoved(t *testing.T) {
+	mux := http.NewServeMux()
+	NewHandler().RegisterRoutes(mux)
 
-	prof, err := store.FindProfessorByEmail(context.Background(), "professor@screenshare.local")
-	if err != nil {
-		t.Fatalf("expected to find default professor, got err: %v", err)
-	}
-	if prof.Email != "professor@screenshare.local" {
-		t.Errorf("expected email professor@screenshare.local, got %s", prof.Email)
-	}
+	body := strings.NewReader(`{"email":"professor@screenshare.local","password":"professor123"}`)
+	req := httptest.NewRequest("POST", "/auth/login", body)
+	req.Header.Set("Content-Type", "application/json")
+	rec := httptest.NewRecorder()
+	mux.ServeHTTP(rec, req)
 
-	err = bcrypt.CompareHashAndPassword([]byte(prof.PasswordHash), []byte("professor123"))
-	if err != nil {
-		t.Errorf("expected password professor123 to match bcrypt hash, got %v", err)
-	}
-
-	_, err = store.FindProfessorByEmail(context.Background(), "inexistente@screenshare.local")
-	if err != ErrProfessorNotFound {
-		t.Errorf("expected ErrProfessorNotFound, got: %v", err)
+	if rec.Code != http.StatusNotFound {
+		t.Fatalf("expected 404 for removed POST /auth/login, got %d: %s", rec.Code, rec.Body.String())
 	}
 }
 
@@ -213,8 +204,7 @@ func TestSessionEndpoint(t *testing.T) {
 	t.Setenv("JWT_SECRET", "super-secret-key-for-testing-12345")
 	t.Setenv(HostKeyEnv, "chave-de-host-de-teste")
 
-	store := NewInMemoryStore()
-	handler := NewHandler(store)
+	handler := NewHandler()
 	mux := http.NewServeMux()
 	handler.RegisterRoutes(mux)
 
@@ -231,7 +221,7 @@ func TestSessionEndpoint(t *testing.T) {
 		t.Fatalf("expected 200 OK, got %d: %s", rec.Code, rec.Body.String())
 	}
 
-	var resp LoginResponse
+	var resp SessionResponse
 	if err := json.NewDecoder(rec.Body).Decode(&resp); err != nil {
 		t.Fatalf("failed to decode response: %v", err)
 	}
@@ -260,7 +250,7 @@ func TestSessionEndpoint_RejectsWithoutValidHostKey(t *testing.T) {
 	t.Setenv("JWT_SECRET", "super-secret-key-for-testing-12345")
 
 	mux := http.NewServeMux()
-	NewHandler(NewInMemoryStore()).RegisterRoutes(mux)
+	NewHandler().RegisterRoutes(mux)
 
 	cases := []struct {
 		name       string

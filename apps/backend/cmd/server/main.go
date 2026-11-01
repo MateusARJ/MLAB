@@ -31,8 +31,7 @@ func main() {
 		log.Printf("AVISO: %s não configurado: sessões de professor serão recusadas. Inicie pelo app MLab ou por `npm run dev`.", auth.HostKeyEnv)
 	}
 
-	// ── Stores (desenvolvimento: em memória) ──────────────────────────────────
-	authStore := auth.NewInMemoryStore()
+	// ── Store de salas (em memória — ADR 0005) ───────────────────────────────
 	roomStore := room.NewInMemoryStore()
 
 	// ── SFU Pion WebRTC (T011) ────────────────────────────────────────────────
@@ -47,7 +46,7 @@ func main() {
 	}
 
 	// ── Handlers ──────────────────────────────────────────────────────────────
-	authHandler := auth.NewHandler(authStore)
+	authHandler := auth.NewHandler()
 	roomHandler := room.NewHandler(roomStore)
 	sigHandler := signaling.NewHandler(roomStore, sfuService)
 
@@ -85,7 +84,7 @@ func main() {
 		fmt.Fprintln(w, `{"status":"ok"}`)
 	})
 
-	// Público: POST /auth/login.
+	// Sessão do professor: POST /auth/session (exige chave de host — ADR 0006).
 	authHandler.RegisterRoutes(mux)
 
 	// Público: POST /rooms/{id}/join (aluno sem JWT prévio).

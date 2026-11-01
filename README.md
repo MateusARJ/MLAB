@@ -282,7 +282,7 @@ mlab/
 │   ├── backend/               # Servidor Go: SFU Pion WebRTC, REST API e WebSocket Hub
 │   │   ├── cmd/server/        # Ponto de entrada (main.go)
 │   │   └── internal/
-│   │       ├── auth/          # Autenticação JWT, claims e bcrypt
+│   │       ├── auth/          # Sessão do professor (chave de host) e JWT
 │   │       ├── chat/          # Sanitização XSS, rate-limit e máscara de palavrões
 │   │       ├── room/          # Gerenciamento de salas, links e detecção de IPs de LAN
 │   │       ├── signaling/     # WebSocket Hub, eventos de levantar a mão e arquivos
@@ -317,7 +317,7 @@ O MLab é construído sobre tecnologias de código aberto consagradas da comunid
 | **[Pion WebRTC](https://github.com/pion/webrtc)** | MIT | Copyright (c) 2018 Pion | Implementação do motor WebRTC e SFU em Go puro |
 | **[Gorilla WebSocket](https://github.com/gorilla/websocket)** | BSD-2-Clause | Copyright (c) 2013 The Gorilla WebSocket Authors | Servidor WebSocket concorrente e canal de sinalização |
 | **[Golang-JWT](https://github.com/golang-jwt/jwt)** | MIT | Copyright (c) 2021 Dave Grijalva, Form3, Golang-JWT Authors | Assinatura e validação de tokens JWT |
-| **[Go Cryptography](https://golang.org/x/crypto)** | BSD-3-Clause | Copyright (c) 2009 The Go Authors | Algoritmo bcrypt para segurança de senhas |
+| **[Go Cryptography](https://golang.org/x/crypto)** | BSD-3-Clause | Copyright (c) 2009 The Go Authors | Primitivas criptográficas usadas indiretamente pelo Pion WebRTC (DTLS) |
 | **[Electron](https://github.com/electron/electron)** | MIT | Copyright (c) OpenJS Foundation and Electron contributors | Framework desktop nativo multiplataforma |
 | **[React](https://github.com/facebook/react)** | MIT | Copyright (c) Meta Platforms, Inc. and affiliates | Biblioteca de interfaces reativas |
 | **[Carbon Design System](https://github.com/carbon-design-system)** | Apache-2.0 | Copyright (c) IBM Corporation | Sistema de design e pacote de ícones oficiais |
