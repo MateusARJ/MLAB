@@ -7,7 +7,8 @@ import {
   dialog,
   session,
   systemPreferences,
-  clipboard
+  clipboard,
+  shell
 } from 'electron'
 import { join } from 'path'
 import { existsSync, appendFileSync, mkdirSync, chmodSync, promises as fsPromises } from 'fs'
@@ -17,6 +18,7 @@ import type { AnnotationSessionState } from '@mlab/types'
 import { CursorPresenceTracker, type CursorTrackingTarget } from './cursorPresence'
 import { AnnotationOverlayManager } from './annotationOverlayWindow'
 import { resolveHostKey } from './hostKey'
+import { hardenWebContents } from './navigationGuard'
 
 // Chave de host desta execução (ADR 0006). Resolvida antes de iniciar o backend embarcado,
 // que a herda via process.env; o renderer a obtém pelo IPC 'get-host-key'.
@@ -140,6 +142,9 @@ function createWindow(): void {
     ...(process.platform === 'darwin' ? { titleBarStyle: 'hiddenInset' } : {}),
     show: false
   })
+
+  // Bloqueia navegação para fora do app e novas janelas; links web vão para o navegador do sistema (002/S7)
+  hardenWebContents(win.webContents, (url) => shell.openExternal(url))
 
   // Previne que tags <title> do HTML exibam texto na barra de título nativa
   win.on('page-title-updated', (event) => {
