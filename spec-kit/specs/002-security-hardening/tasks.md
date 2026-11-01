@@ -47,17 +47,18 @@ Checks:
 - [ ] Smoke A0, A1, A2, A3 — **pendente de execução manual**.
 
 ### T204 — S4: autenticação e limites dos arquivos
-[ ] T204
+[x] T204
 Depends On: T203
 Allowed Paths: `apps/backend/internal/room/**`, `apps/backend/internal/signaling/**`, `apps/backend/cmd/server/**`, `apps/web/src/hooks/useWebRTCSubscriber.ts`, `apps/web/src/hooks/useWebRTCSubscriber.test.ts`, `apps/web/src/pages/Room.tsx`, `apps/web/src/pages/Room.test.tsx`, `apps/web/src/services/**`, `apps/desktop/src/renderer/pages/Room.tsx`
 Prohibited Paths: `apps/backend/internal/webrtc/**`, `apps/backend/internal/auth/**`, `packages/ui/**`
 Checks:
-- [ ] Listagem e download exigem token (`Authorization` ou `?token=`) da sala; slug resolvido para UUID.
-- [ ] `MaxBytesReader`, teto por sala (300 MB / 50 arquivos, ENV) → `413`; `X-Content-Type-Options: nosniff` no download.
-- [ ] Arquivos liberados da memória no encerramento da sala.
-- [ ] Web envia token na listagem e no `href`; desktop envia token na listagem.
-- [ ] Testes: sem token `401`; outra sala `403`; aluno `200`; dono `200`; acima do teto `413`; liberação no close.
-- [ ] Suítes verdes. Smoke: A13.
+- [x] Listagem e download exigem token (`Authorization` ou `?token=`) da sala; slug resolvido para UUID.
+- [x] `MaxBytesReader`, teto por sala (300 MB / 50 arquivos, ENV) → `413`; `X-Content-Type-Options: nosniff` no download.
+- [x] Arquivos liberados da memória no encerramento da sala.
+- [x] Web envia token na listagem e no `href`; desktop envia token na listagem.
+- [x] Testes: sem token `401`; outra sala `403`; aluno `200`; dono `200`; acima do teto `413`; liberação no close.
+- [x] Suítes verdes: Go 6/6 (`files_test.go`, `TestHub_OnClosedCallback_*`), web 30/30 (`api.test.ts`, teste de token no hook), desktop 88/88; `tsc` sem erro novo.
+- [ ] Smoke A13 (upload, listagem e download no desktop e no celular) — **pendente de execução manual**.
 
 ### T205 — S5: `/rooms/active` determinístico
 [ ] T205

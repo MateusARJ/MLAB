@@ -551,3 +551,25 @@ func TestHub_PinMessage_RoleEnforcementLimitAndBroadcast(t *testing.T) {
 
 
 
+
+func TestHub_OnClosedCallback_CalledWhenRoomCloses(t *testing.T) {
+	closed := make(chan string, 1)
+	hub := newHub("room-onclosed", nil, func(roomID string) { closed <- roomID })
+
+	hub.BroadcastRoomClosed()
+
+	select {
+	case got := <-closed:
+		if got != "room-onclosed" {
+			t.Fatalf("expected roomID room-onclosed, got %q", got)
+		}
+	case <-time.After(2 * time.Second):
+		t.Fatal("onClosed callback was not called after room close")
+	}
+}
+
+func TestHub_WithoutOnClosedCallback_ClosesNormally(t *testing.T) {
+	hub := newHub("room-sem-callback", nil)
+	hub.BroadcastRoomClosed()
+	time.Sleep(50 * time.Millisecond)
+}

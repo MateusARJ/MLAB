@@ -211,6 +211,7 @@ func (h *Handler) createRoom(w http.ResponseWriter, r *http.Request) {
 	if existing, err := h.store.GetRoomByOwnerID(r.Context(), professorID); err == nil && existing != nil {
 		_ = h.store.UpdateRoomStatus(r.Context(), existing.ID, StatusClosed, nil)
 		_ = h.store.DeleteRoom(r.Context(), existing.ID)
+		h.ReleaseRoomFiles(existing.ID)
 		StopMDNSServer()
 	}
 
@@ -493,6 +494,7 @@ func (h *Handler) closeRoom(w http.ResponseWriter, r *http.Request) {
 		h.roomCloseBroadcaster(roomID)
 	}
 	_ = h.store.DeleteRoom(r.Context(), roomID)
+	h.ReleaseRoomFiles(roomID)
 	StopMDNSServer()
 
 	writeJSON(w, http.StatusOK, CloseResponse{

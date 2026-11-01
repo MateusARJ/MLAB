@@ -69,6 +69,9 @@ func main() {
 		}
 	})
 
+	// Libera os arquivos da sala quando o hub a encerra pelo WebSocket (end-session ou timeout)
+	sigHandler.SetRoomClosedListener(roomHandler.ReleaseRoomFiles)
+
 	// Conecta a notificação de vídeo pronto do SFU ao hub de sinalização (inicia transmissão aos alunos sem F5)
 	sfuService.SetOnTrackReady(func(roomID string) {
 		sigHandler.OnTrackReady(roomID)

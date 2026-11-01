@@ -114,10 +114,15 @@ type Hub struct {
 
 	publisherTimer *time.Timer
 	sfu            SFU // nil até T011
+
+	// onClosed é chamado (na goroutine do hub) quando a sala é encerrada pelo WebSocket
+	// (end-session ou timeout de reconexão), para liberar recursos fora do hub, como arquivos.
+	onClosed func(roomID string)
 }
 
 // newHub cria e inicia um Hub para a sala especificada.
-func newHub(roomID string, sfu SFU) *Hub {
+// onClosed é opcional e recebe o roomID quando a sala é encerrada pelo hub.
+func newHub(roomID string, sfu SFU, onClosed ...func(roomID string)) *Hub {
 	h := &Hub{
 		roomID:        roomID,
 		clients:       make(map[string]*Client),
@@ -133,6 +138,9 @@ func newHub(roomID string, sfu SFU) *Hub {
 		internal:    make(chan signal, 8),
 		fileShared:  make(chan FileSharedPayload, 16),
 		sfu:         sfu,
+	}
+	if len(onClosed) > 0 {
+		h.onClosed = onClosed[0]
 	}
 	go h.run()
 	return h
@@ -553,6 +561,9 @@ func (h *Hub) onPublisherTimeout() {
 	if h.sfu != nil {
 		_ = h.sfu.RoomClosed(h.roomID)
 	}
+	if h.onClosed != nil {
+		h.onClosed(h.roomID)
+	}
 }
 
 func (h *Hub) onRoomClose() {
@@ -565,6 +576,9 @@ func (h *Hub) onRoomClose() {
 	h.clients = make(map[string]*Client)
 	if h.sfu != nil {
 		_ = h.sfu.RoomClosed(h.roomID)
+	}
+	if h.onClosed != nil {
+		h.onClosed(h.roomID)
 	}
 }
 

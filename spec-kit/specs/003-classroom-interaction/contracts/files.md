@@ -38,7 +38,7 @@ Envia um arquivo para a turma.
 Efeito colateral: broadcast `file-shared` na sala (ver `signaling-classroom.md`).
 
 **Errors:** `401`, `403` (não é professor ou não é dono), `404` (sala), `400` (campo `file` ausente ou corpo inválido),
-`413` (arquivo acima do limite ou sala acima do teto — a partir de 002/S4), `500`.
+`413` (arquivo acima do limite ou sala acima do teto), `500`.
 
 ---
 
@@ -55,7 +55,7 @@ Baixa o arquivo.
 
 ---
 
-## Autorização da listagem e do download — vigente a partir de `002-security-hardening`/S4
+## Autorização da listagem e do download — em vigor desde `002-security-hardening`/S4 (T204)
 
 - Token aceito em `Authorization: Bearer <jwt>` **ou** no parâmetro `?token=<jwt>` (mesmo padrão do WebSocket), para
   permitir links de download no navegador.
@@ -64,14 +64,13 @@ Baixa o arquivo.
 - Sem token ou token inválido → `401`; token de outra sala → `403`.
 - Resposta de download inclui `X-Content-Type-Options: nosniff`.
 
-## Limites por sala — vigentes a partir de `002-security-hardening`/S4
+## Limites por sala — em vigor desde `002-security-hardening`/S4 (T204)
 
 - Teto de memória por sala: 300 MB (`MLAB_ROOM_FILES_MAX_MB`).
 - Máximo de arquivos por sala: 50 (`MLAB_ROOM_FILES_MAX_COUNT`).
 - Acima de qualquer limite → `413`.
-- Os arquivos da sala são liberados da memória quando a sala é encerrada.
+- Os arquivos da sala são liberados da memória quando a sala é encerrada (REST `close`, substituição da sala pelo professor ou encerramento pelo WebSocket).
 
-> Até a entrega de 002/S4, listagem e download são públicos e sem teto por sala (falha registrada em `001/converge.md`).
 
 ## Compatibility
 
