@@ -50,3 +50,15 @@ o que não é possível ao agente. O responsável deve preencher a tabela abaixo
 | A18 | | |
 | A19 | | |
 | A20 | | |
+
+## F6 — Verificação final (commit `77ccacc`, branch `fix/security-hardening`)
+
+| Verificação | Resultado |
+|---|---|
+| `go test -count=1 ./...` | 6/6 pacotes OK |
+| `go test -race ./...` | **não executado** — ambiente sem gcc/cgo (`-race requires cgo`); rodar no CI |
+| `turbo run test build --force` | 8/8 tasks OK — web 30 testes (baseline 25), desktop 95 testes (baseline 82) |
+| `turbo run lint --force --continue` | 4/5 — `@mlab/desktop#lint` com os mesmos 14 erros pré-existentes |
+| `npm run spec:check` | 001, 002 e 003 em PASS |
+| Teste de carga (`docs/load-test/`) | **sem validade**: usa métricas fixas no código, não mede o SFU. Medição real pendente |
+| Matriz de smoke A0–A20 | **pendente** — execução manual pelo responsável com o build desta branch |
