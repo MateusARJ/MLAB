@@ -25,14 +25,15 @@ Checks:
 - [x] Script `test:smoke` em `apps/backend/package.json`.
 
 ### T403 — Casos do smoke de backend
-[ ] T403
+[x] T403
 Depends On: T402
 Allowed Paths: `apps/backend/cmd/server/smoke_test.go`, `apps/backend/cmd/server/smoke_helpers_test.go`
 Prohibited Paths: `apps/backend/internal/**`, `apps/backend/cmd/server/main.go`
 Checks:
-- [ ] Subtestes A0, A3, A9, A10, A13, A14, A15, A18, A19, A20, S2, S6, S9 (RF-401).
-- [ ] A19 registra o close code real (C-403).
-- [ ] `go test ./...` sem a tag continua igual.
+- [x] Subtestes A0, A3, A9, A10, A13, A14, A15, A18, A19, A20, S2, S6, S9 (RF-401).
+- [x] A19 registra o resultado real (C-403): FALHA — nova entrada com a mesma matrícula não derruba a sessão anterior (RN-04 não implementada) e reconexão com o mesmo token fecha a antiga com 1005, não 4001.
+- [x] `go test ./...` sem a tag continua igual.
+- [x] Execução de 2026-11-01: 11/12 OK (A0, A3, A9, A10, A13, A14, A15, A18, A20, S6, S9); A19 FALHA.
 
 ### T404 — Configuração do Playwright
 [ ] T404
