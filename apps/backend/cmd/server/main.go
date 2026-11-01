@@ -206,12 +206,18 @@ func spaHandler(webDir string) http.Handler {
 	})
 }
 
-// corsMiddleware permite requisições cross-origin durante o desenvolvimento local.
+// corsMiddleware aplica a allowlist de origem (002-security-hardening/S6): reflete a origem
+// permitida em Access-Control-Allow-Origin e não envia cabeçalhos CORS para origens recusadas,
+// o que faz o navegador bloquear a resposta.
 func corsMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Access-Control-Allow-Origin", "*")
-		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
-		w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization, "+auth.HostKeyHeader)
+		w.Header().Add("Vary", "Origin")
+		origin := r.Header.Get("Origin")
+		if origin != "" && room.IsAllowedOrigin(origin, r) {
+			w.Header().Set("Access-Control-Allow-Origin", origin)
+			w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
+			w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization, "+auth.HostKeyHeader)
+		}
 
 		if r.Method == http.MethodOptions {
 			w.WriteHeader(http.StatusNoContent)

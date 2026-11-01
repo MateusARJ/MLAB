@@ -72,15 +72,16 @@ Checks:
 - [ ] Smoke A9 — **pendente de execução manual**.
 
 ### T206 — S6: allowlist de origem no WebSocket e no CORS
-[ ] T206
+[x] T206
 Depends On: T205
 Allowed Paths: `apps/backend/cmd/server/**`, `apps/backend/internal/signaling/**`, `apps/backend/internal/room/**`
 Prohibited Paths: `apps/desktop/**`, `apps/web/**`, `apps/backend/internal/webrtc/**`
 Checks:
-- [ ] `isAllowedOrigin` aceita: Origin vazio, `null`, `file://`, mesmo host, `localhost`/`127.0.0.1`/`[::1]` em qualquer porta, `mlab.local`/`mlab-*.local`, hosts de `NGROK_URL`/`PUBLIC_URL`, IP de rede detectado.
-- [ ] `CheckOrigin` e `corsMiddleware` usam a função; CORS reflete a origem permitida com `Vary: Origin`.
-- [ ] Matriz de origens em teste.
-- [ ] Suítes verdes. Smoke: A2, A9, A15, A16, A17.
+- [x] `isAllowedOrigin` aceita: Origin vazio, `null`, `file://`, mesmo host, `localhost`/`127.0.0.1`/`[::1]` em qualquer porta, `mlab.local`/`mlab-*.local`, hosts de `NGROK_URL`/`PUBLIC_URL`, IP de rede detectado.
+- [x] `CheckOrigin` e `corsMiddleware` usam a função; CORS reflete a origem permitida com `Vary: Origin`.
+- [x] Matriz de origens em teste.
+- [x] Suítes verdes: Go 6/6 (`origin_test.go` com 19 origens, `TestCorsMiddleware_*`, `TestSignalingSecurity_CheckOriginAllowlist`). Implementada como `room.IsAllowedOrigin` (também aceita `BASE_URL`).
+- [ ] Smoke A2, A9, A15, A16, A17 (LAN, `mlab.local`, ngrok, celular) — **pendente de execução manual**. Se algum cenário legítimo falhar, acrescentar a origem à allowlist; nunca voltar a aceitar qualquer origem.
 
 ### T207 — S7: endurecimento do Electron
 [ ] T207

@@ -38,10 +38,9 @@ func NewHandler(roomStore room.Store, sfu SFU) *Handler {
 		upgrader: websocket.Upgrader{
 			ReadBufferSize:  4096,
 			WriteBufferSize: 4096,
+			// Allowlist de origem (002-security-hardening/S6): mesma regra do CORS.
 			CheckOrigin: func(r *http.Request) bool {
-				// Em produção: verificar r.Header.Get("Origin") contra allowlist.
-				// Em desenvolvimento: aceita qualquer origem.
-				return true
+				return room.IsAllowedOrigin(r.Header.Get("Origin"), r)
 			},
 		},
 		roomStore: roomStore,

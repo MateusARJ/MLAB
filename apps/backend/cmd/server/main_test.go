@@ -110,3 +110,44 @@ func TestEnsureJWTSecret_KeepsProvidedSecret(t *testing.T) {
 		t.Fatalf("provided secret was changed: %q", got)
 	}
 }
+
+func TestCorsMiddleware_AllowlistedOriginIsReflected(t *testing.T) {
+	t.Setenv("NAT_1TO1_IP", "192.168.0.50")
+	next := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { w.WriteHeader(http.StatusOK) })
+	h := corsMiddleware(next)
+
+	req := httptest.NewRequest("OPTIONS", "/auth/session", nil)
+	req.Host = "localhost:8080"
+	req.Header.Set("Origin", "http://localhost:5173")
+	rec := httptest.NewRecorder()
+	h.ServeHTTP(rec, req)
+
+	if got := rec.Header().Get("Access-Control-Allow-Origin"); got != "http://localhost:5173" {
+		t.Fatalf("expected reflected origin, got %q", got)
+	}
+	if got := rec.Header().Get("Access-Control-Allow-Headers"); !strings.Contains(got, "X-MLab-Host-Key") {
+		t.Fatalf("expected X-MLab-Host-Key in allowed headers, got %q", got)
+	}
+	if rec.Code != http.StatusNoContent {
+		t.Fatalf("expected 204 for preflight, got %d", rec.Code)
+	}
+}
+
+func TestCorsMiddleware_UnknownOriginGetsNoCorsHeaders(t *testing.T) {
+	t.Setenv("NAT_1TO1_IP", "192.168.0.50")
+	next := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { w.WriteHeader(http.StatusOK) })
+	h := corsMiddleware(next)
+
+	req := httptest.NewRequest("GET", "/rooms/active", nil)
+	req.Host = "192.168.0.50:8080"
+	req.Header.Set("Origin", "https://site-malicioso.example")
+	rec := httptest.NewRecorder()
+	h.ServeHTTP(rec, req)
+
+	if got := rec.Header().Get("Access-Control-Allow-Origin"); got != "" {
+		t.Fatalf("expected no Access-Control-Allow-Origin for unknown origin, got %q", got)
+	}
+	if got := rec.Header().Get("Access-Control-Allow-Origin"); got == "*" {
+		t.Fatal("wildcard CORS must never be used")
+	}
+}
