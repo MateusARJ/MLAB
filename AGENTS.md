@@ -16,6 +16,10 @@ A ordem de autoridade é obrigatória:
 8. `spec-kit/specs/<feature>/analyze.md` e `checklists/` — validação antes da implementação.
 9. Código existente — evidência do estado atual, nunca autorização automática para alterar comportamento.
 
+`docs/requirements/**` e `docs/requirements.md` são um **espelho derivado** das specs: detalham RF/RNF/RN
+com o mesmo ID, mas nunca criam requisito novo. Em caso de conflito, vale `spec-kit/specs/<feature>/spec.md`,
+e o arquivo em `docs/requirements/` deve ser corrigido na mesma tarefa que alterou a spec.
+
 Antes de qualquer tarefa, leia `spec-kit/.specify/memory/context-loading.md` e carregue somente o contexto exigido pela fase corrente.
 
 ## 2. Escopo do sistema

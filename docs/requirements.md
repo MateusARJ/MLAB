@@ -4,6 +4,9 @@
 > **Status:**  Aprovado para Desenvolvimento
 > **Arquitetura:** WebRTC SFU (Pion Go) + Electron Desktop + React Web
 > **Estrutura:** Arquivos individuais por Requisito e Regra de Negócio
+>
+> **Fonte de verdade:** este índice e `docs/requirements/**` são um espelho derivado das specs em
+> `spec-kit/specs/<feature>/spec.md`. Em caso de conflito, vale a spec (ver `AGENTS.md` §1).
 
 ---
 
