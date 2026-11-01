@@ -19,17 +19,18 @@ Checks:
 - [ ] Smoke A1, A2, A10, A16 — **pendente de execução manual** pelo responsável (o agente não executa GUI/LAN).
 
 ### T202 — S2: chave de host na sessão do professor
-[ ] T202
+[x] T202
 Depends On: T201
 Allowed Paths: `apps/backend/internal/auth/**`, `apps/backend/cmd/server/**`, `apps/desktop/src/main/**`, `apps/desktop/src/renderer/services/**`, `apps/desktop/src/test/setup.ts`, `apps/desktop/src/env.d.ts`, `scripts/dev.js`, `turbo.json`
 Prohibited Paths: `apps/web/**`, `apps/backend/internal/webrtc/**`, `packages/ui/**`
 Checks:
-- [ ] Main do Electron gera `MLAB_HOST_KEY` (salvo se vier do ambiente), repassa ao backend embarcado e expõe `getHostKey()` via IPC `get-host-key`.
-- [ ] `scripts/dev.js` gera a chave para o turbo; `turbo.json` repassa `MLAB_HOST_KEY`.
-- [ ] `POST /auth/session` exige `X-MLab-Host-Key` (tempo constante); sem chave configurada → `403`; header permitido no CORS.
-- [ ] `services/auth.ts` envia o header.
-- [ ] Testes: sem header/errado/backend sem chave → `403`; correto → `200` com `role: professor`; serviço do desktop envia o header.
-- [ ] Suítes verdes. Smoke: A1, A2, A3, A16 + `curl` de outra máquina → `403`.
+- [x] Main do Electron gera `MLAB_HOST_KEY` (salvo se vier do ambiente), repassa ao backend embarcado e expõe `getHostKey()` via IPC `get-host-key`.
+- [x] `scripts/dev.js` gera a chave para o turbo; `turbo.json` repassa `MLAB_HOST_KEY`.
+- [x] `POST /auth/session` exige `X-MLab-Host-Key` (tempo constante); sem chave configurada → `403`; header permitido no CORS.
+- [x] `services/auth.ts` envia o header.
+- [x] Testes: sem header/errado/backend sem chave → `403`; correto → `200` com `role: professor`; serviço do desktop envia o header.
+- [x] Suítes verdes: Go 6/6, web 25/25, desktop 88/88 (`auth_test.go`: `TestSessionEndpoint*`; `hostKey.test.ts`; `services/auth.test.ts`). `tsc` do desktop sem erro novo (14 pré-existentes).
+- [ ] Smoke A1, A2, A3, A16 e `curl -X POST http://<ip>:8080/auth/session` de outra máquina → `403` — **pendente de execução manual**.
 
 ### T203 — S3: remoção completa do login do professor
 [ ] T203

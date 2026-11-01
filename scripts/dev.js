@@ -1,4 +1,5 @@
 const { spawn, execSync } = require('child_process');
+const { randomBytes } = require('crypto');
 
 /**
  * Encerra processos zumbis ou instâncias antigas presas em uma porta (Windows).
@@ -53,6 +54,12 @@ checkNetworkProfile();
 // Define flag para que o Electron não tente inicializar server.exe concorrentemente com @mlab/backend
 process.env.MLAB_DEV_MONOREPO = '1';
 
+// Chave de host compartilhada entre o backend (go run) e o app Electron nesta execução de dev (ADR 0006).
+// Sem ela, o backend recusa POST /auth/session. Nunca é registrada em log.
+if (!process.env.MLAB_HOST_KEY) {
+  process.env.MLAB_HOST_KEY = randomBytes(32).toString('hex');
+}
+
 console.log('[MLab Dev] Iniciando Turborepo em modo de desenvolvimento...');
 
 // No Node v24+, spawn com shell:true e args separados dispara DEP0190.
@@ -62,7 +69,8 @@ const child = spawn('npx turbo run dev --concurrency=10', {
   shell: true,
   env: {
     ...process.env,
-    MLAB_DEV_MONOREPO: '1'
+    MLAB_DEV_MONOREPO: '1',
+    MLAB_HOST_KEY: process.env.MLAB_HOST_KEY
   }
 });
 

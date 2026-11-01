@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"log"
 	"net/http"
+	"os"
 	"strings"
 
 	"golang.org/x/crypto/bcrypt"
@@ -33,8 +34,33 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("POST /auth/session", h.session)
 }
 
+// HostKeyHeader é o header que carrega a chave de host gerada pelo app desktop (ADR 0006).
+const HostKeyHeader = "X-MLab-Host-Key"
+
+// HostKeyEnv é a variável de ambiente com a chave de host da execução atual.
+const HostKeyEnv = "MLAB_HOST_KEY"
+
+// validHostKey confere, em tempo constante, se a requisição apresenta a chave de host configurada.
+// Sem chave configurada no backend, nenhuma requisição é aceita (fail-closed).
+func validHostKey(r *http.Request) bool {
+	expected := os.Getenv(HostKeyEnv)
+	if expected == "" {
+		return false
+	}
+	got := r.Header.Get(HostKeyHeader)
+	return subtle.ConstantTimeCompare([]byte(got), []byte(expected)) == 1
+}
+
 // session trata o POST /auth/session (identificação direta do professor sem necessidade de senha).
+// Exige a chave de host gerada pelo app desktop nesta execução (ADR 0006).
+//
+// Contrato: contracts/auth.md → POST /auth/session
 func (h *Handler) session(w http.ResponseWriter, r *http.Request) {
+	if !validHostKey(r) {
+		writeError(w, http.StatusForbidden, "sessão de professor permitida apenas pelo app MLab desta máquina")
+		return
+	}
+
 	var req SessionRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		req.Name = "Professor"

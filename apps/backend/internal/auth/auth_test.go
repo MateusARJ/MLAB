@@ -211,6 +211,7 @@ func TestRequireRole(t *testing.T) {
 
 func TestSessionEndpoint(t *testing.T) {
 	t.Setenv("JWT_SECRET", "super-secret-key-for-testing-12345")
+	t.Setenv(HostKeyEnv, "chave-de-host-de-teste")
 
 	store := NewInMemoryStore()
 	handler := NewHandler(store)
@@ -221,6 +222,7 @@ func TestSessionEndpoint(t *testing.T) {
 	body := strings.NewReader(`{"name":"Prof. Carlos Eduardo"}`)
 	req := httptest.NewRequest("POST", "/auth/session", body)
 	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set(HostKeyHeader, "chave-de-host-de-teste")
 	rec := httptest.NewRecorder()
 
 	mux.ServeHTTP(rec, req)
@@ -254,3 +256,41 @@ func TestSessionEndpoint(t *testing.T) {
 	}
 }
 
+func TestSessionEndpoint_RejectsWithoutValidHostKey(t *testing.T) {
+	t.Setenv("JWT_SECRET", "super-secret-key-for-testing-12345")
+
+	mux := http.NewServeMux()
+	NewHandler(NewInMemoryStore()).RegisterRoutes(mux)
+
+	cases := []struct {
+		name       string
+		configured string
+		header     string
+	}{
+		{name: "sem header", configured: "chave-correta", header: ""},
+		{name: "header errado", configured: "chave-correta", header: "chave-errada"},
+		{name: "prefixo da chave", configured: "chave-correta", header: "chave-corre"},
+		{name: "backend sem chave configurada", configured: "", header: "qualquer-valor"},
+		{name: "backend sem chave e sem header", configured: "", header: ""},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Setenv(HostKeyEnv, tc.configured)
+			req := httptest.NewRequest("POST", "/auth/session", strings.NewReader(`{"name":"Intruso"}`))
+			req.Header.Set("Content-Type", "application/json")
+			if tc.header != "" {
+				req.Header.Set(HostKeyHeader, tc.header)
+			}
+			rec := httptest.NewRecorder()
+			mux.ServeHTTP(rec, req)
+
+			if rec.Code != http.StatusForbidden {
+				t.Fatalf("expected 403, got %d: %s", rec.Code, rec.Body.String())
+			}
+			if strings.Contains(rec.Body.String(), `"token"`) {
+				t.Fatal("no token must be returned when the host key is invalid")
+			}
+		})
+	}
+}

@@ -46,6 +46,12 @@ export interface ElectronAPI {
   copyToClipboard: (text: string) => Promise<boolean>
 
   /**
+   * Retorna a chave de host desta execução, usada somente no header X-MLab-Host-Key
+   * de POST /auth/session ao backend local (ADR 0006).
+   */
+  getHostKey: () => Promise<string>
+
+  /**
    * Registra ou desregistra a sala ativa atual no processo principal para encerramento automático ao fechar a janela.
    */
   setActiveRoom: (room: { id: string; token?: string } | null) => Promise<void>
@@ -126,6 +132,7 @@ const api: ElectronAPI = {
   getScreenSources: (type) => ipcRenderer.invoke('get-screen-sources', type),
   saveRecordedVideo: (buffer, defaultName, format) =>
     ipcRenderer.invoke('save-recorded-video', { buffer, defaultName, format }),
+  getHostKey: () => ipcRenderer.invoke('get-host-key'),
   copyToClipboard: (text: string) => {
     try {
       clipboard.writeText(text)

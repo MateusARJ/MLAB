@@ -19,6 +19,7 @@ window.electronAPI = {
     filePath: 'C:/fake/path/aula-mlab.webm',
   }),
   copyToClipboard: vi.fn().mockResolvedValue(true),
+  getHostKey: vi.fn().mockResolvedValue('chave-de-host-de-teste'),
   setActiveRoom: vi.fn().mockResolvedValue(undefined),
   setContentProtection: vi.fn().mockResolvedValue(true),
   captureWindowToClipboard: vi.fn().mockResolvedValue(true),

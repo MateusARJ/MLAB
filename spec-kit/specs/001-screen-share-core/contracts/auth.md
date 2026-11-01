@@ -100,8 +100,7 @@ Errors:
 - `403 Forbidden` — header `X-MLab-Host-Key` ausente ou diferente de `MLAB_HOST_KEY`, ou backend sem `MLAB_HOST_KEY` configurado.
 - `500 Internal Server Error` — falha ao assinar o token.
 
-> **Vigência:** a exigência de `X-MLab-Host-Key` passa a valer com `002-security-hardening`/S2. Até lá, o endpoint aceita
-> qualquer requisição (falha registrada em `converge.md`).
+> **Vigência:** em vigor desde `002-security-hardening`/S2 (T202).
 
 ### POST /auth/login
 

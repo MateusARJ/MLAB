@@ -27,6 +27,9 @@ func main() {
 	} else if generated {
 		log.Println("JWT_SECRET não configurado: segredo aleatório gerado para esta execução (tokens emitidos valem até o backend reiniciar).")
 	}
+	if os.Getenv(auth.HostKeyEnv) == "" {
+		log.Printf("AVISO: %s não configurado: sessões de professor serão recusadas. Inicie pelo app MLab ou por `npm run dev`.", auth.HostKeyEnv)
+	}
 
 	// ── Stores (desenvolvimento: em memória) ──────────────────────────────────
 	authStore := auth.NewInMemoryStore()
@@ -206,7 +209,7 @@ func corsMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Access-Control-Allow-Origin", "*")
 		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
-		w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
+		w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization, "+auth.HostKeyHeader)
 
 		if r.Method == http.MethodOptions {
 			w.WriteHeader(http.StatusNoContent)

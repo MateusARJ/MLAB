@@ -16,6 +16,11 @@ import http from 'http'
 import type { AnnotationSessionState } from '@mlab/types'
 import { CursorPresenceTracker, type CursorTrackingTarget } from './cursorPresence'
 import { AnnotationOverlayManager } from './annotationOverlayWindow'
+import { resolveHostKey } from './hostKey'
+
+// Chave de host desta execução (ADR 0006). Resolvida antes de iniciar o backend embarcado,
+// que a herda via process.env; o renderer a obtém pelo IPC 'get-host-key'.
+const hostKey = resolveHostKey(process.env)
 
 const cursorPresenceTracker = new CursorPresenceTracker()
 const annotationOverlayManager = new AnnotationOverlayManager()
@@ -301,6 +306,10 @@ ipcMain.handle(
     }
   }
 )
+
+// ── IPC: chave de host para a sessão do professor (ADR 0006) ──────────────────
+// Usada apenas no header X-MLab-Host-Key de POST /auth/session ao backend local.
+ipcMain.handle('get-host-key', () => hostKey)
 
 // ── Gerenciamento da sala ativa para encerramento gracioso ao fechar o app ────
 
