@@ -37,7 +37,7 @@ docs/requirements/
 | **RF009** | Chat de Texto em Tempo Real | Comunicação | [ RF009](requirements/functionals/RF009-chat-de-texto-em-tempo-real.md) |
 | **RF010** | Captura e Controle do Microfone do Professor | Captura de Mídia | [ RF010](requirements/functionals/RF010-captura-e-controle-do-microfone-do-professor.md) |
 | **RF011** | Identificação Obrigatória de Aluno (Nome e Matrícula) | Autenticação e Acesso | [ RF011](requirements/functionals/RF011-identificacao-obrigatoria-de-aluno-nome-e-matricula.md) |
-| **RF012** | Autenticação de Professor no App Desktop | Autenticação e Acesso | [ RF012](requirements/functionals/RF012-autenticacao-de-professor-no-app-desktop.md) |
+| **RF012** | Sessão do Professor no App Desktop | Autenticação e Acesso | [ RF012](requirements/functionals/RF012-autenticacao-de-professor-no-app-desktop.md) |
 | **RF013** | Geração de Link Único de Convite | Gestão de Sala | [ RF013](requirements/functionals/RF013-geracao-de-link-unico-de-convite.md) |
 | **RF014** | Operações REST Exclusivas do Professor | Autorização & API | [ RF014](requirements/functionals/RF014-operacoes-rest-exclusivas-do-professor.md) |
 | **RF015** | Encerramento de Sala e Conexões | Gestão de Sala | [ RF015](requirements/functionals/RF015-encerramento-de-sala-e-conexoes.md) |
