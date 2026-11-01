@@ -75,3 +75,14 @@ export async function joinRoom(slug: string, req: JoinRoomRequest): Promise<Join
 export function getStoredStudentToken(): string | null {
   return sessionStorage.getItem('student_token');
 }
+
+/**
+ * Monta a URL de download de um arquivo da sala com o token do aluno no parâmetro `token`,
+ * exigido pelo backend porque links `<a href download>` não enviam o header Authorization
+ * (contracts/files.md — 002-security-hardening/S4).
+ */
+export function fileDownloadUrl(url: string, token: string): string {
+  if (!token) return url;
+  const separator = url.includes('?') ? '&' : '?';
+  return `${url}${separator}token=${encodeURIComponent(token)}`;
+}

@@ -89,7 +89,28 @@ Todas as ambiguidades bloqueantes foram resolvidas. A feature está liberada par
 
 ---
 
+## C-07 — Metodologia do teste de carga (emenda de 2026-11-01)
+
+- **Contexto:** `docs/load-test/load_test.go` (T020) comparava valores fixos com as metas, sem subir o SFU
+  (`converge.md` §2). O dono do produto aprovou substituí-lo por um teste real (T034).
+- **Resposta aprovada:**
+  - O teste sobe o `SFUService` real, com a configuração de produção (faixa UDP padrão, IP físico), um publisher
+    Pion que envia RTP VP8 sintético no perfil 1080p@30 (~4 Mbps) e 40 assinantes Pion. Tudo no mesmo processo; o
+    tráfego passa pela pilha UDP do sistema operacional.
+  - Fica em `apps/backend/internal/webrtc/` (o pacote `internal` só é importável de dentro de `apps/backend`),
+    atrás da build tag `loadtest`, para não pesar no `go test ./...` do dia a dia.
+  - **Mede:** FPS e bitrate recebidos por assinante, perda pós-NACK, tempo de entrada, latência de encaminhamento do
+    SFU, upload do publisher, CPU/memória do processo.
+  - **Não mede** (continua manual, com app e rede reais): RTT e latência ponta a ponta (RNF-08), captura/encode/decode
+    (RNF-01/02 no app), CPU isolada do backend (RNF-15 — o processo de teste inclui os 41 clientes).
+  - Critérios que reprovam o teste: algum assinante sem mídia, FPS mínimo < 25 ou perda ≥ 2% em algum assinante.
+    Os demais números são registrados, não reprovados.
+  - `docs/load-test/load_test.go` é apagado (não mede nada); `docs/load-test/README.md` aponta para o teste real.
+- **Impacto:** nova task T034; T020 marcada como substituída.
+
+---
+
 ## Resultado
 
-CLOSED — todas as decisões C-01 a C-06 foram respondidas e aprovadas.
+CLOSED — todas as decisões C-01 a C-07 foram respondidas e aprovadas (C-07 por emenda de 2026-11-01).
 A feature `001-screen-share-core` está liberada para atualização de `plan.md` e geração de tasks de implementação após T005.

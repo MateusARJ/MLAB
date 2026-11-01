@@ -1,7 +1,5 @@
 package auth
 
-import "time"
-
 // Role define o papel do participante no sistema.
 type Role string
 
@@ -10,29 +8,13 @@ const (
 	RoleAluno     Role = "aluno"
 )
 
-// Professor representa um professor cadastrado no sistema.
-// O campo PasswordHash nunca é exposto ao cliente.
-type Professor struct {
-	ID           string    `json:"id"`
-	Email        string    `json:"email"`
-	Name         string    `json:"name,omitempty"`
-	PasswordHash string    `json:"-"`
-	CreatedAt    time.Time `json:"created_at"`
-}
-
-// LoginRequest é o payload do POST /auth/login.
-type LoginRequest struct {
-	Email    string `json:"email"`
-	Password string `json:"password"`
-}
-
 // SessionRequest é o payload do POST /auth/session para identificação direta do professor.
 type SessionRequest struct {
 	Name string `json:"name"`
 }
 
-// LoginResponse é a resposta do POST /auth/login com sucesso.
-type LoginResponse struct {
+// SessionResponse é a resposta do POST /auth/session com sucesso.
+type SessionResponse struct {
 	Token     string `json:"token"`
 	ExpiresAt string `json:"expires_at"` // ISO 8601
 	Name      string `json:"name,omitempty"`

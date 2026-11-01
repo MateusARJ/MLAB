@@ -7,7 +7,8 @@ import {
   dialog,
   session,
   systemPreferences,
-  clipboard
+  clipboard,
+  shell
 } from 'electron'
 import { join } from 'path'
 import { existsSync, appendFileSync, mkdirSync, chmodSync, promises as fsPromises } from 'fs'
@@ -16,6 +17,12 @@ import http from 'http'
 import type { AnnotationSessionState } from '@mlab/types'
 import { CursorPresenceTracker, type CursorTrackingTarget } from './cursorPresence'
 import { AnnotationOverlayManager } from './annotationOverlayWindow'
+import { resolveHostKey } from './hostKey'
+import { hardenWebContents } from './navigationGuard'
+
+// Chave de host desta execução (ADR 0006). Resolvida antes de iniciar o backend embarcado,
+// que a herda via process.env; o renderer a obtém pelo IPC 'get-host-key'.
+const hostKey = resolveHostKey(process.env)
 
 const cursorPresenceTracker = new CursorPresenceTracker()
 const annotationOverlayManager = new AnnotationOverlayManager()
@@ -127,7 +134,8 @@ function createWindow(): void {
     minHeight: 600,
     webPreferences: {
       preload: getPreloadPath(),
-      sandbox: false,
+      // Sandbox do renderer (002/S7): o preload só usa contextBridge e ipcRenderer.
+      sandbox: true,
       contextIsolation: true,
       nodeIntegration: false,
       backgroundThrottling: false
@@ -135,6 +143,9 @@ function createWindow(): void {
     ...(process.platform === 'darwin' ? { titleBarStyle: 'hiddenInset' } : {}),
     show: false
   })
+
+  // Bloqueia navegação para fora do app e novas janelas; links web vão para o navegador do sistema (002/S7)
+  hardenWebContents(win.webContents, (url) => shell.openExternal(url))
 
   // Previne que tags <title> do HTML exibam texto na barra de título nativa
   win.on('page-title-updated', (event) => {
@@ -302,6 +313,24 @@ ipcMain.handle(
   }
 )
 
+// ── IPC: escrita de texto na área de transferência (002/S7) ───────────────────
+// Executada no main porque o módulo clipboard não está disponível em preload com sandbox.
+ipcMain.handle('write-clipboard-text', (_event, text: unknown) => {
+  if (typeof text !== 'string') {
+    return false
+  }
+  try {
+    clipboard.writeText(text)
+    return true
+  } catch {
+    return false
+  }
+})
+
+// ── IPC: chave de host para a sessão do professor (ADR 0006) ──────────────────
+// Usada apenas no header X-MLab-Host-Key de POST /auth/session ao backend local.
+ipcMain.handle('get-host-key', () => hostKey)
+
 // ── Gerenciamento da sala ativa para encerramento gracioso ao fechar o app ────
 
 let activeRoom: { id: string; token?: string } | null = null
@@ -456,9 +485,6 @@ function getBackendExecutablePath(): string | null {
         candidates.push(join(dir, b))
       }
     }
-    if (process.platform === 'win32') {
-      candidates.push('c:\\Users\\User\\Documents\\mlab\\apps\\backend\\bin\\server.exe')
-    }
   } else {
     for (const b of binaryNames) {
       candidates.push(join(process.resourcesPath, 'bin', b))
@@ -533,8 +559,9 @@ async function startBackendServer(): Promise<void> {
         ...process.env,
         PORT: '8080',
         WEB_PORT: '8080',
-        WEB_DIR: webDir,
-        JWT_SECRET: process.env['JWT_SECRET'] || 'dev-secret-key-12345'
+        // JWT_SECRET só é repassado se vier do ambiente (via ...process.env);
+        // caso contrário o backend gera um segredo aleatório por execução (ADR 0006).
+        WEB_DIR: webDir
       }
     })
 

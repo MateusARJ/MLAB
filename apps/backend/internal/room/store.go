@@ -122,16 +122,34 @@ func (s *inMemoryStore) GetRoomByOwnerID(_ context.Context, ownerID string) (*Ro
 	return nil, ErrRoomNotFound
 }
 
+// GetActiveRoom retorna a sala ativa de forma determinística (002-security-hardening/S5):
+// prioriza salas em `publishing`; entre salas do mesmo status, vence a criada mais recentemente.
 func (s *inMemoryStore) GetActiveRoom(_ context.Context) (*Room, error) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
+	var best *Room
 	for _, r := range s.rooms {
-		if r.Status == StatusWaiting || r.Status == StatusPublishing {
-			copy := *r
-			return &copy, nil
+		if r.Status != StatusWaiting && r.Status != StatusPublishing {
+			continue
+		}
+		if best == nil || activeRoomRank(r) > activeRoomRank(best) ||
+			(activeRoomRank(r) == activeRoomRank(best) && r.CreatedAt.After(best.CreatedAt)) {
+			best = r
 		}
 	}
-	return nil, ErrRoomNotFound
+	if best == nil {
+		return nil, ErrRoomNotFound
+	}
+	copy := *best
+	return &copy, nil
+}
+
+// activeRoomRank define a prioridade de uma sala ativa: publishing > waiting.
+func activeRoomRank(r *Room) int {
+	if r.Status == StatusPublishing {
+		return 2
+	}
+	return 1
 }
 
 func (s *inMemoryStore) UpdateRoomStatus(_ context.Context, roomID string, status Status, closedAt *time.Time) error {

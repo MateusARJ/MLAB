@@ -25,6 +25,10 @@ type Handler struct {
 
 	mu   sync.RWMutex
 	hubs map[string]*Hub // roomID → Hub
+
+	// roomClosedListener é notificado quando um hub encerra a sala pelo WebSocket.
+	// Configurado uma única vez na inicialização, antes de servir requisições.
+	roomClosedListener func(roomID string)
 }
 
 // NewHandler cria um Handler de sinalização.
@@ -34,10 +38,9 @@ func NewHandler(roomStore room.Store, sfu SFU) *Handler {
 		upgrader: websocket.Upgrader{
 			ReadBufferSize:  4096,
 			WriteBufferSize: 4096,
+			// Allowlist de origem (002-security-hardening/S6): mesma regra do CORS.
 			CheckOrigin: func(r *http.Request) bool {
-				// Em produção: verificar r.Header.Get("Origin") contra allowlist.
-				// Em desenvolvimento: aceita qualquer origem.
-				return true
+				return room.IsAllowedOrigin(r.Header.Get("Origin"), r)
 			},
 		},
 		roomStore: roomStore,
@@ -133,10 +136,22 @@ func (h *Handler) getOrCreateHub(roomID string) *Hub {
 		}
 	}
 
-	hub := newHub(roomID, h.sfu)
+	hub := newHub(roomID, h.sfu, h.notifyRoomClosed)
 	h.hubs[roomID] = hub
 	log.Printf("signaling: hub criado para sala %s", roomID)
 	return hub
+}
+
+// SetRoomClosedListener registra quem deve ser avisado quando um hub encerra a sala
+// (end-session ou timeout de reconexão). Deve ser chamado antes de servir requisições.
+func (h *Handler) SetRoomClosedListener(fn func(roomID string)) {
+	h.roomClosedListener = fn
+}
+
+func (h *Handler) notifyRoomClosed(roomID string) {
+	if h.roomClosedListener != nil {
+		h.roomClosedListener(roomID)
+	}
 }
 
 // GetHub retorna o Hub de uma sala (nil se não existir).

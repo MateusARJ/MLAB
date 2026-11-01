@@ -372,7 +372,7 @@ export function useWebRTCSubscriber(token: string, roomInfo: { room_id: string; 
   // Carrega lista inicial de arquivos compartilhados
   useEffect(() => {
     if (!roomId) return;
-    fetch(`/rooms/${roomId}/files`)
+    fetch(`/rooms/${roomId}/files`, { headers: { Authorization: `Bearer ${token}` } })
       .then((res) => (res.ok ? res.json() : []))
       .then((data) => {
         if (Array.isArray(data)) {
@@ -385,7 +385,7 @@ export function useWebRTCSubscriber(token: string, roomInfo: { room_id: string; 
         }
       })
       .catch((err) => console.warn('Erro ao carregar arquivos da sala:', err));
-  }, [roomId]);
+  }, [roomId, token]);
 
   const sendChatMessage = useCallback((text: string, isPrivate: boolean = false) => {
     if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {

@@ -1234,7 +1234,9 @@ export const Room: React.FC<RoomProps> = ({ room, onCloseRoom }) => {
   // Carrega arquivos iniciais da sala
   useEffect(() => {
     if (!room?.id) return;
-    fetch(`http://localhost:8080/rooms/${room.id}/files`)
+    fetch(`http://localhost:8080/rooms/${room.id}/files`, {
+      headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+    })
       .then((res) => (res.ok ? res.json() : []))
       .then((data) => {
         if (Array.isArray(data)) {
@@ -1242,7 +1244,7 @@ export const Room: React.FC<RoomProps> = ({ room, onCloseRoom }) => {
         }
       })
       .catch((err) => console.warn('Erro ao carregar arquivos da sala:', err));
-  }, [room?.id]);
+  }, [room?.id, token]);
 
   // Feedback de arquivo salvo
   useEffect(() => {

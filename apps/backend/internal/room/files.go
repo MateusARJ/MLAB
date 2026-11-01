@@ -1,16 +1,33 @@
 package room
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"log"
 	"net/http"
+	"os"
 	"path/filepath"
+	"strconv"
+	"strings"
 	"sync"
 	"time"
 
 	"github.com/screenshare/classroom/internal/auth"
 )
+
+// Limites de arquivos (contracts/files.md — 003-classroom-interaction; 002-security-hardening/S4).
+const (
+	maxFileBytes            int64 = 50 << 20 // 50 MB por arquivo
+	multipartOverheadBytes  int64 = 1 << 20  // margem para cabeçalhos multipart
+	defaultRoomFilesMaxMB         = 300
+	defaultRoomFilesMaxCount      = 50
+	envRoomFilesMaxMB             = "MLAB_ROOM_FILES_MAX_MB"
+	envRoomFilesMaxCount          = "MLAB_ROOM_FILES_MAX_COUNT"
+)
+
+// errRoomFilesLimit indica que a sala atingiu o teto de memória ou de quantidade de arquivos.
+var errRoomFilesLimit = errors.New("limite de arquivos da sala atingido")
 
 // RoomFile representa um arquivo compartilhado pelo professor com a turma.
 type RoomFile struct {
@@ -27,22 +44,48 @@ type RoomFile struct {
 // FileBroadcasterFunc define a assinatura da função de broadcast para arquivos compartilhados.
 type FileBroadcasterFunc func(roomID, id, name string, size int64, url string)
 
-// FileStore armazena os arquivos das salas em memória de forma segura para concorrência.
+// FileStore armazena os arquivos das salas em memória de forma segura para concorrência,
+// respeitando um teto de bytes e de quantidade por sala.
 type FileStore struct {
-	mu    sync.RWMutex
-	files map[string][]*RoomFile // roomID -> list of files
+	mu       sync.RWMutex
+	files    map[string][]*RoomFile // roomID -> list of files
+	maxBytes int64
+	maxCount int
 }
 
 func newFileStore() *FileStore {
 	return &FileStore{
-		files: make(map[string][]*RoomFile),
+		files:    make(map[string][]*RoomFile),
+		maxBytes: int64(envInt(envRoomFilesMaxMB, defaultRoomFilesMaxMB)) << 20,
+		maxCount: envInt(envRoomFilesMaxCount, defaultRoomFilesMaxCount),
 	}
 }
 
-func (fs *FileStore) Add(f *RoomFile) {
+// envInt lê um inteiro positivo de uma variável de ambiente, com valor padrão.
+func envInt(name string, def int) int {
+	if v, err := strconv.Atoi(strings.TrimSpace(os.Getenv(name))); err == nil && v > 0 {
+		return v
+	}
+	return def
+}
+
+// Add guarda o arquivo se a sala ainda couber nos limites; caso contrário retorna errRoomFilesLimit.
+func (fs *FileStore) Add(f *RoomFile) error {
 	fs.mu.Lock()
 	defer fs.mu.Unlock()
-	fs.files[f.RoomID] = append(fs.files[f.RoomID], f)
+	list := fs.files[f.RoomID]
+	if len(list)+1 > fs.maxCount {
+		return errRoomFilesLimit
+	}
+	var total int64
+	for _, existing := range list {
+		total += existing.Size
+	}
+	if total+f.Size > fs.maxBytes {
+		return errRoomFilesLimit
+	}
+	fs.files[f.RoomID] = append(list, f)
+	return nil
 }
 
 func (fs *FileStore) List(roomID string) []*RoomFile {
@@ -63,6 +106,70 @@ func (fs *FileStore) Get(roomID, fileID string) *RoomFile {
 		}
 	}
 	return nil
+}
+
+// RemoveRoom libera da memória todos os arquivos de uma sala.
+func (fs *FileStore) RemoveRoom(roomID string) {
+	fs.mu.Lock()
+	defer fs.mu.Unlock()
+	delete(fs.files, roomID)
+}
+
+// ReleaseRoomFiles libera os arquivos de uma sala encerrada. Usado pelo encerramento via REST,
+// pela substituição da sala do professor e pelo encerramento via WebSocket (hub de sinalização).
+func (h *Handler) ReleaseRoomFiles(roomID string) {
+	if h.fileStore != nil {
+		h.fileStore.RemoveRoom(roomID)
+	}
+}
+
+// ── Autorização de leitura ────────────────────────────────────────────────────
+
+// fileAccessToken extrai o JWT do header Authorization (Bearer) ou do parâmetro ?token=,
+// que permite links de download no navegador (contracts/files.md, C-205).
+func fileAccessToken(r *http.Request) string {
+	if h := r.Header.Get("Authorization"); strings.HasPrefix(h, "Bearer ") {
+		return strings.TrimPrefix(h, "Bearer ")
+	}
+	return r.URL.Query().Get("token")
+}
+
+// authorizeFileRead valida que o portador do token pertence à sala: aluno com room_id da sala
+// ou professor dono. Retorna o ID canônico da sala, ou escreve o erro e retorna false.
+func (h *Handler) authorizeFileRead(w http.ResponseWriter, r *http.Request) (string, bool) {
+	tokenStr := fileAccessToken(r)
+	if tokenStr == "" {
+		writeError(w, http.StatusUnauthorized, "token de acesso ausente")
+		return "", false
+	}
+	claims, err := auth.ParseToken(tokenStr)
+	if err != nil {
+		writeError(w, http.StatusUnauthorized, "token inválido ou expirado")
+		return "", false
+	}
+
+	identifier := r.PathValue("roomId")
+	rm, err := h.store.GetRoomByID(r.Context(), identifier)
+	if err != nil {
+		rm, err = h.store.GetRoomBySlug(r.Context(), identifier)
+	}
+	if err != nil {
+		writeError(w, http.StatusNotFound, "sala não encontrada")
+		return "", false
+	}
+
+	switch auth.ClaimRole(claims) {
+	case auth.RoleAluno:
+		if auth.ClaimRoomID(claims) == rm.ID {
+			return rm.ID, true
+		}
+	case auth.RoleProfessor:
+		if auth.ClaimSub(claims) == rm.OwnerID {
+			return rm.ID, true
+		}
+	}
+	writeError(w, http.StatusForbidden, "token não pertence a esta sala")
+	return "", false
 }
 
 // ── Handlers de Arquivos ──────────────────────────────────────────────────────
@@ -87,8 +194,14 @@ func (h *Handler) uploadFile(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Limite de 50 MB por upload
-	if err := r.ParseMultipartForm(50 << 20); err != nil {
+	// Limita o corpo da requisição: 50 MB por arquivo + margem multipart.
+	r.Body = http.MaxBytesReader(w, r.Body, maxFileBytes+multipartOverheadBytes)
+	if err := r.ParseMultipartForm(maxFileBytes); err != nil {
+		var tooLarge *http.MaxBytesError
+		if errors.As(err, &tooLarge) {
+			writeError(w, http.StatusRequestEntityTooLarge, "arquivo acima do limite de 50MB")
+			return
+		}
 		writeError(w, http.StatusBadRequest, "erro ao processar upload (máximo 50MB)")
 		return
 	}
@@ -100,9 +213,13 @@ func (h *Handler) uploadFile(w http.ResponseWriter, r *http.Request) {
 	}
 	defer file.Close()
 
-	data, err := io.ReadAll(file)
+	data, err := io.ReadAll(io.LimitReader(file, maxFileBytes+1))
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "erro ao ler dados do arquivo")
+		return
+	}
+	if int64(len(data)) > maxFileBytes {
+		writeError(w, http.StatusRequestEntityTooLarge, "arquivo acima do limite de 50MB")
 		return
 	}
 
@@ -126,7 +243,10 @@ func (h *Handler) uploadFile(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if h.fileStore != nil {
-		h.fileStore.Add(roomFile)
+		if err := h.fileStore.Add(roomFile); err != nil {
+			writeError(w, http.StatusRequestEntityTooLarge, "limite de arquivos da sala atingido")
+			return
+		}
 	}
 
 	// Notifica via WebSocket todos os participantes conectados na sala
@@ -138,10 +258,13 @@ func (h *Handler) uploadFile(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusCreated, roomFile)
 }
 
-// listFiles lista todos os arquivos compartilhados na sala.
+// listFiles lista todos os arquivos compartilhados na sala. Exige token da sala.
 // GET /rooms/{roomId}/files
 func (h *Handler) listFiles(w http.ResponseWriter, r *http.Request) {
-	roomID := r.PathValue("roomId")
+	roomID, ok := h.authorizeFileRead(w, r)
+	if !ok {
+		return
+	}
 	if h.fileStore == nil {
 		writeJSON(w, http.StatusOK, []*RoomFile{})
 		return
@@ -154,10 +277,13 @@ func (h *Handler) listFiles(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, files)
 }
 
-// downloadFile entrega o conteúdo do arquivo para download.
+// downloadFile entrega o conteúdo do arquivo para download. Exige token da sala.
 // GET /rooms/{roomId}/files/{fileId}/download
 func (h *Handler) downloadFile(w http.ResponseWriter, r *http.Request) {
-	roomID := r.PathValue("roomId")
+	roomID, ok := h.authorizeFileRead(w, r)
+	if !ok {
+		return
+	}
 	fileID := r.PathValue("fileId")
 
 	if h.fileStore == nil {
@@ -177,6 +303,7 @@ func (h *Handler) downloadFile(w http.ResponseWriter, r *http.Request) {
 	} else {
 		w.Header().Set("Content-Type", "application/octet-stream")
 	}
+	w.Header().Set("X-Content-Type-Options", "nosniff")
 	w.Header().Set("Content-Length", fmt.Sprintf("%d", f.Size))
 	w.WriteHeader(http.StatusOK)
 	_, _ = w.Write(f.Data)

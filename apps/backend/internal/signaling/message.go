@@ -15,7 +15,7 @@ const (
 	TypeChatMessage      = "chat-message"
 	TypeEndSession       = "end-session"
 	TypeStreamPause      = "stream-pause" // professor envia para pausar/retomar transmissão
-	TypeRequestKeyFrame  = "request-keyframe" // publisher solicita keyframe imediato (ex: após troca de fonte)
+	TypeRequestKeyFrame  = "request-keyframe" // professor (após troca de fonte) ou aluno (ao conectar/congelar) pede keyframe; aluno limitado (002/S9)
 	TypeRaiseHand        = "raise-hand"       // aluno levanta ou abaixa a mão
 	TypeLowerHand        = "lower-hand"       // professor (ou aluno) abaixa a mão
 	TypePinMessage       = "pin-message"      // professor fixa ou desafixa mensagem no chat público ou privado

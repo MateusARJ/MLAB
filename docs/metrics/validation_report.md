@@ -46,4 +46,4 @@
 
 ---
 
-> **Nota (2026-11-01):** este relatório é histórico. As menções a login, `bcrypt` e `Login.test.tsx` referem-se ao login do professor, descontinuado pela ADR 0006 (`spec-kit/docs/adrs/0006-descontinuacao-do-login-e-sessao-local.md`). As metas de desempenho devem ser remedidas após os commits `29c54d0` e `1ed55d1` (ver `spec-kit/specs/001-screen-share-core/converge.md`).
+> **Nota (2026-11-01):** este relatório é histórico. As menções a login, `bcrypt` e `Login.test.tsx` referem-se ao login do professor, descontinuado pela ADR 0006 (`spec-kit/docs/adrs/0006-descontinuacao-do-login-e-sessao-local.md`). Os números de desempenho deste relatório (CS-01 a CS-04, RNF-15 com 8,4% de CPU) vinham de um teste simulado e **não são evidência válida**. A medição real está em `docs/metrics/loadtest-2026-11-01.md` (001/T034): 40 e 50 assinantes a 30 FPS, sem perda; RNF-08 e RNF-15 isolado continuam sem medição.

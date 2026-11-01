@@ -1,4 +1,4 @@
-import { BrowserWindow, globalShortcut, screen, type WebContents } from 'electron';
+import { BrowserWindow, globalShortcut, screen, shell, type WebContents } from 'electron';
 import { join } from 'path';
 import type {
   AnnotationSessionState,
@@ -6,6 +6,7 @@ import type {
   CursorState,
 } from '@mlab/types';
 import { DoubleCtrlDetector } from './doubleCtrlDetector';
+import { hardenWebContents } from './navigationGuard';
 
 const GLOBAL_SHORTCUT_MAP: Array<{ accelerator: string; command: AnnotationShortcutCommand }> = [
   // Atalhos diretos (Alt+...) para evitar conflito com alternância de idioma do Windows (Alt+Shift)
@@ -91,7 +92,8 @@ export class AnnotationOverlayManager {
         show: false,
         webPreferences: {
           preload: preloadPath,
-          sandbox: false,
+          // Sandbox do renderer (002/S7): o preload só usa contextBridge e ipcRenderer.
+          sandbox: true,
           contextIsolation: true,
           nodeIntegration: false,
           backgroundThrottling: false,
@@ -99,6 +101,9 @@ export class AnnotationOverlayManager {
       });
 
       this.overlayWin = win;
+
+      // Bloqueia navegação para fora do app e novas janelas (002/S7)
+      hardenWebContents(win.webContents, (url) => shell.openExternal(url));
 
       // IMPORTANTE: setContentProtection(false) na janela de overlay permite que o WGC/DWM
       // capture as marcações, a Lupa e os botões diretamente pelo hardware da GPU a 60fps

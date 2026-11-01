@@ -22,8 +22,8 @@ Feature: `003-classroom-interaction` (canais da 001 incluídos para manter um ú
 | `startAnnotationOverlay()` / `stopAnnotationOverlay()` | `annotation-overlay:start` / `annotation-overlay:stop` | 003/US-19 | Janela de overlay de anotação |
 | `syncAnnotationState(state)` | `annotation-overlay:sync-state` | 003/US-19 | Sincroniza ferramentas e traços |
 | `setAnnotationOverlayIgnoreMouse(ignore)` | `annotation-overlay:set-ignore-mouse` | 003/US-19 | Overlay transparente a cliques |
-| `copyToClipboard(text)` | *(hoje executado no preload)* → `write-clipboard-text` | 001 / 002/S7 | Copia texto (link da sala). A partir de 002/S7 a escrita passa para o main via canal `write-clipboard-text`; a API exposta não muda |
-| `getHostKey()` | `get-host-key` | 002/S2 | Retorna `MLAB_HOST_KEY` da execução para o header da sessão do professor (ADR 0006). Vigente a partir de 002/S2 |
+| `copyToClipboard(text)` | `write-clipboard-text` | 001 / 002/S7 | Copia texto (link da sala). Escrita feita no main desde 002/S7 (T207); a API exposta não mudou |
+| `getHostKey()` | `get-host-key` | 002/S2 | Retorna `MLAB_HOST_KEY` da execução para o header da sessão do professor (ADR 0006). Em vigor desde 002/S2 (T202) |
 
 ## Main → Renderer (`webContents.send` / `ipcRenderer.on`)
 

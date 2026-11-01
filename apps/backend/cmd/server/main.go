@@ -1,6 +1,8 @@
 package main
 
 import (
+	"crypto/rand"
+	"encoding/hex"
 	"fmt"
 	"log"
 	"net/http"
@@ -19,14 +21,17 @@ func main() {
 		port = "8080"
 	}
 
-	// Chave secreta padrão para desenvolvimento local quando executado via Turborepo ou npm run dev
-	if os.Getenv("JWT_SECRET") == "" {
-		os.Setenv("JWT_SECRET", "dev-secret-key-12345")
-		log.Println("AVISO: JWT_SECRET não configurado no ambiente. Usando chave padrão para desenvolvimento local.")
+	// Segredo JWT: usa JWT_SECRET do ambiente ou gera um aleatório para esta execução (ADR 0006).
+	if generated, err := ensureJWTSecret(); err != nil {
+		log.Fatalf("erro ao gerar JWT_SECRET: %v", err)
+	} else if generated {
+		log.Println("JWT_SECRET não configurado: segredo aleatório gerado para esta execução (tokens emitidos valem até o backend reiniciar).")
+	}
+	if os.Getenv(auth.HostKeyEnv) == "" {
+		log.Printf("AVISO: %s não configurado: sessões de professor serão recusadas. Inicie pelo app MLab ou por `npm run dev`.", auth.HostKeyEnv)
 	}
 
-	// ── Stores (desenvolvimento: em memória) ──────────────────────────────────
-	authStore := auth.NewInMemoryStore()
+	// ── Store de salas (em memória — ADR 0005) ───────────────────────────────
 	roomStore := room.NewInMemoryStore()
 
 	// ── SFU Pion WebRTC (T011) ────────────────────────────────────────────────
@@ -41,7 +46,7 @@ func main() {
 	}
 
 	// ── Handlers ──────────────────────────────────────────────────────────────
-	authHandler := auth.NewHandler(authStore)
+	authHandler := auth.NewHandler()
 	roomHandler := room.NewHandler(roomStore)
 	sigHandler := signaling.NewHandler(roomStore, sfuService)
 
@@ -64,6 +69,9 @@ func main() {
 		}
 	})
 
+	// Libera os arquivos da sala quando o hub a encerra pelo WebSocket (end-session ou timeout)
+	sigHandler.SetRoomClosedListener(roomHandler.ReleaseRoomFiles)
+
 	// Conecta a notificação de vídeo pronto do SFU ao hub de sinalização (inicia transmissão aos alunos sem F5)
 	sfuService.SetOnTrackReady(func(roomID string) {
 		sigHandler.OnTrackReady(roomID)
@@ -79,7 +87,7 @@ func main() {
 		fmt.Fprintln(w, `{"status":"ok"}`)
 	})
 
-	// Público: POST /auth/login.
+	// Sessão do professor: POST /auth/session (exige chave de host — ADR 0006).
 	authHandler.RegisterRoutes(mux)
 
 	// Público: POST /rooms/{id}/join (aluno sem JWT prévio).
@@ -105,6 +113,26 @@ func main() {
 	if err := http.ListenAndServe(addr, corsMiddleware(mux)); err != nil {
 		log.Fatalf("erro no servidor: %v", err)
 	}
+}
+
+// jwtSecretBytes é o tamanho do segredo JWT gerado quando JWT_SECRET não é fornecido.
+const jwtSecretBytes = 32
+
+// ensureJWTSecret garante que JWT_SECRET esteja definido. Quando ausente, gera um segredo aleatório
+// de 32 bytes (hex) e o define no ambiente do processo, onde internal/auth o lê.
+// Retorna true quando o segredo foi gerado. O valor nunca é registrado em log.
+func ensureJWTSecret() (bool, error) {
+	if os.Getenv("JWT_SECRET") != "" {
+		return false, nil
+	}
+	buf := make([]byte, jwtSecretBytes)
+	if _, err := rand.Read(buf); err != nil {
+		return false, err
+	}
+	if err := os.Setenv("JWT_SECRET", hex.EncodeToString(buf)); err != nil {
+		return false, err
+	}
+	return true, nil
 }
 
 // resolveWebDir descobre o diretório onde os arquivos compilados do web app dos alunos estão localizados.
@@ -178,12 +206,18 @@ func spaHandler(webDir string) http.Handler {
 	})
 }
 
-// corsMiddleware permite requisições cross-origin durante o desenvolvimento local.
+// corsMiddleware aplica a allowlist de origem (002-security-hardening/S6): reflete a origem
+// permitida em Access-Control-Allow-Origin e não envia cabeçalhos CORS para origens recusadas,
+// o que faz o navegador bloquear a resposta.
 func corsMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Access-Control-Allow-Origin", "*")
-		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
-		w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
+		w.Header().Add("Vary", "Origin")
+		origin := r.Header.Get("Origin")
+		if origin != "" && room.IsAllowedOrigin(origin, r) {
+			w.Header().Set("Access-Control-Allow-Origin", origin)
+			w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
+			w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization, "+auth.HostKeyHeader)
+		}
 
 		if r.Method == http.MethodOptions {
 			w.WriteHeader(http.StatusNoContent)

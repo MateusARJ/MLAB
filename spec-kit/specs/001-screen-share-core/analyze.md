@@ -46,7 +46,7 @@ Legenda: ✅ coberto por spec + task + evidência · ⚠️ parcial · ❌ diver
 | RF-23 | T010 | ✅ (TURN opcional após ADR 0005) |
 | RF-24 | T016, T029 (superseded) | ✅ reescrito para o fluxo atual |
 | RF-28 | T025, T027 | ✅ |
-| RNF-01, RNF-02, RNF-03, RNF-08, RNF-09, RNF-15 | T020, T021 | ⚠️ requisitos coerentes; medição a refazer em F6/R3 (Princípio IV) |
+| RNF-01, RNF-02, RNF-03, RNF-08, RNF-09, RNF-15 | T020 (superseded), T021, T034 | ⚠️ RNF-03 e fan-out de RNF-02/RNF-09 medidos pela T034; RNF-08, RNF-15 isolado e captura real seguem manuais (C-07) |
 | RNF-04 | T021 | ⚠️ |
 | RNF-05 | T008 | ⚠️ segredo JWT fixo → 002/S1 |
 | RNF-06 | T017–T019 | ✅ |
@@ -82,10 +82,10 @@ Legenda: ✅ coberto por spec + task + evidência · ⚠️ parcial · ❌ diver
 - Listagem e download de arquivos sem autenticação; arquivos nunca liberados da memória → 002/S4.
 - WebSocket aceita qualquer origem; CORS `*` → 002/S6.
 - `request-keyframe` é aceito de qualquer participante, sem checagem de papel (achado de 2026-11-01, fora das tasks S1–S8 aprovadas; aguarda decisão do dono do produto).
-- Metas de desempenho sem medição atual (Princípio IV) → F6/R3.
+- Metas de desempenho sem medição atual (Princípio IV) → T034 (emenda de 2026-11-01, C-07). Revalidação após a emenda: clarify, plan e tasks consistentes; T034 dentro dos Allowed Paths do plan (`apps/backend/**`, `docs/**`).
 
 ## 6. Resultado
 
 - [ ] FAIL
 - [x] PASS — artefatos consistentes após as emendas. Implementação de segurança segue em `002-security-hardening`;
-  medições de desempenho em F6/R3.
+  medição de desempenho: próxima execução T034.

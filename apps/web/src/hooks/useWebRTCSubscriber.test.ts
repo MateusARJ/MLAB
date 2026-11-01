@@ -76,6 +76,16 @@ describe('useWebRTCSubscriber Hook', () => {
     ice_servers: [{ urls: 'stun:stun.l.google.com:19302' }],
   };
 
+  it('deve enviar o token do aluno ao listar os arquivos da sala', async () => {
+    renderHook(() => useWebRTCSubscriber(dummyToken, dummyRoomInfo));
+    await act(async () => {
+      await Promise.resolve();
+    });
+    const filesCall = (globalThis.fetch as any).mock.calls.find((c: any[]) => String(c[0]).includes('/files'));
+    expect(filesCall).toBeTruthy();
+    expect(filesCall[1].headers.Authorization).toBe(`Bearer ${dummyToken}`);
+  });
+
   it('deve enviar subscribe-request ao abrir conexão WebSocket', async () => {
     renderHook(() => useWebRTCSubscriber(dummyToken, dummyRoomInfo));
 

@@ -2,6 +2,7 @@ package signaling
 
 import (
 	"encoding/json"
+	"fmt"
 	"strings"
 	"testing"
 	"time"
@@ -551,3 +552,119 @@ func TestHub_PinMessage_RoleEnforcementLimitAndBroadcast(t *testing.T) {
 
 
 
+
+func TestHub_OnClosedCallback_CalledWhenRoomCloses(t *testing.T) {
+	closed := make(chan string, 1)
+	hub := newHub("room-onclosed", nil, func(roomID string) { closed <- roomID })
+
+	hub.BroadcastRoomClosed()
+
+	select {
+	case got := <-closed:
+		if got != "room-onclosed" {
+			t.Fatalf("expected roomID room-onclosed, got %q", got)
+		}
+	case <-time.After(2 * time.Second):
+		t.Fatal("onClosed callback was not called after room close")
+	}
+}
+
+func TestHub_WithoutOnClosedCallback_ClosesNormally(t *testing.T) {
+	hub := newHub("room-sem-callback", nil)
+	hub.BroadcastRoomClosed()
+	time.Sleep(50 * time.Millisecond)
+}
+
+// drainChatContents devolve o conteúdo das mensagens chat-message recebidas por um cliente de teste.
+func drainChatContents(c *Client) []string {
+	var contents []string
+	for len(c.send) > 0 {
+		var msg WsMessage
+		_ = json.Unmarshal(<-c.send, &msg)
+		if msg.Type == TypeChatMessage {
+			var p ChatRecvPayload
+			_ = json.Unmarshal(msg.Payload, &p)
+			contents = append(contents, p.Content)
+		}
+	}
+	return contents
+}
+
+func containsString(list []string, s string) bool {
+	for _, v := range list {
+		if v == s {
+			return true
+		}
+	}
+	return false
+}
+
+// 003/T313 — roteamento do chat privado (RN-303).
+func TestHub_PrivateChat_Routing(t *testing.T) {
+	hub := newHub("room-test-private", nil)
+	newClient := func(id string, role Role) *Client {
+		return &Client{hub: hub, send: make(chan []byte, 64), participantID: id, roomID: "room-test-private", role: role, name: id}
+	}
+	prof := newClient("prof-01", RoleProfessor)
+	alunoA := newClient("aluno-a", RoleAluno)
+	alunoB := newClient("aluno-b", RoleAluno)
+	for _, c := range []*Client{prof, alunoA, alunoB} {
+		hub.onRegister(c)
+	}
+	for _, c := range []*Client{prof, alunoA, alunoB} {
+		drainChatContents(c)
+	}
+
+	// Aluno A → professor
+	hub.onChatMessage(alunoA, WsMessage{Type: TypeChatMessage, Payload: []byte(`{"content":"duvida do aluno A","is_private":true}`)})
+	profGot, aGot, bGot := drainChatContents(prof), drainChatContents(alunoA), drainChatContents(alunoB)
+	if !containsString(profGot, "duvida do aluno A") {
+		t.Errorf("professor deveria receber a mensagem privada do aluno A, recebeu %v", profGot)
+	}
+	if !containsString(aGot, "duvida do aluno A") {
+		t.Errorf("remetente deveria receber o eco da própria mensagem, recebeu %v", aGot)
+	}
+	if containsString(bGot, "duvida do aluno A") {
+		t.Fatalf("RN-303 violada: aluno B recebeu mensagem privada do aluno A")
+	}
+
+	// Professor → aluno A
+	hub.onChatMessage(prof, WsMessage{Type: TypeChatMessage, Payload: []byte(`{"content":"resposta para A","is_private":true,"target_id":"aluno-a"}`)})
+	profGot, aGot, bGot = drainChatContents(prof), drainChatContents(alunoA), drainChatContents(alunoB)
+	if !containsString(aGot, "resposta para A") {
+		t.Errorf("aluno A deveria receber a resposta privada, recebeu %v", aGot)
+	}
+	if !containsString(profGot, "resposta para A") {
+		t.Errorf("professor deveria receber o eco da própria mensagem, recebeu %v", profGot)
+	}
+	if containsString(bGot, "resposta para A") {
+		t.Fatalf("RN-303 violada: aluno B recebeu mensagem privada destinada ao aluno A")
+	}
+
+	// Mensagens privadas não entram no histórico público
+	for _, m := range hub.chatHistory {
+		if m.IsPrivate {
+			t.Fatalf("mensagem privada encontrada no histórico: %+v", m)
+		}
+	}
+}
+
+// 003/T314 — o histórico guarda só as 200 mensagens públicas mais recentes (RN-304).
+func TestHub_ChatHistory_KeepsLatest200(t *testing.T) {
+	hub := newHub("room-test-history-cap", nil)
+	for i := 1; i <= 201; i++ {
+		// Remetentes distintos para não acionar o rate limit por participante.
+		sender := &Client{hub: hub, send: make(chan []byte, 4), participantID: fmt.Sprintf("prof-%03d", i), roomID: "room-test-history-cap", role: RoleProfessor, name: "Professor"}
+		hub.onChatMessage(sender, WsMessage{Type: TypeChatMessage, Payload: []byte(fmt.Sprintf(`{"content":"mensagem %03d"}`, i))})
+	}
+
+	if len(hub.chatHistory) != 200 {
+		t.Fatalf("expected 200 messages in history, got %d", len(hub.chatHistory))
+	}
+	if first := hub.chatHistory[0].Content; first != "mensagem 002" {
+		t.Errorf("expected oldest kept message to be 'mensagem 002', got %q", first)
+	}
+	if last := hub.chatHistory[199].Content; last != "mensagem 201" {
+		t.Errorf("expected newest message to be 'mensagem 201', got %q", last)
+	}
+}

@@ -204,6 +204,10 @@ Métricas mínimas por sessão:
 
 Não declarar meta atingida sem medição real.
 
+Teste de carga automatizado (T034, C-07): `apps/backend/internal/webrtc/loadtest_test.go` com build tag
+`loadtest` (`npm run test:load -w @mlab/backend`). Resultados registrados em `docs/metrics/`. RTT, latência ponta
+a ponta e CPU isolada do backend seguem como medição manual.
+
 ## 9. Dependencies
 
 ### apps/desktop
@@ -359,3 +363,4 @@ Aplicado server-side no módulo `internal/chat` (valores configuráveis via ENV)
 | 2026-09-11 | TURN obrigatório (coturn) | C-04 |
 | 2026-11-01 | LAN offline, TURN opcional, estado em memória | ADR 0005 |
 | 2026-11-01 | Login descontinuado; sessão do professor com chave de host | ADR 0006 |
+| 2026-11-01 | Teste de carga real substitui o simulado (build tag `loadtest`) | C-07, T034 |

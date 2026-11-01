@@ -119,7 +119,7 @@ Nenhuma tarefa deste plano altera comportamento.
 - [x] Princípio V — contratos `signaling-classroom`, `files`, `desktop-ipc` em READY.
 - [x] Princípio VI — Scope Lock completo; todas as tasks com paths.
 - [x] Princípio VII — nenhuma abstração nova.
-- [ ] Princípio VIII — convergência: tasks de teste T313–T314 pendentes.
+- [x] Princípio VIII — convergência: tasks de lacuna T313–T314 concluídas; nenhum gap de teste restante nesta feature.
 
 ## 8. Decision Log
 

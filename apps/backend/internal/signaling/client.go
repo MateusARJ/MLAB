@@ -32,6 +32,7 @@ type Client struct {
 	studentID     string // matrícula do aluno (vazio para professor)
 	handRaised    bool   // indica se o aluno está com a mão levantada
 	handRaisedAt  time.Time
+	keyframeLimit keyframeLimiter // limite de request-keyframe do aluno (002/S9); só o hub acessa
 	closeOnce     sync.Once
 }
 

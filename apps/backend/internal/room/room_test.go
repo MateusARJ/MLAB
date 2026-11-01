@@ -409,3 +409,35 @@ func TestCreateRoomNgrok(t *testing.T) {
 		t.Errorf("esperava Link com ngrok e link %q, obteve %q", expectedLink, resp.Link)
 	}
 }
+
+func TestGetActiveRoom_Deterministic(t *testing.T) {
+	ctx := context.Background()
+	base := time.Date(2026, 11, 1, 10, 0, 0, 0, time.UTC)
+
+	// Repete várias vezes para expor a ordem aleatória de iteração do map.
+	for i := 0; i < 50; i++ {
+		store := NewInMemoryStore()
+		_ = store.CreateRoom(ctx, &Room{ID: "antiga-waiting", Slug: "a/p", Status: StatusWaiting, CreatedAt: base})
+		_ = store.CreateRoom(ctx, &Room{ID: "nova-waiting", Slug: "b/p", Status: StatusWaiting, CreatedAt: base.Add(time.Minute)})
+		_ = store.CreateRoom(ctx, &Room{ID: "fechada", Slug: "c/p", Status: StatusClosed, CreatedAt: base.Add(2 * time.Minute)})
+
+		got, err := store.GetActiveRoom(ctx)
+		if err != nil || got.ID != "nova-waiting" {
+			t.Fatalf("iteração %d: esperado nova-waiting, obtido %+v (err=%v)", i, got, err)
+		}
+
+		_ = store.CreateRoom(ctx, &Room{ID: "transmitindo", Slug: "d/p", Status: StatusPublishing, CreatedAt: base.Add(-time.Hour)})
+		got, err = store.GetActiveRoom(ctx)
+		if err != nil || got.ID != "transmitindo" {
+			t.Fatalf("iteração %d: esperado transmitindo (publishing tem prioridade), obtido %+v (err=%v)", i, got, err)
+		}
+	}
+}
+
+func TestGetActiveRoom_NoneActive(t *testing.T) {
+	store := NewInMemoryStore()
+	_ = store.CreateRoom(context.Background(), &Room{ID: "fechada", Slug: "c/p", Status: StatusClosed, CreatedAt: time.Now()})
+	if _, err := store.GetActiveRoom(context.Background()); err != ErrRoomNotFound {
+		t.Fatalf("expected ErrRoomNotFound, got %v", err)
+	}
+}

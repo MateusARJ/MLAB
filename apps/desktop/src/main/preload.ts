@@ -1,4 +1,4 @@
-import { contextBridge, ipcRenderer, clipboard } from 'electron'
+import { contextBridge, ipcRenderer } from 'electron'
 import type {
   AnnotationSessionState,
   AnnotationShortcutCommand,
@@ -44,6 +44,12 @@ export interface ElectronAPI {
    * Copia texto para a área de transferência do SO de forma nativa.
    */
   copyToClipboard: (text: string) => Promise<boolean>
+
+  /**
+   * Retorna a chave de host desta execução, usada somente no header X-MLab-Host-Key
+   * de POST /auth/session ao backend local (ADR 0006).
+   */
+  getHostKey: () => Promise<string>
 
   /**
    * Registra ou desregistra a sala ativa atual no processo principal para encerramento automático ao fechar a janela.
@@ -126,14 +132,9 @@ const api: ElectronAPI = {
   getScreenSources: (type) => ipcRenderer.invoke('get-screen-sources', type),
   saveRecordedVideo: (buffer, defaultName, format) =>
     ipcRenderer.invoke('save-recorded-video', { buffer, defaultName, format }),
-  copyToClipboard: (text: string) => {
-    try {
-      clipboard.writeText(text)
-      return Promise.resolve(true)
-    } catch {
-      return Promise.resolve(false)
-    }
-  },
+  getHostKey: () => ipcRenderer.invoke('get-host-key'),
+  // A escrita é feita no processo principal: `clipboard` não existe em preload com sandbox (002/S7).
+  copyToClipboard: (text: string) => ipcRenderer.invoke('write-clipboard-text', text),
   setActiveRoom: (room) => ipcRenderer.invoke('set-active-room', room),
   setContentProtection: (enabled: boolean) => ipcRenderer.invoke('set-content-protection', enabled),
   captureWindowToClipboard: () => ipcRenderer.invoke('capture-window-to-clipboard'),
