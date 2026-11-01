@@ -209,9 +209,11 @@ ADR é obrigatória para:
 - troca de framework do app desktop ou web;
 - qualquer decisão que invalide uma regra da constitution.
 
-ADRs aprovadas existentes:
-- `docs/adrs/0001-monorepo-turborepo.md` — Turborepo como estrutura do repositório.
-- `docs/adrs/0002-desktop-app-framework.md` — Electron como framework do app do professor.
+ADRs aprovadas existentes (fonte: `spec-kit/docs/adrs/`; manter esta lista sincronizada):
+- `spec-kit/docs/adrs/0001-monorepo-turborepo.md` — Turborepo como estrutura do repositório.
+- `spec-kit/docs/adrs/0002-desktop-app-framework.md` — Electron como framework do app do professor.
+- `spec-kit/docs/adrs/0003-estrategia-de-testes-automatizados.md` — estratégia de testes automatizados.
+- `spec-kit/docs/adrs/0004-arquitetura-de-seguranca-e-testes-de-seguranca.md` — arquitetura e testes de segurança.
 
 Fluxo:
 

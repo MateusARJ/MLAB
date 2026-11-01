@@ -102,3 +102,5 @@ python .specify/scripts/validate_spec.py specs/001-screen-share-core
 |---|---|
 | ADR 0001 | Monorepo modular com Turborepo |
 | ADR 0002 | Electron + React como framework do app desktop do professor |
+| ADR 0003 | Estratégia de testes automatizados |
+| ADR 0004 | Arquitetura de segurança e testes de segurança |
