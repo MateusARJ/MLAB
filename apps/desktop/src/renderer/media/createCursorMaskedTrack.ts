@@ -1,10 +1,45 @@
-import type { CursorState } from '@mlab/types';
+import type { AnnotationOverlayState, CursorState } from '@mlab/types';
 
 export interface MaskedVideoTrackResult {
   track: MediaStreamTrack;
   active: boolean;
   setEnabled(enabled: boolean): void;
   dispose(): void;
+}
+
+const DEFAULT_ANNOTATION_STATE: AnnotationOverlayState = {
+  strokes: [],
+  activeStroke: null,
+  spotlight: {
+    enabled: false,
+    x: 0.5,
+    y: 0.5,
+    radius: 0.14,
+    zoom: 1,
+    activeInViewer: false,
+  },
+  captureMode: 'screen',
+  externalOverlayActive: true,
+};
+
+let currentAnnotationState: AnnotationOverlayState = DEFAULT_ANNOTATION_STATE;
+const activeWorkers = new Set<Worker>();
+
+/**
+ * Atualiza em tempo real o estado das marcações (Pincel, Marcador PDF, Seta, Retângulo)
+ * e da Lupa/Foco luminoso em todas as tracks de vídeo ativas.
+ */
+export function setAnnotationOverlayState(state: AnnotationOverlayState): void {
+  currentAnnotationState = state;
+  activeWorkers.forEach((worker) => {
+    try {
+      worker.postMessage({ type: 'annotations', state });
+    } catch {}
+  });
+}
+
+export function getAnnotationOverlayState(): AnnotationOverlayState {
+  return currentAnnotationState;
 }
 
 /**
@@ -90,6 +125,8 @@ export function createCursorMaskedTrack(rawVideoTrack: MediaStreamTrack): Masked
       type: 'module',
     });
 
+    activeWorkers.add(worker);
+
     worker.postMessage(
       {
         type: 'init',
@@ -98,6 +135,10 @@ export function createCursorMaskedTrack(rawVideoTrack: MediaStreamTrack): Masked
       },
       [processor.readable, generator.writable]
     );
+
+    try {
+      worker.postMessage({ type: 'annotations', state: currentAnnotationState });
+    } catch {}
 
     let unsubscribeCursor: (() => void) | null = null;
     if (window.electronAPI && typeof window.electronAPI.onCursorState === 'function') {
@@ -112,6 +153,7 @@ export function createCursorMaskedTrack(rawVideoTrack: MediaStreamTrack): Masked
     const dispose = () => {
       if (disposed) return;
       disposed = true;
+      activeWorkers.delete(worker);
       if (unsubscribeCursor) {
         try {
           unsubscribeCursor();

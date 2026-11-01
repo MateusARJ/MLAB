@@ -1,0 +1,44 @@
+# Contract: IPC do App Desktop
+
+Status: READY
+Feature: `003-classroom-interaction` (canais da 001 incluídos para manter um único inventário)
+
+## Producer / Consumer
+
+- Producer: processo principal do Electron (`apps/desktop/src/main/*.ts`).
+- Ponte: `apps/desktop/src/main/preload.ts` via `contextBridge.exposeInMainWorld('electronAPI', ...)`.
+- Consumer: renderer (`apps/desktop/src/renderer/**`). O renderer nunca acessa APIs do Electron/Node diretamente (AGENTS.md §6 e §8).
+
+## Renderer → Main (`ipcRenderer.invoke`)
+
+| API em `window.electronAPI` | Canal | Origem | Descrição |
+|---|---|---|---|
+| `getScreenSources(type?)` | `get-screen-sources` | 001/T022 | Fontes `screen` ou `window` com thumbnail |
+| `saveRecordedVideo(buffer, defaultName, format)` | `save-recorded-video` | 001/T022 | Diálogo nativo e gravação em disco do arquivo da gravação local |
+| `setActiveRoom(room \| null)` | `set-active-room` | 001 | Informa a sala ativa ao main (encerramento ao fechar o app) |
+| `setContentProtection(enabled)` | `set-content-protection` | 003/US-21 | Liga/desliga a proteção de conteúdo da janela |
+| `captureWindowToClipboard()` | `capture-window-to-clipboard` | 003/US-21 | Copia captura da janela transmitida |
+| `startCursorTracking(target)` / `stopCursorTracking()` | `cursor-tracking:start` / `cursor-tracking:stop` | 003/US-20 | Rastreamento de cursor e janela |
+| `startAnnotationOverlay()` / `stopAnnotationOverlay()` | `annotation-overlay:start` / `annotation-overlay:stop` | 003/US-19 | Janela de overlay de anotação |
+| `syncAnnotationState(state)` | `annotation-overlay:sync-state` | 003/US-19 | Sincroniza ferramentas e traços |
+| `setAnnotationOverlayIgnoreMouse(ignore)` | `annotation-overlay:set-ignore-mouse` | 003/US-19 | Overlay transparente a cliques |
+| `copyToClipboard(text)` | *(hoje executado no preload)* → `write-clipboard-text` | 001 / 002/S7 | Copia texto (link da sala). A partir de 002/S7 a escrita passa para o main via canal `write-clipboard-text`; a API exposta não muda |
+| `getHostKey()` | `get-host-key` | 002/S2 | Retorna `MLAB_HOST_KEY` da execução para o header da sessão do professor (ADR 0006). Vigente a partir de 002/S2 |
+
+## Main → Renderer (`webContents.send` / `ipcRenderer.on`)
+
+| API (assinatura) | Canal | Descrição |
+|---|---|---|
+| `onActiveWindowChanged(cb)` | `active-window-changed` | `{ sourceId }` da janela ativa |
+| `onActiveWindowUnauthorized(cb)` | `active-window-unauthorized` | `{ isUnauthorized }` — janela transmitida encoberta/não autorizada |
+| `onCursorState(cb)` | `cursor-state` | `CursorState` (`packages/types`) |
+| `onAnnotationStateSync(cb)` | `annotation-overlay:state` | `AnnotationSessionState` |
+| `onAnnotationShortcutCommand(cb)` | `annotation-overlay:shortcut` | `AnnotationShortcutCommand` (atalhos globais e duplo Ctrl) |
+
+Todas as funções `on*` retornam uma função de cancelamento da inscrição.
+
+## Regras
+
+- Tipos de payload vêm de `packages/types` (`CaptureSource`, `CursorState`, `AnnotationSessionState`, `AnnotationShortcutCommand`).
+- Novo canal exige atualização deste contrato e da interface `ElectronAPI` em `preload.ts`.
+- `getHostKey` nunca é exposto fora do renderer do app (não vai para logs, UI ou rede, exceto o header `X-MLab-Host-Key` para o backend local).

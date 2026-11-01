@@ -8,9 +8,40 @@ vi.mock('../services/room', () => ({
 }));
 
 describe('Dashboard Component', () => {
-  it('deve renderizar o formulario de criacao de sala', () => {
+  it('deve renderizar o formulario de criacao de sala com campo focado automaticamente', () => {
     render(<Dashboard onEnterRoom={vi.fn()} onLogout={vi.fn()} />);
-    expect(screen.getByLabelText(/Titulo \/ Disciplina/i)).toBeInTheDocument();
+    const input = screen.getByLabelText(/Titulo \/ Disciplina/i);
+    expect(input).toBeInTheDocument();
+    expect(input).toHaveFocus();
+  });
+
+  it('deve permitir abrir a sala pressionando Enter quando a sala for criada', async () => {
+    const handleEnterRoom = vi.fn();
+    (roomService.createRoom as any).mockResolvedValueOnce({
+      room_id: 'room-enter',
+      slug: 'turma-enter/professor',
+      link: 'http://mlab-professor.local:5173',
+      mdns_link: 'http://mlab-professor.local:5173',
+      ip_link: 'http://192.168.1.50:5173',
+      status: 'waiting',
+    });
+
+    render(<Dashboard onEnterRoom={handleEnterRoom} onLogout={vi.fn()} />);
+
+    fireEvent.change(screen.getByLabelText(/Titulo \/ Disciplina/i), {
+      target: { value: 'Turma Enter' },
+    });
+    fireEvent.submit(screen.getByRole('button', { name: /Criar Sala e Gerar Link/i }).closest('form')!);
+
+    await waitFor(() => {
+      expect(screen.getByText(/Estado: Waiting/i)).toBeInTheDocument();
+    });
+
+    // Pressiona Enter globalmente
+    fireEvent.keyDown(window, { key: 'Enter' });
+    expect(handleEnterRoom).toHaveBeenCalledWith(expect.objectContaining({
+      id: 'room-enter',
+    }));
   });
 
   it('deve criar a sala e exibir o link unico com atalho para copiar', async () => {

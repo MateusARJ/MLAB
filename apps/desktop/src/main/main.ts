@@ -13,9 +13,16 @@ import { join } from 'path'
 import { existsSync, appendFileSync, mkdirSync, chmodSync, promises as fsPromises } from 'fs'
 import { spawn, ChildProcess } from 'child_process'
 import http from 'http'
+import type { AnnotationSessionState } from '@mlab/types'
 import { CursorPresenceTracker, type CursorTrackingTarget } from './cursorPresence'
+import { AnnotationOverlayManager } from './annotationOverlayWindow'
 
 const cursorPresenceTracker = new CursorPresenceTracker()
+const annotationOverlayManager = new AnnotationOverlayManager()
+
+cursorPresenceTracker.setStateListener((state) => {
+  annotationOverlayManager.forwardCursorState(state)
+})
 
 // Impede que o Chromium reduza a prioridade de captura/codificação quando o MLab está em segundo plano
 app.commandLine.appendSwitch('disable-renderer-backgrounding')
@@ -200,8 +207,14 @@ ipcMain.handle('get-screen-sources', async (event, type?: 'screen' | 'window') =
   try {
     const types: ('screen' | 'window')[] = type ? [type] : ['screen', 'window']
     const selfWin = BrowserWindow.fromWebContents(event.sender)
+    if (activeRoom && selfWin && !selfWin.isDestroyed()) {
+      try {
+        selfWin.setContentProtection(true)
+      } catch {}
+    }
     const selfMediaSourceId =
       selfWin && typeof selfWin.getMediaSourceId === 'function' ? selfWin.getMediaSourceId() : null
+    const overlayMediaSourceId = annotationOverlayManager.getMediaSourceId()
 
     const sources = await desktopCapturer.getSources({
       types,
@@ -211,8 +224,14 @@ ipcMain.handle('get-screen-sources', async (event, type?: 'screen' | 'window') =
 
     return sources
       .filter((source) => {
-        // Exclui a própria janela do MLab para evitar espelho infinito
+        // Exclui a própria janela do MLab e o overlay de anotação para evitar espelho infinito
         if (selfMediaSourceId && source.id === selfMediaSourceId) {
+          return false
+        }
+        if (overlayMediaSourceId && source.id === overlayMediaSourceId) {
+          return false
+        }
+        if (source.name === 'MLab Annotation Overlay') {
           return false
         }
         return true
@@ -283,52 +302,15 @@ ipcMain.handle(
   }
 )
 
-// ── IPC: Verificação e solicitação de permissões de SO (Microfone e Tela) ─────
-
-ipcMain.handle('check-media-permissions', async () => {
-  let micStatus = 'granted'
-  let screenStatus = 'granted'
-
-  try {
-    if (process.platform === 'darwin' || process.platform === 'win32') {
-      if (typeof systemPreferences.getMediaAccessStatus === 'function') {
-        micStatus = systemPreferences.getMediaAccessStatus('microphone')
-        screenStatus = systemPreferences.getMediaAccessStatus('screen')
-      }
-    }
-  } catch (err) {
-    console.warn('Falha ao consultar getMediaAccessStatus:', err)
-  }
-
-  return {
-    microphone: micStatus,
-    screen: screenStatus
-  }
-})
-
-ipcMain.handle('request-media-permissions', async () => {
-  let micGranted = true
-  try {
-    if (process.platform === 'darwin' && typeof systemPreferences.askForMediaAccess === 'function') {
-      micGranted = await systemPreferences.askForMediaAccess('microphone')
-    }
-  } catch (err) {
-    console.warn('Falha ao solicitar permissão de microfone:', err)
-    micGranted = false
-  }
-
-  return {
-    microphone: micGranted,
-    screen: true
-  }
-})
-
 // ── Gerenciamento da sala ativa para encerramento gracioso ao fechar o app ────
 
 let activeRoom: { id: string; token?: string } | null = null
 
 ipcMain.handle('set-active-room', (_event, room: { id: string; token?: string } | null) => {
   activeRoom = room
+  if (!room) {
+    annotationOverlayManager.stop()
+  }
   logApp(`[Main] activeRoom atualizada: ${room ? room.id : 'nenhuma'}`)
 })
 
@@ -371,6 +353,28 @@ ipcMain.handle('cursor-tracking:start', (event, target: CursorTrackingTarget) =>
 
 ipcMain.handle('cursor-tracking:stop', () => {
   cursorPresenceTracker.stop()
+})
+
+ipcMain.handle('annotation-overlay:start', (event) => {
+  const targetWin = BrowserWindow.fromWebContents(event.sender)
+  if (!targetWin || targetWin.isDestroyed()) {
+    return false
+  }
+  return annotationOverlayManager.start(targetWin, getPreloadPath())
+})
+
+ipcMain.handle('annotation-overlay:stop', () => {
+  annotationOverlayManager.stop()
+})
+
+ipcMain.handle('annotation-overlay:sync-state', (event, state: AnnotationSessionState) => {
+  if (state) {
+    annotationOverlayManager.syncState(event.sender, state)
+  }
+})
+
+ipcMain.handle('annotation-overlay:set-ignore-mouse', (_event, ignore: boolean) => {
+  annotationOverlayManager.setIgnoreMouseEvents(Boolean(ignore))
 })
 
 async function closeActiveRoomGracefully(): Promise<void> {
@@ -654,11 +658,13 @@ app.on('before-quit', async (event) => {
 })
 
 app.on('will-quit', () => {
+  annotationOverlayManager.dispose()
   cursorPresenceTracker.dispose()
   stopBackendServer()
 })
 
 app.on('window-all-closed', () => {
+  annotationOverlayManager.stop()
   cursorPresenceTracker.stop()
   stopBackendServer()
   if (process.platform !== 'darwin') {
@@ -667,6 +673,7 @@ app.on('window-all-closed', () => {
 })
 
 process.on('exit', () => {
+  annotationOverlayManager.dispose()
   cursorPresenceTracker.dispose()
   stopBackendServer()
 })

@@ -81,6 +81,7 @@ export interface ChatMessage {
   role: Role;
   content: string;
   sentAt: string;
+  pinned?: boolean;
 }
 
 // ── Auth ─────────────────────────────────────────────────────────────────────
@@ -154,6 +155,8 @@ export type WsMessageType =
   | 'participant-left'
   | 'room-closed'
   | 'chat-message'
+  | 'pin-message'
+  | 'chat-message-pinned'
   | 'ice-servers'
   | 'raise-hand'
   | 'lower-hand'
@@ -208,6 +211,27 @@ export interface ChatMessagePayload {
   target_id?: string;
   sentAt?: string;
   sent_at?: string;
+  pinned?: boolean;
+}
+
+export interface PinMessagePayload {
+  messageId?: string;
+  message_id?: string;
+  pinned: boolean;
+  isPrivate?: boolean;
+  is_private?: boolean;
+  targetId?: string;
+  target_id?: string;
+}
+
+export interface ChatMessagePinnedPayload {
+  messageId?: string;
+  message_id?: string;
+  pinned: boolean;
+  isPrivate?: boolean;
+  is_private?: boolean;
+  targetId?: string;
+  target_id?: string;
 }
 
 export interface IceServer {
@@ -254,6 +278,10 @@ export interface CursorState {
   visible: boolean;
   /** Retângulo do cursor normalizado [0..1] relativo à fonte capturada; null = fora da fonte */
   rect: { x: number; y: number; w: number; h: number } | null;
+  /** Limites em coordenadas DIP da tela da fonte capturada (monitor ou janela) */
+  targetBounds?: { x: number; y: number; w: number; h: number } | null;
+  /** true quando a janela principal do MLab está em foco ou sob o cursor */
+  mlabFocused?: boolean;
 }
 
 export type RecordingFormat = 'webm';
@@ -269,3 +297,67 @@ export interface SystemMediaPermissions {
   screen: MediaPermissionStatus;
 }
 
+// ── Annotation & Spotlight Tools (PDF-style Editor + Lupa) ───────────────────
+
+export type AnnotationTool = 'cursor' | 'pen' | 'highlighter' | 'arrow' | 'rect' | 'eraser';
+
+export interface AnnotationPoint {
+  x: number;
+  y: number;
+}
+
+export interface AnnotationStroke {
+  id: string;
+  tool: 'pen' | 'highlighter' | 'arrow' | 'rect';
+  color: string;
+  size: number;
+  points: AnnotationPoint[];
+}
+
+export interface SpotlightState {
+  enabled: boolean;
+  /** Coordenada X normalizada [0..1] do centro do foco */
+  x: number;
+  /** Coordenada Y normalizada [0..1] do centro do foco */
+  y: number;
+  /** Raio normalizado [0..1] em relação à menor dimensão do quadro */
+  radius: number;
+  /** Nível de ampliação dentro da lupa (1 = apenas foco luminoso, 1.5x ou 2x = lente de aumento) */
+  zoom: 1 | 1.5 | 2;
+  /** true quando o mouse está sendo movido diretamente sobre o visualizador do MLab */
+  activeInViewer?: boolean;
+}
+
+export interface AnnotationOverlayState {
+  strokes: AnnotationStroke[];
+  activeStroke: AnnotationStroke | null;
+  spotlight: SpotlightState;
+  captureMode?: CaptureSourceType;
+  externalOverlayActive?: boolean;
+}
+
+export type AnnotationShortcutCommand =
+  | 'toggle-collapse'
+  | 'tool-cursor'
+  | 'tool-pen'
+  | 'tool-highlighter'
+  | 'tool-arrow'
+  | 'tool-rect'
+  | 'tool-eraser'
+  | 'toggle-spotlight'
+  | 'cycle-zoom'
+  | 'undo'
+  | 'redo'
+  | 'clear';
+
+export interface AnnotationSessionState {
+  activeTool: AnnotationTool;
+  strokeColor: string;
+  strokeSize: number;
+  strokes: AnnotationStroke[];
+  redoStrokes: AnnotationStroke[];
+  activeStroke: AnnotationStroke | null;
+  spotlight: SpotlightState;
+  collapsed: boolean;
+  toolbarPos?: { x: number; y: number } | null;
+}

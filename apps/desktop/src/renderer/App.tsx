@@ -1,32 +1,29 @@
 import React, { useState } from 'react'
 import { ProfessorEntry } from './pages/ProfessorEntry'
-// import { Login } from './pages/Login' // Desabilitado temporariamente para versão futura
-import { Permissions } from './pages/Permissions'
 import { Dashboard } from './pages/Dashboard'
 import { Room } from './pages/Room'
+import { FloatingAnnotationOverlay } from './components/FloatingAnnotationOverlay'
 import { logout, getStoredToken } from './services/auth'
 
-type AppState = 'identify' | 'permissions' | 'dashboard' | 'room'
+type AppState = 'identify' | 'dashboard' | 'room'
 
 export default function App(): React.ReactElement {
+  const isOverlayWindow =
+    typeof window !== 'undefined' &&
+    window.location &&
+    typeof window.location.search === 'string' &&
+    window.location.search.includes('overlay=annotation')
+
   const [state, setState] = useState<AppState>('identify')
   const [room, setRoom] = useState<{ id: string; slug: string; link: string } | null>(null)
 
-  const handleIdentifySuccess = async () => {
-    // Se as permissões de microfone e tela já estiverem liberadas no SO, vai direto para criação da turma
-    if (window.electronAPI?.checkMediaPermissions) {
-      try {
-        const perms = await window.electronAPI.checkMediaPermissions()
-        if (perms.microphone === 'granted' && perms.screen === 'granted') {
-          setState('dashboard')
-          return
-        }
-      } catch {}
-    }
-    setState('permissions')
+  if (isOverlayWindow) {
+    return <FloatingAnnotationOverlay />
   }
 
-  const handlePermissionsGranted = () => setState('dashboard')
+  const handleIdentifySuccess = () => {
+    setState('dashboard')
+  }
   
   const handleLogout = () => {
     logout()
@@ -55,12 +52,6 @@ export default function App(): React.ReactElement {
   return (
     <>
       {state === 'identify' && <ProfessorEntry onSuccess={handleIdentifySuccess} />}
-      {state === 'permissions' && (
-        <Permissions
-          onPermissionsGranted={handlePermissionsGranted}
-          onLogout={handleLogout}
-        />
-      )}
       {state === 'dashboard' && <Dashboard onEnterRoom={handleEnterRoom} onLogout={handleLogout} />}
       {state === 'room' && room && <Room room={room} onCloseRoom={handleCloseRoom} />}
     </>

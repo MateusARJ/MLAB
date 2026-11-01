@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { createCursorMaskedTrack } from './createCursorMaskedTrack';
+import { createCursorMaskedTrack, setAnnotationOverlayState } from './createCursorMaskedTrack';
 
 function makeMockTrack(): MediaStreamTrack {
   return {
@@ -106,6 +106,36 @@ describe('createCursorMaskedTrack', () => {
       expect(postMessageSpy).toHaveBeenCalledWith({
         type: 'cursor',
         state: { visible: false, rect: { x: 0.1, y: 0.2, w: 0.05, h: 0.05 } },
+      });
+
+      // Envia atualização de marcações e lupa (setAnnotationOverlayState) e verifica repasse ao worker
+      const overlayPayload = {
+        strokes: [
+          {
+            id: 's1',
+            tool: 'highlighter' as const,
+            color: '#facc15',
+            size: 5,
+            points: [
+              { x: 0.1, y: 0.1 },
+              { x: 0.4, y: 0.1 },
+            ],
+          },
+        ],
+        activeStroke: null,
+        spotlight: {
+          enabled: true,
+          x: 0.5,
+          y: 0.5,
+          radius: 0.14,
+          zoom: 1.5 as const,
+          activeInViewer: true,
+        },
+      };
+      setAnnotationOverlayState(overlayPayload);
+      expect(postMessageSpy).toHaveBeenCalledWith({
+        type: 'annotations',
+        state: overlayPayload,
       });
 
       // Sincroniza pausa de vídeo (setEnabled)

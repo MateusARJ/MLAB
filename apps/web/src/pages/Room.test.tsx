@@ -8,6 +8,10 @@ const { mockSendChatMessage, mockToggleHand, mockSubscriberState } = vi.hoisted(
   mockSubscriberState: {
     connectionStatus: 'connected' as 'connecting' | 'connected' | 'reconnecting' | 'closed',
     isHandRaised: false,
+    messages: [
+      { id: 'pub-1', sender_name: 'Professor Girafales', sender_role: 'professor', content: 'Bem-vindos a aula!', is_private: false, pinned: false },
+      { id: 'priv-1', sender_name: 'Professor Girafales', sender_role: 'professor', content: 'Sua nota da prova é 10', is_private: true, pinned: false },
+    ] as any[],
   },
 }));
 
@@ -19,10 +23,7 @@ vi.mock('../hooks/useWebRTCSubscriber', () => ({
     connectionStatus: mockSubscriberState.connectionStatus,
     isStreamPaused: false,
     sharedFiles: [],
-    messages: [
-      { sender_name: 'Professor Girafales', sender_role: 'professor', content: 'Bem-vindos a aula!', is_private: false },
-      { sender_name: 'Professor Girafales', sender_role: 'professor', content: 'Sua nota da prova é 10', is_private: true },
-    ],
+    messages: mockSubscriberState.messages,
     sendChatMessage: mockSendChatMessage,
     isHandRaised: mockSubscriberState.isHandRaised,
     toggleHand: mockToggleHand,
@@ -34,6 +35,10 @@ describe('Room Component (Web Subscriber)', () => {
     window.innerWidth = 1024;
     mockSubscriberState.connectionStatus = 'connected';
     mockSubscriberState.isHandRaised = false;
+    mockSubscriberState.messages = [
+      { id: 'pub-1', sender_name: 'Professor Girafales', sender_role: 'professor', content: 'Bem-vindos a aula!', is_private: false, pinned: false },
+      { id: 'priv-1', sender_name: 'Professor Girafales', sender_role: 'professor', content: 'Sua nota da prova é 10', is_private: true, pinned: false },
+    ];
     fireEvent(window, new Event('resize'));
     try {
       Object.defineProperty(document, 'fullscreenElement', {
@@ -360,6 +365,43 @@ describe('Room Component (Web Subscriber)', () => {
 
     fireEvent.click(lowerBtns[0]);
     expect(mockToggleHand).toHaveBeenCalledWith(false);
+  });
+
+  it('deve exibir banner de mensagens fixadas somente-leitura, decodificar caracteres especiais e nunca exibir botão de fixar para o aluno', () => {
+    mockSubscriberState.messages = [
+      {
+        id: 'pub-pinned-1',
+        sender_name: 'Professor Girafales',
+        sender_role: 'professor',
+        content: 'Prova sobre &lt;html&gt;, &#34;strings&#34; e &#39;chars&#39; &amp; lógica',
+        is_private: false,
+        pinned: true,
+      },
+      {
+        id: 'pub-normal-2',
+        sender_name: 'Chaves',
+        sender_role: 'aluno',
+        content: 'Entendido professor!',
+        is_private: false,
+        pinned: false,
+      },
+    ];
+
+    render(<Room token={dummyToken} roomInfo={dummyRoomInfo} onLeave={vi.fn()} />);
+
+    // Deve exibir o banner de mensagens fixadas (1/3) e o selo FIXADA
+    expect(screen.getByTestId('pinned-public-section')).toBeInTheDocument();
+    expect(screen.getByText(/Mensagens Fixadas \(1\/3\)/i)).toBeInTheDocument();
+    expect(screen.getByText('FIXADA')).toBeInTheDocument();
+
+    // Deve decodificar entidades HTML enviadas pelo backend (', ", <>, &)
+    expect(
+      screen.getAllByText(`Prova sobre <html>, "strings" e 'chars' & lógica`).length
+    ).toBeGreaterThanOrEqual(1);
+
+    // O aluno NUNCA deve ver botões de Fixar ou Desafixar mensagem
+    expect(screen.queryByRole('button', { name: /Fixar mensagem/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /Desafixar mensagem/i })).not.toBeInTheDocument();
   });
 });
 

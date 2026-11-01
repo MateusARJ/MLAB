@@ -408,4 +408,146 @@ func TestHub_StreamStarted_Broadcast(t *testing.T) {
 	}
 }
 
+func TestHub_PinMessage_RoleEnforcementLimitAndBroadcast(t *testing.T) {
+	hub := newHub("room-test-pin", nil)
+
+	prof := &Client{
+		hub:           hub,
+		send:          make(chan []byte, 20),
+		participantID: "prof-pin-01",
+		roomID:        "room-test-pin",
+		role:          RoleProfessor,
+		name:          "Professor",
+	}
+	student1 := &Client{
+		hub:           hub,
+		send:          make(chan []byte, 20),
+		participantID: "student-pin-01",
+		roomID:        "room-test-pin",
+		role:          RoleAluno,
+		name:          "Aluno 1",
+	}
+	student2 := &Client{
+		hub:           hub,
+		send:          make(chan []byte, 20),
+		participantID: "student-pin-02",
+		roomID:        "room-test-pin",
+		role:          RoleAluno,
+		name:          "Aluno 2",
+	}
+
+	hub.clients[prof.participantID] = prof
+	hub.clients[student1.participantID] = student1
+	hub.clients[student2.participantID] = student2
+
+	// Popula 4 mensagens públicas no histórico
+	hub.chatHistory = []ChatRecvPayload{
+		{MessageID: "msg-1", Content: "Msg 1", IsPrivate: false},
+		{MessageID: "msg-2", Content: "Msg 2", IsPrivate: false},
+		{MessageID: "msg-3", Content: "Msg 3", IsPrivate: false},
+		{MessageID: "msg-4", Content: "Msg 4", IsPrivate: false},
+	}
+
+	// 1. Aluno tentando fixar mensagem -> FORBIDDEN
+	hub.onPinMessage(student1, WsMessage{
+		Type:    TypePinMessage,
+		Payload: []byte(`{"message_id":"msg-1","pinned":true}`),
+	})
+	select {
+	case msgBytes := <-student1.send:
+		var wsMsg WsMessage
+		_ = json.Unmarshal(msgBytes, &wsMsg)
+		if wsMsg.Type != TypeError {
+			t.Fatalf("expected error for student pin, got %s", wsMsg.Type)
+		}
+		var errPayload ErrorPayload
+		_ = json.Unmarshal(wsMsg.Payload, &errPayload)
+		if errPayload.Code != "FORBIDDEN" {
+			t.Errorf("expected FORBIDDEN, got %s", errPayload.Code)
+		}
+	default:
+		t.Fatal("expected FORBIDDEN error for student pin")
+	}
+
+	// 2. Professor fixa 3 mensagens públicas -> permitido e atualizado no chatHistory
+	for _, id := range []string{"msg-1", "msg-2", "msg-3"} {
+		hub.onPinMessage(prof, WsMessage{
+			Type:    TypePinMessage,
+			Payload: []byte(`{"message_id":"` + id + `","pinned":true,"is_private":false}`),
+		})
+	}
+	if !hub.chatHistory[0].Pinned || !hub.chatHistory[1].Pinned || !hub.chatHistory[2].Pinned {
+		t.Fatal("expected first 3 messages in chatHistory to be marked Pinned=true")
+	}
+
+	// Limpa canais de send antes de testar a 4ª fixação
+	for len(prof.send) > 0 {
+		<-prof.send
+	}
+	for len(student1.send) > 0 {
+		<-student1.send
+	}
+	for len(student2.send) > 0 {
+		<-student2.send
+	}
+
+	// 3. Professor tenta fixar a 4ª mensagem pública -> bloqueado por PIN_LIMIT_REACHED (máx 3)
+	hub.onPinMessage(prof, WsMessage{
+		Type:    TypePinMessage,
+		Payload: []byte(`{"message_id":"msg-4","pinned":true,"is_private":false}`),
+	})
+	if hub.chatHistory[3].Pinned {
+		t.Fatal("expected 4th message NOT to be pinned when limit of 3 is reached")
+	}
+	select {
+	case msgBytes := <-prof.send:
+		var wsMsg WsMessage
+		_ = json.Unmarshal(msgBytes, &wsMsg)
+		var errPayload ErrorPayload
+		_ = json.Unmarshal(wsMsg.Payload, &errPayload)
+		if errPayload.Code != "PIN_LIMIT_REACHED" {
+			t.Errorf("expected PIN_LIMIT_REACHED, got %s", errPayload.Code)
+		}
+	default:
+		t.Fatal("expected PIN_LIMIT_REACHED error when pinning 4th message")
+	}
+
+	// 4. Professor desafixa msg-1 e fixa msg-4 -> permitido
+	hub.onPinMessage(prof, WsMessage{
+		Type:    TypePinMessage,
+		Payload: []byte(`{"message_id":"msg-1","pinned":false,"is_private":false}`),
+	})
+	hub.onPinMessage(prof, WsMessage{
+		Type:    TypePinMessage,
+		Payload: []byte(`{"message_id":"msg-4","pinned":true,"is_private":false}`),
+	})
+	if hub.chatHistory[0].Pinned || !hub.chatHistory[3].Pinned {
+		t.Fatal("expected msg-1 unpinned and msg-4 pinned")
+	}
+
+	// Limpa canais antes do teste de chat privado
+	for len(prof.send) > 0 {
+		<-prof.send
+	}
+	for len(student1.send) > 0 {
+		<-student1.send
+	}
+	for len(student2.send) > 0 {
+		<-student2.send
+	}
+
+	// 5. Professor fixa mensagem privada para student-pin-01 -> student2 NÃO recebe
+	hub.onPinMessage(prof, WsMessage{
+		Type:    TypePinMessage,
+		Payload: []byte(`{"message_id":"priv-msg-1","pinned":true,"is_private":true,"target_id":"student-pin-01"}`),
+	})
+	if len(student1.send) != 1 {
+		t.Fatalf("expected student1 to receive private pin event, got %d messages", len(student1.send))
+	}
+	if len(student2.send) != 0 {
+		t.Fatalf("security violation: student2 received private pin event meant for student1")
+	}
+}
+
+
 

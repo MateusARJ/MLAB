@@ -138,7 +138,7 @@ Este projeto foi desenvolvido em regime de **Pair Programming com Inteligência 
 ### A Metodologia SDD na Prática
 O desenvolvimento baseado em especificações assegurou que nenhuma linha de código de produção fosse alterada sem antes passar por um ciclo formal e verificável:
 
-1. **Especificação de Requisitos e ADRs:** Criação de documentos formais em `spec-kit(MLAB)` contendo as regras de negócio, limites de hardware e decisões arquiteturais (ADRs).
+1. **Especificação de Requisitos e ADRs:** Criação de documentos formais em `spec-kit` contendo as regras de negócio, limites de hardware e decisões arquiteturais (ADRs).
 2. **Plano de Implementação Modular:** Antes de qualquer alteração, o agente Antigravity elaborava planos detalhados de implementação com passos cirúrgicos, análise de impacto e estratégia de não-regressão.
 3. **Desenvolvimento Guiado por Testes (TDD/SDD):** Cada nova funcionalidade (desde o controle de concorrência em Go até o filtro de matrícula e o levantamento de mão) foi acompanhada por testes unitários e de integração antes da integração final.
 4. **Preservação Contínua da Qualidade:** Todas as implementações foram validadas para garantir que as restrições críticas do projeto — como 1080p cravado a 30/60 fps, zero emojis e tempo de resposta de rede — permanecessem intactas.
@@ -297,7 +297,7 @@ mlab/
 ├── packages/
 │   ├── types/                 # DTOs compartilhados, tipos TypeScript e mensagens de sinalização
 │   └── ui/                    # Biblioteca de componentes visuais e ícones Carbon compartilhados
-├── spec-kit(MLAB)/            # Especificações de requisitos, diagramas e ADRs do projeto
+├── spec-kit/            # Especificações de requisitos, diagramas e ADRs do projeto
 ├── MLAB-logo.png              # Identidade visual oficial do MLab
 ├── package.json               # Gerenciador de dependências e scripts da raiz
 └── turbo.json                 # Configuração de pipelines do Turborepo
