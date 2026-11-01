@@ -409,7 +409,7 @@ func (h *Hub) onOffer(c *Client, msg WsMessage) {
 		return
 	}
 	if h.sfu == nil {
-		c.sendError("SFU_UNAVAILABLE", "SFU não inicializado (pendente T011)")
+		c.sendError("SFU_UNAVAILABLE", "SFU não inicializado")
 		return
 	}
 	answerSDP, err := h.sfu.HandlePublisherOffer(h.roomID, c.participantID, p.SDP)

@@ -10,8 +10,5 @@
     "test:smoke": "go test -tags smoke -run TestSmoke -v -count=1 -timeout 5m ./cmd/server/",
     "lint": "go vet ./...",
     "clean": "node -e \"require('fs').rmSync('bin', { recursive: true, force: true })\""
-  },
-  "dependencies": {
-    "golang": "^0.1.5-stable"
   }
 }

@@ -668,3 +668,47 @@ func TestHub_ChatHistory_KeepsLatest200(t *testing.T) {
 		t.Errorf("expected newest message to be 'mensagem 201', got %q", last)
 	}
 }
+
+// Casos XSS migrados de internal/chat/chat_security_test.go (005/T504): o hub é o único
+// caminho de sanitização do chat.
+func TestHub_ChatMessage_XSSPayloads(t *testing.T) {
+	cases := []struct {
+		input    string
+		expected string
+	}{
+		{"<script>alert('xss')</script>", "&lt;script&gt;alert(&#39;xss&#39;)&lt;/script&gt;"},
+		{"<img src=x onerror=alert(1)>", "&lt;img src=x onerror=alert(1)&gt;"},
+		{"<b>Texto em negrito</b>", "&lt;b&gt;Texto em negrito&lt;/b&gt;"},
+		{"<iframe src=\"javascript:alert(1)\"></iframe>", "&lt;iframe src=&#34;javascript:alert(1)&#34;&gt;&lt;/iframe&gt;"},
+	}
+
+	for _, tc := range cases {
+		hub := newHub("room-test-xss", nil)
+		client := &Client{
+			hub:           hub,
+			send:          make(chan []byte, 10),
+			participantID: "part-xss",
+			roomID:        "room-test-xss",
+			role:          RoleAluno,
+			name:          "Aluno Teste",
+		}
+		hub.clients[client.participantID] = client
+		hub.chatLimits[client.participantID] = &chatTracker{}
+
+		payload, _ := json.Marshal(ChatSendPayload{Content: tc.input})
+		hub.onChatMessage(client, WsMessage{Type: TypeChatMessage, Payload: payload})
+
+		select {
+		case msgBytes := <-client.send:
+			var wsMsg WsMessage
+			_ = json.Unmarshal(msgBytes, &wsMsg)
+			var recv ChatRecvPayload
+			_ = json.Unmarshal(wsMsg.Payload, &recv)
+			if recv.Content != tc.expected {
+				t.Errorf("input %q: esperado %q, obtido %q", tc.input, tc.expected, recv.Content)
+			}
+		case <-time.After(time.Second):
+			t.Fatalf("input %q: mensagem não foi difundida", tc.input)
+		}
+	}
+}

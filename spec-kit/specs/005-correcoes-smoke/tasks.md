@@ -35,13 +35,13 @@ Checks:
 - [ ] Teste unitário do hook; E2E A20 OK.
 
 ### T504 — Remoção de legado no backend (#6)
-[ ] T504
+[x] T504
 Allowed Paths: `apps/backend/internal/auth/model.go`, `apps/backend/internal/chat/**`, `apps/backend/internal/room/store.go`, `apps/backend/internal/room/mdns.go`, `apps/backend/internal/room/room_test.go`, `apps/backend/internal/signaling/hub.go`, `apps/backend/internal/signaling/hub_test.go`, `apps/backend/package.json`, `package-lock.json`
 Prohibited Paths: `apps/backend/internal/webrtc/**`, `apps/backend/internal/auth/jwt.go`, `apps/web/**`, `apps/desktop/**`
 Checks:
-- [ ] Itens de backend do plan §3 removidos, cada um sem consumidor (RN-502).
-- [ ] Casos XSS de `chat_security_test.go` cobertos em `hub_test.go`.
-- [ ] `go vet ./...` e `go test ./...` verdes.
+- [x] Itens de backend do plan §3 removidos, cada um sem consumidor (RN-502).
+- [x] Casos XSS de `chat_security_test.go` cobertos em `hub_test.go` (`TestHub_ChatMessage_XSSPayloads`).
+- [x] `go vet ./...` (inclusive tags `smoke` e `loadtest`) e `go test ./...` verdes.
 
 ### T505 — Remoção de legado no front e nos pacotes (#6)
 [ ] T505

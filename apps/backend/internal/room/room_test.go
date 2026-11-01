@@ -33,21 +33,6 @@ func TestSlugify(t *testing.T) {
 	}
 }
 
-func TestBuildLink(t *testing.T) {
-	link := buildLink("http://localhost:5173", "algoritmos-turma-04/professor")
-	expected := "http://localhost:5173/algoritmos-turma-04/professor/entrar"
-	if link != expected {
-		t.Errorf("expected %q, got %q", expected, link)
-	}
-
-	// Test trailing slash removal
-	link2 := buildLink("https://mlab.edu.br/", "matematica/prof-carlos")
-	expected2 := "https://mlab.edu.br/matematica/prof-carlos/entrar"
-	if link2 != expected2 {
-		t.Errorf("expected %q, got %q", expected2, link2)
-	}
-}
-
 func TestRoomLifecycle(t *testing.T) {
 	t.Setenv("JWT_SECRET", "test-secret-12345")
 
