@@ -6,6 +6,7 @@
     "build": "go build -o ./bin/server.exe ./cmd/server",
     "dev": "go run ./cmd/server/main.go",
     "test": "go test ./...",
+    "test:load": "go test -tags loadtest -run TestLoad_SFUFanout -v -count=1 -timeout 10m ./internal/webrtc/",
     "lint": "go vet ./...",
     "clean": "node -e \"require('fs').rmSync('bin', { recursive: true, force: true })\""
   },
