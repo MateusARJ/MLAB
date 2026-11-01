@@ -248,7 +248,7 @@ Feature descontinuada (ADR 0006). Elimina de vez as credenciais semeadas `profes
 |---|---|
 | R1 | `turbo run test --force`, `go test -count=1 -race ./...`, `turbo run build`, `npm run make:win` (e Linux via WSL) |
 | R2 | Matriz de Smoke completa (Anexo A) comparada com a baseline F0 — nenhum item OK → FALHA |
-| R3 | Rodar `docs/load-test/load_test.go` (40 espectadores) para confirmar que S4/S6 não afetaram o join |
+| R3 | ~~Rodar `docs/load-test/load_test.go`~~ — o arquivo era simulado. Substituído pelo teste real 001/T034 (`npm run test:load -w @mlab/backend`); resultado em `docs/metrics/loadtest-2026-11-01.md` |
 | R4 | `converge.md` de 001, 002 e 003 fechados; `analyze` PASS nas três; `npm run spec:check` limpo |
 | R5 | `npm run bump` + release; README do kit com o estado final |
 
