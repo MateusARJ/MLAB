@@ -7,12 +7,12 @@ Status: READY-FOR-IMPLEMENTATION
 Regra de cada task: suíte normal verde (`go test -count=1 ./...`, `npx turbo run test --force`) antes do `[x]`.
 
 ### T401 — Extrair a montagem do servidor para `newServer`
-[ ] T401
+[x] T401
 Allowed Paths: `apps/backend/cmd/server/main.go`, `apps/backend/cmd/server/main_test.go`
 Prohibited Paths: `apps/backend/internal/**`, `apps/web/**`, `apps/desktop/**`
 Checks:
-- [ ] `main()` só lê env, chama `newServer` e sobe o `http.Server`; mesmas rotas, middlewares e listeners.
-- [ ] Suíte Go completa verde.
+- [x] `main()` só lê env, chama `newServer` e sobe o `http.Server`; mesmas rotas, middlewares e listeners.
+- [x] Suíte Go completa verde (6/6 pacotes).
 
 ### T402 — Harness do smoke de backend
 [ ] T402
