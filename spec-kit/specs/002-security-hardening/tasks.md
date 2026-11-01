@@ -96,10 +96,11 @@ Checks:
 - [ ] Smoke A4–A8, A11, A12 no app empacotado (Windows e Linux) — **pendente de execução manual**. Gate C-203: se algum item falhar por causa do sandbox, reverter só o commit do sandbox e registrar exceção no `converge.md`.
 
 ### T208 — S8: remover caminho absoluto local
-[ ] T208
+[x] T208
 Depends On: T207
 Allowed Paths: `apps/desktop/src/main/main.ts`
 Prohibited Paths: `apps/backend/**`, `apps/web/**`, `packages/**`
 Checks:
-- [ ] Removido `c:\Users\User\Documents\mlab\...` da busca do backend.
-- [ ] Suítes verdes. Smoke: A1 em dev e empacotado.
+- [x] Removido `c:\Users\User\Documents\mlab\...` da busca do backend.
+- [x] Suítes verdes: desktop 95/95; nenhum caminho absoluto de máquina no código (`grep`).
+- [ ] Smoke A1 em dev e empacotado — **pendente de execução manual**.

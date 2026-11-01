@@ -485,9 +485,6 @@ function getBackendExecutablePath(): string | null {
         candidates.push(join(dir, b))
       }
     }
-    if (process.platform === 'win32') {
-      candidates.push('c:\\Users\\User\\Documents\\mlab\\apps\\backend\\bin\\server.exe')
-    }
   } else {
     for (const b of binaryNames) {
       candidates.push(join(process.resourcesPath, 'bin', b))
