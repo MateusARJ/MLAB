@@ -46,13 +46,13 @@ Checks:
 - [x] Vitest não coleta `e2e/**`.
 
 ### T405 — Fixtures do E2E (professor simulado)
-[ ] T405
+[x] T405
 Depends On: T404
 Allowed Paths: `apps/web/e2e/**`
 Prohibited Paths: `apps/web/src/**`, `apps/backend/**`
 Checks:
-- [ ] Sessão do professor e sala pela API.
-- [ ] Publisher WebRTC numa segunda página (canvas + oscilador) sinalizando pelo WS do professor.
+- [x] Sessão do professor e sala pela API.
+- [x] Publisher WebRTC numa segunda página (canvas + oscilador) sinalizando pelo WS do professor.
 
 ### T406 — Specs do E2E
 [ ] T406
