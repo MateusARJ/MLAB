@@ -1,6 +1,6 @@
 # Spec: Transmissão de Tela em Sala
 
-Status: READY-FOR-PLAN
+Status: READY-FOR-PLAN (emendada em 2026-11-01 — ver §11)
 Feature ID: `001-screen-share-core`
 
 ## 1. Objetivo
@@ -11,7 +11,7 @@ Permitir que um professor crie uma sala via app desktop e transmita sua tela e �
 
 ### Incluído
 
-- login do professor no app desktop;
+- entrada do professor no app desktop informando apenas o nome (sem conta ou senha — ADR 0006);
 - criação e entrada em sala;
 - professor iniciando/parando compartilhamento de tela;
 - professor transmitindo áudio pelo microfone;
@@ -23,7 +23,7 @@ Permitir que um professor crie uma sala via app desktop e transmita sua tela e �
 - chat de texto em tempo real para todos os participantes da sala;
 - estado de sala e presença em tempo real via WebSocket;
 - tratamento de perda de conexão, ICE restart e reconexão em 30s;
-- suporte a credenciais TURN HMAC-SHA1 epêmeras;
+- suporte opcional a TURN com credenciais HMAC-SHA1 efêmeras, para uso fora da rede local (ADR 0005);
 - gravação local opcional da aula pelo professor nos formatos .webm e .mp4;
 - coleta dos indicadores básicos necessários para validar qualidade da transmissão.
 
@@ -32,7 +32,6 @@ Permitir que um professor crie uma sala via app desktop e transmita sua tela e �
 - câmera do professor ou dos alunos;
 - microfone dos alunos;
 - gravação ou persistência de mídia no servidor SFU (permanece 100% efêmero em memória);
-- upload de arquivos;
 - edição de vídeo;
 - transcodificação por espectador;
 - integração com banco de dados da instituição;
@@ -43,7 +42,7 @@ Permitir que um professor crie uma sala via app desktop e transmita sua tela e �
 ### Professor
 
 Acessa o sistema exclusivamente via **app desktop** instalável (Windows, macOS, Linux).
-Pode fazer login, criar uma sala, gerar o link único para os alunos, iniciar/parar o
+Informa o próprio nome ao abrir o app, cria uma sala, gerar o link único para os alunos, iniciar/parar o
 compartilhamento de tela e transmitir áudio pelo microfone, e encerrar a sala.
 
 ### Aluno
@@ -54,16 +53,17 @@ Pode assistir à tela transmitida e participar do chat de texto. Não transmite 
 
 ## 4. User Stories
 
-### US-01 — Login do professor no app desktop
+### US-01 — Entrada do professor no app desktop
 
-**Como** professor, **quero** fazer login no app desktop, **para** acessar minhas salas e funcionalidades.
+**Como** professor, **quero** entrar no app desktop informando apenas meu nome, **para** criar salas e transmitir sem precisar de conta ou senha.
 
 **Critérios de aceitação**
 
-- O professor informa credenciais (e-mail e senha) no app.
-- O backend valida e emite um JWT com `role: professor`.
-- O app armazena a sessão de forma segura (não em localStorage exposto).
-- Logout encerra a sessão e invalida o token localmente.
+- O professor informa o próprio nome no app; não existe conta, e-mail, senha ou cadastro (ADR 0006).
+- O backend emite um JWT com `role: professor` (TTL 8h) somente quando a requisição apresenta a chave de host gerada pelo app desktop naquela execução.
+- Requisições sem a chave de host (outra máquina da rede, túnel, navegador) são recusadas com `403`.
+- O app guarda o token apenas em armazenamento de sessão do renderer (não em `localStorage`).
+- Sair da sessão descarta o token local.
 
 ### US-02 — Criar sala e gerar link único
 
@@ -82,7 +82,7 @@ Pode assistir à tela transmitida e participar do chat de texto. Não transmite 
 **Critérios de aceitação**
 
 - O app usa `desktopCapturer` (Electron) para capturar a tela.
-- O app verifica permissões do sistema operacional para gravação de tela e áudio.
+- O app autoriza no processo principal somente as permissões necessárias à captura de tela/janela e microfone (RF-24).
 - O professor pode ativar/desativar o microfone durante a transmissão sem derrubar o vídeo.
 - A transmissão de tela e áudio segue em paralelo por tracks WebRTC independentes.
 - O professor consegue interromper a transmissão a qualquer momento.
@@ -179,7 +179,7 @@ Pode assistir à tela transmitida e participar do chat de texto. Não transmite 
 - RF-09: o sistema suporta chat de texto em tempo real via WebSocket.
 - RF-10: o professor pode transmitir áudio do microfone junto com a tela.
 - RF-11: o aluno deve informar Nome Completo e Matrícula ao entrar na sala.
-- RF-12: o professor deve se autenticar com e-mail e senha no app desktop (JWT 8h).
+- RF-12: o professor inicia a sessão no app desktop informando apenas o nome; o token de professor (JWT 8h) só é emitido mediante a chave de host gerada pelo app (ADR 0006).
 - RF-13: o professor pode gerar um link único de acesso à sala para os alunos.
 - RF-14: criação e encerramento de sala são operações REST exclusivas do professor.
 - RF-15: encerramento da sala fecha conexões WebRTC e notifica clientes via WS (`room-closed`).
@@ -190,8 +190,8 @@ Pode assistir à tela transmitida e participar do chat de texto. Não transmite 
 - RF-20: controle independente de mute de áudio e pausa de vídeo pelo professor.
 - RF-21: tratamento de Autoplay Policy no player web com opção interativa para un-mute.
 - RF-22: suporte aos modos Fullscreen e Picture-in-Picture no player web.
-- RF-23: credenciais epêmeras HMAC-SHA1 para acesso ao servidor TURN (válidas por 24h).
-- RF-24: verificação de permissões do sistema operacional no app desktop antes da captura.
+- RF-23: quando TURN estiver habilitado (opcional — ADR 0005), credenciais efêmeras HMAC-SHA1 para acesso ao servidor TURN (válidas por 24h).
+- RF-24: o processo principal do app desktop autoriza somente as permissões necessárias à captura (microfone e tela/janela) e recusa as demais.
 - RF-25: monitoramento de `iceConnectionState` e disparo automático de ICE Restart.
 - RF-26: captura e transmissão de tela cheia (display tracking) acompanhando o sistema operacional e aplicativos.
 - RF-27: captura e transmissão de janela/aba específica com isolamento da aplicação e sem vazamento de notificações.
@@ -201,15 +201,15 @@ Pode assistir à tela transmitida e participar do chat de texto. Não transmite 
 ## 6. Requisitos Não Funcionais
 
 - RNF-01: resolução alvo de até 1920×1080 (Full HD).
-- RNF-02: taxa alvo de 30 FPS para o cenário principal de aula.
+- RNF-02: perfis de transmissão 1080p@30 FPS (padrão, aulas de código e slides) e 1080p@60 FPS (animações, jogos, vídeos), escolhidos pelo professor.
 - RNF-03: escalabilidade validada para 40 a 50 espectadores simultâneos por sala.
 - RNF-04: exposição contínua de dados de bitrate, FPS, RTT e perda de pacotes.
 - RNF-05: nenhum segredo exposto ao cliente fora do estritamente necessário (HTTPS/WSS obrigatórios).
 - RNF-06: interface web responsiva (desktop-first >= 1280px; mobile funcional < 768px).
 - RNF-07: app desktop distribuível para Windows, macOS e Linux (electron-builder).
 - RNF-08: latência ponta a ponta menor que 500ms em redes com RTT < 100ms.
-- RNF-09: consumo de upload do professor fixo entre 3 e 6 Mbps.
-- RNF-10: stack tecnológica homologada em Go 1.22+, Pion WebRTC, React e PostgreSQL.
+- RNF-09: consumo de upload do professor fixo, independente do número de alunos: ~4 Mbps no perfil 30 FPS e ~6 Mbps no perfil 60 FPS; teto de REMB da SFU em 8 Mbps.
+- RNF-10: stack tecnológica homologada em Go 1.22+, Pion WebRTC, Electron e React; estado em memória, sem banco de dados nesta versão (ADR 0005).
 - RNF-13: keepalive e heartbeat WebSocket via Ping (15s) e Pong (30s).
 - RNF-14: faixa de portas UDP do SFU delimitada entre 50000 e 50100.
 - RNF-15: processamento eficiente em memória com uso de CPU do backend < 15%.
@@ -219,12 +219,12 @@ Pode assistir à tela transmitida e participar do chat de texto. Não transmite 
 
 ## 7. Regras de Negócio
 
-- RN-01: emissão de JWT de professor após validação de senha bcrypt (TTL 8h).
+- RN-01: JWT de professor emitido somente mediante chave de host válida (header `X-MLab-Host-Key`), com TTL de 8h; não há conta, senha ou login (ADR 0006).
 - RN-02: emissão de JWT de aluno após envio de Nome e Matrícula válidos (TTL 6h).
 - RN-03: isolamento de JWT por sala (`room_id` verificado em requisições WS).
 - RN-04: restrição de sessão única por aluno (`4001 Duplicate Session` se a mesma matrícula reconectar).
 - RN-05: apenas o professor proprietário (`owner_id`) pode gerar convites e encerrar a sala.
-- RN-06: slug da sala gerado aleatoriamente no padrão legível `palavra-palavra-numero`.
+- RN-06: slug da sala legível no formato `{titulo-da-sala}/{nome-do-professor}`, derivado do título e do nome do professor; criar uma nova sala encerra a sala anterior do mesmo professor (T032).
 - RN-07: capacidade máxima inicial de 50 alunos por sala (HTTP 429 se exceder).
 - RN-08: salas encerradas (`closed`) rejeitam novas entradas com HTTP 409.
 - RN-09: apenas um publisher de mídia por sala (`FORBIDDEN` para tentativas de outros participantes).
@@ -236,7 +236,7 @@ Pode assistir à tela transmitida e participar do chat de texto. Não transmite 
 - RN-15: rate limit do chat de 5 mensagens/5s e 30 mensagens/minuto por participante.
 - RN-16: estouro de rate limit gera erro `CHAT_RATE_LIMITED` sem desconectar o participante.
 - RN-17: mensagens vazias descartadas e tags HTML escapadas no servidor.
-- RN-18: ausência de histórico retroativo de chat para novos ingressantes.
+- RN-18: *(movida para `003-classroom-interaction`, US-15 — o histórico de chat público em memória é entregue a quem entra depois.)*
 - RN-19: a gravação local de aula no desktop do professor é independente do SFU e não viola a efemeridade do servidor (RNF-16).
 - RN-20: alternância de fonte de captura entre tela cheia e janela específica ocorre dinamicamente mantendo a gravação e transmissão ativas.
 
@@ -269,3 +269,14 @@ Pode assistir à tela transmitida e participar do chat de texto. Não transmite 
 - interrupção da captura encerra a publicação sem deixar uma track órfã;
 - alunos conseguem se identificar e entrar via link único sem instalação de software;
 - chat entrega mensagens em tempo real com sanitização e rate limit para todos os participantes.
+
+## 11. Registro de emendas
+
+| Data | Itens | Motivo |
+|---|---|---|
+| 2026-11-01 | US-01, RF-12, RN-01, escopo "login" | Login descontinuado; sessão por nome com chave de host (ADR 0006) |
+| 2026-11-01 | RF-23, escopo TURN, RNF-10 | Operação LAN offline, TURN opcional, sem banco (ADR 0005) |
+| 2026-11-01 | RN-06 | Slug fixo `{titulo}/{professor}` já entregue em T032 |
+| 2026-11-01 | RNF-02, RNF-09 | Perfis 1080p@30 e 1080p@60 já entregues (`d85cf3d`, `29c54d0`) |
+| 2026-11-01 | RF-24, US-03 | Tela de permissões removida (`4f3caad`); permissões tratadas no processo principal |
+| 2026-11-01 | RN-18, "Não incluído: upload de arquivos" | Movidos para `003-classroom-interaction` (US-15, US-16) |
