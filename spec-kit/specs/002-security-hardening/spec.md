@@ -20,14 +20,15 @@ o login do professor, descontinuado pela ADR 0006.
 - seleção determinística da sala ativa (S5);
 - allowlist de origem no WebSocket e no CORS (S6);
 - endurecimento do Electron: navegação, janelas externas, sandbox (S7);
-- remoção de caminho absoluto local no app desktop (S8).
+- remoção de caminho absoluto local no app desktop (S8);
+- limite de frequência de `request-keyframe` por aluno (S9 — emenda de 2026-11-01, C-204).
 
 ### Não incluído
 
 - qualquer mudança de UX;
 - remoção de outra funcionalidade;
 - troca de stack, persistência, renomear claims do JWT;
-- checagem de papel em `request-keyframe` (achado registrado em `001/converge.md`; aguarda decisão — C-204).
+- bloquear `request-keyframe` de alunos (o web app usa a mensagem legitimamente ao conectar e ao detectar congelamento — C-204).
 
 ## 3. Atores
 
@@ -65,6 +66,13 @@ Professor (app desktop), aluno (navegador), atacante na mesma rede local, atacan
 ### US-S8 — Build portátil
 **Como** mantenedor, **quero** que o app não dependa de caminhos da máquina de um desenvolvedor.
 
+### US-S9 — Aluno não força keyframes em excesso
+**Como** professor, **quero** que um aluno não consiga fazer meu app gerar keyframes sem parar, degradando a
+transmissão de toda a turma.
+- Pedidos de keyframe do professor seguem sem limite no hub.
+- Cada aluno tem um limite próprio de pedidos; acima dele o pedido é descartado em silêncio.
+- O fluxo legítimo do aluno (pedido ao conectar e ao detectar congelamento) continua funcionando.
+
 ## 5. Requisitos Não Funcionais de Segurança
 
 - RNF-SEC-01 (S1): segredo JWT aleatório por execução quando não fornecido; nunca registrado.
@@ -75,6 +83,7 @@ Professor (app desktop), aluno (navegador), atacante na mesma rede local, atacan
 - RNF-SEC-06 (S6): WebSocket e CORS aceitam só origens da allowlist; nunca `*` nem `true` incondicional.
 - RNF-SEC-07 (S7): bloqueio de navegação e de janelas externas; links externos abertos no navegador do sistema; sandbox do renderer quando compatível.
 - RNF-SEC-08 (S8): nenhum caminho absoluto de máquina de desenvolvedor no código.
+- RNF-SEC-09 (S9): `request-keyframe` de aluno limitado por participante (rajada de 3, recarga de 1 por segundo); excedente descartado sem erro; pedido do professor nunca descartado pelo hub. O cooldown de PLI da SFU (350 ms) continua valendo para todos.
 
 ## 6. Regras de Negócio
 
@@ -87,4 +96,11 @@ Professor (app desktop), aluno (navegador), atacante na mesma rede local, atacan
 - `POST /auth/login` retorna `404`.
 - Download de arquivo sem token retorna `401`.
 - Página de origem desconhecida não consegue abrir o WebSocket.
+- Um aluno que envia 100 `request-keyframe` seguidos gera no máximo 3 pedidos à SFU naquele instante.
 - Todas as suítes verdes e matriz de smoke sem regressão em relação à baseline.
+
+## 8. Registro de emendas
+
+| Data | Itens | Motivo |
+|---|---|---|
+| 2026-11-01 | §2, US-S9, RNF-SEC-09, §7 | S9 aprovada pelo dono do produto; limite de frequência em vez de bloqueio por papel (C-204) |

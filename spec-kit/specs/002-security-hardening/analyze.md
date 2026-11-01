@@ -20,6 +20,7 @@ Nenhuma. A spec, o plan e as tasks seguem o plano de remediação aprovado (F5) 
 | RNF-SEC-06 | T206 |
 | RNF-SEC-07 | T207 |
 | RNF-SEC-08 | T208 |
+| RNF-SEC-09 | T209 |
 
 ## 3. Contratos sem consumidor/produtor
 
@@ -33,9 +34,9 @@ Nenhuma. Paths de cada task estão contidos nos Allowed Paths do plan.
 
 - Allowlist de origem (T206) é a mudança com mais risco de regressão de rede — mitigado por teste de matriz e smoke completo de rede.
 - Sandbox (T207) tem gate explícito (C-203).
-- `request-keyframe` sem checagem de papel permanece aberto por decisão (C-204).
+- `request-keyframe` (C-204): decidido em 2026-11-01 como limite de frequência por aluno (T209), porque bloquear por papel quebraria o fluxo legítimo do web app. Revalidação após a emenda: spec, clarify, plan, checklist e tasks consistentes; T209 dentro dos Allowed Paths do plan.
 
 ## 6. Resultado
 
 - [ ] FAIL
-- [x] PASS — próxima execução: T201.
+- [x] PASS — próxima execução: T209 (T201–T208 concluídas).

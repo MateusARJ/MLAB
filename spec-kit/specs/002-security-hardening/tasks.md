@@ -2,7 +2,7 @@
 
 Feature: `002-security-hardening`
 Prerequisites: spec/clarify/plan/checklist/analyze aprovados
-Status: READY-FOR-IMPLEMENTATION
+Status: READY-FOR-IMPLEMENTATION (T201–T208 concluídas; T209 por emenda de 2026-11-01)
 
 Regra de cada task: rodar `go test -count=1 ./...` (backend) e `npx turbo run test --force` antes do `[x]`.
 Itens da matriz de smoke citados são validação manual do responsável (registrar em `docs/metrics/baseline-2026-11.md`).
@@ -104,3 +104,16 @@ Checks:
 - [x] Removido `c:\Users\User\Documents\mlab\...` da busca do backend.
 - [x] Suítes verdes: desktop 95/95; nenhum caminho absoluto de máquina no código (`grep`).
 - [ ] Smoke A1 em dev e empacotado — **pendente de execução manual**.
+
+### T209 — S9: limite de frequência de `request-keyframe` por aluno
+[ ] T209
+Depends On: T208
+Allowed Paths: `apps/backend/internal/signaling/**`, `spec-kit/specs/001-screen-share-core/contracts/signaling.md` (nota de vigência)
+Prohibited Paths: `apps/backend/internal/webrtc/**`, `apps/desktop/**`, `apps/web/**`, `packages/**`
+Checks:
+- [ ] Pedido do professor sempre repassado à SFU.
+- [ ] Aluno: rajada de 3 pedidos repassados; o 4º imediato é descartado sem erro; após 1 s, um novo pedido passa.
+- [ ] Limite independente por aluno (um aluno no limite não afeta outro).
+- [ ] Contrato `signaling.md` registra que alunos também enviam `request-keyframe` e o limite.
+- [ ] Suítes verdes: `go test -count=1 ./...`, `npx turbo run test --force`.
+- [ ] Smoke A3 e A20 (aluno entra e recupera vídeo após troca de fonte) — **pendente de execução manual**.
