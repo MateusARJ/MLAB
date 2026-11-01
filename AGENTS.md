@@ -26,12 +26,12 @@ Antes de qualquer tarefa, leia `spec-kit/.specify/memory/context-loading.md` e c
 
 O sistema é uma plataforma de transmissão de tela para aula ao vivo, composta por:
 
-- **App desktop do professor** (Electron + React): o professor instala o app, faz login, cria salas, compartilha a tela e transmite áudio pelo microfone. Ref: ADR 0002.
+- **App desktop do professor** (Electron + React): o professor instala o app, informa o nome (sem login — ADR 0006), cria salas, compartilha a tela e transmite áudio. O app inicia o backend embarcado. Ref: ADR 0002.
 - **Web app dos alunos** (React + Vite): os alunos acessam via navegador usando um link único do professor, se identificam com Nome e Matrícula e assistem à transmissão. Design responsivo (foco em desktop, mobile funcional).
 - **Backend Go** (HTTP/WebSocket + SFU Pion): autenticação, salas, sinalização, chat em tempo real e encaminhamento de mídia via SFU.
 - Alunos consumindo a mídia em tempo real sem publicar câmera ou microfone.
 - Chat de texto em tempo real acessível a todos os participantes da sala (estilo Jitsi).
-- PostgreSQL somente quando uma feature realmente exigir persistência.
+- Operação primária em rede local offline, com estado em memória e TURN opcional (ADR 0005). Persistência (PostgreSQL) só com nova spec e nova ADR.
 
 ### Estrutura do repositório (Monorepo Turborepo — ADR 0001)
 
@@ -147,7 +147,7 @@ Uma tarefa nunca pode expandir o Scope Lock por conta própria.
 
 - Electron + React + TypeScript.
 - Main process: TypeScript/Node.js; acessa `desktopCapturer` e expõe ao renderer via IPC seguro (contextBridge).
-- Renderer process: React + TypeScript; UI de login, dashboard e sala.
+- Renderer process: React + TypeScript; UI de entrada por nome, dashboard e sala.
 - Hooks orquestram estado, WebRTC lifecycle, captura de tela e áudio.
 - Services encapsulam chamadas HTTP/WebSocket ao backend.
 - Tipos/DTOs compartilhados via `packages/types`.

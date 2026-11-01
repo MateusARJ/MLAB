@@ -13,7 +13,7 @@ e baixa latência.
 - Framework: Electron + React + TypeScript.
 - Build tool: electron-vite.
 - Distribuição: electron-builder (Windows .exe, macOS .dmg, Linux .AppImage).
-- Funcionalidades: login, criação de sala, compartilhamento de tela, transmissão de áudio.
+- Funcionalidades: entrada por nome (sem login — ADR 0006), criação de sala, compartilhamento de tela, transmissão de áudio, gravação local.
 - O professor deve baixar e instalar o aplicativo para poder transmitir.
 
 ### Web App dos Alunos (apps/web)
@@ -50,10 +50,10 @@ mlab/
 - Implementação inicial da SFU: Pion WebRTC.
 - Sinalização e APIs de controle: Go + HTTP/WebSocket.
 - Autenticação: JWT (Nome + Matrícula para aluno; credenciais para professor).
-- Persistência: PostgreSQL apenas quando necessária.
+- Persistência: nenhuma — estado em memória por execução do backend embarcado (ADR 0005).
 - Repositório: Monorepo com Turborepo.
 - Limite inicial de participantes: 50 (configurável).
-- TURN: obrigatório (alunos acessam de redes diferentes).
+- Operação: rede local offline como modo primário; TURN opcional para uso fora da LAN (ADR 0005).
 
 ## Não-objetivos iniciais
 

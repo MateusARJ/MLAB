@@ -44,3 +44,6 @@
 
 **Total de testes automatizados:** 38 testes executados e aprovados com 100% de sucesso.
 
+---
+
+> **Nota (2026-11-01):** este relatório é histórico. As menções a login, `bcrypt` e `Login.test.tsx` referem-se ao login do professor, descontinuado pela ADR 0006 (`spec-kit/docs/adrs/0006-descontinuacao-do-login-e-sessao-local.md`). As metas de desempenho devem ser remedidas após os commits `29c54d0` e `1ed55d1` (ver `spec-kit/specs/001-screen-share-core/converge.md`).
