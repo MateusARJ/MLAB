@@ -179,10 +179,20 @@ func (h *Hub) run() {
 // ── Registro / Desregistro ────────────────────────────────────────────────────
 
 func (h *Hub) onRegister(c *Client) {
-	// Se já existe uma conexão anterior ativa para este participante, encerra a anterior
+	// Sessão única (RN-04): uma conexão anterior do mesmo participante, ou de outro aluno com a
+	// mesma matrícula, é encerrada com 4001 Duplicate Session. A limpeza do registro antigo
+	// acontece no onUnregister da conexão derrubada.
 	if oldClient, exists := h.clients[c.participantID]; exists && oldClient != c {
 		log.Printf("hub[%s]: substituindo conexão anterior do participante %s (%s)", h.roomID, c.role, c.participantID)
-		oldClient.close()
+		oldClient.closeWithCode(CloseDuplicateSession, closeDuplicateSessionReason)
+	}
+	if c.role == RoleAluno && c.studentID != "" {
+		for id, other := range h.clients {
+			if id != c.participantID && other.role == RoleAluno && strings.EqualFold(other.studentID, c.studentID) {
+				log.Printf("hub[%s]: matrícula já conectada; encerrando sessão anterior %s", h.roomID, id)
+				other.closeWithCode(CloseDuplicateSession, closeDuplicateSessionReason)
+			}
+		}
 	}
 
 	// Se o professor está se conectando ou reconectando, cancela timer de timeout se ativo

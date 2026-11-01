@@ -17,6 +17,11 @@ const (
 	writeWait  = 10 * time.Second
 	pongWait   = 60 * time.Second
 	pingPeriod = (pongWait * 9) / 10 // deve ser menor que pongWait
+
+	// CloseDuplicateSession é o close code enviado à conexão substituída por uma nova
+	// sessão do mesmo aluno (RN-04 — 001-screen-share-core).
+	CloseDuplicateSession       = 4001
+	closeDuplicateSessionReason = "Duplicate Session"
 )
 
 // Client representa um participante conectado via WebSocket.
@@ -34,6 +39,10 @@ type Client struct {
 	handRaisedAt  time.Time
 	keyframeLimit keyframeLimiter // limite de request-keyframe do aluno (002/S9); só o hub acessa
 	closeOnce     sync.Once
+	// closeCode/closeReason são definidos por closeWithCode antes de fechar o canal send;
+	// o writePump só os lê depois de observar o canal fechado. Código zero = frame vazio.
+	closeCode   int
+	closeReason string
 }
 
 // newClient cria um Client e inicia os pumps em goroutines separadas.
@@ -104,8 +113,12 @@ func (c *Client) writePump() {
 		case msg, ok := <-c.send:
 			_ = c.conn.SetWriteDeadline(time.Now().Add(writeWait))
 			if !ok {
-				// Hub fechou o canal.
-				_ = c.conn.WriteMessage(websocket.CloseMessage, []byte{})
+				// Hub fechou o canal. Envia o close code definido por closeWithCode, se houver.
+				payload := []byte{}
+				if c.closeCode != 0 {
+					payload = websocket.FormatCloseMessage(c.closeCode, c.closeReason)
+				}
+				_ = c.conn.WriteMessage(websocket.CloseMessage, payload)
 				return
 			}
 			if err := c.conn.WriteMessage(websocket.TextMessage, msg); err != nil {
@@ -148,7 +161,15 @@ func (c *Client) sendError(code, message string) {
 
 // close fecha o canal send, encerrando o writePump de forma idempotente.
 func (c *Client) close() {
+	c.closeWithCode(0, "")
+}
+
+// closeWithCode fecha a conexão enviando o close code informado ao cliente.
+// Só a primeira chamada (de close ou closeWithCode) tem efeito.
+func (c *Client) closeWithCode(code int, reason string) {
 	c.closeOnce.Do(func() {
+		c.closeCode = code
+		c.closeReason = reason
 		close(c.send)
 	})
 }

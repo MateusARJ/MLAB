@@ -7,14 +7,14 @@ Status: READY-FOR-IMPLEMENTATION
 Regra de cada task: suíte normal verde (`go test -count=1 ./...`, `npx turbo run test --force`) antes do `[x]`.
 
 ### T501 — Sessão única com 4001 no backend (#18)
-[ ] T501
+[x] T501
 Allowed Paths: `apps/backend/internal/signaling/**`, `apps/backend/internal/room/**`
 Prohibited Paths: `apps/backend/internal/webrtc/**`, `apps/backend/internal/auth/**`, `apps/web/**`, `apps/desktop/**`
 Checks:
-- [ ] `closeWithCode` + `CloseDuplicateSession = 4001`; `writePump` envia o código só quando definido (RNF-501).
-- [ ] `onRegister` derruba com 4001 a conexão do mesmo `participant_id` e a de outro aluno com a mesma matrícula (C-501).
-- [ ] `AddParticipant` substitui a mesma matrícula; o join não barra a reentrada pelo limite (RF-502).
-- [ ] Testes unitários de hub e room; smoke A19 OK.
+- [x] `closeWithCode` + `CloseDuplicateSession = 4001`; `writePump` envia o código só quando definido (RNF-501).
+- [x] `onRegister` derruba com 4001 a conexão do mesmo `participant_id` e a de outro aluno com a mesma matrícula (C-501).
+- [x] `AddParticipant` substitui a mesma matrícula; o join não barra a reentrada pelo limite (RF-502).
+- [x] Testes unitários de hub e room; smoke A19 OK (`npm run test:smoke`, 12/12 PASS em 2026-11-01).
 
 ### T502 — Mensagem de sessão duplicada no web (#18)
 [ ] T502

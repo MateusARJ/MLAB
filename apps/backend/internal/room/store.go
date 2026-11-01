@@ -35,6 +35,8 @@ type Store interface {
 	// Participantes
 	AddParticipant(ctx context.Context, p *Participant) error
 	CountParticipants(ctx context.Context, roomID string) (int, error)
+	// HasStudent indica se a matrícula já tem participante registrado na sala (RN-04).
+	HasStudent(ctx context.Context, roomID, studentID string) (bool, error)
 }
 
 // ── InMemoryStore ─────────────────────────────────────────────────────────────
@@ -198,11 +200,37 @@ func (s *inMemoryStore) DeleteRoom(_ context.Context, roomID string) error {
 	return nil
 }
 
+// AddParticipant registra o participante na sala. Se já existe um participante da mesma sala
+// com a mesma matrícula (sem diferenciar maiúsculas), ele é substituído: é o mesmo aluno
+// entrando de novo (RN-04), e não deve ocupar duas vagas.
 func (s *inMemoryStore) AddParticipant(_ context.Context, p *Participant) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	s.participants[p.RoomID] = append(s.participants[p.RoomID], p)
+	list := s.participants[p.RoomID]
+	if p.StudentID != "" {
+		for i, existing := range list {
+			if strings.EqualFold(existing.StudentID, p.StudentID) {
+				list[i] = p
+				return nil
+			}
+		}
+	}
+	s.participants[p.RoomID] = append(list, p)
 	return nil
+}
+
+func (s *inMemoryStore) HasStudent(_ context.Context, roomID, studentID string) (bool, error) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	if studentID == "" {
+		return false, nil
+	}
+	for _, existing := range s.participants[roomID] {
+		if strings.EqualFold(existing.StudentID, studentID) {
+			return true, nil
+		}
+	}
+	return false, nil
 }
 
 func (s *inMemoryStore) CountParticipants(_ context.Context, roomID string) (int, error) {
