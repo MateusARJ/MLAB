@@ -15,14 +15,14 @@ Checks:
 - [x] Suíte Go completa verde (6/6 pacotes).
 
 ### T402 — Harness do smoke de backend
-[ ] T402
+[x] T402
 Depends On: T401
 Allowed Paths: `apps/backend/cmd/server/smoke_test.go`, `apps/backend/cmd/server/smoke_helpers_test.go`, `apps/backend/package.json`
 Prohibited Paths: `apps/backend/internal/**`, `apps/backend/cmd/server/main.go`
 Checks:
-- [ ] Build tag `smoke`; `httptest.NewServer(newServer(...))`; faixa UDP 52000–52100.
-- [ ] Helpers: sessão do professor, criar sala, join, WS com leitura por tipo, publisher e assinante Pion pelo WS.
-- [ ] Script `test:smoke` em `apps/backend/package.json`.
+- [x] Build tag `smoke`; `httptest.NewServer(newServer(...))`; faixa UDP 52000–52100.
+- [x] Helpers: sessão do professor, criar sala, join, WS com leitura por tipo, publisher e assinante Pion pelo WS.
+- [x] Script `test:smoke` em `apps/backend/package.json`.
 
 ### T403 — Casos do smoke de backend
 [ ] T403
