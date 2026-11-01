@@ -73,13 +73,14 @@ Checks:
 - [x] `smoke-manual.json` modelo com os itens manuais em branco.
 
 ### T408 — Relatório consolidado
-[ ] T408
+[x] T408
 Depends On: T403, T406, T407
 Allowed Paths: `scripts/smoke-report.js`, `package.json`, `docs/metrics/smoke-2026-11.md`
 Prohibited Paths: `apps/**/src/**`, `apps/backend/internal/**`
 Checks:
-- [ ] `npm run smoke` roda smoke + E2E, lê o JSON manual e gera a matriz A0–A20 (RF-404).
-- [ ] Relatório gerado com os resultados automáticos; itens manuais como "pendente" até o responsável preencher.
+- [x] `npm run smoke` roda smoke + E2E, lê o JSON manual e gera a matriz A0–A20 (RF-404).
+- [x] Relatório gerado com os resultados automáticos; itens manuais como "pendente" até o responsável preencher.
+- [x] Relatório de 2026-11-01: 8 OK · 2 FALHA (A19, A20) · 14 PENDENTE (roteiro manual) · 0 N/E.
 
 ### T409 — Registro nos converges
 [ ] T409
