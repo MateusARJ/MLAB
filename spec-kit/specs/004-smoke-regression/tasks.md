@@ -36,14 +36,14 @@ Checks:
 - [x] Execução de 2026-11-01: 11/12 OK (A0, A3, A9, A10, A13, A14, A15, A18, A20, S6, S9); A19 FALHA.
 
 ### T404 — Configuração do Playwright
-[ ] T404
+[x] T404
 Depends On: T403
 Allowed Paths: `apps/web/playwright.config.ts`, `apps/web/package.json`, `apps/web/.gitignore`, `package-lock.json`
 Prohibited Paths: `apps/web/src/**`, `apps/backend/**`, `apps/desktop/**`
 Checks:
-- [ ] `@playwright/test` como devDependency de `apps/web`; script `test:e2e`.
-- [ ] `webServer` sobe backend (`go run`) e Vite; projetos desktop e mobile.
-- [ ] Vitest não coleta `e2e/**`.
+- [x] `@playwright/test` como devDependency de `apps/web`; script `test:e2e`.
+- [x] `webServer` sobe backend (`go run`) e Vite; projetos desktop e mobile.
+- [x] Vitest não coleta `e2e/**`.
 
 ### T405 — Fixtures do E2E (professor simulado)
 [ ] T405
