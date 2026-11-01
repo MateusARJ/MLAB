@@ -2,71 +2,87 @@
 
 Feature: `001-screen-share-core`
 Mode: READ-ONLY
-Status: PASS
+Status: FAIL
 
-## 1. Inconsistências verificadas
+Reanálise de 2026-11-01 após o `converge.md`. O PASS anterior (pós-T005) cobria só RF-01..RF-13 e RNF-01..RNF-07
+e não considerava as tasks T022–T033 nem o código entregue depois delas.
 
-Nenhuma inconsistência encontrada após T005.
+## 1. Inconsistências
 
-- `plan.md`: sem itens PENDENTE; seções 10a e 10b adicionadas (reconexão e rate limit).
-- `checklists/requirements.md`: Status APPROVED.
-- `tasks.md`: T001 a T005b concluídas; T005 concluída nesta execução.
-- `clarify.md`: Status CLOSED (C-01 a C-06).
-- `spec.md`: Status READY-FOR-PLAN; todas as perguntas de bloqueio fechadas.
-- Todos os contratos estão em READY.
+| # | Inconsistência | Bloqueia? | Encaminhamento |
+|---|---|---|---|
+| I-01 | US-01/RF-12/RN-01 (login e-mail/senha) × código (sessão por nome, login descontinuado) | sim | ADR 0006 + emenda F4 |
+| I-02 | RN-06 (slug aleatório) × T032 (slug fixo por professor) — T032 alterou comportamento sem emendar a spec (§11) | sim | emenda F4 |
+| I-03 | RN-18 (sem histórico) × `chat-history` | sim | 003 |
+| I-04 | Spec "Não incluído: upload de arquivos" × `room/files.go` | sim | 003 |
+| I-05 | C-04 (TURN obrigatório) × operação LAN offline | sim | ADR 0005 |
+| I-06 | C-01/RNF-10 (PostgreSQL) × estado em memória | sim | ADR 0005 |
+| I-07 | RNF-02/RNF-09 × perfis 60 fps e REMB 8 Mbps | sim | emenda F4 |
+| I-08 | `contracts/room-api.md` e `contracts/signaling.md` não cobrem rotas e mensagens existentes | sim | emenda F4 + contratos 003 |
+| I-09 | Tasks T001–T005b, T006–T021, T030–T033 sem `Prohibited Paths:` (Princípio VI) | sim | emenda F4 (paths retroativos explícitos) |
+| I-10 | T014/T029 `[x]` com arquivos apagados | não | anotadas em C2 |
 
 ## 2. Cobertura de requisitos
 
-| Requisito | Coberto em | Status |
-|---|---|---|
-| RF-01 papel do participante | auth.md, plan | ✅ |
-| RF-02 somente professor publica | signaling.md, media-session.md | ✅ |
-| RF-03 aluno como espectador | media-session.md, spec | ✅ |
-| RF-04 desktopCapturer (Electron) | plan, ADR 0002 | ✅ |
-| RF-05 WebRTC via SFU | plan, clarify C-03 | ✅ |
-| RF-06 topologia SFU | plan, AGENTS.md | ✅ |
-| RF-07 sinalização via WebSocket | signaling.md | ✅ |
-| RF-08 métricas de sessão | plan, media-session.md (Observability) | ✅ |
-| RF-09 chat de texto | signaling.md (chat-message), media-session.md (rate limit) | ✅ |
-| RF-10 áudio do professor | spec (US-03), media-session.md (tracks: vídeo + áudio) | ✅ |
-| RF-11 Nome + Matrícula | auth.md, room-api.md (join), data-model.md | ✅ |
-| RF-12 login professor | auth.md (POST /auth/login), spec (US-01) | ✅ |
-| RF-13 link único | room-api.md (GET /rooms/{id}/link), spec (US-02) | ✅ |
-| RNF-01 até 1080p | plan (Performance) | ✅ |
-| RNF-02 30 FPS | plan (Performance) | ✅ |
-| RNF-03 40+ espectadores | plan, C-02 (limite 50) | ✅ |
-| RNF-04 métricas de diagnóstico | plan, media-session.md (Observability) | ✅ |
-| RNF-05 sem segredos expostos | plan (Security), auth.md | ✅ |
-| RNF-06 web responsiva | spec (RNF-06), plan (Technical Context) | ✅ |
-| RNF-07 dist. multiplataforma | ADR 0002 (electron-builder) | ✅ |
+Legenda: ✅ coberto por spec + task + evidência · ⚠️ parcial · ❌ divergente (ver §1)
 
-## 3. Contratos — status final
+| Requisito | Tasks | Status |
+|---|---|---|
+| RF-01, RF-02, RF-03 | T008, T010, T011 | ✅ |
+| RF-04, RF-26, RF-27 | T016, T022–T024 | ✅ |
+| RF-05, RF-06, RF-29 | T011, T026 | ✅ |
+| RF-07 | T010 | ✅ |
+| RF-08 | T021 | ⚠️ exposição contínua não verificada |
+| RF-09, RF-16, RF-17 | T012 | ✅ |
+| RF-10, RF-20 | T016, T023 | ✅ |
+| RF-11 | T018, T030 | ✅ |
+| RF-12 | T014 (removida) | ❌ I-01 |
+| RF-13, RF-14, RF-15 | T009, T015 | ✅ |
+| RF-18, RF-19 | T010, T019 | ✅ |
+| RF-21, RF-22, RF-25 | T019, T031 | ✅ |
+| RF-23 | T010 | ✅ (TURN opcional após ADR 0005) |
+| RF-24 | T016, T029 (superseded) | ⚠️ reescrever para o fluxo atual |
+| RF-28 | T025, T027 | ✅ |
+| RNF-01, RNF-02, RNF-03, RNF-08, RNF-09, RNF-15 | T020, T021 | ⚠️ medição anterior a `29c54d0`/`1ed55d1`; RNF-02/09 ❌ I-07 |
+| RNF-04 | T021 | ⚠️ |
+| RNF-05 | T008 | ⚠️ segredo JWT fixo → 002/S1 |
+| RNF-06 | T017–T019 | ✅ |
+| RNF-07 | T013 | ⚠️ macOS não verificado |
+| RNF-10 | — | ❌ I-06 |
+| RNF-13, RNF-14, RNF-16, RNF-17 | T010, T011, T012 | ✅ |
+| RNF-18 | T025 | ✅ |
+| RN-01 | T008, T014 | ❌ I-01 |
+| RN-02 a RN-05, RN-07 a RN-17 | T008–T012, T018 | ✅ |
+| RN-06 | T009, T032 | ❌ I-02 |
+| RN-18 | — | ❌ I-03 |
+| RN-19, RN-20 | T024, T025 | ✅ |
+
+## 3. Contratos
 
 | Contrato | Status |
 |---|---|
-| `contracts/auth.md` | ✅ READY |
-| `contracts/room-api.md` | ✅ READY |
-| `contracts/signaling.md` | ✅ READY |
-| `contracts/media-session.md` | ✅ READY (fechado em T005) |
-
-Todos os contratos possuem produtor e consumidor definidos.
+| `contracts/auth.md` | ❌ descreve `POST /auth/login`; não descreve `POST /auth/session` |
+| `contracts/room-api.md` | ❌ incompleto (I-08) |
+| `contracts/signaling.md` | ❌ incompleto (I-08) |
+| `contracts/media-session.md` | ✅ READY |
 
 ## 4. Tarefas fora do Scope Lock
 
-Nenhuma tarefa de código existe ainda. T001 a T005 são tarefas documentais dentro dos paths permitidos.
+- Nenhuma task registrada está fora do Scope Lock.
+- Há código fora de qualquer task (ver `converge.md` §4) — encaminhado para a feature 003.
 
 ## 5. Riscos de segurança/performance
 
-- TURN configurado e documentado — ✅.
-- contextBridge do Electron especificado — ✅.
-- JWT com roles definidos e validação server-side — ✅.
-- Rate limit do chat definido em `contracts/media-session.md` — ✅.
-- Política de reconexão (state machine) detalhada em `contracts/media-session.md` e `plan.md` (seção 10a) — ✅.
+- `/auth/session` emite token de professor sem nenhuma verificação → 002/S2.
+- `JWT_SECRET` com valor fixo de fallback no backend e no desktop → 002/S1.
+- Credenciais semeadas `professor123` no backend → 002/S3.
+- Listagem e download de arquivos sem autenticação; arquivos nunca liberados da memória → 002/S4.
+- WebSocket aceita qualquer origem; CORS `*` → 002/S6.
+- Metas de desempenho sem medição atual (Princípio IV) → F6/R3.
 
 ## 6. Resultado
 
-PASS — T005 concluída. Todos os artefatos estão consistentes e fechados.
+- [x] FAIL — corrigir upstream antes de novas implementações na 001.
+- [ ] PASS
 
-**Próxima ação:** gerar as tarefas de implementação de código (T006+) a partir de `tasks.md`.
-As 16 tarefas de implementação previstas devem ser expandidas em subtarefas com
-Allowed Paths e checks explícitos antes de qualquer implementação começar.
+Volta a PASS quando I-01 a I-09 forem resolvidas pelas fases F3 e F4 do plano de remediação.
