@@ -61,14 +61,15 @@ Checks:
 - [ ] Smoke A13 (upload, listagem e download no desktop e no celular) — **pendente de execução manual**.
 
 ### T205 — S5: `/rooms/active` determinístico
-[ ] T205
+[x] T205
 Depends On: T204
 Allowed Paths: `apps/backend/internal/room/**`
 Prohibited Paths: `apps/desktop/**`, `apps/web/**`, `apps/backend/internal/webrtc/**`
 Checks:
-- [ ] Prioridade `publishing` > `waiting`; desempate por `CreatedAt` mais recente.
-- [ ] Teste com duas salas ativas.
-- [ ] Suítes verdes. Smoke: A9.
+- [x] Prioridade `publishing` > `waiting`; desempate por `CreatedAt` mais recente.
+- [x] Teste com duas salas ativas.
+- [x] Suítes verdes: Go 6/6 (`TestGetActiveRoom_*`, 50 iterações contra a ordem aleatória do map).
+- [ ] Smoke A9 — **pendente de execução manual**.
 
 ### T206 — S6: allowlist de origem no WebSocket e no CORS
 [ ] T206

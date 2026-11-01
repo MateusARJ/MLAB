@@ -149,7 +149,7 @@ Prioridade: sala em `publishing`; depois a sala em `waiting` criada mais recente
 
 **Errors:** `404` — nenhuma sala ativa.
 
-> A regra de prioridade passa a ser determinística com `002-security-hardening`/S5.
+> Regra de prioridade determinística em vigor desde `002-security-hardening`/S5 (T205).
 
 ---
 
