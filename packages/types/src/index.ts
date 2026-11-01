@@ -1,7 +1,7 @@
 /**
  * @mlab/types
- * Pacote compartilhado de tipos TypeScript do monorepo ScreenShare. apps/desktop e apps/web.
- * Populados em T007. Este arquivo serve como ponto de entrada do scaffold.
+ * DTOs, enums e eventos WebSocket compartilhados entre apps/desktop e apps/web.
+ * Fonte dos contratos: spec-kit/specs/<feature>/contracts/.
  */
 
 // ── Roles ────────────────────────────────────────────────────────────────────
@@ -86,11 +86,6 @@ export interface ChatMessage {
 
 // ── Auth ─────────────────────────────────────────────────────────────────────
 
-export interface AuthResponse {
-  token: string;
-  expiresAt: string;
-}
-
 /** Payload de POST /auth/session (o professor informa só o nome — ADR 0006). */
 export interface SessionRequest {
   name: string;
@@ -103,24 +98,7 @@ export interface SessionResponse {
   name?: string;
 }
 
-export interface JoinRequest {
-  name: string;
-  studentId: string;
-  student_id?: string;
-}
-
-export interface JoinResponse {
-  token: string;
-  expiresAt: string;
-  participantId: string;
-  roomStatus: RoomStatus;
-  room_id?: string;
-  ws_url?: string;
-  ice_servers?: any[];
-  professor_name?: string;
-  room_title?: string;
-}
-
+/** Payload de POST /rooms/{id}/join (`001/contracts/room-api.md`). */
 export type JoinRoomRequest = {
   name: string;
   student_id: string;

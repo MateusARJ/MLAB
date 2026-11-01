@@ -11,10 +11,8 @@ export * from './Button';
 export * from './IconButton';
 export * from './TextInput';
 export * from './StatusBadge';
-export * from './Tabs';
 export * from './Alert';
 export * from './Card';
-export * from './Loading';
 
 // Carbon Icons Re-exports
 export {
@@ -39,10 +37,6 @@ export {
   Maximize,
   Minimize,
   Popup,
-  WarningAlt,
-  SendAlt,
-  Send,
-  Upload,
   Download,
   Education,
   Idea,
@@ -66,7 +60,6 @@ export {
   TrashCan,
   Draggable,
   ChevronLeft,
-  ChevronRight,
 } from '@carbon/icons-react';
 
 /**

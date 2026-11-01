@@ -44,12 +44,12 @@ Checks:
 - [x] `go vet ./...` (inclusive tags `smoke` e `loadtest`) e `go test ./...` verdes.
 
 ### T505 — Remoção de legado no front e nos pacotes (#6)
-[ ] T505
+[x] T505
 Allowed Paths: `packages/types/src/**`, `packages/ui/src/**`, `apps/desktop/src/renderer/hooks/index.ts`, `apps/web/src/services/api.ts`
 Prohibited Paths: `apps/backend/**`, `apps/web/src/pages/Join.tsx`
 Checks:
-- [ ] Itens de front do plan §3 removidos, cada um sem consumidor (RN-502).
-- [ ] `npx turbo run build test` verde.
+- [x] Itens de front do plan §3 removidos, cada um sem consumidor (RN-502).
+- [x] `npx turbo run build --force` (5/5) e `npx turbo run test --force` (web 35, desktop 95, Go 6/6) verdes.
 
 ### T506 — Converge e relatório
 [ ] T506
