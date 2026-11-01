@@ -226,6 +226,7 @@ ADRs aprovadas existentes (fonte: `spec-kit/docs/adrs/`; manter esta lista sincr
 - `spec-kit/docs/adrs/0003-estrategia-de-testes-automatizados.md` — estratégia de testes automatizados.
 - `spec-kit/docs/adrs/0004-arquitetura-de-seguranca-e-testes-de-seguranca.md` — arquitetura e testes de segurança.
 - `spec-kit/docs/adrs/0005-operacao-lan-offline.md` — LAN offline como modo primário, TURN opcional, estado em memória.
+- `spec-kit/docs/adrs/0006-descontinuacao-do-login-e-sessao-local.md` — login removido; sessão do professor por nome com chave de host; segredo JWT aleatório por execução.
 
 Fluxo:
 

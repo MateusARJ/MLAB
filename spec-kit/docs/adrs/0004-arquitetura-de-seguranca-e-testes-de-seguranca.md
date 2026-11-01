@@ -22,6 +22,9 @@ Decidimos implementar uma arquitetura de segurança em camadas acompanhada por u
 ### 2.1. Arquitetura de Segurança por Camada
 
 #### A. Autenticação e Autorização (JWT)
+
+> **Nota (2026-11-01):** o item "Hash de Senha (bcrypt)" foi superado pela [ADR 0006](0006-descontinuacao-do-login-e-sessao-local.md) — o login do professor foi descontinuado e a sessão passou a exigir chave de host. Os demais controles desta ADR permanecem.
+
 - **Hash de Senha:** Professores são autenticados usando senhas tratadas com `bcrypt` (custo >= 10).
 - **Claims Auditadas no JWT:** Os tokens contêm obrigatoriamente `sub`, `role` (`professor` ou `aluno`), `room_id` e data de expiração (`exp`).
 - **Validação de Propriedade:** O backend verifica se o `owner_id` da sala corresponde ao `sub` do JWT em qualquer operação REST de gerenciamento ou `publish-request`.
