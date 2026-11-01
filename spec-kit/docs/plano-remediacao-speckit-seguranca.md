@@ -52,10 +52,10 @@ Qualquer FALHA na baseline é registrada como pré-existente — não é atribu�
 
 | ID | Ação | Arquivos | Critério de aceite |
 |---|---|---|---|
-| G1 | Tornar as regras visíveis às IAs: mover `AGENTS.md` para a raiz do repo (canônico) e criar `CLAUDE.md` na raiz contendo apenas `@AGENTS.md`. Em `spec-kit(MLAB)/AGENTS.md` deixar um ponteiro de uma linha. | `/AGENTS.md`, `/CLAUDE.md`, `spec-kit(MLAB)/AGENTS.md` | Uma sessão nova do Claude Code/Codex carrega as regras sem instrução manual |
-| G2 | Unificar a base de paths: todos os paths do AGENTS.md passam a ser relativos à raiz (`spec-kit(MLAB)/.specify/...`, `spec-kit(MLAB)/specs/...`, `apps/...`). Trocar `screenshare/` por `mlab/` na árvore. | `/AGENTS.md`, `context-loading.md`, `project-context.md` | Nenhum path ambíguo; grep por `screenshare/` vazio nos docs de governança |
-| G3 | Atualizar a lista de ADRs aprovadas (0001–0004 + futuras 0005/0006 quando aprovadas). | `/AGENTS.md`, `spec-kit(MLAB)/README.md` | Lista bate com `docs/adrs/` |
-| G4 | Validador executável: documentar requisito Python 3.10+ e adicionar script raiz `"spec:check": "python spec-kit(MLAB)/.specify/scripts/validate_spec.py"` (com fallback `py` no Windows). | `package.json`, `spec-kit(MLAB)/README.md` | `npm run spec:check -- <feature>` roda nesta máquina |
+| G1 | Tornar as regras visíveis às IAs: mover `AGENTS.md` para a raiz do repo (canônico) e criar `CLAUDE.md` na raiz contendo apenas `@AGENTS.md`. Em `spec-kit/AGENTS.md` deixar um ponteiro de uma linha. | `/AGENTS.md`, `/CLAUDE.md`, `spec-kit/AGENTS.md` | Uma sessão nova do Claude Code/Codex carrega as regras sem instrução manual |
+| G2 | Unificar a base de paths: todos os paths do AGENTS.md passam a ser relativos à raiz (`spec-kit/.specify/...`, `spec-kit/specs/...`, `apps/...`). Trocar `screenshare/` por `mlab/` na árvore. | `/AGENTS.md`, `context-loading.md`, `project-context.md` | Nenhum path ambíguo; grep por `screenshare/` vazio nos docs de governança |
+| G3 | Atualizar a lista de ADRs aprovadas (0001–0004 + futuras 0005/0006 quando aprovadas). | `/AGENTS.md`, `spec-kit/README.md` | Lista bate com `docs/adrs/` |
+| G4 | Validador executável: documentar requisito Python 3.10+ e adicionar script raiz `"spec:check": "python spec-kit/.specify/scripts/validate_spec.py"` (com fallback `py` no Windows). | `package.json`, `spec-kit/README.md` | `npm run spec:check -- <feature>` roda nesta máquina |
 | G5 | Criar `converge-template.md` (não existe) com seções: atendidos / parciais / divergências / testes faltantes / novas tasks. | `.specify/templates/converge-template.md` | Template referenciado por `commands/converge.md` |
 | G6 | Corrigir status desatualizados: README do kit ("READY-FOR-T005" → estado real), checklist (`media-session.md` DRAFT → READY), `project-context.md` (gravação local não é mais não-objetivo; LAN offline). | arquivos citados | Nenhum status contraditório entre artefatos |
 | G7 | Declarar a relação de `docs/requirements/**` (raiz) com `spec.md`: **espelho derivado** (spec é a fonte; arquivos RF/RN/RNF são detalhamento) — ver decisão D2. | `/AGENTS.md` §1, `docs/requirements.md` | Hierarquia explícita |
@@ -152,7 +152,7 @@ Spec mínima: RNF-SEC-01..08 abaixo. Scope Lock:
 - **IN:** S1–S8 (incluindo a remoção completa do login em S3).
 - **OUT:** qualquer mudança de UX, remoção de outra feature, troca de stack, persistência, renomear claims do JWT.
 - **Non-Goals:** recriar qualquer forma de conta/senha de professor.
-- **Allowed Paths:** `apps/backend/cmd/server/**`, `apps/backend/internal/{auth,room,signaling}/**`, `apps/backend/go.mod`, `apps/backend/go.sum`, `README.md` (apenas seções de bcrypt/licenças), `apps/desktop/src/main/**`, `apps/desktop/src/renderer/services/**`, `apps/desktop/src/renderer/pages/Room.tsx` (apenas chamadas fetch de arquivos), `apps/web/src/services/**`, `apps/web/src/hooks/useWebRTCSubscriber.ts`, `apps/web/src/pages/Room.tsx` (apenas `href` de download), `scripts/dev.js`, `turbo.json`, `packages/types/src/index.ts`, `spec-kit(MLAB)/specs/002-security-hardening/**`.
+- **Allowed Paths:** `apps/backend/cmd/server/**`, `apps/backend/internal/{auth,room,signaling}/**`, `apps/backend/go.mod`, `apps/backend/go.sum`, `README.md` (apenas seções de bcrypt/licenças), `apps/desktop/src/main/**`, `apps/desktop/src/renderer/services/**`, `apps/desktop/src/renderer/pages/Room.tsx` (apenas chamadas fetch de arquivos), `apps/web/src/services/**`, `apps/web/src/hooks/useWebRTCSubscriber.ts`, `apps/web/src/pages/Room.tsx` (apenas `href` de download), `scripts/dev.js`, `turbo.json`, `packages/types/src/index.ts`, `spec-kit/specs/002-security-hardening/**`.
 - **Prohibited Paths:** `apps/backend/internal/webrtc/**`, `apps/backend/internal/chat/**`, `apps/desktop/src/renderer/media/**`, `packages/ui/**`, `.github/workflows/**`.
 - **Dependencies:** nenhuma nova (Go `crypto/rand`, `crypto/subtle`; Node `crypto`).
 
@@ -258,7 +258,7 @@ Feature descontinuada (ADR 0006). Elimina de vez as credenciais semeadas `profes
 
 | # | Decisão | Recomendação |
 |---|---|---|
-| D1 | Renomear `spec-kit(MLAB)/` para `spec-kit/` (parênteses atrapalham shells e globs)? | Sim, junto com G2 (um commit `chore(speckit)` só de renomeação) |
+| D1 | Renomear `spec-kit/` para `spec-kit/` (parênteses atrapalham shells e globs)? | Sim, junto com G2 (um commit `chore(speckit)` só de renomeação) |
 | D2 | `docs/requirements/**` da raiz: espelho derivado da spec ou descontinuar? | Espelho derivado (preserva o trabalho e dá rastreabilidade) |
 | D3 | Aprovar ADR 0005 (LAN offline, TURN opcional, sem PostgreSQL) | Aprovar — reflete o produto real |
 | D4 | Aprovar ADR 0006 (remoção do login + sessão por nome com chave de host) | Aprovar — formaliza a descontinuação, mantém a UX e fecha a falha |

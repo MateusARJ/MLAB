@@ -3,7 +3,7 @@
 * **Status:** Aceito
 * **Data:** 2026-09-14
 * **Autores:** Antigravity AI & Equipe de Engenharia
-* **Componentes Impactados:** `apps/backend`, `apps/desktop`, `apps/web`, `spec-kit(MLAB)`
+* **Componentes Impactados:** `apps/backend`, `apps/desktop`, `apps/web`, `spec-kit`
 
 ---
 

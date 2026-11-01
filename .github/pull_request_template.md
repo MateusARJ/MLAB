@@ -23,7 +23,7 @@ Exemplos:
 - [ ] Backend & SFU (`apps/backend` — Go + Pion WebRTC)
 - [ ] Pacotes Compartilhados (`packages/types`, `packages/ui`)
 - [ ] Banco de dados ou migrations (PostgreSQL)
-- [ ] Documentação ou Especificações (`spec-kit(MLAB)`, `docs/`)
+- [ ] Documentação ou Especificações (`spec-kit`, `docs/`)
 - [ ] Configuração, deploy ou infraestrutura (Turborepo, coturn, Docker)
 
 ## Mudanca sensivel
