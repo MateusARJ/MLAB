@@ -20,7 +20,7 @@ O arquivo de regras canônico é o [`AGENTS.md`](../AGENTS.md) na raiz do reposi
 spec-kit/
 ├── AGENTS.md                ← ponteiro para ../AGENTS.md
 ├── docs/
-│   ├── adrs/                ← 0001 a 0004 aprovadas
+│   ├── adrs/                ← 0001 a 0006 aprovadas
 │   └── plano-remediacao-speckit-seguranca.md
 ├── .specify/
 │   ├── commands/
@@ -97,3 +97,4 @@ o `analyze.md` não está em `Status: PASS`, a checklist não está `APPROVED`, 
 | ADR 0002 | Electron + React como framework do app desktop do professor |
 | ADR 0003 | Estratégia de testes automatizados |
 | ADR 0004 | Arquitetura de segurança e testes de segurança |
+| ADR 0005 | Operação em LAN offline como modo primário (TURN opcional, estado em memória) |

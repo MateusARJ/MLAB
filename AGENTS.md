@@ -225,6 +225,7 @@ ADRs aprovadas existentes (fonte: `spec-kit/docs/adrs/`; manter esta lista sincr
 - `spec-kit/docs/adrs/0002-desktop-app-framework.md` — Electron como framework do app do professor.
 - `spec-kit/docs/adrs/0003-estrategia-de-testes-automatizados.md` — estratégia de testes automatizados.
 - `spec-kit/docs/adrs/0004-arquitetura-de-seguranca-e-testes-de-seguranca.md` — arquitetura e testes de segurança.
+- `spec-kit/docs/adrs/0005-operacao-lan-offline.md` — LAN offline como modo primário, TURN opcional, estado em memória.
 
 Fluxo:
 
