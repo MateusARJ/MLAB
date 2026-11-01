@@ -29,7 +29,7 @@ Allowed Paths: `apps/backend/internal/signaling/**`, `apps/desktop/src/renderer/
 Prohibited Paths: `apps/backend/internal/webrtc/**`, `apps/backend/internal/auth/**`
 Checks:
 - [x] Evidência: `2a0e2c2`; `hub.go` (`onChatMessage`, ramo `IsPrivate`).
-- [ ] Teste de roteamento dedicado → T313.
+- [x] Teste de roteamento dedicado → T313.
 
 ### T304 — Máscara de palavrões (RF-304)
 [x] T304
@@ -102,15 +102,15 @@ Checks:
 ## Tarefas de lacuna (pendentes)
 
 ### T313 — Teste de roteamento do chat privado
-[ ] T313
+[x] T313
 Depends On: T303
 Allowed Paths: `apps/backend/internal/signaling/hub_test.go`
 Prohibited Paths: `apps/backend/internal/signaling/hub.go`, `apps/**` (exceto o arquivo permitido)
 Checks:
-- [ ] Mensagem privada de aluno chega ao professor e ao remetente, e **não** chega a outro aluno.
-- [ ] Mensagem privada do professor chega só ao `target_id` e ao remetente.
-- [ ] Mensagem privada não entra em `chatHistory`.
-- [ ] `go test -count=1 ./...` verde. Nenhuma mudança em código de produção.
+- [x] Mensagem privada de aluno chega ao professor e ao remetente, e **não** chega a outro aluno.
+- [x] Mensagem privada do professor chega só ao `target_id` e ao remetente.
+- [x] Mensagem privada não entra em `chatHistory`.
+- [x] `go test -count=1 ./...` verde (`TestHub_PrivateChat_Routing`). Nenhuma mudança em código de produção.
 
 ### T314 — Teste do limite do histórico de chat
 [ ] T314
