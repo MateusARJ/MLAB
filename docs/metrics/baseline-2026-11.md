@@ -12,6 +12,7 @@ Data: 2026-11-01. Ambiente: Windows 11, Go 1.27.0, Node 24.16.0.
 | Web (alunos) | `turbo run test --force` | 3 arquivos, 25 testes OK |
 | Desktop (professor) | `turbo run test --force` | 11 arquivos, 82 testes OK |
 | Monorepo | `turbo run test --force` | 5/5 tasks OK |
+| Lint | `turbo run lint --force --continue` | 4/5 OK — **`@mlab/desktop#lint` já falha no commit base** com 14 erros `tsc` pré-existentes (variáveis não usadas em `main.ts`, `cursorMask.worker.ts`, `Room.tsx`; tipos de mock em `Room.test.tsx`). Fora do escopo da remediação; não deve aumentar |
 
 ## F0.2 — Build
 
