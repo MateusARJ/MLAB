@@ -44,4 +44,4 @@ junto com o plano de remediação (2026-11-01). Nenhuma resposta altera comporta
 
 ## Resultado
 
-CLOSED — C-301 a C-306 respondidas. Sem `NEEDS CLARIFICATION`.
+CLOSED — C-301 a C-306 respondidas; nenhuma ambiguidade em aberto.
