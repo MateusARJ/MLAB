@@ -64,12 +64,12 @@ Checks:
 - [ ] `npm run test:e2e -w @mlab/web` executado e resultado registrado.
 
 ### T407 — Roteiro manual
-[ ] T407
+[x] T407
 Allowed Paths: `docs/metrics/smoke-runbook.md`, `docs/metrics/smoke-manual.json`
 Prohibited Paths: `apps/**`, `packages/**`
 Checks:
-- [ ] A1, A2, A4–A8, A11, A12, A16, A17 e confirmação em celular de A10/A13/A15 com passos, critério e evidência (RF-403).
-- [ ] `smoke-manual.json` modelo com os itens manuais em branco.
+- [x] A1, A2, A4–A8, A11, A12, A16, A17 e confirmação em celular de A10/A13/A15 com passos, critério e evidência (RF-403).
+- [x] `smoke-manual.json` modelo com os itens manuais em branco.
 
 ### T408 — Relatório consolidado
 [ ] T408
