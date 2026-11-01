@@ -39,7 +39,7 @@ Status: APPROVED
 - [x] `contracts/auth.md` — READY.
 - [x] `contracts/room-api.md` — READY.
 - [x] `contracts/signaling.md` — READY (inclui chat-message).
-- [x] `contracts/media-session.md` — DRAFT (aguarda task de detalhe).
+- [x] `contracts/media-session.md` — READY (fechado em T005).
 
 ## Segurança
 

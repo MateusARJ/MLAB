@@ -59,7 +59,7 @@ mlab/
 
 - câmera do professor ou dos alunos;
 - microfone dos alunos;
-- gravação da aula;
+- gravação ou retenção de mídia no servidor (a gravação local opcional pelo professor está no escopo — US-10);
 - transcodificação por aluno;
 - conferência multi-câmera;
 - compartilhamento de arquivos;

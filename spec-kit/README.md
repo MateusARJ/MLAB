@@ -14,41 +14,26 @@ Kit de desenvolvimento orientado por especificação para um sistema de comparti
 
 ## Estrutura
 
+O arquivo de regras canônico é o [`AGENTS.md`](../AGENTS.md) na raiz do repositório.
+
 ```text
-.
-├── AGENTS.md
+spec-kit/
+├── AGENTS.md                ← ponteiro para ../AGENTS.md
 ├── docs/
-│   └── adrs/
-│       ├── 0001-monorepo-turborepo.md   ← APROVADA
-│       └── 0002-desktop-app-framework.md ← APROVADA
+│   ├── adrs/                ← 0001 a 0004 aprovadas
+│   └── plano-remediacao-speckit-seguranca.md
 ├── .specify/
 │   ├── commands/
-│   ├── memory/
-│   │   ├── constitution.md
-│   │   ├── context-loading.md
-│   │   ├── engineering-principles.md
-│   │   └── project-context.md
-│   ├── scripts/
-│   └── templates/
-├── specs/
-│   ├── README.md
-│   └── 001-screen-share-core/
-│       ├── spec.md          ← READY-FOR-PLAN
-│       ├── clarify.md       ← CLOSED (C-01 a C-06)
-│       ├── plan.md          ← READY
-│       ├── tasks.md         ← READY-FOR-T005
-│       ├── analyze.md       ← PASS
-│       ├── data-model.md    ← READY
-│       ├── research.md      ← RESOLVED
-│       ├── quickstart.md    ← DRAFT
-│       ├── checklists/
-│       │   └── requirements.md  ← APPROVED
-│       └── contracts/
-│           ├── auth.md          ← READY
-│           ├── room-api.md      ← READY
-│           ├── signaling.md     ← READY
-│           └── media-session.md ← DRAFT (a fechar em T005)
-└── README.md
+│   ├── memory/              ← constitution, context-loading, princípios, contexto
+│   ├── scripts/             ← validate_spec.py (npm run spec:check)
+│   └── templates/           ← inclui converge-template.md
+└── specs/
+    ├── README.md
+    └── 001-screen-share-core/
+        ├── spec.md, clarify.md, plan.md, tasks.md, analyze.md
+        ├── data-model.md, research.md, quickstart.md
+        ├── checklists/requirements.md
+        └── contracts/       ← auth, room-api, signaling, media-session
 ```
 
 ## Arquitetura do Sistema
@@ -73,22 +58,22 @@ apps/backend (Go)
 ## Fluxo SDD
 
 ```text
-constitution
- -> specify
- -> clarify   ← CLOSED
- -> plan      ← READY
- -> checklist ← APPROVED
- -> tasks     ← READY-FOR-T005
- -> analyze   ← PASS
- -> implement (após T005)
- -> converge
+constitution -> specify -> clarify -> plan -> checklist -> tasks -> analyze -> implement -> converge
 ```
 
 ## Estado atual
 
-A feature `001-screen-share-core` está em **READY-FOR-T005**.
+A feature `001-screen-share-core` foi implementada até a tarefa **T033** (versão 1.5.7).
+Depois disso o código recebeu funcionalidades sem spec/task correspondente e a validação
+formal (`npm run spec:check`) está em **FAIL**.
 
-Próximo passo: executar T005 (revalidação formal de todos os artefatos, fechar `media-session.md` e detalhar reconexão) para liberar a geração das tarefas de implementação de código (T006+).
+O realinhamento está em andamento conforme
+[`docs/plano-remediacao-speckit-seguranca.md`](docs/plano-remediacao-speckit-seguranca.md):
+
+1. `converge` da 001 registrando todos os gaps;
+2. ADRs 0005 (operação LAN offline) e 0006 (descontinuação do login e sessão local do professor);
+3. emendas da 001 e feature retroativa `003-classroom-interaction`;
+4. feature `002-security-hardening`.
 
 ## Validação
 
