@@ -116,4 +116,4 @@ Checks:
 - [x] Limite independente por aluno (um aluno no limite não afeta outro).
 - [x] Contrato `signaling.md` registra que alunos também enviam `request-keyframe` e o limite.
 - [x] Suítes verdes: Go 6/6 (`keyframe_limit_test.go`: limiter, cadência do watchdog, professor sem limite, limite por aluno, roteamento pelo hub), web 30/30, desktop 95/95.
-- [ ] Smoke A3 e A20 (aluno entra e recupera vídeo após troca de fonte) — **pendente de execução manual**.
+- [ ] Smoke A4 (troca de fonte sem reconectar) e A10 (vídeo chega ao aluno sem tela preta) — **pendente de execução manual**.

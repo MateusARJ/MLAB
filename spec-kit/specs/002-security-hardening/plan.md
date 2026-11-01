@@ -36,7 +36,7 @@ Cada task fecha uma falha registrada em `001/converge.md` §2–§3 e `001/analy
 | Allowlist de origem recusa um cenário legítimo | aluno ou professor sem WebSocket | matriz de origens em teste; smoke A2, A9, A15–A17; correção acrescenta origem, nunca volta a `true` |
 | Sandbox quebra preload | app sem API nativa | mover clipboard antes; gate C-203 |
 | Links de download sem token | aluno não baixa | `?token=` no `href`; smoke A13 |
-| Limite de keyframe corta recuperação legítima do aluno | vídeo do aluno demora a descongelar | rajada cobre o pedido duplo da conexão; recarga de 1/s acompanha o watchdog; a SFU ainda pede keyframe ao conectar o aluno e a cada 10 s; smoke A3/A20 |
+| Limite de keyframe corta recuperação legítima do aluno | vídeo do aluno demora a descongelar | rajada cobre o pedido duplo da conexão; recarga de 1/s acompanha o watchdog; a SFU ainda pede keyframe ao conectar o aluno e a cada 10 s; smoke A4/A10 |
 
 ## Scope Lock
 
