@@ -62,7 +62,7 @@ mlab/
 - gravação ou retenção de mídia no servidor (a gravação local opcional pelo professor está no escopo — US-10);
 - transcodificação por aluno;
 - conferência multi-câmera;
-- compartilhamento de arquivos;
+- compartilhamento de arquivos por alunos (o envio pelo professor está em `003-classroom-interaction`);
 - integração com banco de dados da instituição (versão futura).
 
 Esses itens só entram mediante novas specs e aprovação.
