@@ -25,12 +25,12 @@ Matrícula e recebem a transmissão sem publicar mídia.
 | Backend | Go | — |
 | Sinalização + Chat | WebSocket (Go) | — |
 | API de controle | HTTP/JSON (Go) | — |
-| Autenticação | JWT | C-01 |
+| Autenticação | JWT; professor por sessão com chave de host, sem login | C-01, ADR 0006 |
 | Mídia | WebRTC via SFU Pion | C-03 |
 | Topologia | SFU | C-03 |
-| TURN | coturn obrigatório em produção | C-04 |
+| TURN | opcional (coturn), habilitado por ENV fora da LAN | C-04, ADR 0005 |
 | Limite da sala | 50 participantes (configurável via ENV) | C-02 |
-| Persistência | PostgreSQL | — |
+| Persistência | nenhuma — estado em memória por execução do backend | ADR 0005 |
 | Pacotes compartilhados | `packages/types` (DTOs), `packages/ui` (opcional) | — |
 | Métricas | WebRTC stats + métricas do backend | — |
 
@@ -45,11 +45,11 @@ Matrícula e recebem a transmissão sem publicar mídia.
 │    desktopCapturer               │
 │    IPC / contextBridge           │
 │  renderer process (React):       │
-│    Login, Dashboard, Room        │
+│    Entrada, Dashboard, Room      │
 │    useScreenShare, useWebRTC     │
 └──────────────┬───────────────────┘
                │ WebRTC publish (tela + áudio)
-               │ HTTP/WSS (login, sala, sinalização, chat)
+               │ HTTP/WS (sessão, sala, sinalização, chat)
                ▼
 ┌──────────────────────────────────┐
 │       apps/backend (Go)          │
@@ -60,7 +60,7 @@ Matrícula e recebem a transmissão sem publicar mídia.
 │  internal/chat    → mensagens    │
 │  internal/webrtc  → SFU (Pion)  │
 │                                  │
-│  PostgreSQL                      │
+│  estado em memória (ADR 0005)    │
 └──────────────┬───────────────────┘
                │ WebRTC subscribe (tela + áudio)
                │ HTTP/WSS (join, sinalização, chat)
@@ -77,7 +77,8 @@ Matrícula e recebem a transmissão sem publicar mídia.
 └──────────────────────────────────┘
 
 Infraestrutura:
-  TURN server (coturn) ← necessário para NAT traversal
+  backend embarcado no app do professor (LAN offline — ADR 0005)
+  TURN server (coturn) ← opcional, só para uso fora da LAN
 ```
 
 ## 4. Estrutura do Repositório
@@ -221,14 +222,12 @@ Não declarar meta atingida sem medição real.
 ### apps/backend
 - Go
 - Pion WebRTC (`github.com/pion/webrtc/v3`)
-- PostgreSQL driver (`github.com/jackc/pgx/v5`)
 - JWT library (`github.com/golang-jwt/jwt/v5`)
 - WebSocket library (`github.com/gorilla/websocket`)
 
 ### Infraestrutura
-- PostgreSQL
-- coturn (TURN server)
-- Servidor VPS (Oracle Cloud Always Free recomendado para testes)
+- Nenhuma infraestrutura obrigatória: o backend roda na máquina do professor (ADR 0005)
+- coturn (TURN server) opcional, apenas para uso fora da rede local
 
 ## 10. Risks / Failure Modes
 
@@ -278,7 +277,7 @@ Aplicado server-side no módulo `internal/chat` (valores configuráveis via ENV)
 
 ### IN
 
-- login do professor no app Electron;
+- entrada do professor no app Electron por nome, com sessão vinculada ao host (ADR 0006);
 - criação/entrada de sala;
 - geração de link único;
 - captura de tela via desktopCapturer com separação estrita de Tela Cheia (display tracking) e Janela Específica (application isolation);
@@ -308,22 +307,24 @@ Aplicado server-side no módulo `internal/chat` (valores configuráveis via ENV)
 - `apps/backend/**`
 - `packages/types/**`
 - `packages/ui/**`
-- `specs/001-screen-share-core/**`
-- `docs/**`
-- `.specify/**` somente para manutenção do kit
+- `spec-kit/specs/001-screen-share-core/**`
+- `docs/**`, `spec-kit/docs/**`
+- `spec-kit/.specify/**` somente para manutenção do kit
 
 ### Prohibited Paths
 
 - `infra/production/**` até contrato de deploy existir;
 - dependências não aprovadas neste plan;
-- features fora desta spec.
+- features fora desta spec (as features de interação de sala pertencem a `spec-kit/specs/003-classroom-interaction/**`);
+- `spec-kit/specs/002-security-hardening/**` e `spec-kit/specs/003-classroom-interaction/**`.
 
 ### Dependencies aprovadas
 
-- C-01: JWT.
+- C-01: JWT (professor conforme ADR 0006).
 - C-02: limite 50 configurável.
 - C-03: Pion WebRTC.
-- C-04: TURN (coturn).
+- C-04: TURN (coturn) opcional (ADR 0005).
+- ADR 0005: operação LAN offline; ADR 0006: sessão local do professor.
 - C-05: Turborepo (ADR 0001).
 - C-06: Electron (ADR 0002).
 
@@ -356,3 +357,5 @@ Aplicado server-side no módulo `internal/chat` (valores configuráveis via ENV)
 | 2026-09-11 | Limite 50 participantes configurável | C-02 |
 | 2026-09-11 | Pion WebRTC como SFU | C-03 |
 | 2026-09-11 | TURN obrigatório (coturn) | C-04 |
+| 2026-11-01 | LAN offline, TURN opcional, estado em memória | ADR 0005 |
+| 2026-11-01 | Login descontinuado; sessão do professor com chave de host | ADR 0006 |
