@@ -32,7 +32,7 @@ WebSocket (WSS em produção). Authorization via JWT enviado no handshake inicia
 | `publish-request` | `{}` | Professor solicita permissão para publicar tela+áudio |
 | `subscribe-request` | `{ publisher_id }` | Aluno solicita assinatura da track do professor |
 | `stream-pause` | `{ paused: boolean }` | Professor pausa ou retoma a transmissão (RF-20). Somente professor; outros recebem `error FORBIDDEN` |
-| `request-keyframe` | `{}` | Publisher pede keyframe imediato à SFU após troca de fonte (RN-12) |
+| `request-keyframe` | `{}` | Pede keyframe imediato à SFU. Professor: após troca de fonte (RN-12), sem limite no hub. Aluno: ao conectar e ao detectar vídeo congelado; limitado a rajada de 3 e recarga de 1/s por aluno, excedente descartado sem erro (002/S9, em vigor desde T209) |
 | `end-session` | `{}` | Professor encerra a transmissão e a sala pelo WebSocket (RF-15). Somente professor |
 
 ### Servidor → Cliente

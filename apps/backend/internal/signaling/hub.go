@@ -314,9 +314,7 @@ func (h *Hub) route(env *envelope) {
 	case TypeStreamPause:
 		h.onStreamPause(c, env.msg)
 	case TypeRequestKeyFrame:
-		if h.sfu != nil {
-			_ = h.sfu.RequestKeyFrame(h.roomID)
-		}
+		h.onRequestKeyFrame(c, time.Now())
 	case TypeRaiseHand:
 		h.onRaiseHand(c, env.msg)
 	case TypeLowerHand:
