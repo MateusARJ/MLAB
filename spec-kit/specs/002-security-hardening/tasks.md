@@ -33,17 +33,18 @@ Checks:
 - [ ] Smoke A1, A2, A3, A16 e `curl -X POST http://<ip>:8080/auth/session` de outra máquina → `403` — **pendente de execução manual**.
 
 ### T203 — S3: remoção completa do login do professor
-[ ] T203
+[x] T203
 Depends On: T202
 Allowed Paths: `apps/backend/internal/auth/**`, `apps/backend/internal/room/**` (apenas testes), `apps/backend/internal/signaling/**` (apenas testes), `apps/backend/cmd/server/**`, `apps/backend/go.mod`, `apps/backend/go.sum`, `packages/types/src/index.ts`, `apps/desktop/src/renderer/services/auth.ts`, `README.md`
 Prohibited Paths: `apps/web/**`, `apps/backend/internal/webrtc/**`, `apps/backend/internal/chat/**`
 Checks:
-- [ ] Removidos: rota e handler `POST /auth/login`, `store_inmemory.go`, `Professor`, `PasswordHash`, `LoginRequest`, `Store`, bcrypt.
-- [ ] `LoginResponse` → `SessionResponse` (mesmo JSON) no Go e no TS; `SessionRequest { name }` no TS.
-- [ ] Claims do JWT inalteradas.
-- [ ] `go mod tidy`; teste `POST /auth/login` → `404`.
-- [ ] `grep -rniE "auth/login|bcrypt|professor123|LoginRequest|PasswordHash" apps packages` vazio fora de `dist/`.
-- [ ] Suítes verdes. Smoke: A0, A1, A2, A3.
+- [x] Removidos: rota e handler `POST /auth/login`, `store_inmemory.go`, `Professor`, `PasswordHash`, `LoginRequest`, `Store`, bcrypt.
+- [x] `LoginResponse` → `SessionResponse` (mesmo JSON) no Go e no TS; `SessionRequest { name }` no TS.
+- [x] Claims do JWT inalteradas.
+- [x] `go mod tidy`; teste `POST /auth/login` → `404`.
+- [x] `grep -rniE "auth/login|bcrypt|professor123|LoginRequest|PasswordHash" apps packages` vazio fora de `dist/`.
+- [x] Suítes verdes: Go 6/6, web 25/25, desktop 88/88 (`TestLoginEndpointRemoved`). `x/crypto` permanece só como indireta do Pion.
+- [ ] Smoke A0, A1, A2, A3 — **pendente de execução manual**.
 
 ### T204 — S4: autenticação e limites dos arquivos
 [ ] T204

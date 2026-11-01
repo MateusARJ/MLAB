@@ -104,7 +104,7 @@ Errors:
 
 ### POST /auth/login
 
-**Removido** (ADR 0006). Responde `404 Not Found` a partir de `002-security-hardening`/S3.
+**Removido** (ADR 0006). Responde `404 Not Found` desde `002-security-hardening`/S3 (T203).
 
 ## Compatibility
 

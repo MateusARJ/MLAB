@@ -91,18 +91,16 @@ export interface AuthResponse {
   expiresAt: string;
 }
 
-export interface LoginRequest {
-  email?: string;
-  password?: string;
-  name?: string;
+/** Payload de POST /auth/session (o professor informa só o nome — ADR 0006). */
+export interface SessionRequest {
+  name: string;
 }
 
-export interface LoginResponse {
+/** Resposta de POST /auth/session (`contracts/auth.md`). */
+export interface SessionResponse {
   token: string;
-  expiresAt?: string;
+  expires_at?: string;
   name?: string;
-  user_id?: string;
-  role?: Role;
 }
 
 export interface JoinRequest {
