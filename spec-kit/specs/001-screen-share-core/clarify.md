@@ -9,6 +9,8 @@ Todas as ambiguidades bloqueantes foram resolvidas. A feature está liberada par
 
 ## C-01 — Autenticação
 
+> **Supersessão parcial (2026-11-01):** a parte do professor (credenciais e-mail/senha armazenadas em PostgreSQL) foi superada pela [ADR 0006](../../docs/adrs/0006-descontinuacao-do-login-e-sessao-local.md): não há login; o professor informa só o nome e o token exige chave de host. A parte do aluno (Nome + Matrícula, JWT com `room_id`) permanece válida.
+
 - **Contexto:** a autorização do professor e do aluno precisa ser verificável no servidor.
 - **Decisão necessária:** método de autenticação da primeira versão.
 - **Opções consideradas:** sessão baseada em cookie; JWT; provedor externo.
@@ -43,6 +45,8 @@ Todas as ambiguidades bloqueantes foram resolvidas. A feature está liberada par
 ---
 
 ## C-04 — TURN
+
+> **Supersessão (2026-11-01):** pela [ADR 0005](../../docs/adrs/0005-operacao-lan-offline.md), o modo primário é LAN offline e o TURN passa a ser **opcional**, habilitado por variável de ambiente para uso fora da rede local. Quando habilitado, as credenciais continuam efêmeras (HMAC-SHA1, 24h).
 
 - **Contexto:** alunos acessam de redes e provedores de internet diferentes, podendo estar atrás de NAT/Firewall.
 - **Decisão necessária:** uso de TURN no primeiro deploy.
