@@ -344,7 +344,7 @@ Aplicado server-side no módulo `internal/chat` (valores configuráveis via ENV)
 - [x] Princípio V — todos os contratos estão em Status: READY.
 - [x] Princípio VI — Scope Lock completo com paths e non-goals.
 - [x] Princípio VII — complexidade restrita; sem abstrações sem consumidor.
-- [ ] Princípio VIII — convergência após implementação (pendente até código existir).
+- [ ] Princípio VIII — convergência em andamento: ver `converge.md` (Status: OPEN).
 
 ## 12. Decision Log
 
