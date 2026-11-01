@@ -63,6 +63,7 @@ Status: OPEN
 | RNF-02 / RNF-09 | 30 FPS; upload 3–6 Mbps | perfis 1080p@30 (4 Mbps) e 1080p@60 (6 Mbps); teto REMB 8 Mbps | emenda em F4 |
 | `contracts/room-api.md` | rotas `/rooms/{id}/join` etc. | rotas extras: `/rooms/{sala}/{prof}/join`, `/rooms/{sala}/{prof}/info`, `/rooms/{id}/info`, `/rooms/active`, `/rooms/{id}/files*` | contrato atualizado em F4 (001 e 003) |
 | `contracts/signaling.md` | conjunto original de mensagens | mensagens extras: `end-session`, `stream-pause`/`stream-paused`, `request-keyframe`, `raise-hand`/`lower-hand`/`hand-updated`, `pin-message`/`chat-message-pinned`, `chat-history`, `files-history`, `file-shared`, `participants-update`, `stream-started`, chat com `is_private`/`target_id` | `stream-*`, `request-keyframe`, `end-session`, `participants-update` em 001; o restante em 003 |
+| `request-keyframe` | contrato: enviado pelo publisher | `hub.go` aceita de qualquer participante (aluno pode forçar keyframes repetidos) | aguarda decisão: proposta de task S9 na 002 |
 | T014 / T029 | tasks `[x]` com arquivos `Login.tsx` e `Permissions.tsx` | arquivos apagados em `4f3caad` | T014 REMOVIDA (login descontinuado), T029 SUPERSEDED |
 
 ## 4. Código sem requisito (implementado fora de spec/task)
