@@ -300,6 +300,8 @@ Allowed Paths: `docs/load-test/**`
 Prohibited Paths: `apps/**`, `packages/**` *(registrado retroativamente em 2026-11-01 — ver `analyze.md` I-09)*
 Checks: 40 clientes simulados assinam a stream; FPS ≥ 25, packet loss < 2%, RTT < 300ms, upload do professor fixo entre 3-6 Mbps e CPU do servidor < 15% (RF-08, RNF-01 a RNF-09, RNF-15).
 
+> **SUPERSEDED por T034 (2026-11-01).** O `load_test.go` desta task comparava valores fixos com as metas, sem subir o SFU (`converge.md` §2, C-07). Mantida como histórico; a evidência válida de carga é a da T034.
+
 ### T021 — Medição de métricas e validação dos RNFs
 [x] T021
 Depends On: T020
@@ -446,3 +448,20 @@ Checks:
 - [x] Vite escutando em `0.0.0.0` (`host: true`) com proxy reverso de `/rooms`, `/auth` e `/ws`.
 - [x] 100% dos testes passando (`apps/backend`, `apps/web`, `apps/desktop`) e monorepo build com sucesso.
 
+
+---
+
+## Emenda de 2026-11-01: medição real de carga
+
+### T034 — Teste de carga real do SFU (40 espectadores)
+[ ] T034
+Depends On: T020, T031
+Allowed Paths: `apps/backend/internal/webrtc/loadtest_test.go`, `apps/backend/internal/webrtc/loadtest_cpu_*_test.go`, `apps/backend/package.json` (script `test:load`), `docs/load-test/**`, `docs/metrics/**`
+Prohibited Paths: `apps/backend/internal/webrtc/*.go` que não sejam de teste, `apps/backend/internal/signaling/**`, `apps/desktop/**`, `apps/web/**`, `packages/**`
+Checks:
+- [ ] Teste com build tag `loadtest` sobe o `SFUService` real, um publisher Pion (VP8 sintético, 30 FPS, ~4 Mbps) e 40 assinantes Pion.
+- [ ] Mede FPS, bitrate, perda pós-NACK, tempo de entrada, latência de encaminhamento, upload do publisher, CPU e memória do processo.
+- [ ] Reprova se algum assinante ficar sem mídia, FPS mínimo < 25 ou perda ≥ 2%.
+- [ ] `go test ./...` sem a tag continua igual (o teste não roda no dia a dia).
+- [ ] `docs/load-test/load_test.go` (simulado) apagado; `docs/load-test/README.md` explica como rodar.
+- [ ] Resultado da execução registrado em `docs/metrics/`, com o que foi e o que não foi medido.
