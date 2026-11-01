@@ -58,7 +58,7 @@ Exemplos:
 <!-- Use Closes, Fixes ou Resolves quando o PR encerrar uma issue ou tarefa do Spec-Kit. -->
 
 Closes #
-- **Task do Spec-Kit:** (ex: `T022`, `T027`)
+- **Task do Spec-Kit (obrigatório):** (ex: `001/T022`, `002/S1`) — PR que altera comportamento sem task é bloqueado (`AGENTS.md` §4, regra anti-deriva)
 - **Requisitos Vinculados:** (ex: `RF-004`, `RF-026`, `RNF-018`)
 
 ## Checklist do autor
@@ -67,6 +67,7 @@ Closes #
 - [ ] O título segue rigorosamente `tipo(escopo): mensagem objetiva em português` (com prefixo em inglês: `feat`, `fix`, etc.).
 - [ ] A alteração está coesa e respeita o **Scope Lock** e as tarefas aprovadas do `AGENTS.md`.
 - [ ] Alterou exclusivamente os caminhos autorizados (**Allowed Paths**).
+- [ ] Todo comportamento novo ou alterado possui task em `tasks.md` e `npm run spec:check` passou.
 - [ ] Revisei meu próprio diff.
 - [ ] A barra de menus nativa do Electron e layouts essenciais permanecem íntegros.
 - [ ] Atualizei testes e documentação quando necessário.

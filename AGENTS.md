@@ -121,6 +121,13 @@ O agente DEVE PARAR, sem implementar, quando qualquer uma das condições ocorre
 
 Nunca resolva uma lacuna silenciosamente.
 
+### Regra anti-deriva
+
+- Todo commit `feat`, `fix`, `perf` ou `refactor` que altere comportamento deve corresponder a uma tarefa `### Txxx` existente em `spec-kit/specs/<feature>/tasks.md`. Commit sem tarefa correspondente viola esta seção.
+- Pedido de funcionalidade nova feito diretamente no chat não é exceção: o agente cria ou atualiza os artefatos SDD antes de implementar, ou para e informa quais artefatos faltam.
+- Todo Pull Request informa a tarefa no campo "Task do Spec-Kit" do template.
+- `npm run spec:check` deve passar antes do merge de qualquer PR que altere `apps/` ou `packages/`.
+
 ## 5. Scope Lock obrigatório
 
 Cada `plan.md` deve conter uma seção `## Scope Lock` com:
