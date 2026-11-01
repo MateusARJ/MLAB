@@ -12,6 +12,7 @@ import {
   Touch_1,
   Touch_1Filled,
   PinFilled,
+  Alert,
   decodeChatEntities,
 } from '@mlab/ui';
 import React, { useRef, useEffect, useState } from 'react';
@@ -85,7 +86,14 @@ export const Room: React.FC<RoomProps> = ({ token, roomInfo, onLeave }) => {
     requestKeyframe,
     isHandRaised = false,
     toggleHand = () => {},
+    chatNotice = null,
+    dismissChatNotice = () => {},
   } = useWebRTCSubscriber(token, roomInfo);
+
+  // Aviso de limite do chat (CHAT_RATE_LIMITED — 001/plan.md §10b, 005/C-503).
+  const chatNoticeAlert = chatNotice ? (
+    <Alert variant="warning" message={chatNotice} onClose={dismissChatNotice} style={{ marginBottom: '8px' }} />
+  ) : null;
 
   // Quando o professor encerra a transmissão (connectionStatus === 'closed'), redireciona de volta para a tela de credenciais
   useEffect(() => {
@@ -1139,6 +1147,7 @@ export const Room: React.FC<RoomProps> = ({ token, roomInfo, onLeave }) => {
                       </div>
 
                       <form onSubmit={handleSendPublicChat} style={styles.chatForm}>
+                        {chatNoticeAlert}
                         <div style={styles.chatTargetBannerPublic}>
                           Enviando mensagem pública para <strong>Toda a Turma</strong>
                         </div>
@@ -1249,6 +1258,7 @@ export const Room: React.FC<RoomProps> = ({ token, roomInfo, onLeave }) => {
                       </div>
 
                       <form onSubmit={handleSendPrivateChat} style={styles.chatForm}>
+                        {chatNoticeAlert}
                         <div style={styles.chatTargetBanner}>
                           <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
                             <Locked size={14} /> Enviando dúvida privada diretamente ao <strong>Professor</strong>

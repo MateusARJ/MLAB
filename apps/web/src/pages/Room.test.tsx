@@ -8,6 +8,7 @@ const { mockSendChatMessage, mockToggleHand, mockSubscriberState } = vi.hoisted(
   mockSubscriberState: {
     connectionStatus: 'connected' as 'connecting' | 'connected' | 'reconnecting' | 'closed' | 'duplicate',
     isHandRaised: false,
+    chatNotice: null as string | null,
     messages: [
       { id: 'pub-1', sender_name: 'Professor Girafales', sender_role: 'professor', content: 'Bem-vindos a aula!', is_private: false, pinned: false },
       { id: 'priv-1', sender_name: 'Professor Girafales', sender_role: 'professor', content: 'Sua nota da prova é 10', is_private: true, pinned: false },
@@ -27,6 +28,8 @@ vi.mock('../hooks/useWebRTCSubscriber', () => ({
     sendChatMessage: mockSendChatMessage,
     isHandRaised: mockSubscriberState.isHandRaised,
     toggleHand: mockToggleHand,
+    chatNotice: mockSubscriberState.chatNotice,
+    dismissChatNotice: vi.fn(),
   }),
 }));
 
@@ -35,6 +38,7 @@ describe('Room Component (Web Subscriber)', () => {
     window.innerWidth = 1024;
     mockSubscriberState.connectionStatus = 'connected';
     mockSubscriberState.isHandRaised = false;
+    mockSubscriberState.chatNotice = null;
     mockSubscriberState.messages = [
       { id: 'pub-1', sender_name: 'Professor Girafales', sender_role: 'professor', content: 'Bem-vindos a aula!', is_private: false, pinned: false },
       { id: 'priv-1', sender_name: 'Professor Girafales', sender_role: 'professor', content: 'Sua nota da prova é 10', is_private: true, pinned: false },
@@ -242,6 +246,14 @@ describe('Room Component (Web Subscriber)', () => {
     expect(mockLeave).toHaveBeenCalledWith(
       expect.stringMatching(/A transmissão foi encerrada pelo professor/i)
     );
+  });
+
+  it('deve exibir o aviso de limite do chat acima do formulario', () => {
+    mockSubscriberState.chatNotice = 'muitas mensagens, aguarde';
+    render(<Room token={dummyToken} roomInfo={dummyRoomInfo} onLeave={vi.fn()} />);
+
+    expect(screen.getAllByText('muitas mensagens, aguarde').length).toBeGreaterThan(0);
+    expect(screen.getByPlaceholderText(/Mensagem para toda a turma/i)).toBeInTheDocument();
   });
 
   it('deve informar sessao aberta em outra aba quando a conexao cair com 4001', () => {

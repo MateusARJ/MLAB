@@ -31,9 +31,10 @@ Checks:
 Allowed Paths: `apps/web/src/hooks/**`, `apps/web/src/pages/Room.tsx`, `apps/web/src/pages/Room.test.tsx`
 Prohibited Paths: `apps/web/src/pages/Join.tsx`, `apps/backend/**`, `apps/desktop/**`, `packages/**`
 Checks:
-- [ ] `error`/`CHAT_RATE_LIMITED` → `chatNotice` (C-503), some após 5 s ou ao fechar; conexão mantida.
-- [ ] `Alert` acima do chat público e do privado.
-- [ ] Teste unitário do hook; E2E A20 OK.
+- [x] `error`/`CHAT_RATE_LIMITED` → `chatNotice` (C-503), some após 5 s ou ao fechar; conexão mantida.
+- [x] `Alert` acima do chat público e do privado.
+- [x] Teste unitário do hook (vitest 35 verdes, tsc ok).
+- [ ] E2E A20: não executado (Chromium do Playwright não instalado em 2026-11-01).
 
 ### T504 — Remoção de legado no backend (#6)
 [x] T504

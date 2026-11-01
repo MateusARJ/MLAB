@@ -1,4 +1,9 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
+import type { ErrorPayload } from '@mlab/types';
+
+/** Texto padrão do aviso de limite do chat quando o servidor não envia mensagem (005/C-503). */
+export const CHAT_RATE_LIMITED_FALLBACK = 'Você está enviando mensagens rápido demais. Aguarde alguns segundos.';
+const CHAT_NOTICE_DURATION_MS = 5000;
 
 function parseJwtSub(token: string): string | null {
   try {
@@ -21,6 +26,29 @@ export function useWebRTCSubscriber(token: string, roomInfo: { room_id: string; 
   const [sharedFiles, setSharedFiles] = useState<any[]>([]);
   const [messages, setMessages] = useState<any[]>([]);
   const [isHandRaised, setIsHandRaised] = useState<boolean>(false);
+  const [chatNotice, setChatNotice] = useState<string | null>(null);
+  const chatNoticeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const dismissChatNotice = useCallback(() => {
+    if (chatNoticeTimerRef.current) {
+      clearTimeout(chatNoticeTimerRef.current);
+      chatNoticeTimerRef.current = null;
+    }
+    setChatNotice(null);
+  }, []);
+
+  const showChatNotice = useCallback((text: string) => {
+    if (chatNoticeTimerRef.current) clearTimeout(chatNoticeTimerRef.current);
+    setChatNotice(text);
+    chatNoticeTimerRef.current = setTimeout(() => {
+      chatNoticeTimerRef.current = null;
+      setChatNotice(null);
+    }, CHAT_NOTICE_DURATION_MS);
+  }, []);
+
+  useEffect(() => () => {
+    if (chatNoticeTimerRef.current) clearTimeout(chatNoticeTimerRef.current);
+  }, []);
 
   const pcRef = useRef<RTCPeerConnection | null>(null);
   const wsRef = useRef<WebSocket | null>(null);
@@ -300,6 +328,15 @@ export function useWebRTCSubscriber(token: string, roomInfo: { room_id: string; 
               await currentPc.addIceCandidate(new RTCIceCandidate({ candidate: msg.payload.candidate }));
             }
           }
+        } else if (msg.type === 'error') {
+          // Erros de sinalização não encerram a conexão. O limite do chat vira aviso visual
+          // (001/plan.md §10b — 005/C-503).
+          const err = msg.payload as ErrorPayload | undefined;
+          if (err?.code === 'CHAT_RATE_LIMITED') {
+            showChatNotice(err.message?.trim() || CHAT_RATE_LIMITED_FALLBACK);
+          } else if (err) {
+            console.warn('Erro de sinalização:', err.code, err.message);
+          }
         } else if (msg.type === 'ice-servers') {
           const currentPc = pcRef.current;
           if (currentPc && msg.payload && msg.payload.ice_servers) {
@@ -353,7 +390,7 @@ export function useWebRTCSubscriber(token: string, roomInfo: { room_id: string; 
         connect();
       }, delay);
     };
-  }, [token, roomId, wsUrl, iceServers]);
+  }, [token, roomId, wsUrl, iceServers, showChatNotice]);
 
   useEffect(() => {
     isCleanedUpRef.current = false;
@@ -440,5 +477,7 @@ export function useWebRTCSubscriber(token: string, roomInfo: { room_id: string; 
     toggleHand,
     sendChatMessage,
     requestKeyframe,
+    chatNotice,
+    dismissChatNotice,
   };
 }

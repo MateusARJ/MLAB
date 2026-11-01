@@ -216,6 +216,48 @@ describe('useWebRTCSubscriber Hook', () => {
     );
   });
 
+  it('deve exibir aviso temporário ao receber CHAT_RATE_LIMITED sem fechar a conexão', async () => {
+    vi.useFakeTimers();
+    try {
+      const { result } = renderHook(() => useWebRTCSubscriber(dummyToken, dummyRoomInfo));
+
+      await act(async () => {
+        mockWsInstance.onmessage({
+          data: JSON.stringify({ type: 'error', payload: { code: 'CHAT_RATE_LIMITED', message: 'muitas mensagens, aguarde' } }),
+        });
+      });
+      expect(result.current.chatNotice).toBe('muitas mensagens, aguarde');
+      expect(mockWsInstance.close).not.toHaveBeenCalled();
+
+      await act(async () => {
+        vi.advanceTimersByTime(5000);
+      });
+      expect(result.current.chatNotice).toBeNull();
+
+      // Sem mensagem do servidor, usa o texto padrão; dismissChatNotice limpa na hora.
+      await act(async () => {
+        mockWsInstance.onmessage({ data: JSON.stringify({ type: 'error', payload: { code: 'CHAT_RATE_LIMITED', message: '' } }) });
+      });
+      expect(result.current.chatNotice).toMatch(/Aguarde alguns segundos/);
+      await act(async () => {
+        result.current.dismissChatNotice();
+      });
+      expect(result.current.chatNotice).toBeNull();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('não deve exibir aviso de chat para outros códigos de erro', async () => {
+    const { result } = renderHook(() => useWebRTCSubscriber(dummyToken, dummyRoomInfo));
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    await act(async () => {
+      mockWsInstance.onmessage({ data: JSON.stringify({ type: 'error', payload: { code: 'FORBIDDEN', message: 'x' } }) });
+    });
+    expect(result.current.chatNotice).toBeNull();
+    warn.mockRestore();
+  });
+
   it('deve ir para duplicate sem reconectar ao receber close 4001 (RN-04)', async () => {
     vi.useFakeTimers();
     try {
