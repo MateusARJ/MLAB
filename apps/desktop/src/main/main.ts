@@ -533,8 +533,9 @@ async function startBackendServer(): Promise<void> {
         ...process.env,
         PORT: '8080',
         WEB_PORT: '8080',
-        WEB_DIR: webDir,
-        JWT_SECRET: process.env['JWT_SECRET'] || 'dev-secret-key-12345'
+        // JWT_SECRET só é repassado se vier do ambiente (via ...process.env);
+        // caso contrário o backend gera um segredo aleatório por execução (ADR 0006).
+        WEB_DIR: webDir
       }
     })
 

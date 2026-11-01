@@ -1,6 +1,8 @@
 package main
 
 import (
+	"crypto/rand"
+	"encoding/hex"
 	"fmt"
 	"log"
 	"net/http"
@@ -19,10 +21,11 @@ func main() {
 		port = "8080"
 	}
 
-	// Chave secreta padrão para desenvolvimento local quando executado via Turborepo ou npm run dev
-	if os.Getenv("JWT_SECRET") == "" {
-		os.Setenv("JWT_SECRET", "dev-secret-key-12345")
-		log.Println("AVISO: JWT_SECRET não configurado no ambiente. Usando chave padrão para desenvolvimento local.")
+	// Segredo JWT: usa JWT_SECRET do ambiente ou gera um aleatório para esta execução (ADR 0006).
+	if generated, err := ensureJWTSecret(); err != nil {
+		log.Fatalf("erro ao gerar JWT_SECRET: %v", err)
+	} else if generated {
+		log.Println("JWT_SECRET não configurado: segredo aleatório gerado para esta execução (tokens emitidos valem até o backend reiniciar).")
 	}
 
 	// ── Stores (desenvolvimento: em memória) ──────────────────────────────────
@@ -105,6 +108,26 @@ func main() {
 	if err := http.ListenAndServe(addr, corsMiddleware(mux)); err != nil {
 		log.Fatalf("erro no servidor: %v", err)
 	}
+}
+
+// jwtSecretBytes é o tamanho do segredo JWT gerado quando JWT_SECRET não é fornecido.
+const jwtSecretBytes = 32
+
+// ensureJWTSecret garante que JWT_SECRET esteja definido. Quando ausente, gera um segredo aleatório
+// de 32 bytes (hex) e o define no ambiente do processo, onde internal/auth o lê.
+// Retorna true quando o segredo foi gerado. O valor nunca é registrado em log.
+func ensureJWTSecret() (bool, error) {
+	if os.Getenv("JWT_SECRET") != "" {
+		return false, nil
+	}
+	buf := make([]byte, jwtSecretBytes)
+	if _, err := rand.Read(buf); err != nil {
+		return false, err
+	}
+	if err := os.Setenv("JWT_SECRET", hex.EncodeToString(buf)); err != nil {
+		return false, err
+	}
+	return true, nil
 }
 
 // resolveWebDir descobre o diretório onde os arquivos compilados do web app dos alunos estão localizados.

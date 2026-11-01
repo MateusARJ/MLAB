@@ -68,3 +68,45 @@ func TestSpaHandler(t *testing.T) {
 		t.Errorf("expected body to contain 'mlab-test', got %q", rec.Body.String())
 	}
 }
+
+func TestEnsureJWTSecret_GeneratesRandomWhenMissing(t *testing.T) {
+	t.Setenv("JWT_SECRET", "")
+
+	generated, err := ensureJWTSecret()
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !generated {
+		t.Fatal("expected secret to be generated when JWT_SECRET is empty")
+	}
+	first := os.Getenv("JWT_SECRET")
+	if len(first) != jwtSecretBytes*2 {
+		t.Fatalf("expected %d hex chars, got %d", jwtSecretBytes*2, len(first))
+	}
+	if first == "dev-secret-key-12345" {
+		t.Fatal("secret must never be the legacy fixed value")
+	}
+
+	os.Setenv("JWT_SECRET", "")
+	if _, err := ensureJWTSecret(); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if second := os.Getenv("JWT_SECRET"); second == first {
+		t.Fatal("expected a different secret on each generation")
+	}
+}
+
+func TestEnsureJWTSecret_KeepsProvidedSecret(t *testing.T) {
+	t.Setenv("JWT_SECRET", "segredo-fornecido-pelo-ambiente")
+
+	generated, err := ensureJWTSecret()
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if generated {
+		t.Fatal("must not generate a secret when JWT_SECRET is provided")
+	}
+	if got := os.Getenv("JWT_SECRET"); got != "segredo-fornecido-pelo-ambiente" {
+		t.Fatalf("provided secret was changed: %q", got)
+	}
+}

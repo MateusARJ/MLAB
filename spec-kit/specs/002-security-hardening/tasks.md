@@ -8,14 +8,15 @@ Regra de cada task: rodar `go test -count=1 ./...` (backend) e `npx turbo run te
 Itens da matriz de smoke citados são validação manual do responsável (registrar em `docs/metrics/baseline-2026-11.md`).
 
 ### T201 — S1: segredo JWT aleatório por execução
-[ ] T201
+[x] T201
 Allowed Paths: `apps/backend/cmd/server/**`, `apps/backend/internal/auth/**`, `apps/desktop/src/main/main.ts`
 Prohibited Paths: `apps/web/**`, `apps/backend/internal/webrtc/**`, `packages/**`
 Checks:
-- [ ] Constante `dev-secret-key-12345` removida do backend e do desktop.
-- [ ] Sem `JWT_SECRET`, o backend gera 32 bytes aleatórios; duas inicializações geram segredos diferentes; o valor não é logado.
-- [ ] Desktop repassa `JWT_SECRET` ao backend só se vier do ambiente.
-- [ ] Suítes verdes. Smoke: A1, A2, A10, A16.
+- [x] Constante `dev-secret-key-12345` removida do backend e do desktop.
+- [x] Sem `JWT_SECRET`, o backend gera 32 bytes aleatórios; duas inicializações geram segredos diferentes; o valor não é logado.
+- [x] Desktop repassa `JWT_SECRET` ao backend só se vier do ambiente.
+- [x] Suítes verdes: Go 6/6, web 25/25, desktop 82/82 (`main_test.go`: `TestEnsureJWTSecret_*`).
+- [ ] Smoke A1, A2, A10, A16 — **pendente de execução manual** pelo responsável (o agente não executa GUI/LAN).
 
 ### T202 — S2: chave de host na sessão do professor
 [ ] T202
