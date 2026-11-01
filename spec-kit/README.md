@@ -92,9 +92,17 @@ Próximo passo: executar T005 (revalidação formal de todos os artefatos, fecha
 
 ## Validação
 
+Requer Python 3.10+ (`py` no Windows, `python3` no Linux/macOS). Rode a partir da raiz do repositório:
+
 ```bash
-python .specify/scripts/validate_spec.py specs/001-screen-share-core
+npm run spec:check                                     # todas as features
+npm run spec:check -- spec-kit/specs/001-screen-share-core   # uma feature
 ```
+
+O validador falha quando: falta artefato obrigatório, o `plan.md` não tem Scope Lock completo,
+o `analyze.md` não está em `Status: PASS`, a checklist não está `APPROVED`, existe
+`NEEDS CLARIFICATION` em documento fechado ou alguma tarefa `### Txxx` não declara
+`Allowed Paths:` e `Prohibited Paths:`.
 
 ## Decisões Arquiteturais Aprovadas
 

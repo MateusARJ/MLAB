@@ -16,7 +16,7 @@ def fail(msg: str) -> int:
 
 def main() -> int:
     if len(sys.argv) != 2:
-        print("uso: python .specify/scripts/validate_spec.py specs/001-feature")
+        print("uso: npm run spec:check -- spec-kit/specs/<feature>")
         return 2
 
     feature = Path(sys.argv[1])
@@ -54,15 +54,12 @@ def main() -> int:
         if "NEEDS CLARIFICATION" in text:
             return fail(f"há 'NEEDS CLARIFICATION' em documento fechado: {path.name}")
 
-    # Cada bloco de tarefa deve declarar Allowed/Prohibited Paths.
-    task_ids = re.findall(r"^\s*-?\s*\[.?\]\s*(T\d{3})\b|^\s*(T\d{3})\b", tasks, re.M)
-    normalized = [a or b for a, b in task_ids]
-    if normalized:
-        for tid in normalized:
-            match = re.search(rf"(?ms)^.*?{tid}\b.*?(?=^.*T\d{{3}}\b|\Z)", tasks)
-            block = match.group(0) if match else ""
-            if "Allowed Paths:" not in block or "Prohibited Paths:" not in block:
-                return fail(f"tarefa {tid} sem Allowed Paths/Prohibited Paths")
+    # Cada bloco de tarefa (cabeçalho "### Txxx") deve declarar Allowed/Prohibited Paths.
+    # Os blocos vão de um cabeçalho "### Txxx" até o próximo cabeçalho de nível 2 ou 3.
+    for match in re.finditer(r"(?ms)^###\s+(T\d{3}[a-z]?)\b(.*?)(?=^##\s|^###\s|\Z)", tasks):
+        tid, block = match.group(1), match.group(2)
+        if "Allowed Paths:" not in block or "Prohibited Paths:" not in block:
+            return fail(f"tarefa {tid} sem Allowed Paths/Prohibited Paths")
 
     print(f"PASS: {feature}")
     return 0

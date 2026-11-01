@@ -13,6 +13,7 @@
   ],
   "scripts": {
     "bump": "node ./scripts/bump-version.mjs",
+    "spec:check": "node ./scripts/spec-check.js",
     "build": "turbo run build",
     "dev": "node ./scripts/dev.js",
     "lint": "turbo run lint",
