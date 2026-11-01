@@ -46,7 +46,7 @@ Status: OPEN
 |---|---|---|
 | RF-24 verificação de permissões do SO | A tela `Permissions.tsx` (T029) foi removida em `4f3caad`. O processo principal ainda trata permissões (`setPermissionRequestHandler`, `main.ts:597`), mas não há verificação explícita antes da captura. Requisito precisa ser reescrito para o fluxo atual ou receber nova task. | `main.ts` |
 | RF-08 / RNF-04 métricas | Coleta existe no cliente; não há exposição contínua no backend verificada nesta convergência. | `docs/metrics/validation_report.md` (declarado, não reexecutado) |
-| RNF-01/02/03/08/09/15 metas de desempenho | **Sem medição real.** `docs/load-test/load_test.go` compara valores fixos escritos no próprio teste (FPS 30, perda 0,5%, RTT 45 ms, CPU 8,4%) com as metas, sem subir o SFU nem conectar clientes — passa sempre. A T020 e o `validation_report.md` se apoiam nele. Viola o Princípio IV. | `docs/load-test/load_test.go` (constatado em 2026-11-01, fase F6/R3) |
+| RNF-01/02/03/08/09/15 metas de desempenho | **Atualização (T034):** RNF-03 e o fan-out de RNF-02/RNF-09 medidos de verdade — 40/40 e 50/50 assinantes a 30 FPS, 4,05 Mbps, perda 0%, upload do publisher fixo (`docs/metrics/loadtest-2026-11-01.md`). RNF-08, RNF-15 isolado e captura real seguem manuais (C-07). **Texto original:** sem medição real. `docs/load-test/load_test.go` compara valores fixos escritos no próprio teste (FPS 30, perda 0,5%, RTT 45 ms, CPU 8,4%) com as metas, sem subir o SFU nem conectar clientes — passa sempre. A T020 e o `validation_report.md` se apoiam nele. Viola o Princípio IV. | `docs/load-test/load_test.go` (constatado em 2026-11-01, fase F6/R3) |
 | RNF-05 segredos | ✅ Resolvido em 002/T201 (segredo aleatório por execução). Mantido aqui como histórico. | `0d430cc` |
 | RNF-07 distribuição multiplataforma | Build Windows e Linux existentes (`scripts/build-linux-wsl.js`); macOS não verificado. | `.github/workflows/build-all.yml` |
 
@@ -106,10 +106,21 @@ Status: OPEN
 - Falhas de segurança: **corrigidas** pela `002-security-hardening` (T201–T208); ver `../002-security-hardening/converge.md`.
 - Testes faltantes de chat privado e histórico: **cobertos** por 003/T313–T314. Testes de arquivos: cobertos por 002/T204.
 - Continuam abertos:
-  1. medição real de desempenho (RNF-01/02/03/08/09/15) — exige substituir o teste de carga simulado por um teste que suba o SFU e conecte clientes, e nova task na 001;
+  1. ~~medição real de desempenho~~ → teste real entregue em T034 (`d409da1`); faltam RNF-08 e RNF-15 isolado, que exigem app e rede reais;
   2. matriz de smoke manual (A0–A20) com o build atual;
-  3. decisão sobre `request-keyframe` (proposta S9);
+  3. ~~decisão sobre `request-keyframe`~~ → 002/T209;
   4. RNF-07 em macOS.
+
+## 6.2 Achado do teste de carga (2026-11-01)
+
+- **A-1 — entradas simultâneas serializadas.** `Room.createSubscriberOffer` (`internal/webrtc/room.go`) segura o mutex
+  da sala durante a coleta de ICE (~0,6 s nesta máquina), e o hub chama `CreateSubscriberOffer` de forma síncrona
+  (`signaling/hub.go`, `onSubscribeRequest`). Com 50 alunos entrando juntos, o último esperou 31 s pelo vídeo, e
+  o chat da sala fica parado durante as entradas. Evidência: `docs/metrics/loadtest-2026-11-01.md`.
+- **Proposta de task (aguarda decisão do dono do produto):** tirar a coleta de ICE de dentro do mutex da sala e a
+  chamada ao SFU da goroutine do hub, com o teste de carga T034 como critério (tempo de entrada máximo bem abaixo do
+  atual, com o mesmo FPS e a mesma perda). Altera `internal/webrtc/**` e `internal/signaling/**` e exige emenda de
+  plan/tasks antes de implementar.
 
 ## 7. Resultado
 
