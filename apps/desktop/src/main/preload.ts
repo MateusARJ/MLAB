@@ -1,4 +1,4 @@
-import { contextBridge, ipcRenderer, clipboard } from 'electron'
+import { contextBridge, ipcRenderer } from 'electron'
 import type {
   AnnotationSessionState,
   AnnotationShortcutCommand,
@@ -133,14 +133,8 @@ const api: ElectronAPI = {
   saveRecordedVideo: (buffer, defaultName, format) =>
     ipcRenderer.invoke('save-recorded-video', { buffer, defaultName, format }),
   getHostKey: () => ipcRenderer.invoke('get-host-key'),
-  copyToClipboard: (text: string) => {
-    try {
-      clipboard.writeText(text)
-      return Promise.resolve(true)
-    } catch {
-      return Promise.resolve(false)
-    }
-  },
+  // A escrita é feita no processo principal: `clipboard` não existe em preload com sandbox (002/S7).
+  copyToClipboard: (text: string) => ipcRenderer.invoke('write-clipboard-text', text),
   setActiveRoom: (room) => ipcRenderer.invoke('set-active-room', room),
   setContentProtection: (enabled: boolean) => ipcRenderer.invoke('set-content-protection', enabled),
   captureWindowToClipboard: () => ipcRenderer.invoke('capture-window-to-clipboard'),

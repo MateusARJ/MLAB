@@ -312,6 +312,20 @@ ipcMain.handle(
   }
 )
 
+// ── IPC: escrita de texto na área de transferência (002/S7) ───────────────────
+// Executada no main porque o módulo clipboard não está disponível em preload com sandbox.
+ipcMain.handle('write-clipboard-text', (_event, text: unknown) => {
+  if (typeof text !== 'string') {
+    return false
+  }
+  try {
+    clipboard.writeText(text)
+    return true
+  } catch {
+    return false
+  }
+})
+
 // ── IPC: chave de host para a sessão do professor (ADR 0006) ──────────────────
 // Usada apenas no header X-MLab-Host-Key de POST /auth/session ao backend local.
 ipcMain.handle('get-host-key', () => hostKey)
