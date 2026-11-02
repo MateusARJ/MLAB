@@ -1,4 +1,5 @@
 import type { AnnotationOverlayState, AnnotationStroke, CursorState } from '@mlab/types';
+import { decideFramePath } from './cursorMaskPolicy';
 
 interface InitMessage {
   type: 'init';
@@ -349,21 +350,12 @@ async function runPipeline(
 
       const state = currentState;
       const ann = currentAnnotations;
-      const hasAnyAnnotation =
-        ann.strokes.length > 0 || ann.activeStroke !== null || ann.spotlight.enabled === true;
-
-      // No modo 'screen' com a janela de overlay externa ativa (sem setContentProtection),
-      // o próprio capturador de tela do SO (WGC) já captura os traços e a Lupa a 60fps via GPU,
-      // exceto quando o professor ativa ampliação óptica (zoom > 1) na Lupa.
-      const capturedNativelyByScreen =
-        ann.captureMode === 'screen' &&
-        ann.externalOverlayActive === true &&
-        !(ann.spotlight.enabled && (ann.spotlight.zoom || 1) > 1);
-
-      const hasOverlayInWorker = hasAnyAnnotation && !capturedNativelyByScreen;
+      // Decisão por quadro (007, cursorMaskPolicy). No modo 'screen' com overlay externo, o capturador
+      // do SO já captura traços e Lupa; o worker só desenha o que a captura nativa não cobre.
+      const path = decideFramePath(state, ann, true);
 
       // Caminho rápido 100% Zero-Copy: nenhuma operação de OffscreenCanvas quando sem overlay no worker
-      if (!hasOverlayInWorker) {
+      if (!path.drawAnnotations) {
         await writer.write(frame);
         frame.close();
         continue;

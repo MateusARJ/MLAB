@@ -7,14 +7,14 @@ Status: READY-FOR-IMPLEMENTATION
 Regra de cada task de código: `npx turbo run build test --force` verde antes do `[x]`.
 
 ### T701 — Política de caminho do quadro (refatoração sem mudança de comportamento)
-[ ] T701
+[x] T701
 Allowed Paths: `apps/desktop/src/renderer/media/cursorMaskPolicy.ts`, `apps/desktop/src/renderer/media/cursorMaskPolicy.test.ts`, `apps/desktop/src/renderer/media/cursorMask.worker.ts`
 Prohibited Paths: `apps/desktop/src/main/**`, `apps/desktop/src/shared/**`, `apps/desktop/src/renderer/hooks/**`, `apps/backend/**`, `apps/web/**`, `packages/**`
 Checks:
-- [ ] `decideFramePath` devolve `{ compose, maskCursor, drawAnnotations }` (RF-701, RF-702).
-- [ ] Testes: cursor visível sem anotação → sem composição; `rect: null` → sem composição; oculto com `rect` →
+- [x] `decideFramePath` devolve `{ compose, maskCursor, drawAnnotations }` (RF-701, RF-702).
+- [x] Testes: cursor visível sem anotação → sem composição; `rect: null` → sem composição; oculto com `rect` →
   `maskCursor`; suspensa → sem `maskCursor`; anotações seguem a regra atual (tela cheia nativa vs. worker).
-- [ ] O worker usa só `drawAnnotations`/`compose` sem `maskCursor` nesta task (comportamento idêntico ao atual).
+- [x] O worker usa só `drawAnnotations`/`compose` sem `maskCursor` nesta task (comportamento idêntico ao atual).
 
 ### T702 — Máscara do cursor no worker e resolução de exibição
 [ ] T702
