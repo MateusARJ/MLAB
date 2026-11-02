@@ -29,15 +29,15 @@ Checks:
 - [x] Repasse sem cópia intacto quando `compose` é `false` (RF-702).
 
 ### T703 — Proteção de FPS e log das mensagens do worker
-[ ] T703
+[x] T703
 Depends On: T702
 Allowed Paths: `apps/desktop/src/renderer/media/cursorMaskPolicy.ts`, `apps/desktop/src/renderer/media/cursorMaskPolicy.test.ts`, `apps/desktop/src/renderer/media/cursorMask.worker.ts`, `apps/desktop/src/renderer/media/createCursorMaskedTrack.ts`, `apps/desktop/src/renderer/media/createCursorMaskedTrack.test.ts`
 Prohibited Paths: `apps/desktop/src/main/**`, `apps/desktop/src/shared/**`, `apps/desktop/src/renderer/hooks/**`, `apps/backend/**`, `apps/web/**`, `packages/**`
 Checks:
-- [ ] `FrameBudgetGuard`: suspende com média > 8 ms após 10 amostras; retoma após 5 s, 10 s, 20 s, 40 s, 60 s
+- [x] `FrameBudgetGuard`: suspende com média > 8 ms após 10 amostras; retoma após 5 s, 10 s, 20 s, 40 s, 60 s
   (máximo); testes com relógio injetado (RF-703).
-- [ ] Worker mede só os quadros com máscara e envia `mask-suspended`/`mask-resumed`; anotações não são suspensas.
-- [ ] `createCursorMaskedTrack.ts` registra `mask-suspended`, `mask-resumed` e `fatal` com `[CursorMask]`; doc do
+- [x] Worker mede só os quadros com máscara e envia `mask-suspended`/`mask-resumed`; anotações não são suspensas.
+- [x] `createCursorMaskedTrack.ts` registra `mask-suspended`, `mask-resumed` e `fatal` com `[CursorMask]`; doc do
   módulo atualizada (RNF-703); teste cobre o registro.
 
 ### T704 — Emenda da 003 (tela cheia) e roteiro do A12

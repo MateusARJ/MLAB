@@ -1,5 +1,9 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { createCursorMaskedTrack, setAnnotationOverlayState } from './createCursorMaskedTrack';
+import {
+  createCursorMaskedTrack,
+  logCursorMaskWorkerMessage,
+  setAnnotationOverlayState,
+} from './createCursorMaskedTrack';
 
 function makeMockTrack(): MediaStreamTrack {
   return {
@@ -94,6 +98,7 @@ describe('createCursorMaskedTrack', () => {
 
       expect(res.active).toBe(true);
       expect(res.track).toBe(fakeGenerator);
+      expect(typeof (window as any).Worker.mock.results[0].value.onmessage).toBe('function');
       expect(fakeGenerator.contentHint).toBe('detail');
       expect(postMessageSpy).toHaveBeenCalledWith(
         { type: 'init', readable: fakeReadable, writable: fakeWritable },
@@ -152,5 +157,37 @@ describe('createCursorMaskedTrack', () => {
     } finally {
       window.Worker = origWorker;
     }
+  });
+});
+
+describe('logCursorMaskWorkerMessage', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('registra suspensão, retomada e falha do worker com o prefixo [CursorMask] (RNF-703)', () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const info = vi.spyOn(console, 'info').mockImplementation(() => {});
+    const error = vi.spyOn(console, 'error').mockImplementation(() => {});
+
+    logCursorMaskWorkerMessage({ type: 'mask-suspended', avgMs: 11.5, retryInMs: 10000 });
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining('[CursorMask]'));
+    expect(warn.mock.calls[0][0]).toContain('11.5 ms');
+    expect(warn.mock.calls[0][0]).toContain('10 s');
+
+    logCursorMaskWorkerMessage({ type: 'mask-resumed' });
+    expect(info).toHaveBeenCalledWith('[CursorMask] Ocultação do cursor retomada.');
+
+    logCursorMaskWorkerMessage({ type: 'fatal', message: 'boom' });
+    expect(error).toHaveBeenCalledWith(expect.stringContaining('boom'));
+  });
+
+  it('ignora mensagens desconhecidas ou vazias', () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const info = vi.spyOn(console, 'info').mockImplementation(() => {});
+    logCursorMaskWorkerMessage(null);
+    logCursorMaskWorkerMessage({ type: 'outro' });
+    expect(warn).not.toHaveBeenCalled();
+    expect(info).not.toHaveBeenCalled();
   });
 });

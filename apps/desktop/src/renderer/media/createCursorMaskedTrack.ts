@@ -43,9 +43,30 @@ export function getAnnotationOverlayState(): AnnotationOverlayState {
 }
 
 /**
+ * Registra no log as mensagens do worker de vídeo (007, RNF-703): suspensão e retomada da máscara do cursor
+ * pela proteção de FPS e falha fatal do pipeline.
+ */
+export function logCursorMaskWorkerMessage(data: unknown): void {
+  if (!data || typeof data !== 'object') return;
+  const msg = data as { type?: string; avgMs?: number; retryInMs?: number; message?: string };
+  if (msg.type === 'mask-suspended') {
+    console.warn(
+      `[CursorMask] Ocultação do cursor suspensa para preservar o FPS (média ${msg.avgMs} ms por quadro); ` +
+        `nova tentativa em ${Math.round((msg.retryInMs ?? 0) / 1000)} s.`
+    );
+  } else if (msg.type === 'mask-resumed') {
+    console.info('[CursorMask] Ocultação do cursor retomada.');
+  } else if (msg.type === 'fatal') {
+    console.error(`[CursorMask] Falha no pipeline de vídeo: ${msg.message ?? 'desconhecida'}`);
+  }
+}
+
+/**
  * Envolve uma MediaStreamTrack de vídeo com um pipeline Insertable Streams (MediaStreamTrackProcessor +
- * MediaStreamTrackGenerator + Web Worker) que apaga o cursor quando o estado enviado pelo processo Main
- * indicar `visible: false`.
+ * MediaStreamTrackGenerator + Web Worker), usado no modo janela específica. O worker apaga o cursor quando o
+ * estado enviado pelo processo Main indica `visible: false` com o cursor dentro da fonte, e desenha as
+ * marcações/Lupa; nos demais quadros repassa o quadro sem cópia. A máscara é suspensa temporariamente quando
+ * passa do orçamento por quadro (007, RF-701 a RF-703).
  *
  * Caso o ambiente não suporte Insertable Streams (ex: testes em JSDOM), o kill-switch esteja ativo
  * (`localStorage.getItem('mlab.cursorMask') === 'off'`) ou a inicialização falhe, retorna a própria
@@ -126,6 +147,7 @@ export function createCursorMaskedTrack(rawVideoTrack: MediaStreamTrack): Masked
     });
 
     activeWorkers.add(worker);
+    worker.onmessage = (evt: MessageEvent) => logCursorMaskWorkerMessage(evt.data);
 
     worker.postMessage(
       {

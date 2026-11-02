@@ -1,5 +1,5 @@
 import type { AnnotationOverlayState, AnnotationStroke, CursorState } from '@mlab/types';
-import { decideFramePath } from './cursorMaskPolicy';
+import { decideFramePath, FrameBudgetGuard, type FrameBudgetEvent } from './cursorMaskPolicy';
 
 interface InitMessage {
   type: 'init';
@@ -113,8 +113,13 @@ async function runPipeline(
 
   let plateInitialized = false;
   let lastPlateUpdateAt = 0;
-  let degraded = false;
-  let avgProcessMs = 0;
+  const budgetGuard = new FrameBudgetGuard();
+  const postBudgetEvent = (event: FrameBudgetEvent | null) => {
+    if (!event) return;
+    try {
+      self.postMessage(event);
+    } catch {}
+  };
 
   const ensureOutCanvas = (w: number, h: number): boolean => {
     if (w <= 0 || h <= 0 || typeof OffscreenCanvas === 'undefined') return false;
@@ -380,7 +385,9 @@ async function runPipeline(
       const ann = currentAnnotations;
       // Decisão por quadro (007, cursorMaskPolicy). No modo 'screen' com overlay externo, o capturador
       // do SO já captura traços e Lupa; o worker só desenha o que a captura nativa não cobre.
-      const path = decideFramePath(state, ann, false);
+      // Proteção de FPS (RF-703): a máscara pode estar suspensa por custo; as anotações nunca são suspensas.
+      postBudgetEvent(budgetGuard.poll());
+      const path = decideFramePath(state, ann, budgetGuard.isSuspended);
 
       // Caminho rápido 100% Zero-Copy: nenhuma operação de OffscreenCanvas quando o cursor deve aparecer
       // (ou está fora da fonte) e não há overlay no worker (RF-702).
@@ -413,9 +420,10 @@ async function runPipeline(
       }
 
       try {
+        const t0 = performance.now();
         ctx.drawImage(frame, 0, 0, width, height);
         if (maskCursor && state.rect) {
-          maskCursorRegion(frame, state.rect, performance.now());
+          maskCursorRegion(frame, state.rect, t0);
         }
         if (path.drawAnnotations) {
           renderAnnotationsAndSpotlight(ctx, canvas, ann, state.rect);
@@ -425,6 +433,10 @@ async function runPipeline(
           timestamp: frame.timestamp,
           duration: frame.duration ?? undefined,
         });
+        // Mede só a composição (sem a espera do writer) e só nos quadros com máscara.
+        if (maskCursor) {
+          postBudgetEvent(budgetGuard.record(performance.now() - t0));
+        }
         frame.close();
         await writer.write(cleanFrame);
         cleanFrame.close();

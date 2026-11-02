@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import type { AnnotationOverlayState, CursorState } from '@mlab/types';
-import { decideFramePath, shouldMaskCursor } from './cursorMaskPolicy';
+import { decideFramePath, FrameBudgetGuard, shouldMaskCursor } from './cursorMaskPolicy';
 
 const RECT = { x: 0.4, y: 0.4, w: 0.03, h: 0.05 };
 
@@ -82,5 +82,54 @@ describe('cursorMaskPolicy', () => {
       spotlight: { enabled: true, x: 0.5, y: 0.5, radius: 0.14, zoom: 2, activeInViewer: false },
     });
     expect(decideFramePath(cursor, ann, false).drawAnnotations).toBe(true);
+  });
+});
+
+describe('FrameBudgetGuard', () => {
+  function makeClock() {
+    let t = 0;
+    return { now: () => t, advance: (ms: number) => (t += ms) };
+  }
+
+  it('não suspende antes do mínimo de amostras nem dentro do orçamento', () => {
+    const clock = makeClock();
+    const guard = new FrameBudgetGuard(clock.now);
+    for (let i = 0; i < 9; i++) expect(guard.record(20)).toBeNull();
+    const ok = new FrameBudgetGuard(clock.now);
+    for (let i = 0; i < 50; i++) expect(ok.record(5)).toBeNull();
+    expect(ok.isSuspended).toBe(false);
+  });
+
+  it('suspende com média acima de 8 ms após 10 amostras e retoma após a espera (RF-703)', () => {
+    const clock = makeClock();
+    const guard = new FrameBudgetGuard(clock.now);
+    let ev = null;
+    for (let i = 0; i < 10; i++) ev = guard.record(12);
+    expect(ev).toEqual({ type: 'mask-suspended', avgMs: 12, retryInMs: 5000 });
+    expect(guard.isSuspended).toBe(true);
+    expect(guard.record(50)).toBeNull();
+
+    clock.advance(4999);
+    expect(guard.poll()).toBeNull();
+    clock.advance(1);
+    expect(guard.poll()).toEqual({ type: 'mask-resumed' });
+    expect(guard.isSuspended).toBe(false);
+  });
+
+  it('dobra a espera a cada suspensão até 60 s e zera a média ao retomar', () => {
+    const clock = makeClock();
+    const guard = new FrameBudgetGuard(clock.now);
+    const waits: number[] = [];
+    for (let round = 0; round < 6; round++) {
+      let ev: any = null;
+      for (let i = 0; i < 10 && !ev; i++) ev = guard.record(15);
+      expect(ev?.type).toBe('mask-suspended');
+      waits.push(ev.retryInMs);
+      clock.advance(ev.retryInMs);
+      expect(guard.poll()).toEqual({ type: 'mask-resumed' });
+      // média zerada: 9 amostras novas não bastam para suspender de novo
+      for (let i = 0; i < 9; i++) expect(guard.record(15)).toBeNull();
+    }
+    expect(waits).toEqual([5000, 10000, 20000, 40000, 60000, 60000]);
   });
 });
