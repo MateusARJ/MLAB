@@ -13,6 +13,9 @@ import {
   Touch_1Filled,
   PinFilled,
   Alert,
+  Button,
+  colors,
+  radii,
   decodeChatEntities,
 } from '@mlab/ui';
 import React, { useRef, useEffect, useState } from 'react';
@@ -800,14 +803,18 @@ export const Room: React.FC<RoomProps> = ({ token, roomInfo, onLeave }) => {
               />
               {/* Banner de feedback quando a mão está levantada */}
               {isHandRaised && (
-                <div style={styles.handRaisedBanner} role="status">
+                <div style={styles.handRaisedBanner} role="status" data-testid="hand-raised-banner">
                   <div style={styles.handRaisedBannerContent}>
-                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}>
-                      <Touch_1Filled size={16} />
+                    <span style={styles.handRaisedBannerMessage}>
+                      <span style={styles.handRaisedBannerIcon} data-testid="hand-raised-banner-icon">
+                        <Touch_1Filled size={16} />
+                      </span>
                       <span>Sua mão está levantada. O professor foi notificado.</span>
                     </span>
-                    <button
+                    <Button
                       type="button"
+                      variant="secondary"
+                      size="sm"
                       onClick={(e) => {
                         e.stopPropagation();
                         toggleHand(false);
@@ -815,7 +822,7 @@ export const Room: React.FC<RoomProps> = ({ token, roomInfo, onLeave }) => {
                       style={styles.handRaisedLowerBtn}
                     >
                       Abaixar Mão
-                    </button>
+                    </Button>
                   </div>
                 </div>
               )}
@@ -1557,37 +1564,50 @@ const styles: { [key: string]: React.CSSProperties } = {
     boxShadow: '0 4px 12px rgba(15, 98, 254, 0.4)',
     transition: 'opacity 0.25s ease, background-color 0.2s',
   },
+  // Aviso de mão levantada (006): largura do conteúdo, limitada à área do vídeo com 16 px de cada lado (C-601).
   handRaisedBanner: {
     position: 'absolute' as const,
     top: '16px',
     left: '50%',
     transform: 'translateX(-50%)',
+    width: 'max-content',
+    maxWidth: 'calc(100% - 32px)',
+    boxSizing: 'border-box' as const,
     zIndex: 20,
-    backgroundColor: 'rgba(15, 23, 42, 0.92)',
-    border: '1px solid rgba(15, 98, 254, 0.4)',
-    borderRadius: '8px',
-    padding: '8px 16px',
+    backgroundColor: colors.surfaceCardSolid,
+    border: `1px solid ${colors.primary}`,
+    borderRadius: radii.md,
+    padding: '10px 14px',
     boxShadow: '0 4px 16px rgba(0, 0, 0, 0.4)',
-    backdropFilter: 'blur(8px)',
   },
   handRaisedBannerContent: {
     display: 'flex',
+    flexWrap: 'wrap' as const,
     alignItems: 'center',
-    gap: '14px',
+    justifyContent: 'flex-end',
+    gap: '8px 14px',
     fontSize: '13px',
-    color: '#f8fafc',
+    lineHeight: 1.4,
+    color: colors.textPrimary,
     fontWeight: '500',
   },
+  handRaisedBannerMessage: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '8px',
+    flex: '1 1 200px',
+    minWidth: 0,
+  },
+  handRaisedBannerIcon: {
+    display: 'inline-flex',
+    flexShrink: 0,
+    width: '16px',
+    height: '16px',
+    color: colors.accent,
+  },
   handRaisedLowerBtn: {
-    padding: '4px 10px',
-    borderRadius: '4px',
-    border: '1px solid rgba(255, 255, 255, 0.2)',
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
-    color: '#ffffff',
-    fontSize: '12px',
-    fontWeight: '600',
-    cursor: 'pointer',
-    transition: 'background-color 0.2s',
+    whiteSpace: 'nowrap' as const,
+    flexShrink: 0,
   },
   pausedScreen: {
     display: 'flex',
