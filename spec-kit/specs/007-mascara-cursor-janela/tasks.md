@@ -17,16 +17,16 @@ Checks:
 - [x] O worker usa só `drawAnnotations`/`compose` sem `maskCursor` nesta task (comportamento idêntico ao atual).
 
 ### T702 — Máscara do cursor no worker e resolução de exibição
-[ ] T702
+[x] T702
 Depends On: T701
 Allowed Paths: `apps/desktop/src/renderer/media/cursorMask.worker.ts`
 Prohibited Paths: `apps/desktop/src/main/**`, `apps/desktop/src/shared/**`, `apps/desktop/src/renderer/hooks/**`, `apps/backend/**`, `apps/web/**`, `packages/**`
 Checks:
-- [ ] Com `maskCursor`, a área do cursor é preenchida pela placa de fundo ou pelo entorno (algoritmo anterior ao
+- [x] Com `maskCursor`, a área do cursor é preenchida pela placa de fundo ou pelo entorno (algoritmo anterior ao
   `29c54d0`), antes das anotações (RF-701).
-- [ ] Placa atualizada só durante a máscara e invalidada no repasse (RF-702).
-- [ ] Canvas e quadro composto em `displayWidth` × `displayHeight` (RF-704).
-- [ ] Repasse sem cópia intacto quando `compose` é `false` (RF-702).
+- [x] Placa atualizada só durante a máscara e invalidada no repasse (RF-702).
+- [x] Canvas e quadro composto em `displayWidth` × `displayHeight` (RF-704).
+- [x] Repasse sem cópia intacto quando `compose` é `false` (RF-702).
 
 ### T703 — Proteção de FPS e log das mensagens do worker
 [ ] T703

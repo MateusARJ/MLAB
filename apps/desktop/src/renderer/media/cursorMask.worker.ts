@@ -203,6 +203,34 @@ async function runPipeline(
     outCtx.drawImage(blurCanvas, 0, 0, 32, 32, px.x, px.y, px.w, px.h);
   };
 
+  /**
+   * Apaga o cursor do quadro composto (algoritmo anterior ao 29c54d0): usa a placa de fundo limpa quando ela
+   * é confiável para a área atual e, caso contrário, preenche pelo entorno. A placa só é atualizada aqui,
+   * durante a ocultação, a cada 90 ms (RF-701, RF-702).
+   */
+  const maskCursorRegion = (
+    frame: VideoFrame,
+    rect: { x: number; y: number; w: number; h: number },
+    now: number
+  ) => {
+    if (!outCtx || !plateCanvas) return;
+    const px = toPixelRect(rect);
+    if (px.w > 0 && px.h > 0) {
+      const stationaryMs = now - cursorStationarySince;
+      const hadOverlapOnInit = !plateInitialized || rectsOverlap(rect, lastCursorRect);
+      if (plateInitialized && (!hadOverlapOnInit || stationaryMs < 350)) {
+        outCtx.drawImage(plateCanvas, px.x, px.y, px.w, px.h, px.x, px.y, px.w, px.h);
+      } else {
+        inpaintFromNeighborhood(px);
+      }
+    }
+
+    if (!plateInitialized || now - lastPlateUpdateAt >= 90) {
+      updatePlatePreservingCursor(frame, rect);
+      lastPlateUpdateAt = now;
+    }
+  };
+
   const drawStrokeOnCanvas = (
     ctx: OffscreenCanvasRenderingContext2D,
     stroke: AnnotationStroke,
@@ -352,29 +380,48 @@ async function runPipeline(
       const ann = currentAnnotations;
       // Decisão por quadro (007, cursorMaskPolicy). No modo 'screen' com overlay externo, o capturador
       // do SO já captura traços e Lupa; o worker só desenha o que a captura nativa não cobre.
-      const path = decideFramePath(state, ann, true);
+      const path = decideFramePath(state, ann, false);
 
-      // Caminho rápido 100% Zero-Copy: nenhuma operação de OffscreenCanvas quando sem overlay no worker
-      if (!path.drawAnnotations) {
+      // Caminho rápido 100% Zero-Copy: nenhuma operação de OffscreenCanvas quando o cursor deve aparecer
+      // (ou está fora da fonte) e não há overlay no worker (RF-702).
+      if (!path.compose) {
+        // A placa de fundo só vale durante uma ocultação contínua; fora dela fica obsoleta.
+        plateInitialized = false;
         await writer.write(frame);
         frame.close();
         continue;
       }
 
-      const fw = frame.codedWidth || frame.displayWidth;
-      const fh = frame.codedHeight || frame.displayHeight;
+      // Resolução de exibição (sem o preenchimento do buffer codificado, ex.: 1088 linhas em NV12):
+      // mantém a mesma resolução do repasse e evita reconfigurar o encoder a cada alternância (RF-704).
+      const fw = frame.displayWidth || frame.codedWidth;
+      const fh = frame.displayHeight || frame.codedHeight;
 
-      if (!ensureOutCanvas(fw, fh) || !outCtx || !outCanvas) {
+      const maskCursor = path.maskCursor && state.rect !== null && ensureCursorMaskCanvases(fw, fh);
+      const outReady = ensureOutCanvas(fw, fh);
+      const ctx = outCtx as OffscreenCanvasRenderingContext2D | null;
+      const canvas = outCanvas as OffscreenCanvas | null;
+
+      if (!maskCursor) {
+        plateInitialized = false;
+      }
+
+      if (!outReady || !ctx || !canvas || (!maskCursor && !path.drawAnnotations)) {
         await writer.write(frame);
         frame.close();
         continue;
       }
 
       try {
-        outCtx.drawImage(frame, 0, 0, width, height);
-        renderAnnotationsAndSpotlight(outCtx, outCanvas, ann, state.rect);
+        ctx.drawImage(frame, 0, 0, width, height);
+        if (maskCursor && state.rect) {
+          maskCursorRegion(frame, state.rect, performance.now());
+        }
+        if (path.drawAnnotations) {
+          renderAnnotationsAndSpotlight(ctx, canvas, ann, state.rect);
+        }
 
-        const cleanFrame = new VideoFrame(outCanvas, {
+        const cleanFrame = new VideoFrame(canvas, {
           timestamp: frame.timestamp,
           duration: frame.duration ?? undefined,
         });
