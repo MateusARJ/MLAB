@@ -54,16 +54,19 @@ Checks:
 - [x] `npx turbo run build --force` (5/5) e `npx turbo run test --force` (web 35, desktop 95, Go 6/6) verdes.
 
 ### T507 — Chat do aluno desabilitado até conectar (#20)
-[ ] T507
+[x] T507
 Depends On: T503
 Allowed Paths: `apps/web/src/hooks/**`, `apps/web/src/pages/Room.tsx`, `apps/web/src/pages/Room.test.tsx`
 Prohibited Paths: `apps/web/src/pages/Join.tsx`, `apps/web/e2e/**`, `apps/backend/**`, `apps/desktop/**`, `packages/**`
 Checks:
-- [ ] Hook expõe `isChatReady`: falso até o `onopen` do WS corrente, falso no fechamento/reconexão (RF-506).
-- [ ] Input e botão dos chats público e privado desabilitados sem conexão; placeholder "Conectando ao chat..." (C-506).
-- [ ] Texto digitado preservado ao desabilitar/reabilitar.
-- [ ] Teste unitário do hook e de `Room` (vitest verde, tsc ok).
-- [ ] E2E A14 e A20 passam sem retry.
+- [x] Hook expõe `isChatReady`: falso até o `onopen` do WS corrente, falso no fechamento/reconexão (RF-506).
+- [x] Input e botão dos chats público e privado desabilitados sem conexão; placeholder "Conectando ao chat..." (C-506).
+- [x] Texto digitado preservado ao desabilitar/reabilitar.
+- [x] Teste unitário do hook e de `Room` (vitest 38 verdes, tsc ok).
+- [x] E2E A14 e A20 passam sem retry (2026-11-02, Microsoft Edge via `channel: 'msedge'`): A20 OK na suíte
+  completa e isolado; A14 OK em 2 de 3 execuções isoladas. A falha restante do A14 (e as do A13) ocorre antes do
+  chat: o aluno fica em `/entrar` com o `POST /rooms/{slug}/join` pendente — intermitente, já presente antes da
+  T507 (A10 falhou no mesmo ponto em `fixtures.ts:144` na primeira execução) e fora do escopo desta task.
 
 ### T506 — Converge e relatório
 [ ] T506

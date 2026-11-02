@@ -27,6 +27,8 @@ export function useWebRTCSubscriber(token: string, roomInfo: { room_id: string; 
   const [messages, setMessages] = useState<any[]>([]);
   const [isHandRaised, setIsHandRaised] = useState<boolean>(false);
   const [chatNotice, setChatNotice] = useState<string | null>(null);
+  // WebSocket da sala aberto: o chat só aceita mensagens quando verdadeiro (005/RF-506, C-506).
+  const [isChatReady, setIsChatReady] = useState<boolean>(false);
   const chatNoticeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const dismissChatNotice = useCallback(() => {
@@ -77,6 +79,7 @@ export function useWebRTCSubscriber(token: string, roomInfo: { room_id: string; 
     }
 
     setConnectionStatus('connecting');
+    setIsChatReady(false);
 
     let finalWsUrl = wsUrl;
     if (typeof window !== 'undefined' && window.location && window.location.host) {
@@ -184,6 +187,7 @@ export function useWebRTCSubscriber(token: string, roomInfo: { room_id: string; 
     };
 
     ws.onopen = () => {
+      if (wsRef.current === ws) setIsChatReady(true);
       // Solicita a transmissão ao abrir a conexão WebSocket
       setupPeerConnectionAndSubscribe(ws);
     };
@@ -257,6 +261,7 @@ export function useWebRTCSubscriber(token: string, roomInfo: { room_id: string; 
               wsRef.current.close(1000, 'Session closed');
               wsRef.current = null;
             }
+            setIsChatReady(false);
           } else {
             setConnectionStatus(msg.payload.status);
             if (msg.payload.status === 'publishing') {
@@ -285,6 +290,7 @@ export function useWebRTCSubscriber(token: string, roomInfo: { room_id: string; 
             wsRef.current.close(1000, 'Room closed');
             wsRef.current = null;
           }
+          setIsChatReady(false);
         } else if (msg.type === 'offer') {
           const currentPc = pcRef.current;
           if (currentPc && msg.payload && msg.payload.sdp) {
@@ -349,6 +355,7 @@ export function useWebRTCSubscriber(token: string, roomInfo: { room_id: string; 
     };
 
     ws.onclose = (evt) => {
+      if (wsRef.current === ws) setIsChatReady(false);
       if (isCleanedUpRef.current) return;
 
       // Sessão aberta em outra aba ou dispositivo (RN-04 — 4001 Duplicate Session): não reconecta.
@@ -406,6 +413,7 @@ export function useWebRTCSubscriber(token: string, roomInfo: { room_id: string; 
         wsRef.current.close();
         wsRef.current = null;
       }
+      setIsChatReady(false);
       if (pcRef.current) {
         pcRef.current.close();
         pcRef.current = null;
@@ -479,5 +487,6 @@ export function useWebRTCSubscriber(token: string, roomInfo: { room_id: string; 
     requestKeyframe,
     chatNotice,
     dismissChatNotice,
+    isChatReady,
   };
 }

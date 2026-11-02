@@ -277,4 +277,40 @@ describe('useWebRTCSubscriber Hook', () => {
       vi.useRealTimers();
     }
   });
+
+  it('deve liberar o chat só com o WebSocket aberto e bloquear ao cair (005/RF-506)', async () => {
+    vi.useFakeTimers();
+    try {
+      const { result } = renderHook(() => useWebRTCSubscriber(dummyToken, dummyRoomInfo));
+      const firstWs = mockWsInstance;
+      expect(result.current.isChatReady).toBe(false);
+
+      await act(async () => {
+        firstWs.onopen();
+      });
+      expect(result.current.isChatReady).toBe(true);
+
+      // Queda inesperada: volta a bloquear durante a reconexão.
+      await act(async () => {
+        firstWs.readyState = 3; // CLOSED, como o navegador faz antes do onclose
+        firstWs.onclose({ code: 1006, reason: '' });
+      });
+      expect(result.current.isChatReady).toBe(false);
+      expect(result.current.connectionStatus).toBe('reconnecting');
+
+      // Nova conexão: só libera no onopen do WS corrente.
+      await act(async () => {
+        vi.advanceTimersByTime(1500);
+      });
+      const secondWs = mockWsInstance;
+      expect(secondWs).not.toBe(firstWs);
+      expect(result.current.isChatReady).toBe(false);
+      await act(async () => {
+        secondWs.onopen();
+      });
+      expect(result.current.isChatReady).toBe(true);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
 });

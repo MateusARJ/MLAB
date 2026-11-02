@@ -9,6 +9,7 @@ const { mockSendChatMessage, mockToggleHand, mockSubscriberState } = vi.hoisted(
     connectionStatus: 'connected' as 'connecting' | 'connected' | 'reconnecting' | 'closed' | 'duplicate',
     isHandRaised: false,
     chatNotice: null as string | null,
+    isChatReady: true,
     messages: [
       { id: 'pub-1', sender_name: 'Professor Girafales', sender_role: 'professor', content: 'Bem-vindos a aula!', is_private: false, pinned: false },
       { id: 'priv-1', sender_name: 'Professor Girafales', sender_role: 'professor', content: 'Sua nota da prova é 10', is_private: true, pinned: false },
@@ -30,6 +31,7 @@ vi.mock('../hooks/useWebRTCSubscriber', () => ({
     toggleHand: mockToggleHand,
     chatNotice: mockSubscriberState.chatNotice,
     dismissChatNotice: vi.fn(),
+    isChatReady: mockSubscriberState.isChatReady,
   }),
 }));
 
@@ -39,6 +41,7 @@ describe('Room Component (Web Subscriber)', () => {
     mockSubscriberState.connectionStatus = 'connected';
     mockSubscriberState.isHandRaised = false;
     mockSubscriberState.chatNotice = null;
+    mockSubscriberState.isChatReady = true;
     mockSubscriberState.messages = [
       { id: 'pub-1', sender_name: 'Professor Girafales', sender_role: 'professor', content: 'Bem-vindos a aula!', is_private: false, pinned: false },
       { id: 'priv-1', sender_name: 'Professor Girafales', sender_role: 'professor', content: 'Sua nota da prova é 10', is_private: true, pinned: false },
@@ -254,6 +257,37 @@ describe('Room Component (Web Subscriber)', () => {
 
     expect(screen.getAllByText('muitas mensagens, aguarde').length).toBeGreaterThan(0);
     expect(screen.getByPlaceholderText(/Mensagem para toda a turma/i)).toBeInTheDocument();
+  });
+
+  it('deve desabilitar o chat publico e o privado enquanto o WebSocket nao conecta (005/RF-506)', () => {
+    mockSubscriberState.isChatReady = false;
+    const { rerender } = render(<Room token={dummyToken} roomInfo={dummyRoomInfo} onLeave={vi.fn()} />);
+
+    const publicInput = screen.getByPlaceholderText('Conectando ao chat...');
+    expect(publicInput).toBeDisabled();
+    expect(screen.getByRole('button', { name: /^Enviar$/i })).toBeDisabled();
+
+    fireEvent.click(screen.getByRole('button', { name: /Privado com Professor/i }));
+    expect(screen.getByPlaceholderText('Conectando ao chat...')).toBeDisabled();
+    expect(screen.getByRole('button', { name: /Enviar Privado/i })).toBeDisabled();
+
+    // Ao conectar, o chat volta a aceitar mensagens.
+    mockSubscriberState.isChatReady = true;
+    rerender(<Room token={dummyToken} roomInfo={dummyRoomInfo} onLeave={vi.fn()} />);
+    expect(screen.getByPlaceholderText(/Dúvida privada ao professor/i)).toBeEnabled();
+  });
+
+  it('deve preservar o texto digitado quando o chat e bloqueado e liberado (005/C-506)', () => {
+    const { rerender } = render(<Room token={dummyToken} roomInfo={dummyRoomInfo} onLeave={vi.fn()} />);
+    fireEvent.change(screen.getByPlaceholderText(/Mensagem para toda a turma/i), { target: { value: 'rascunho' } });
+
+    mockSubscriberState.isChatReady = false;
+    rerender(<Room token={dummyToken} roomInfo={dummyRoomInfo} onLeave={vi.fn()} />);
+    expect(screen.getByPlaceholderText('Conectando ao chat...')).toHaveValue('rascunho');
+
+    mockSubscriberState.isChatReady = true;
+    rerender(<Room token={dummyToken} roomInfo={dummyRoomInfo} onLeave={vi.fn()} />);
+    expect(screen.getByPlaceholderText(/Mensagem para toda a turma/i)).toHaveValue('rascunho');
   });
 
   it('deve informar sessao aberta em outra aba quando a conexao cair com 4001', () => {
