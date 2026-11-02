@@ -3,7 +3,7 @@
 Feature: `005-correcoes-smoke`
 Status: READY
 Spec: `./spec.md`
-Clarify: `./clarify.md` (CLOSED — C-501 a C-505)
+Clarify: `./clarify.md` (CLOSED — C-501 a C-506)
 
 ## 1. Summary
 
@@ -16,6 +16,9 @@ Clarify: `./clarify.md` (CLOSED — C-501 a C-505)
 3. **Rate limit no web (RF-504)** — `useWebRTCSubscriber` trata `error`/`CHAT_RATE_LIMITED` e expõe `chatNotice`;
    `Room.tsx` mostra `Alert` (C-503).
 4. **Legado (RF-505)** — remoção dos itens da seção 3, cada um com busca sem consumidor (RN-502).
+5. **Chat até conectar (RF-506)** — `useWebRTCSubscriber` expõe `isChatReady` (verdadeiro no `onopen` do WS
+   corrente, falso no fechamento e ao iniciar nova conexão); `Room.tsx` desabilita input e botão dos dois
+   formulários e troca o placeholder (C-506).
 
 ## 2. Technical Context
 
@@ -27,6 +30,7 @@ Clarify: `./clarify.md` (CLOSED — C-501 a C-505)
 | Store | `AddParticipant` substitui participante da mesma sala com a mesma matrícula; novo `HasStudent` para o join | RF-502 |
 | Web 4001 | estado `duplicate` no hook, sem reconexão | C-502 |
 | Web rate limit | `chatNotice` + `dismissChatNotice` no hook; `Alert` de `@mlab/ui`; timer de 5 s | C-503 |
+| Web chat até conectar | estado `isChatReady` no hook; `disabled` em input/botão; sem fila de pendentes | C-506 |
 
 ## 3. Itens de legado (RF-505)
 
@@ -57,6 +61,7 @@ Front e pacotes:
 | Matrícula compartilhada por engano derruba outro aluno | aluno sai da sala | comportamento exigido pela RN-04; mensagem clara (C-502) |
 | Close code alterar outros fechamentos | reconexões indevidas no web | código só quando definido (RNF-501) |
 | Remover export usado fora do grep | build quebrado | `turbo run build` e typecheck antes do commit |
+| `isChatReady` preso em falso (WS trocado no StrictMode/reconexão) | chat inutilizável | atualizar só pelo WS corrente (`wsRef`); teste do hook |
 
 ## Scope Lock
 
@@ -64,6 +69,7 @@ Front e pacotes:
 
 - sessão única com 4001 no backend e tratamento no web;
 - aviso de `CHAT_RATE_LIMITED` no web;
+- chat do aluno desabilitado até o WebSocket abrir (RF-506);
 - remoção dos itens da seção 3;
 - testes, relatório de smoke e converges.
 
@@ -101,6 +107,7 @@ Front e pacotes:
 ### Non-Goals
 
 - diferenciar homônimos, alterar a matrícula, novos códigos de erro;
+- fila de mensagens pendentes para envio após a conexão (C-506);
 - remover rotas `/sala/:slug` e atalhos Alt+Shift (ainda em uso);
 - renomear `logout` no desktop.
 
@@ -121,3 +128,4 @@ Front e pacotes:
 |---|---|---|
 | 2026-11-01 | Matrícula mantida; sem ADR nova | C-504 |
 | 2026-11-01 | `docs/metrics/` mantida | C-505 |
+| 2026-11-02 | Chat do aluno desabilitado até o WS abrir (issue #20) | C-506 |

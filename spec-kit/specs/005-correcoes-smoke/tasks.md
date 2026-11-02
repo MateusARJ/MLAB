@@ -53,9 +53,21 @@ Checks:
 - [x] Itens de front do plan §3 removidos, cada um sem consumidor (RN-502).
 - [x] `npx turbo run build --force` (5/5) e `npx turbo run test --force` (web 35, desktop 95, Go 6/6) verdes.
 
+### T507 — Chat do aluno desabilitado até conectar (#20)
+[ ] T507
+Depends On: T503
+Allowed Paths: `apps/web/src/hooks/**`, `apps/web/src/pages/Room.tsx`, `apps/web/src/pages/Room.test.tsx`
+Prohibited Paths: `apps/web/src/pages/Join.tsx`, `apps/web/e2e/**`, `apps/backend/**`, `apps/desktop/**`, `packages/**`
+Checks:
+- [ ] Hook expõe `isChatReady`: falso até o `onopen` do WS corrente, falso no fechamento/reconexão (RF-506).
+- [ ] Input e botão dos chats público e privado desabilitados sem conexão; placeholder "Conectando ao chat..." (C-506).
+- [ ] Texto digitado preservado ao desabilitar/reabilitar.
+- [ ] Teste unitário do hook e de `Room` (vitest verde, tsc ok).
+- [ ] E2E A14 e A20 passam sem retry.
+
 ### T506 — Converge e relatório
 [ ] T506
-Depends On: T501, T502, T503, T504, T505
+Depends On: T501, T502, T503, T504, T505, T507
 Allowed Paths: `docs/metrics/**`, `spec-kit/specs/005-correcoes-smoke/**`, `spec-kit/specs/001-screen-share-core/converge.md`, `spec-kit/specs/004-smoke-regression/tasks.md`
 Prohibited Paths: `apps/**`, `packages/**`
 Checks:

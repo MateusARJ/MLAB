@@ -30,6 +30,13 @@ Decisões tomadas com o dono do produto em 2026-11-01.
 
 - **Resposta aprovada:** `docs/metrics/` permanece no lugar.
 
+## C-506 — Chat antes da conexão (issue #20)
+
+- **Contexto:** `sendChatMessage` descarta a mensagem quando o WebSocket não está aberto, sem aviso.
+- **Resposta aprovada (2026-11-02):** o campo e o botão "Enviar" do chat público e do privado ficam desabilitados
+  enquanto o WebSocket da sala não estiver aberto (inclusive durante reconexão). O placeholder passa a
+  "Conectando ao chat..." nesse período. O texto digitado é preservado. Sem fila de mensagens pendentes.
+
 ## Resultado
 
-CLOSED — C-501 a C-505 respondidas; nenhuma ambiguidade em aberto.
+CLOSED — C-501 a C-506 respondidas; nenhuma ambiguidade em aberto.
