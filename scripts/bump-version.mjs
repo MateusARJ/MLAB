@@ -79,6 +79,15 @@ function nextDecimalVersion(current) {
   return `${major}.${minor}.${patch}`;
 }
 
+function compareVersions(a, b) {
+  const pa = VERSION_RE.exec(a).slice(1).map(Number);
+  const pb = VERSION_RE.exec(b).slice(1).map(Number);
+  for (let i = 0; i < 3; i++) {
+    if (pa[i] !== pb[i]) return pa[i] - pb[i];
+  }
+  return 0;
+}
+
 function check() {
   const versions = collectVersions();
   const expected = readJson('package.json').version;
@@ -114,6 +123,10 @@ try {
     const version = args[args.indexOf('--set') + 1];
     if (!version || !VERSION_RE.test(version)) {
       throw new Error('uso: npm run bump -- --set <MAIOR.MENOR.CORRECAO>, ex.: 1.6.0');
+    }
+    const current = readJson('package.json').version;
+    if (VERSION_RE.test(current) && compareVersions(version, current) < 0) {
+      throw new Error(`versões não voltam: ${version} é menor que a atual ${current} (docs/versionamento.md)`);
     }
     apply(version);
   } else {
