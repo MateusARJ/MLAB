@@ -55,10 +55,10 @@ Depends On: T703
 Allowed Paths: `apps/desktop/src/renderer/media/cursorMaskPolicy.ts`, `apps/desktop/src/renderer/media/cursorMaskPolicy.test.ts`, `apps/desktop/src/renderer/media/cursorMask.worker.ts`
 Prohibited Paths: `apps/desktop/src/main/**`, `apps/desktop/src/shared/**`, `apps/desktop/src/renderer/hooks/**`, `apps/backend/**`, `apps/web/**`, `packages/**`
 Checks:
-- [ ] `CursorTrail` com `maskRect`/`anyRect` dos últimos 150 ms; testes de rastro, expiração e transição oculto → visível (RF-701).
-- [ ] `decideFramePath` recebe `maskRect`; testes atualizados.
-- [ ] Placa no repasse a cada 250 ms, preservando o rastro, com custo na proteção de FPS (RF-702, RF-703).
-- [ ] Placa usada com o cursor parado; borrão só sem pixel limpo (RF-706).
+- [x] `CursorTrail` com `maskRect`/`anyRect` dos últimos 150 ms; testes de rastro, expiração e transição oculto → visível (RF-701).
+- [x] `decideFramePath` recebe `maskRect`; testes atualizados.
+- [x] Placa no repasse a cada 250 ms, preservando o rastro, com custo na proteção de FPS (RF-702, RF-703).
+- [x] Placa usada com o cursor parado; borrão só sem pixel limpo (RF-706).
 - [ ] Teste manual do professor: sem cursor no movimento rápido e sem quadrado borrado parado.
 
 ### T705 — Medição A/B e smoke A12 (manual)

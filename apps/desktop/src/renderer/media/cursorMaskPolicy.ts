@@ -2,7 +2,7 @@ import type { AnnotationOverlayState, CursorState } from '@mlab/types';
 
 /**
  * Caminho de um quadro no worker de vídeo (007, RF-701/RF-702).
- * - `compose: false` → repasse sem cópia do quadro capturado (nenhum processamento adicional).
+ * - `compose: false` → repasse sem cópia do quadro capturado, sem gerar quadro novo.
  * - `maskCursor` → apagar a área do cursor no quadro composto.
  * - `drawAnnotations` → desenhar marcações/Lupa no quadro composto.
  */
@@ -34,12 +34,88 @@ export function shouldMaskCursor(cursor: CursorState): boolean {
   return !cursor.visible && r !== null && r.w > 0 && r.h > 0;
 }
 
+export interface NormRect {
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+}
+
+function hasArea(r: NormRect | null): r is NormRect {
+  return r !== null && r.w > 0 && r.h > 0;
+}
+
+export function rectsOverlap(a: NormRect | null, b: NormRect | null): boolean {
+  if (!a || !b) return false;
+  return a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y;
+}
+
+export function unionRect(a: NormRect | null, b: NormRect | null): NormRect | null {
+  if (!hasArea(a)) return hasArea(b) ? b : null;
+  if (!hasArea(b)) return a;
+  const x = Math.min(a.x, b.x);
+  const y = Math.min(a.y, b.y);
+  return {
+    x,
+    y,
+    w: Math.max(a.x + a.w, b.x + b.w) - x,
+    h: Math.max(a.y + a.h, b.y + b.h) - y,
+  };
+}
+
+/** Janela do rastro: cobre o atraso entre o estado do cursor (IPC) e o quadro capturado (C-703). */
+export const CURSOR_TRAIL_MS = 150;
+
+/**
+ * Rastro do cursor (007, RF-701, C-703). O quadro capturado chega alguns quadros depois do estado do cursor; com o
+ * mouse rápido, o cursor desenhado no quadro está numa posição anterior. O rastro guarda cada estado com o instante em
+ * que passou a valer e devolve a união dos retângulos vigentes na janela recente.
+ */
+export class CursorTrail {
+  private entries: { rect: NormRect | null; masked: boolean; since: number }[] = [];
+
+  constructor(private readonly trailMs: number = CURSOR_TRAIL_MS) {}
+
+  push(state: CursorState, now: number): void {
+    this.entries.push({ rect: state.rect, masked: shouldMaskCursor(state), since: now });
+    this.prune(now);
+  }
+
+  /** União dos retângulos em que o cursor devia estar oculto (área a apagar). */
+  maskRect(now: number): NormRect | null {
+    return this.union(now, true);
+  }
+
+  /** União de todos os retângulos do cursor, visível ou não (área a preservar na placa de fundo). */
+  anyRect(now: number): NormRect | null {
+    return this.union(now, false);
+  }
+
+  private union(now: number, onlyMasked: boolean): NormRect | null {
+    this.prune(now);
+    let out: NormRect | null = null;
+    for (const e of this.entries) {
+      if (onlyMasked && !e.masked) continue;
+      out = unionRect(out, e.rect);
+    }
+    return out;
+  }
+
+  /** Remove estados que deixaram de valer antes do início da janela (mantém sempre o atual). */
+  private prune(now: number): void {
+    const cutoff = now - this.trailMs;
+    while (this.entries.length > 1 && this.entries[1].since <= cutoff) {
+      this.entries.shift();
+    }
+  }
+}
+
 export function decideFramePath(
-  cursor: CursorState,
+  maskRect: NormRect | null,
   ann: AnnotationOverlayState,
   maskSuspended: boolean
 ): FramePath {
-  const maskCursor = !maskSuspended && shouldMaskCursor(cursor);
+  const maskCursor = !maskSuspended && hasArea(maskRect);
   const drawAnnotations = hasAnyAnnotation(ann) && !isCapturedNativelyByScreen(ann);
   return { compose: maskCursor || drawAnnotations, maskCursor, drawAnnotations };
 }

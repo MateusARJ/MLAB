@@ -1,5 +1,12 @@
 import type { AnnotationOverlayState, AnnotationStroke, CursorState } from '@mlab/types';
-import { decideFramePath, FrameBudgetGuard, type FrameBudgetEvent } from './cursorMaskPolicy';
+import {
+  CursorTrail,
+  decideFramePath,
+  FrameBudgetGuard,
+  rectsOverlap,
+  type FrameBudgetEvent,
+  type NormRect,
+} from './cursorMaskPolicy';
 
 interface InitMessage {
   type: 'init';
@@ -39,33 +46,12 @@ let currentAnnotations: AnnotationOverlayState = {
   externalOverlayActive: true,
 };
 
-let lastCursorRect: { x: number; y: number; w: number; h: number } | null = null;
-let cursorStationarySince = 0;
-
-function rectsOverlap(
-  a: { x: number; y: number; w: number; h: number } | null,
-  b: { x: number; y: number; w: number; h: number } | null
-): boolean {
-  if (!a || !b) return false;
-  return a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y;
-}
+// Rastro do cursor (C-703): cobre o atraso entre o estado recebido e o quadro capturado.
+const cursorTrail = new CursorTrail();
 
 function updateCursorState(next: CursorState) {
-  const prevRect = currentState.rect;
-  const nextRect = next.rect;
-  const now = performance.now();
-
-  if (!prevRect || !nextRect) {
-    cursorStationarySince = now;
-  } else {
-    const dx = Math.abs(prevRect.x - nextRect.x);
-    const dy = Math.abs(prevRect.y - nextRect.y);
-    if (dx > 0.003 || dy > 0.003) {
-      cursorStationarySince = now;
-    }
-  }
-
   currentState = next;
+  cursorTrail.push(next, performance.now());
 }
 
 self.onmessage = (evt: MessageEvent<WorkerInboundMessage>) => {
@@ -113,6 +99,8 @@ async function runPipeline(
 
   let plateInitialized = false;
   let lastPlateUpdateAt = 0;
+  // Região da placa que nasceu com o cursor desenhado (sem pixel limpo conhecido); null = placa toda limpa.
+  let plateDirtyRect: NormRect | null = null;
   const budgetGuard = new FrameBudgetGuard();
   const postBudgetEvent = (event: FrameBudgetEvent | null) => {
     if (!event) return;
@@ -137,17 +125,18 @@ async function runPipeline(
 
   const ensureCursorMaskCanvases = (w: number, h: number): boolean => {
     if (!ensureOutCanvas(w, h)) return false;
-    if (plateCanvas && plateCtx && patchCanvas && patchCtx && blurCanvas && blurCtx) {
+    if (plateCanvas && plateCtx && blurCanvas && blurCtx) {
       return true;
     }
     plateCanvas = new OffscreenCanvas(w, h);
     plateCtx = plateCanvas.getContext('2d', { alpha: false });
-    patchCanvas = new OffscreenCanvas(256, 256);
-    patchCtx = patchCanvas.getContext('2d', { alpha: false });
+    patchCanvas = null;
+    patchCtx = null;
     blurCanvas = new OffscreenCanvas(32, 32);
     blurCtx = blurCanvas.getContext('2d', { alpha: false });
     plateInitialized = false;
-    return !!(plateCtx && patchCtx && blurCtx);
+    plateDirtyRect = null;
+    return !!(plateCtx && blurCtx);
   };
 
   const toPixelRect = (norm: { x: number; y: number; w: number; h: number }) => {
@@ -158,32 +147,44 @@ async function runPipeline(
     return { x, y, w, h };
   };
 
-  const updatePlatePreservingCursor = (
-    frame: VideoFrame,
-    cursorNorm: { x: number; y: number; w: number; h: number } | null
-  ) => {
-    if (!plateCtx || !plateCanvas || !patchCtx || !patchCanvas) return;
+  const ensurePatchSize = (w: number, h: number): boolean => {
+    if (patchCanvas && patchCtx && patchCanvas.width >= w && patchCanvas.height >= h) return true;
+    const pw = Math.min(width, Math.max(256, w, patchCanvas?.width ?? 0));
+    const ph = Math.min(height, Math.max(256, h, patchCanvas?.height ?? 0));
+    patchCanvas = new OffscreenCanvas(pw, ph);
+    patchCtx = patchCanvas.getContext('2d', { alpha: false });
+    return !!patchCtx;
+  };
 
-    if (!plateInitialized || !cursorNorm) {
+  /**
+   * Atualiza a placa de fundo com o quadro atual, preservando a área onde o cursor pode estar desenhado
+   * (rastro recente). A região suja de quando a placa nasceu passa a ser limpa assim que uma atualização
+   * não a sobrepõe (RF-706).
+   */
+  const updatePlatePreservingCursor = (frame: VideoFrame, preserveNorm: NormRect | null) => {
+    if (!plateCtx || !plateCanvas) return;
+
+    if (!plateInitialized) {
       plateCtx.drawImage(frame, 0, 0, width, height);
       plateInitialized = true;
-      lastCursorRect = cursorNorm;
+      plateDirtyRect = preserveNorm;
       return;
     }
 
-    const px = toPixelRect(cursorNorm);
-    if (px.w <= 0 || px.h <= 0) {
+    const px = preserveNorm ? toPixelRect(preserveNorm) : null;
+    if (!px || px.w <= 0 || px.h <= 0) {
       plateCtx.drawImage(frame, 0, 0, width, height);
+      plateDirtyRect = null;
       return;
     }
 
-    const saveW = Math.min(patchCanvas.width, px.w);
-    const saveH = Math.min(patchCanvas.height, px.h);
-
-    patchCtx.drawImage(plateCanvas, px.x, px.y, px.w, px.h, 0, 0, saveW, saveH);
+    if (!ensurePatchSize(px.w, px.h) || !patchCtx || !patchCanvas) return;
+    patchCtx.drawImage(plateCanvas, px.x, px.y, px.w, px.h, 0, 0, px.w, px.h);
     plateCtx.drawImage(frame, 0, 0, width, height);
-    plateCtx.drawImage(patchCanvas, 0, 0, saveW, saveH, px.x, px.y, px.w, px.h);
-    lastCursorRect = cursorNorm;
+    plateCtx.drawImage(patchCanvas, 0, 0, px.w, px.h, px.x, px.y, px.w, px.h);
+    if (plateDirtyRect && !rectsOverlap(preserveNorm, plateDirtyRect)) {
+      plateDirtyRect = null;
+    }
   };
 
   const inpaintFromNeighborhood = (px: { x: number; y: number; w: number; h: number }) => {
@@ -209,21 +210,20 @@ async function runPipeline(
   };
 
   /**
-   * Apaga o cursor do quadro composto (algoritmo anterior ao 29c54d0): usa a placa de fundo limpa quando ela
-   * é confiável para a área atual e, caso contrário, preenche pelo entorno. A placa só é atualizada aqui,
-   * durante a ocultação, a cada 90 ms (RF-701, RF-702).
+   * Apaga o cursor do quadro composto: copia da placa de fundo sempre que ela tem pixels limpos na área, inclusive
+   * com o cursor parado; o preenchimento pelo entorno (borrado) só é usado sem pixel limpo conhecido (RF-706).
+   * Durante a ocultação a placa é atualizada a cada 90 ms, preservando o rastro (RF-701, C-703).
    */
   const maskCursorRegion = (
     frame: VideoFrame,
-    rect: { x: number; y: number; w: number; h: number },
+    maskNorm: NormRect,
+    preserveNorm: NormRect | null,
     now: number
   ) => {
     if (!outCtx || !plateCanvas) return;
-    const px = toPixelRect(rect);
+    const px = toPixelRect(maskNorm);
     if (px.w > 0 && px.h > 0) {
-      const stationaryMs = now - cursorStationarySince;
-      const hadOverlapOnInit = !plateInitialized || rectsOverlap(rect, lastCursorRect);
-      if (plateInitialized && (!hadOverlapOnInit || stationaryMs < 350)) {
+      if (plateInitialized && !rectsOverlap(maskNorm, plateDirtyRect)) {
         outCtx.drawImage(plateCanvas, px.x, px.y, px.w, px.h, px.x, px.y, px.w, px.h);
       } else {
         inpaintFromNeighborhood(px);
@@ -231,7 +231,7 @@ async function runPipeline(
     }
 
     if (!plateInitialized || now - lastPlateUpdateAt >= 90) {
-      updatePlatePreservingCursor(frame, rect);
+      updatePlatePreservingCursor(frame, preserveNorm);
       lastPlateUpdateAt = now;
     }
   };
@@ -387,31 +387,39 @@ async function runPipeline(
       // do SO já captura traços e Lupa; o worker só desenha o que a captura nativa não cobre.
       // Proteção de FPS (RF-703): a máscara pode estar suspensa por custo; as anotações nunca são suspensas.
       postBudgetEvent(budgetGuard.poll());
-      const path = decideFramePath(state, ann, budgetGuard.isSuspended);
-
-      // Caminho rápido 100% Zero-Copy: nenhuma operação de OffscreenCanvas quando o cursor deve aparecer
-      // (ou está fora da fonte) e não há overlay no worker (RF-702).
-      if (!path.compose) {
-        // A placa de fundo só vale durante uma ocultação contínua; fora dela fica obsoleta.
-        plateInitialized = false;
-        await writer.write(frame);
-        frame.close();
-        continue;
-      }
+      const now = performance.now();
+      const maskRect = cursorTrail.maskRect(now);
+      const preserveRect = cursorTrail.anyRect(now);
+      const path = decideFramePath(maskRect, ann, budgetGuard.isSuspended);
 
       // Resolução de exibição (sem o preenchimento do buffer codificado, ex.: 1088 linhas em NV12):
       // mantém a mesma resolução do repasse e evita reconfigurar o encoder a cada alternância (RF-704).
       const fw = frame.displayWidth || frame.codedWidth;
       const fh = frame.displayHeight || frame.codedHeight;
 
-      const maskCursor = path.maskCursor && state.rect !== null && ensureCursorMaskCanvases(fw, fh);
+      // Caminho rápido sem cópia: o quadro capturado segue direto, sem gerar quadro novo, quando o cursor deve
+      // aparecer (ou está fora da fonte) e não há overlay no worker (RF-702).
+      if (!path.compose) {
+        // Mantém a placa de fundo a cada 250 ms para que, quando o cursor precisar sumir, já existam pixels
+        // limpos da área onde ele vai parar (RF-702, RF-706): uma cópia do quadro, sem gerar quadro novo.
+        // O custo entra na proteção de FPS e a atualização para enquanto ela estiver suspensa (RF-703).
+        if (!budgetGuard.isSuspended && now - lastPlateUpdateAt >= 250 && ensureCursorMaskCanvases(fw, fh)) {
+          try {
+            const t0 = performance.now();
+            updatePlatePreservingCursor(frame, preserveRect);
+            lastPlateUpdateAt = now;
+            postBudgetEvent(budgetGuard.record(performance.now() - t0));
+          } catch {}
+        }
+        await writer.write(frame);
+        frame.close();
+        continue;
+      }
+
+      const maskCursor = path.maskCursor && maskRect !== null && ensureCursorMaskCanvases(fw, fh);
       const outReady = ensureOutCanvas(fw, fh);
       const ctx = outCtx as OffscreenCanvasRenderingContext2D | null;
       const canvas = outCanvas as OffscreenCanvas | null;
-
-      if (!maskCursor) {
-        plateInitialized = false;
-      }
 
       if (!outReady || !ctx || !canvas || (!maskCursor && !path.drawAnnotations)) {
         await writer.write(frame);
@@ -422,8 +430,16 @@ async function runPipeline(
       try {
         const t0 = performance.now();
         ctx.drawImage(frame, 0, 0, width, height);
-        if (maskCursor && state.rect) {
-          maskCursorRegion(frame, state.rect, t0);
+        if (maskCursor && maskRect) {
+          maskCursorRegion(frame, maskRect, preserveRect, t0);
+        } else if (
+          !budgetGuard.isSuspended &&
+          now - lastPlateUpdateAt >= 250 &&
+          ensureCursorMaskCanvases(fw, fh)
+        ) {
+          // Só anotações: mantém a placa no mesmo ritmo do repasse (RF-706).
+          updatePlatePreservingCursor(frame, preserveRect);
+          lastPlateUpdateAt = now;
         }
         if (path.drawAnnotations) {
           renderAnnotationsAndSpotlight(ctx, canvas, ann, state.rect);

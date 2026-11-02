@@ -1,6 +1,12 @@
 import { describe, it, expect } from 'vitest';
 import type { AnnotationOverlayState, CursorState } from '@mlab/types';
-import { decideFramePath, FrameBudgetGuard, shouldMaskCursor } from './cursorMaskPolicy';
+import {
+  CursorTrail,
+  decideFramePath,
+  FrameBudgetGuard,
+  shouldMaskCursor,
+  unionRect,
+} from './cursorMaskPolicy';
 
 const RECT = { x: 0.4, y: 0.4, w: 0.03, h: 0.05 };
 
@@ -15,12 +21,19 @@ function annotations(overrides: Partial<AnnotationOverlayState> = {}): Annotatio
   };
 }
 
+/** Retângulo a apagar para um único estado do cursor (sem rastro anterior). */
+function maskOf(cursor: CursorState) {
+  const trail = new CursorTrail();
+  trail.push(cursor, 0);
+  return trail.maskRect(0);
+}
+
 const STROKE = { id: 's1', tool: 'pen', color: '#f00', size: 4, points: [{ x: 0.1, y: 0.1 }] } as any;
 
 describe('cursorMaskPolicy', () => {
   it('repassa sem composição quando o cursor está visível e não há anotação (RF-702)', () => {
     const cursor: CursorState = { visible: true, rect: RECT };
-    expect(decideFramePath(cursor, annotations(), false)).toEqual({
+    expect(decideFramePath(maskOf(cursor), annotations(), false)).toEqual({
       compose: false,
       maskCursor: false,
       drawAnnotations: false,
@@ -29,7 +42,7 @@ describe('cursorMaskPolicy', () => {
 
   it('repassa sem composição quando o cursor está oculto mas fora da fonte (rect nulo)', () => {
     const cursor: CursorState = { visible: false, rect: null };
-    expect(decideFramePath(cursor, annotations(), false).compose).toBe(false);
+    expect(decideFramePath(maskOf(cursor), annotations(), false).compose).toBe(false);
   });
 
   it('não mascara retângulo sem área', () => {
@@ -38,7 +51,7 @@ describe('cursorMaskPolicy', () => {
 
   it('compõe e mascara quando o cursor está oculto dentro da fonte (RF-701)', () => {
     const cursor: CursorState = { visible: false, rect: RECT };
-    expect(decideFramePath(cursor, annotations(), false)).toEqual({
+    expect(decideFramePath(maskOf(cursor), annotations(), false)).toEqual({
       compose: true,
       maskCursor: true,
       drawAnnotations: false,
@@ -47,12 +60,12 @@ describe('cursorMaskPolicy', () => {
 
   it('não mascara quando a máscara está suspensa pela proteção de FPS (RF-703)', () => {
     const cursor: CursorState = { visible: false, rect: RECT };
-    expect(decideFramePath(cursor, annotations(), true).compose).toBe(false);
+    expect(decideFramePath(maskOf(cursor), annotations(), true).compose).toBe(false);
   });
 
   it('suspensão da máscara não afeta as anotações (C-701)', () => {
     const cursor: CursorState = { visible: false, rect: RECT };
-    expect(decideFramePath(cursor, annotations({ strokes: [STROKE] }), true)).toEqual({
+    expect(decideFramePath(maskOf(cursor), annotations({ strokes: [STROKE] }), true)).toEqual({
       compose: true,
       maskCursor: false,
       drawAnnotations: true,
@@ -61,7 +74,7 @@ describe('cursorMaskPolicy', () => {
 
   it('desenha anotações no worker no modo janela', () => {
     const cursor: CursorState = { visible: true, rect: RECT };
-    expect(decideFramePath(cursor, annotations({ strokes: [STROKE] }), false)).toEqual({
+    expect(decideFramePath(maskOf(cursor), annotations({ strokes: [STROKE] }), false)).toEqual({
       compose: true,
       maskCursor: false,
       drawAnnotations: true,
@@ -71,7 +84,7 @@ describe('cursorMaskPolicy', () => {
   it('não desenha anotações no worker quando a tela cheia já as captura nativamente', () => {
     const cursor: CursorState = { visible: true, rect: RECT };
     const ann = annotations({ strokes: [STROKE], captureMode: 'screen', externalOverlayActive: true });
-    expect(decideFramePath(cursor, ann, false).drawAnnotations).toBe(false);
+    expect(decideFramePath(maskOf(cursor), ann, false).drawAnnotations).toBe(false);
   });
 
   it('desenha a Lupa com ampliação no worker mesmo na tela cheia com overlay', () => {
@@ -81,7 +94,7 @@ describe('cursorMaskPolicy', () => {
       externalOverlayActive: true,
       spotlight: { enabled: true, x: 0.5, y: 0.5, radius: 0.14, zoom: 2, activeInViewer: false },
     });
-    expect(decideFramePath(cursor, ann, false).drawAnnotations).toBe(true);
+    expect(decideFramePath(maskOf(cursor), ann, false).drawAnnotations).toBe(true);
   });
 });
 
@@ -131,5 +144,48 @@ describe('FrameBudgetGuard', () => {
       for (let i = 0; i < 9; i++) expect(guard.record(15)).toBeNull();
     }
     expect(waits).toEqual([5000, 10000, 20000, 40000, 60000, 60000]);
+  });
+});
+
+describe('CursorTrail (C-703)', () => {
+  const A = { x: 0.1, y: 0.1, w: 0.02, h: 0.03 };
+  const B = { x: 0.3, y: 0.2, w: 0.02, h: 0.03 };
+  const C = { x: 0.5, y: 0.4, w: 0.02, h: 0.03 };
+
+  it('une os retângulos ocultos recentes para cobrir o atraso do quadro no movimento rápido (RF-701)', () => {
+    const trail = new CursorTrail(150);
+    trail.push({ visible: false, rect: A }, 0);
+    trail.push({ visible: false, rect: B }, 16);
+    trail.push({ visible: false, rect: C }, 32);
+    expect(trail.maskRect(40)).toEqual(unionRect(unionRect(A, B), C));
+  });
+
+  it('descarta estados que deixaram de valer antes da janela, mantendo o atual parado', () => {
+    const trail = new CursorTrail(150);
+    trail.push({ visible: false, rect: A }, 0);
+    trail.push({ visible: false, rect: B }, 100);
+    // A vigorou até 100 ms: ainda dentro da janela em 200 ms, fora em 251 ms.
+    expect(trail.maskRect(200)).toEqual(unionRect(A, B));
+    expect(trail.maskRect(251)).toEqual(B);
+    // Cursor parado: o estado atual continua valendo indefinidamente.
+    expect(trail.maskRect(10_000)).toEqual(B);
+  });
+
+  it('continua apagando o rastro oculto logo após o cursor voltar a ficar visível', () => {
+    const trail = new CursorTrail(150);
+    trail.push({ visible: false, rect: A }, 0);
+    trail.push({ visible: true, rect: B }, 50);
+    expect(trail.maskRect(120)).toEqual(A);
+    expect(trail.anyRect(120)).toEqual(unionRect(A, B));
+    expect(trail.maskRect(201)).toBeNull();
+    expect(trail.anyRect(201)).toEqual(B);
+  });
+
+  it('não apaga nada com o cursor visível ou fora da fonte', () => {
+    const trail = new CursorTrail(150);
+    trail.push({ visible: true, rect: A }, 0);
+    trail.push({ visible: false, rect: null }, 10);
+    expect(trail.maskRect(20)).toBeNull();
+    expect(trail.anyRect(200)).toBeNull();
   });
 });
