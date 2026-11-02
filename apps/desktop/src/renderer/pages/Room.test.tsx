@@ -700,8 +700,9 @@ describe('Room Component (Desktop)', () => {
       expect(screen.getByText('Terminal PowerShell')).toBeInTheDocument();
     });
 
-    // Por padrão a primeira janela já vem autorizada
-    expect(screen.getByText(/1 janela autorizada/i)).toBeInTheDocument();
+    // Por padrão a primeira janela já vem autorizada. A autorização acontece num efeito depois que as fontes
+    // carregam, então espera o contador em vez de conferir de forma síncrona (instável no runner Linux do CI).
+    expect(await screen.findByText(/1 janela autorizada/i)).toBeInTheDocument();
 
     // Clica para autorizar também o Terminal
     fireEvent.click(screen.getByText('Terminal PowerShell'));
