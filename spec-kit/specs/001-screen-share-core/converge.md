@@ -122,6 +122,23 @@ Status: OPEN
   atual, com o mesmo FPS e a mesma perda). Altera `internal/webrtc/**` e `internal/signaling/**` e exige emenda de
   plan/tasks antes de implementar.
 
+## 6.3 Correções da matriz de smoke (2026-11-02, feature 005)
+
+- **RN-04 estava marcada como concluída sem implementação.** A tabela da §1 listava "sessão única (`4001`)" como
+  atendida, mas a matriz de smoke (004, item A19) mostrou que uma nova entrada com a mesma matrícula não derrubava a
+  sessão anterior e que a reconexão com o mesmo token fechava a antiga com `1005`. Corrigido pela
+  `005-correcoes-smoke`: T501 (hub derruba com `4001 Duplicate Session` por `participant_id` ou matrícula; store
+  substitui o participante) e T502 (web mostra "Sua sessão foi aberta em outra aba ou dispositivo."). Evidência:
+  smoke `TestSmoke/A19_sessao_unica_por_aluno_4001` e E2E A19 OK (`docs/metrics/smoke-2026-11.md`). Issue #18.
+- **§10b do plan (feedback de `CHAT_RATE_LIMITED`) não estava no web.** Corrigido por 005/T503 (aviso no chat) e
+  005/T507 (chat desabilitado até o WebSocket abrir, sem o que as mensagens se perdiam antes do limite). E2E A20 OK.
+  Issues #19 e #20.
+- **Evidência da §1 desatualizada para RN-15/RN-16/RN-17/RNF-17:** `chat/service.go` (exceto `MaskProfanity`) e
+  `chat_security_test.go` foram removidos como legado por 005/T504; a sanitização e o rate limit são do hub e os
+  casos de XSS estão em `signaling/hub_test.go` (`TestHub_ChatMessage_XSSPayloads`).
+- Continua aberto, fora da 005: entrada do aluno travando de forma intermitente no E2E (`POST /rooms/{slug}/join`
+  pendente, aluno parado em `/entrar`); ver `../005-correcoes-smoke/converge.md`.
+
 ## 7. Resultado
 
 - [x] OPEN — há gaps registrados acima com encaminhamento definido.
