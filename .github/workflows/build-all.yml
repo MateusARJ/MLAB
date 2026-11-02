@@ -11,10 +11,10 @@ on:
         description: 'Título da Release'
         required: false
         default: 'MLab v1.5.0'
-  push:
+  pull_request: # Validação automática apenas em Pull Requests destinados à main
     branches:
-      - master
       - main
+  push:
     tags:
       - 'v*' # Dispara automaticamente ao criar uma tag de versão (ex: v1.4.6)
 
