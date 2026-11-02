@@ -7,15 +7,15 @@ Status: READY-FOR-IMPLEMENTATION
 Regra de cada task: suíte normal verde (`npx turbo run test --force`) antes do `[x]`.
 
 ### T601 — Layout e Design System do aviso (#5)
-[ ] T601
+[x] T601
 Allowed Paths: `apps/web/src/pages/Room.tsx`, `apps/web/src/pages/Room.test.tsx`
 Prohibited Paths: `apps/web/src/hooks/**`, `apps/web/src/pages/Join.tsx`, `apps/backend/**`, `apps/desktop/**`, `packages/**`
 Checks:
-- [ ] Aviso com `width: max-content` e `maxWidth: calc(100% - 32px)`, centralizado (RF-601).
-- [ ] Ícone com `flexShrink: 0` e 16 px; rótulo do botão sem quebra (RF-602).
-- [ ] Botão `Button` de `@mlab/ui`; cores, borda e raio de `colors`/`radii` (RF-603).
-- [ ] `role="status"`, texto e `toggleHand(false)` com `stopPropagation` mantidos (RNF-601).
-- [ ] Teste de `Room` atualizado (vitest verde, tsc ok).
+- [x] Aviso com `width: max-content` e `maxWidth: calc(100% - 32px)`, centralizado (RF-601).
+- [x] Ícone com `flexShrink: 0` e 16 px; rótulo do botão sem quebra (RF-602).
+- [x] Botão `Button` de `@mlab/ui`; cores, borda e raio de `colors`/`radii` (RF-603).
+- [x] `role="status"`, texto e `toggleHand(false)` com `stopPropagation` mantidos (RNF-601).
+- [x] Teste de `Room` atualizado (vitest 40 verdes, tsc ok); captura em 360 px: texto em 2 linhas, ícone visível, botão sem quebra.
 
 ### T602 — Verificação mobile no E2E A15
 [ ] T602
