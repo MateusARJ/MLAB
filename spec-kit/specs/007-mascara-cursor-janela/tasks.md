@@ -41,13 +41,13 @@ Checks:
   módulo atualizada (RNF-703); teste cobre o registro.
 
 ### T704 — Emenda da 003 (tela cheia) e roteiro do A12
-[ ] T704
+[x] T704
 Allowed Paths: `spec-kit/specs/003-classroom-interaction/spec.md`, `spec-kit/specs/003-classroom-interaction/tasks.md`, `docs/metrics/smoke-runbook.md`
 Prohibited Paths: `apps/**`, `packages/**`, `spec-kit/specs/003-classroom-interaction/contracts/**`
 Checks:
-- [ ] US-20 / RF-310: tela cheia sem ocultação do cursor sobre o MLab, com referência a C-702 (RF-705).
-- [ ] T310 da 003 com nota apontando a regressão do `29c54d0` e a correção na 007.
-- [ ] A12 do runbook com o passo "outra janela cobrindo a janela transmitida sob o ponteiro".
+- [x] US-20 / RF-310: tela cheia sem ocultação do cursor sobre o MLab, com referência a C-702 (RF-705).
+- [x] T310 da 003 com nota apontando a regressão do `29c54d0` e a correção na 007.
+- [x] A12 do runbook com o passo "outra janela cobrindo a janela transmitida sob o ponteiro".
 
 ### T705 — Medição A/B e smoke A12 (manual)
 [ ] T705

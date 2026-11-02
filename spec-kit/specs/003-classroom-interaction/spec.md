@@ -134,8 +134,10 @@ contratos, testes e tarefas rastreáveis.
 **Como** professor, **quero** que o cursor só apareça quando faz sentido, **para** a transmissão não mostrar o ponteiro sobre o próprio MLab.
 
 **Critérios de aceitação**
-- Tela cheia: o cursor some da transmissão quando o ponteiro está sobre a área visível da janela do MLab.
-- Janela específica: o cursor só aparece quando a janela transmitida está em foco e diretamente sob o ponteiro.
+- Tela cheia: a captura vai direto ao WebRTC e o cursor **não** é ocultado sobre a área do MLab (emenda de
+  2026-11-02, `007-mascara-cursor-janela`, C-702; a troca dinâmica de faixa fica como estudo futuro).
+- Janela específica: o cursor só aparece quando a janela transmitida está em foco e diretamente sob o ponteiro. A
+  ocultação é suspensa temporariamente quando ameaça o FPS (`007-mascara-cursor-janela`, C-701).
 - O rastreamento nativo identifica a janela ativa e sinaliza quando a janela transmitida fica encoberta; em ambientes sem suporte, degrada sem erro.
 - A ocultação vale também para a gravação local.
 
@@ -166,7 +168,8 @@ contratos, testes e tarefas rastreáveis.
 - RF-307: validação do formato da matrícula (US-17).
 - RF-308: transmissão opcional do áudio interno (US-18).
 - RF-309: overlay de anotação, lupa, spotlight e atalhos (US-19).
-- RF-310: cursor contextual e rastreamento nativo de janelas (US-20).
+- RF-310: cursor contextual e rastreamento nativo de janelas (US-20); ocultação só no modo janela específica
+  (emenda 007, C-702).
 - RF-311: proteção de conteúdo e captura para área de transferência (US-21).
 - RF-312: anúncio mDNS e seleção do IP físico (US-22).
 

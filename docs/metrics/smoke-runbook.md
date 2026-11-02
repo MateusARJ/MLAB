@@ -99,10 +99,17 @@ não ficam selecionadas ao mesmo tempo.
 ## A12 — Cursor contextual, proteção de conteúdo e captura para a área de transferência
 
 1. Transmita uma janela; passe o cursor por dentro e por fora dela.
+   - Com a janela transmitida em foco, o cursor sobre ela deve aparecer para o aluno.
+   - Arraste outra janela (ou o próprio MLab) por cima de parte da janela transmitida e passe o cursor sobre essa
+     parte: o cursor **não** deve aparecer para o aluno (007, RF-701).
+   - Clique no MLab (a janela transmitida perde o foco) e passe o cursor sobre a janela transmitida: o cursor não
+     deve aparecer.
+   - Em tela cheia o cursor aparece também sobre a área do MLab: comportamento esperado (007, C-702).
 2. Ligue a proteção de conteúdo; tente tirar print da janela do app com Win+Shift+S.
 3. Use "capturar para a área de transferência" e cole no Paint.
 
-**OK quando:** o cursor só aparece para o aluno dentro da janela transmitida, o print da janela do app sai preto
+**OK quando:** o cursor só aparece para o aluno quando a janela transmitida está em foco e sob o ponteiro, sem
+mancha visível onde ele foi apagado, o print da janela do app sai preto
 com a proteção ligada, e a captura cola corretamente.
 
 ## A16 — Acesso por `mlab.local` e por IP (celular)
