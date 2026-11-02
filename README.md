@@ -302,7 +302,7 @@ Variáveis opcionais do backend: `PORT`, `WEB_PORT`, `PUBLIC_URL`, `BASE_URL`, `
 
 O aplicativo do professor é empacotado com `electron-builder`. Cada comando compila o web do aluno, o backend Go para o sistema de destino e o app desktop. Os arquivos saem em `apps/desktop/dist/`.
 
-> O `npm run make*` incrementa a versão do pacote automaticamente (`premake`). Para gerar sem mudar a versão, rode os passos `build:web`, `build:backend:<so>`, `build` e `electron-builder` manualmente dentro de `apps/desktop`.
+> Os comandos `npm run make*` não alteram a versão: os instaladores saem com a versão atual do `package.json`. Para mudar de versão, siga [Versionamento](docs/versionamento.md).
 
 | Sistema | Comando (na raiz) | Saída |
 |---|---|---|
