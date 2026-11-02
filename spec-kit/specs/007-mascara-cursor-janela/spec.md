@@ -20,6 +20,7 @@ ajustar o requisito da 003: o cursor não é ocultado sobre a área do MLab ness
 ### Incluído
 
 - ocultação do cursor no modo janela específica, só nos quadros em que ela é necessária;
+- cobertura do rastro do cursor em movimento rápido e preenchimento sem borrão com o cursor parado (C-703);
 - proteção de FPS: a ocultação é suspensa quando custa mais que o orçamento por quadro, e é retentada depois;
 - resolução do quadro composto igual à do quadro capturado;
 - emenda do US-20 / RF-310 da 003 para o modo tela cheia;
@@ -30,7 +31,7 @@ ajustar o requisito da 003: o cursor não é ocultado sobre a área do MLab ness
 - ocultação no modo tela cheia (estudo futuro: troca dinâmica de faixa com `replaceTrack`, C-702);
 - mudanças na regra de visibilidade (`cursorPresence.ts`, `cursorVisibility.ts`), no contrato `CursorState`, na SFU,
   no SDP, no REMB ou na `degradationPreference`;
-- melhoria da qualidade do preenchimento da área do cursor além do algoritmo anterior ao `29c54d0`.
+- reconstrução de conteúdo em movimento (vídeo) sob um cursor parado: a área mostra o último conteúdo limpo (C-703).
 
 ## 3. Atores
 
@@ -52,14 +53,19 @@ aula continuar fluida.
 ## 5. Requisitos
 
 - RF-701: no modo janela específica, o cursor é apagado do quadro quando `CursorState.visible` é `false` e
-  `CursorState.rect` não é nulo (cursor dentro da fonte, mas que não deve aparecer).
+  `CursorState.rect` não é nulo (cursor dentro da fonte, mas que não deve aparecer). A área apagada é a união dos
+  retângulos ocultos dos últimos 150 ms, cobrindo o atraso entre o estado do cursor e o quadro capturado (C-703).
 - RF-702: quando o cursor deve aparecer (`visible: true`), ou está fora da fonte (`rect: null`), e não há anotação
-  desenhada no worker, o quadro é repassado sem cópia e sem nenhum processamento adicional (igual ao comportamento atual).
-- RF-703: se o tempo médio de composição de um quadro com ocultação passar do orçamento (8 ms, metade do intervalo
+  desenhada no worker, o quadro é repassado sem cópia e sem gerar quadro novo. O único trabalho extra é atualizar a
+  placa de fundo a cada 250 ms (uma cópia do quadro, sem codificar nada), sujeito à proteção de FPS (C-703).
+- RF-703: se o tempo médio de composição de um quadro com ocultação (ou de atualização da placa) passar do orçamento (8 ms, metade do intervalo
   a 60 fps), a ocultação é suspensa e o quadro é repassado; ela é retentada após uma espera que dobra a cada nova
   suspensão (5 s, 10 s, 20 s, 40 s, máximo 60 s). As anotações não são afetadas pela suspensão (C-701).
 - RF-704: o quadro composto tem a mesma resolução de exibição (`displayWidth` × `displayHeight`) do quadro capturado,
   para que alternar entre repasse e composição não reconfigure o encoder.
+- RF-706: a área apagada é preenchida com a placa de fundo sempre que a placa tem pixels limpos naquela região,
+  inclusive com o cursor parado; o preenchimento pelo entorno (borrado) só é usado quando não há pixel limpo
+  conhecido (C-703).
 - RF-705: no modo tela cheia, o cursor não é ocultado; a captura segue direto ao WebRTC (C-702).
 - RNF-701: com o cursor visível, FPS e resolução recebidos pelo aluno iguais à linha de base (`development` antes da
   feature); com o cursor oculto, FPS recebido ≥ 95% do alvo, resolução inalterada e nenhum keyframe extra a cada

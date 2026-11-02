@@ -17,11 +17,12 @@ Nenhuma outra contradição: a regra de visibilidade (RN-701) e o contrato `Curs
 
 | Requisito | Task |
 |---|---|
-| RF-701 | T701, T702 |
+| RF-701 | T701, T702, T707 |
 | RF-702 | T701, T702 |
-| RF-703 | T703 |
+| RF-703 | T703, T707 |
 | RF-704 | T702, T705 |
 | RF-705 | T704 |
+| RF-706 | T707 |
 | RNF-701 | T705 |
 | RNF-702 | T703 (testes de `createCursorMaskedTrack` mantidos) |
 | RNF-703 | T703 |
@@ -42,7 +43,13 @@ runbook; T705–T706 só documentação. `useScreenCapture.ts`, o processo princ
 - Canvas sem GPU: mitigado pela proteção de FPS (RF-703).
 - Alternância de resolução: mitigada por RF-704 e verificada por `keyFramesDecoded`.
 
+## 5a. Revalidação após C-703 (2026-11-02)
+
+RF-701, RF-702 e RF-703 emendados e RF-706 criado a partir do teste do professor; a T707 cobre as mudanças dentro
+dos mesmos Allowed Paths. A T702 continua válida como base; a T707 substitui a regra dos 350 ms e a invalidação da
+placa no repasse. Nenhum contrato ou path novo.
+
 ## 6. Resultado
 
 - [ ] FAIL
-- [x] PASS — próxima execução: T701.
+- [x] PASS — próxima execução: T707.

@@ -49,9 +49,21 @@ Checks:
 - [x] T310 da 003 com nota apontando a regressão do `29c54d0` e a correção na 007.
 - [x] A12 do runbook com o passo "outra janela cobrindo a janela transmitida sob o ponteiro".
 
+### T707 — Rastro do cursor e preenchimento sem borrão (C-703)
+[ ] T707
+Depends On: T703
+Allowed Paths: `apps/desktop/src/renderer/media/cursorMaskPolicy.ts`, `apps/desktop/src/renderer/media/cursorMaskPolicy.test.ts`, `apps/desktop/src/renderer/media/cursorMask.worker.ts`
+Prohibited Paths: `apps/desktop/src/main/**`, `apps/desktop/src/shared/**`, `apps/desktop/src/renderer/hooks/**`, `apps/backend/**`, `apps/web/**`, `packages/**`
+Checks:
+- [ ] `CursorTrail` com `maskRect`/`anyRect` dos últimos 150 ms; testes de rastro, expiração e transição oculto → visível (RF-701).
+- [ ] `decideFramePath` recebe `maskRect`; testes atualizados.
+- [ ] Placa no repasse a cada 250 ms, preservando o rastro, com custo na proteção de FPS (RF-702, RF-703).
+- [ ] Placa usada com o cursor parado; borrão só sem pixel limpo (RF-706).
+- [ ] Teste manual do professor: sem cursor no movimento rápido e sem quadrado borrado parado.
+
 ### T705 — Medição A/B e smoke A12 (manual)
 [ ] T705
-Depends On: T703, T704
+Depends On: T703, T704, T707
 Allowed Paths: `docs/metrics/cursor-mask-2026-11.md`, `spec-kit/specs/007-mascara-cursor-janela/**`
 Prohibited Paths: `apps/**`, `packages/**`
 Checks:
@@ -63,7 +75,7 @@ Checks:
 
 ### T706 — Converge
 [ ] T706
-Depends On: T701, T702, T703, T704, T705
+Depends On: T701, T702, T703, T704, T705, T707
 Allowed Paths: `spec-kit/specs/007-mascara-cursor-janela/**`
 Prohibited Paths: `apps/**`, `packages/**`
 Checks:

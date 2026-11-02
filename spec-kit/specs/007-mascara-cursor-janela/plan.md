@@ -3,7 +3,7 @@
 Feature: `007-mascara-cursor-janela`
 Status: READY
 Spec: `./spec.md`
-Clarify: `./clarify.md` (CLOSED — C-701, C-702)
+Clarify: `./clarify.md` (CLOSED — C-701, C-702, C-703)
 
 ## 1. Summary
 
@@ -24,9 +24,17 @@ Clarify: `./clarify.md` (CLOSED — C-701, C-702)
    suspensão com espera de 5 s que dobra até 60 s. O relógio é injetado para teste. O worker envia
    `{ type: 'mask-suspended', avgMs, retryInMs }` e `{ type: 'mask-resumed' }`; `createCursorMaskedTrack.ts` registra
    essas mensagens (e a `fatal`, hoje ignorada) no log com prefixo `[CursorMask]`.
-4. **Tela cheia (RF-705)** — nenhuma mudança de código. Emenda do US-20 / RF-310 em
+4. **Rastro e placa (RF-701, RF-706; C-703, T707)** — classe pura `CursorTrail` no módulo da política: guarda os
+   estados do cursor com o instante de chegada e devolve a união dos retângulos ocultos (`maskRect`) e de todos os
+   retângulos (`anyRect`) vigentes nos últimos 150 ms. `decideFramePath` passa a receber `maskRect`. No worker:
+   - a placa é atualizada também no repasse, a cada 250 ms (90 ms durante a máscara), preservando `anyRect`;
+   - uma região "suja" (o `anyRect` de quando a placa nasceu) é limpa assim que uma atualização não a sobrepõe;
+   - a máscara copia da placa sempre que `maskRect` não sobrepõe a região suja; senão, preenche pelo entorno;
+   - a regra dos 350 ms parado é removida; o canvas de recorte cresce conforme o rastro (antes, fixo em 256 px);
+   - o custo de cada atualização da placa no repasse entra na `FrameBudgetGuard`.
+5. **Tela cheia (RF-705)** — nenhuma mudança de código. Emenda do US-20 / RF-310 em
    `spec-kit/specs/003-classroom-interaction/spec.md` e roteiro do A12 em `docs/metrics/smoke-runbook.md`.
-5. **Medição (RNF-701)** — no app empacotado, janela específica em 1080p. No aluno (Chrome),
+6. **Medição (RNF-701)** — no app empacotado, janela específica em 1080p. No aluno (Chrome),
    `chrome://webrtc-internals`, `inbound-rtp` de vídeo: `framesPerSecond`, `frameWidth`/`frameHeight`,
    `keyFramesDecoded`, `freezeCount`. Três cenários: cursor visível, cursor oculto (outra janela cobrindo a janela
    transmitida sob o ponteiro) e anotação ativa; linha de base na `development` sem a feature. Resultado em
@@ -38,7 +46,8 @@ Clarify: `./clarify.md` (CLOSED — C-701, C-702)
 |---|---|---|
 | Decisão por quadro | `decideFramePath` pura; `maskCursor = !suspensa && !visible && rect com área > 0` | RF-701, RF-702 |
 | Anotações | `drawAnnotations` igual à regra atual (`hasAnyAnnotation && !capturedNativelyByScreen`) | RF-702 |
-| Placa de fundo | só durante a máscara; invalidada no repasse | RF-702 |
+| Placa de fundo | atualizada a cada 250 ms no repasse e 90 ms na máscara, preservando o rastro | RF-702, RF-706 |
+| Rastro | união dos retângulos dos últimos 150 ms | RF-701, C-703 |
 | Resolução | `displayWidth`/`displayHeight` | RF-704 |
 | Orçamento | 8 ms, EMA α 0,1, 10 amostras, espera 5→60 s | RF-703, C-701 |
 | Medição do tempo | do início da composição até criar o `VideoFrame` (sem o `await writer.write`) | RF-703 |
@@ -52,7 +61,8 @@ Clarify: `./clarify.md` (CLOSED — C-701, C-702)
 | Canvas sem aceleração por GPU no worker | FPS cai durante a máscara | proteção de FPS (RF-703); conferência em `chrome://gpu` na medição |
 | Alternar repasse/composição reconfigurar o encoder | engasgo e keyframe a cada alternância | mesma resolução (RF-704); `keyFramesDecoded` na medição |
 | Cursor pisca 1–2 quadros na transição | cursor visível por instantes | atraso do IPC já existia antes do `29c54d0`; margem por velocidade do `toNormalizedCursorRect` |
-| Placa de fundo velha colada fora de contexto | artefato visual na área do cursor | placa invalidada a cada saída da máscara; preenchimento pelo entorno até a placa ser refeita |
+| Cursor parado sobre vídeo | área congelada no último conteúdo limpo | aceito (C-703); conteúdo de aula é majoritariamente estático |
+| Cópia da placa no repasse | custo pequeno e periódico com o cursor visível | 4 cópias/s; medida pela proteção de FPS, que suspende máscara e placa |
 | Suspensão e retomada alternando | cursor aparece e some periodicamente | espera crescente até 60 s |
 | Mudança no caminho das anotações por `displayWidth` | quadro anotado com outra resolução | é correção: hoje a resolução pode divergir do repasse; coberto pela medição com anotação ativa |
 
@@ -119,3 +129,4 @@ Clarify: `./clarify.md` (CLOSED — C-701, C-702)
 |---|---|---|
 | 2026-11-02 | FPS tem prioridade; máscara condicional com proteção reversível | C-701 |
 | 2026-11-02 | Tela cheia sem ocultação; `replaceTrack` como estudo futuro | C-702 |
+| 2026-11-02 | Rastro de 150 ms e placa mantida no repasse após o teste do professor | C-703 |

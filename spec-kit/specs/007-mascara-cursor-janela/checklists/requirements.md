@@ -5,8 +5,8 @@ Status: APPROVED
 
 ## Completude
 
-- [x] Cada requisito (RF-701 a RF-705, RNF-701 a RNF-703) tem task.
-- [x] Ambiguidades fechadas (C-701, C-702).
+- [x] Cada requisito (RF-701 a RF-706, RNF-701 a RNF-703) tem task.
+- [x] Ambiguidades fechadas (C-701, C-702, C-703).
 - [x] Causa do defeito registrada com evidência (commit `29c54d0`; `cursorMask.worker.ts:366-370`; revisão do PR #26).
 
 ## Coerência

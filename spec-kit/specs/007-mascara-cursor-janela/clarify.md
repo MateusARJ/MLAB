@@ -24,6 +24,21 @@ Decisões tomadas com o dono do produto em 2026-11-02.
   RF-310): o cursor não é ocultado sobre a área do MLab nesse modo. A opção B fica como estudo futuro, com protótipo e
   medição.
 
+## C-703 — Movimento rápido e cursor parado (teste do professor, 2026-11-02)
+
+- **Contexto:** no primeiro teste com as T701–T703, o professor relatou:
+  1. com o mouse rápido sobre outra janela que cobre a transmitida, o cursor ainda aparece;
+  2. com o cursor parado, aparece um quadrado borrado no lugar dele.
+- **Causa 1:** o retângulo usa a posição atual do ponteiro (folga máxima de 28 px por lado), mas o quadro capturado
+  chega 2 a 4 quadros depois, com o cursor numa posição anterior, fora do retângulo.
+- **Causa 2:** a regra herdada de antes do `29c54d0` troca a placa pelo preenchimento borrado após 350 ms parado; e a
+  placa, atualizada só durante a ocultação, nascia com o cursor desenhado.
+- **Resposta aprovada:** apagar a união dos retângulos ocultos dos últimos 150 ms (rastro); manter a placa atualizada
+  também no repasse, a cada 250 ms, preservando a área do cursor; usar a placa sempre que a região estiver limpa, e o
+  borrão só sem pixel limpo conhecido. A atualização da placa entra na proteção de FPS (C-701 continua valendo). Sob
+  cursor parado sobre vídeo, a área mostra o último conteúdo limpo (aceito: aulas usam majoritariamente conteúdo
+  estático).
+
 ## Resultado
 
-CLOSED — C-701 e C-702 respondidas; nenhuma ambiguidade em aberto.
+CLOSED — C-701, C-702 e C-703 respondidas; nenhuma ambiguidade em aberto.
