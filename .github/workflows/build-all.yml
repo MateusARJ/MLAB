@@ -57,11 +57,10 @@ jobs:
           node-version: 20
           cache: 'npm'
 
-      - name: Configurar Go 1.23
+      - name: Configurar Go (versão do go.mod)
         uses: actions/setup-go@v5
         with:
-          go-version: '1.23'
-          check-latest: true
+          go-version-file: apps/backend/go.mod
           cache-dependency-path: apps/backend/go.sum
 
       - name: Instalar dependências do monorepo
