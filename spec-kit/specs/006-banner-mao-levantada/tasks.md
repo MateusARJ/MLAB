@@ -18,13 +18,15 @@ Checks:
 - [x] Teste de `Room` atualizado (vitest 40 verdes, tsc ok); captura em 360 px: texto em 2 linhas, ícone visível, botão sem quebra.
 
 ### T602 — Verificação mobile no E2E A15
-[ ] T602
+[x] T602
 Depends On: T601
 Allowed Paths: `apps/web/e2e/aluno.e2e.ts`
 Prohibited Paths: `apps/web/e2e/fixtures.ts`, `apps/web/playwright.config.ts`, `apps/web/src/**`
 Checks:
-- [ ] A15 roda também no projeto mobile (`@mobile`) e confere que o aviso tem largura maior que metade da área do vídeo.
-- [ ] `npm run test:e2e -w @mlab/web` executado e resultado registrado.
+- [x] A15 roda também no projeto mobile (`@mobile`) e confere que o aviso tem largura maior que metade da área do vídeo.
+- [x] `npm run test:e2e -w @mlab/web` executado em 2026-11-02 (Microsoft Edge): 13/13 OK; A15 OK no desktop e no
+  mobile. Flaky na 1ª tentativa: A14 (desktop) e A15 (mobile), ambos com `TargetClosedError` antes de qualquer passo,
+  sempre no teste executado logo após o A13 — problema do harness já registrado em `005/converge.md` §5.
 
 ### T603 — Converge
 [ ] T603
