@@ -322,6 +322,10 @@ cd apps/backend
 go build -ldflags="-s -w" -o ./bin/mlab-server ./cmd/server
 ```
 
+### Versões e releases
+
+O monorepo tem uma versão única, que só muda numa release (`npm run bump`) e é publicada com a tag `vX.Y.Z`. Confira com `npm run version:check`. Regras, comandos e o passo a passo da release: [docs/versionamento.md](docs/versionamento.md).
+
 ---
 
 ## Rede e Firewall
