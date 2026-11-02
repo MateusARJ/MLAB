@@ -29,10 +29,10 @@ Checks:
   sempre no teste executado logo após o A13 — problema do harness já registrado em `005/converge.md` §5.
 
 ### T603 — Converge
-[ ] T603
+[x] T603
 Depends On: T601, T602
 Allowed Paths: `spec-kit/specs/006-banner-mao-levantada/**`
 Prohibited Paths: `apps/**`, `packages/**`
 Checks:
-- [ ] Capturas antes/depois no celular (360 px) registradas no converge.
-- [ ] `converge.md` da 006 criado.
+- [x] Capturas antes/depois no celular (360 px) registradas no converge (`evidencias/`).
+- [x] `converge.md` da 006 criado (CONVERGED).
