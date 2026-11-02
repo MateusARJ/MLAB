@@ -76,13 +76,25 @@ test('A14 chat público, privado e mensagem fixada pelo professor', async ({ pag
   await prof.waitFor('chat-message', (p) => p.is_private && p.content?.includes('duvida privada e2e'));
 });
 
-test('A15 levantar e abaixar a mão', async ({ page, prof }) => {
+test('A15 @mobile levantar e abaixar a mão', async ({ page, prof }) => {
   await joinAsStudent(page, prof.slug, 'Aluno Mao', MATRICULA);
   // A barra de controles fica sob o <video> para o Playwright (o vídeo intercepta o clique); o clique é
   // disparado direto no botão para testar o fluxo da mão, não o empilhamento visual (confirmado no celular).
   await page.getByRole('button', { name: 'Levantar mão' }).first().dispatchEvent('click');
   await expect(page.getByRole('button', { name: 'Abaixar mão' }).first()).toBeAttached();
   await prof.waitFor('hand-updated', (p) => p.raised === true);
+
+  // 006/RF-601: o aviso não fica limitado a metade da área do vídeo (antes, no celular, ficava comprimido).
+  const banner = page.getByTestId('hand-raised-banner');
+  await expect(banner).toBeVisible();
+  const bannerBox = await banner.boundingBox();
+  const areaBox = await banner.locator('..').boundingBox();
+  expect(bannerBox && areaBox).toBeTruthy();
+  if (page.viewportSize()!.width < 768) {
+    expect(bannerBox!.width).toBeGreaterThan(areaBox!.width / 2);
+  }
+  expect(bannerBox!.x).toBeGreaterThanOrEqual(areaBox!.x);
+  expect(bannerBox!.x + bannerBox!.width).toBeLessThanOrEqual(areaBox!.x + areaBox!.width);
 
   await page.getByRole('button', { name: 'Abaixar mão' }).first().dispatchEvent('click');
   await expect(page.getByRole('button', { name: 'Levantar mão' }).first()).toBeAttached();

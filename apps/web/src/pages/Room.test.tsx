@@ -1,4 +1,4 @@
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen, fireEvent, createEvent } from '@testing-library/react';
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import { Room } from './Room';
 
@@ -420,6 +420,41 @@ describe('Room Component (Web Subscriber)', () => {
 
     fireEvent.click(lowerBtns[0]);
     expect(mockToggleHand).toHaveBeenCalledWith(false);
+  });
+
+  it('deve manter o aviso de mao levantada legivel no celular, sem comprimir texto, icone ou botao (006/RF-601, RF-602)', () => {
+    window.innerWidth = 360;
+    fireEvent(window, new Event('resize'));
+    mockSubscriberState.isHandRaised = true;
+    render(<Room token={dummyToken} roomInfo={dummyRoomInfo} onLeave={vi.fn()} />);
+
+    const banner = screen.getByTestId('hand-raised-banner');
+    expect(banner).toHaveAttribute('role', 'status');
+    // Largura do conteúdo limitada à área do vídeo (antes ficava presa a metade dela).
+    expect(banner.style.width).toBe('max-content');
+    expect(banner.style.maxWidth).toBe('calc(100% - 32px)');
+
+    const icon = screen.getByTestId('hand-raised-banner-icon');
+    expect(icon.style.flexShrink).toBe('0');
+    expect(icon.style.width).toBe('16px');
+
+    const lowerBtn = screen.getByRole('button', { name: 'Abaixar Mão' });
+    expect(lowerBtn.style.whiteSpace).toBe('nowrap');
+    expect(banner).toContainElement(lowerBtn);
+  });
+
+  it('deve abaixar a mao pelo aviso sem propagar o clique para o video (006/RNF-601)', () => {
+    mockSubscriberState.isHandRaised = true;
+    mockToggleHand.mockClear();
+    render(<Room token={dummyToken} roomInfo={dummyRoomInfo} onLeave={vi.fn()} />);
+
+    const lowerBtn = screen.getByRole('button', { name: 'Abaixar Mão' });
+    const clickEvent = createEvent.click(lowerBtn);
+    const stopSpy = vi.spyOn(clickEvent, 'stopPropagation');
+
+    fireEvent(lowerBtn, clickEvent);
+    expect(mockToggleHand).toHaveBeenCalledWith(false);
+    expect(stopSpy).toHaveBeenCalled();
   });
 
   it('deve exibir banner de mensagens fixadas somente-leitura, decodificar caracteres especiais e nunca exibir botão de fixar para o aluno', () => {
