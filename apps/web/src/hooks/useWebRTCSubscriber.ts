@@ -1,4 +1,9 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
+import type { ErrorPayload } from '@mlab/types';
+
+/** Texto padrão do aviso de limite do chat quando o servidor não envia mensagem (005/C-503). */
+export const CHAT_RATE_LIMITED_FALLBACK = 'Você está enviando mensagens rápido demais. Aguarde alguns segundos.';
+const CHAT_NOTICE_DURATION_MS = 5000;
 
 function parseJwtSub(token: string): string | null {
   try {
@@ -15,12 +20,37 @@ export function useWebRTCSubscriber(token: string, roomInfo: { room_id: string; 
   const [stream, setStream] = useState<MediaStream | null>(null);
   const [autoplayBlocked, setAutoplayBlocked] = useState(false);
   const [connectionStatus, setConnectionStatus] = useState<
-    'connecting' | 'connected' | 'reconnecting' | 'closed' | 'publishing' | 'waiting'
+    'connecting' | 'connected' | 'reconnecting' | 'closed' | 'duplicate' | 'publishing' | 'waiting'
   >('connecting');
   const [isStreamPaused, setIsStreamPaused] = useState<boolean>(false);
   const [sharedFiles, setSharedFiles] = useState<any[]>([]);
   const [messages, setMessages] = useState<any[]>([]);
   const [isHandRaised, setIsHandRaised] = useState<boolean>(false);
+  const [chatNotice, setChatNotice] = useState<string | null>(null);
+  // WebSocket da sala aberto: o chat só aceita mensagens quando verdadeiro (005/RF-506, C-506).
+  const [isChatReady, setIsChatReady] = useState<boolean>(false);
+  const chatNoticeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const dismissChatNotice = useCallback(() => {
+    if (chatNoticeTimerRef.current) {
+      clearTimeout(chatNoticeTimerRef.current);
+      chatNoticeTimerRef.current = null;
+    }
+    setChatNotice(null);
+  }, []);
+
+  const showChatNotice = useCallback((text: string) => {
+    if (chatNoticeTimerRef.current) clearTimeout(chatNoticeTimerRef.current);
+    setChatNotice(text);
+    chatNoticeTimerRef.current = setTimeout(() => {
+      chatNoticeTimerRef.current = null;
+      setChatNotice(null);
+    }, CHAT_NOTICE_DURATION_MS);
+  }, []);
+
+  useEffect(() => () => {
+    if (chatNoticeTimerRef.current) clearTimeout(chatNoticeTimerRef.current);
+  }, []);
 
   const pcRef = useRef<RTCPeerConnection | null>(null);
   const wsRef = useRef<WebSocket | null>(null);
@@ -49,6 +79,7 @@ export function useWebRTCSubscriber(token: string, roomInfo: { room_id: string; 
     }
 
     setConnectionStatus('connecting');
+    setIsChatReady(false);
 
     let finalWsUrl = wsUrl;
     if (typeof window !== 'undefined' && window.location && window.location.host) {
@@ -156,6 +187,7 @@ export function useWebRTCSubscriber(token: string, roomInfo: { room_id: string; 
     };
 
     ws.onopen = () => {
+      if (wsRef.current === ws) setIsChatReady(true);
       // Solicita a transmissão ao abrir a conexão WebSocket
       setupPeerConnectionAndSubscribe(ws);
     };
@@ -229,6 +261,7 @@ export function useWebRTCSubscriber(token: string, roomInfo: { room_id: string; 
               wsRef.current.close(1000, 'Session closed');
               wsRef.current = null;
             }
+            setIsChatReady(false);
           } else {
             setConnectionStatus(msg.payload.status);
             if (msg.payload.status === 'publishing') {
@@ -257,6 +290,7 @@ export function useWebRTCSubscriber(token: string, roomInfo: { room_id: string; 
             wsRef.current.close(1000, 'Room closed');
             wsRef.current = null;
           }
+          setIsChatReady(false);
         } else if (msg.type === 'offer') {
           const currentPc = pcRef.current;
           if (currentPc && msg.payload && msg.payload.sdp) {
@@ -300,6 +334,15 @@ export function useWebRTCSubscriber(token: string, roomInfo: { room_id: string; 
               await currentPc.addIceCandidate(new RTCIceCandidate({ candidate: msg.payload.candidate }));
             }
           }
+        } else if (msg.type === 'error') {
+          // Erros de sinalização não encerram a conexão. O limite do chat vira aviso visual
+          // (001/plan.md §10b — 005/C-503).
+          const err = msg.payload as ErrorPayload | undefined;
+          if (err?.code === 'CHAT_RATE_LIMITED') {
+            showChatNotice(err.message?.trim() || CHAT_RATE_LIMITED_FALLBACK);
+          } else if (err) {
+            console.warn('Erro de sinalização:', err.code, err.message);
+          }
         } else if (msg.type === 'ice-servers') {
           const currentPc = pcRef.current;
           if (currentPc && msg.payload && msg.payload.ice_servers) {
@@ -312,14 +355,22 @@ export function useWebRTCSubscriber(token: string, roomInfo: { room_id: string; 
     };
 
     ws.onclose = (evt) => {
+      if (wsRef.current === ws) setIsChatReady(false);
       if (isCleanedUpRef.current) return;
 
-      // Trata encerramento intencional da sala pelo professor ou sessão duplicada (RN-04 / erro 4001 / 4004 / 1000)
+      // Sessão aberta em outra aba ou dispositivo (RN-04 — 4001 Duplicate Session): não reconecta.
+      if (evt.code === 4001) {
+        isClosedRef.current = true;
+        connectionStatusRef.current = 'duplicate';
+        setConnectionStatus('duplicate');
+        return;
+      }
+
+      // Trata encerramento intencional da sala pelo professor (4004 / 1000)
       if (
         isClosedRef.current ||
         connectionStatusRef.current === 'closed' ||
         evt.code === 1000 ||
-        evt.code === 4001 ||
         evt.code === 4004
       ) {
         isClosedRef.current = true;
@@ -346,7 +397,7 @@ export function useWebRTCSubscriber(token: string, roomInfo: { room_id: string; 
         connect();
       }, delay);
     };
-  }, [token, roomId, wsUrl, iceServers]);
+  }, [token, roomId, wsUrl, iceServers, showChatNotice]);
 
   useEffect(() => {
     isCleanedUpRef.current = false;
@@ -362,6 +413,7 @@ export function useWebRTCSubscriber(token: string, roomInfo: { room_id: string; 
         wsRef.current.close();
         wsRef.current = null;
       }
+      setIsChatReady(false);
       if (pcRef.current) {
         pcRef.current.close();
         pcRef.current = null;
@@ -433,5 +485,8 @@ export function useWebRTCSubscriber(token: string, roomInfo: { room_id: string; 
     toggleHand,
     sendChatMessage,
     requestKeyframe,
+    chatNotice,
+    dismissChatNotice,
+    isChatReady,
   };
 }

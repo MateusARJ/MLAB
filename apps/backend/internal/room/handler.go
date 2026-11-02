@@ -399,8 +399,17 @@ func (h *Handler) handleJoin(w http.ResponseWriter, r *http.Request, identifier 
 		return
 	}
 	if count >= room.MaxParticipants {
-		writeError(w, http.StatusTooManyRequests, "sala cheia")
-		return
+		// A reentrada do mesmo aluno (mesma matrícula) substitui o registro anterior e não
+		// ocupa vaga nova (RN-04).
+		rejoining, err := h.store.HasStudent(r.Context(), room.ID, req.StudentID)
+		if err != nil {
+			writeError(w, http.StatusInternalServerError, "erro ao verificar participantes")
+			return
+		}
+		if !rejoining {
+			writeError(w, http.StatusTooManyRequests, "sala cheia")
+			return
+		}
 	}
 
 	participantID := newID()

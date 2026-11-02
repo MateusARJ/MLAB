@@ -12,6 +12,7 @@ import {
   Touch_1,
   Touch_1Filled,
   PinFilled,
+  Alert,
   decodeChatEntities,
 } from '@mlab/ui';
 import React, { useRef, useEffect, useState } from 'react';
@@ -85,11 +86,25 @@ export const Room: React.FC<RoomProps> = ({ token, roomInfo, onLeave }) => {
     requestKeyframe,
     isHandRaised = false,
     toggleHand = () => {},
+    chatNotice = null,
+    dismissChatNotice = () => {},
+    isChatReady = false,
   } = useWebRTCSubscriber(token, roomInfo);
+
+  // Chat só aceita mensagens com o WebSocket da sala aberto (005/RF-506, C-506).
+  const chatConnectingPlaceholder = 'Conectando ao chat...';
+
+  // Aviso de limite do chat (CHAT_RATE_LIMITED — 001/plan.md §10b, 005/C-503).
+  const chatNoticeAlert = chatNotice ? (
+    <Alert variant="warning" message={chatNotice} onClose={dismissChatNotice} style={{ marginBottom: '8px' }} />
+  ) : null;
 
   // Quando o professor encerra a transmissão (connectionStatus === 'closed'), redireciona de volta para a tela de credenciais
   useEffect(() => {
-    if (connectionStatus === 'closed') {
+    if (connectionStatus === 'duplicate') {
+      // RN-04: outra sessão do mesmo aluno assumiu o lugar desta (005/C-502).
+      onLeave('Sua sessão foi aberta em outra aba ou dispositivo.');
+    } else if (connectionStatus === 'closed') {
       onLeave('A transmissão foi encerrada pelo professor. Por favor, insira suas credenciais novamente.');
     }
   }, [connectionStatus, onLeave]);
@@ -1136,6 +1151,7 @@ export const Room: React.FC<RoomProps> = ({ token, roomInfo, onLeave }) => {
                       </div>
 
                       <form onSubmit={handleSendPublicChat} style={styles.chatForm}>
+                        {chatNoticeAlert}
                         <div style={styles.chatTargetBannerPublic}>
                           Enviando mensagem pública para <strong>Toda a Turma</strong>
                         </div>
@@ -1144,10 +1160,11 @@ export const Room: React.FC<RoomProps> = ({ token, roomInfo, onLeave }) => {
                             type="text"
                             value={publicChatInput}
                             onChange={(e) => setPublicChatInput(e.target.value)}
-                            placeholder="Mensagem para toda a turma..."
+                            placeholder={isChatReady ? 'Mensagem para toda a turma...' : chatConnectingPlaceholder}
+                            disabled={!isChatReady}
                             style={styles.chatInput}
                           />
-                          <button type="submit" disabled={!publicChatInput.trim()} style={styles.sendBtn}>
+                          <button type="submit" disabled={!isChatReady || !publicChatInput.trim()} style={styles.sendBtn}>
                             Enviar
                           </button>
                         </div>
@@ -1246,6 +1263,7 @@ export const Room: React.FC<RoomProps> = ({ token, roomInfo, onLeave }) => {
                       </div>
 
                       <form onSubmit={handleSendPrivateChat} style={styles.chatForm}>
+                        {chatNoticeAlert}
                         <div style={styles.chatTargetBanner}>
                           <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
                             <Locked size={14} /> Enviando dúvida privada diretamente ao <strong>Professor</strong>
@@ -1256,12 +1274,13 @@ export const Room: React.FC<RoomProps> = ({ token, roomInfo, onLeave }) => {
                             type="text"
                             value={privateChatInput}
                             onChange={(e) => setPrivateChatInput(e.target.value)}
-                            placeholder="Dúvida privada ao professor..."
+                            placeholder={isChatReady ? 'Dúvida privada ao professor...' : chatConnectingPlaceholder}
+                            disabled={!isChatReady}
                             style={styles.chatInput}
                           />
                           <button
                             type="submit"
-                            disabled={!privateChatInput.trim()}
+                            disabled={!isChatReady || !privateChatInput.trim()}
                             style={{ ...styles.sendBtn, backgroundColor: '#6366f1' }}
                           >
                             Enviar Privado

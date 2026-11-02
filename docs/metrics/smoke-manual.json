@@ -1,0 +1,26 @@
+{
+  "_instrucoes": "Preencha resultado com OK, FALHA ou N/E; deixe vazio o que não foi executado. Veja docs/metrics/smoke-runbook.md.",
+  "executado_por": "",
+  "data": "",
+  "builds": {
+    "dev": false,
+    "windows_empacotado": false,
+    "linux_empacotado": false
+  },
+  "itens": {
+    "A1": { "resultado": "", "observacao": "", "evidencia": "" },
+    "A2": { "resultado": "", "observacao": "", "evidencia": "" },
+    "A4": { "resultado": "", "observacao": "", "evidencia": "" },
+    "A5": { "resultado": "", "observacao": "", "evidencia": "" },
+    "A6": { "resultado": "", "observacao": "", "evidencia": "" },
+    "A7": { "resultado": "", "observacao": "", "evidencia": "" },
+    "A8": { "resultado": "", "observacao": "", "evidencia": "" },
+    "A11": { "resultado": "", "observacao": "", "evidencia": "" },
+    "A12": { "resultado": "", "observacao": "", "evidencia": "" },
+    "A16": { "resultado": "", "observacao": "", "evidencia": "" },
+    "A17": { "resultado": "", "observacao": "sem conta ngrok (C-404) — preencher N/E ou executar", "evidencia": "" },
+    "A10_celular": { "resultado": "", "observacao": "", "evidencia": "" },
+    "A13_celular": { "resultado": "", "observacao": "", "evidencia": "" },
+    "A15_celular": { "resultado": "", "observacao": "", "evidencia": "" }
+  }
+}

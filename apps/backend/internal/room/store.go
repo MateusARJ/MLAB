@@ -5,8 +5,6 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"errors"
-	"fmt"
-	"math/big"
 	"strings"
 	"sync"
 	"time"
@@ -35,6 +33,8 @@ type Store interface {
 	// Participantes
 	AddParticipant(ctx context.Context, p *Participant) error
 	CountParticipants(ctx context.Context, roomID string) (int, error)
+	// HasStudent indica se a matrícula já tem participante registrado na sala (RN-04).
+	HasStudent(ctx context.Context, roomID, studentID string) (bool, error)
 }
 
 // ── InMemoryStore ─────────────────────────────────────────────────────────────
@@ -198,11 +198,37 @@ func (s *inMemoryStore) DeleteRoom(_ context.Context, roomID string) error {
 	return nil
 }
 
+// AddParticipant registra o participante na sala. Se já existe um participante da mesma sala
+// com a mesma matrícula (sem diferenciar maiúsculas), ele é substituído: é o mesmo aluno
+// entrando de novo (RN-04), e não deve ocupar duas vagas.
 func (s *inMemoryStore) AddParticipant(_ context.Context, p *Participant) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	s.participants[p.RoomID] = append(s.participants[p.RoomID], p)
+	list := s.participants[p.RoomID]
+	if p.StudentID != "" {
+		for i, existing := range list {
+			if strings.EqualFold(existing.StudentID, p.StudentID) {
+				list[i] = p
+				return nil
+			}
+		}
+	}
+	s.participants[p.RoomID] = append(list, p)
 	return nil
+}
+
+func (s *inMemoryStore) HasStudent(_ context.Context, roomID, studentID string) (bool, error) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	if studentID == "" {
+		return false, nil
+	}
+	for _, existing := range s.participants[roomID] {
+		if strings.EqualFold(existing.StudentID, studentID) {
+			return true, nil
+		}
+	}
+	return false, nil
 }
 
 func (s *inMemoryStore) CountParticipants(_ context.Context, roomID string) (int, error) {
@@ -213,15 +239,6 @@ func (s *inMemoryStore) CountParticipants(_ context.Context, roomID string) (int
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-// newShortSuffix gera um sufixo curto aleatório de 4 caracteres para links descartáveis.
-func newShortSuffix() string {
-	b := make([]byte, 2)
-	if _, err := rand.Read(b); err != nil {
-		return "101"
-	}
-	return hex.EncodeToString(b)
-}
-
 // newID gera um ID hexadecimal aleatório de 16 bytes.
 func newID() string {
 	b := make([]byte, 16)
@@ -229,26 +246,6 @@ func newID() string {
 		panic("room: falha ao gerar ID: " + err.Error())
 	}
 	return hex.EncodeToString(b)
-}
-
-// slugWords é o vocabulário para geração de slugs legíveis.
-var slugWords = []string{
-	"alpha", "bravo", "charlie", "delta", "echo", "foxtrot",
-	"golf", "hotel", "india", "juliet", "kilo", "lima",
-	"mango", "nova", "oscar", "papa", "quebec", "romeo",
-	"sierra", "tango", "uniform", "victor", "whiskey", "xray",
-	"yankee", "zulu",
-}
-
-// newSlug gera um slug legível do tipo "charlie-delta-7342".
-func newSlug() string {
-	pick := func() string {
-		n, _ := rand.Int(rand.Reader, big.NewInt(int64(len(slugWords))))
-		return slugWords[n.Int64()]
-	}
-	suffix, _ := rand.Int(rand.Reader, big.NewInt(9000))
-	suffix = new(big.Int).Add(suffix, big.NewInt(1000))
-	return fmt.Sprintf("%s-%s-%s", pick(), pick(), suffix.String())
 }
 
 // removeAccents normaliza caracteres acentuados comuns.
@@ -313,15 +310,4 @@ func slugFromEmail(email string) string {
 		return "professor"
 	}
 	return clean
-}
-
-// buildLink constrói a URL pública da sala.
-// Formato esperado: http://<ip>:5173/<nome-da-sala>/<nome-do-professor>/entrar
-func buildLink(baseURL, slug string) string {
-	base := strings.TrimRight(baseURL, "/")
-	cleanSlug := strings.Trim(slug, "/")
-	if cleanSlug == "" {
-		return fmt.Sprintf("%s/sala/entrar", base)
-	}
-	return fmt.Sprintf("%s/%s/entrar", base, cleanSlug)
 }

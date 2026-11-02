@@ -67,13 +67,7 @@ export async function joinRoom(slug: string, req: JoinRoomRequest): Promise<Join
     throw new Error(errorData.error || errorData.message || 'Falha ao entrar na sala');
   }
 
-  const data: JoinRoomResponse = await response.json();
-  sessionStorage.setItem('student_token', data.token);
-  return data;
-}
-
-export function getStoredStudentToken(): string | null {
-  return sessionStorage.getItem('student_token');
+  return response.json() as Promise<JoinRoomResponse>;
 }
 
 /**

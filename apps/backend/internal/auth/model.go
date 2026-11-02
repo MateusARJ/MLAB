@@ -20,13 +20,6 @@ type SessionResponse struct {
 	Name      string `json:"name,omitempty"`
 }
 
-// Claims são os dados embutidos no JWT do professor.
-type Claims struct {
-	Role  string `json:"role"`
-	Email string `json:"email"`
-	Name  string `json:"name,omitempty"`
-}
-
 // StudentClaims são os dados embutidos no JWT do aluno.
 type StudentClaims struct {
 	Role      string `json:"role"`

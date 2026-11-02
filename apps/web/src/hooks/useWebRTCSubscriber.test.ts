@@ -215,4 +215,102 @@ describe('useWebRTCSubscriber Hook', () => {
       })
     );
   });
+
+  it('deve exibir aviso temporário ao receber CHAT_RATE_LIMITED sem fechar a conexão', async () => {
+    vi.useFakeTimers();
+    try {
+      const { result } = renderHook(() => useWebRTCSubscriber(dummyToken, dummyRoomInfo));
+
+      await act(async () => {
+        mockWsInstance.onmessage({
+          data: JSON.stringify({ type: 'error', payload: { code: 'CHAT_RATE_LIMITED', message: 'muitas mensagens, aguarde' } }),
+        });
+      });
+      expect(result.current.chatNotice).toBe('muitas mensagens, aguarde');
+      expect(mockWsInstance.close).not.toHaveBeenCalled();
+
+      await act(async () => {
+        vi.advanceTimersByTime(5000);
+      });
+      expect(result.current.chatNotice).toBeNull();
+
+      // Sem mensagem do servidor, usa o texto padrão; dismissChatNotice limpa na hora.
+      await act(async () => {
+        mockWsInstance.onmessage({ data: JSON.stringify({ type: 'error', payload: { code: 'CHAT_RATE_LIMITED', message: '' } }) });
+      });
+      expect(result.current.chatNotice).toMatch(/Aguarde alguns segundos/);
+      await act(async () => {
+        result.current.dismissChatNotice();
+      });
+      expect(result.current.chatNotice).toBeNull();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('não deve exibir aviso de chat para outros códigos de erro', async () => {
+    const { result } = renderHook(() => useWebRTCSubscriber(dummyToken, dummyRoomInfo));
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    await act(async () => {
+      mockWsInstance.onmessage({ data: JSON.stringify({ type: 'error', payload: { code: 'FORBIDDEN', message: 'x' } }) });
+    });
+    expect(result.current.chatNotice).toBeNull();
+    warn.mockRestore();
+  });
+
+  it('deve ir para duplicate sem reconectar ao receber close 4001 (RN-04)', async () => {
+    vi.useFakeTimers();
+    try {
+      const { result } = renderHook(() => useWebRTCSubscriber(dummyToken, dummyRoomInfo));
+      const firstWs = mockWsInstance;
+
+      await act(async () => {
+        firstWs.onclose({ code: 4001, reason: 'Duplicate Session' });
+      });
+      await act(async () => {
+        vi.advanceTimersByTime(35000);
+      });
+
+      expect(result.current.connectionStatus).toBe('duplicate');
+      expect(mockWsInstance).toBe(firstWs); // nenhuma nova conexão aberta
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('deve liberar o chat só com o WebSocket aberto e bloquear ao cair (005/RF-506)', async () => {
+    vi.useFakeTimers();
+    try {
+      const { result } = renderHook(() => useWebRTCSubscriber(dummyToken, dummyRoomInfo));
+      const firstWs = mockWsInstance;
+      expect(result.current.isChatReady).toBe(false);
+
+      await act(async () => {
+        firstWs.onopen();
+      });
+      expect(result.current.isChatReady).toBe(true);
+
+      // Queda inesperada: volta a bloquear durante a reconexão.
+      await act(async () => {
+        firstWs.readyState = 3; // CLOSED, como o navegador faz antes do onclose
+        firstWs.onclose({ code: 1006, reason: '' });
+      });
+      expect(result.current.isChatReady).toBe(false);
+      expect(result.current.connectionStatus).toBe('reconnecting');
+
+      // Nova conexão: só libera no onopen do WS corrente.
+      await act(async () => {
+        vi.advanceTimersByTime(1500);
+      });
+      const secondWs = mockWsInstance;
+      expect(secondWs).not.toBe(firstWs);
+      expect(result.current.isChatReady).toBe(false);
+      await act(async () => {
+        secondWs.onopen();
+      });
+      expect(result.current.isChatReady).toBe(true);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
 });

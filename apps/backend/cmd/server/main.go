@@ -31,18 +31,45 @@ func main() {
 		log.Printf("AVISO: %s não configurado: sessões de professor serão recusadas. Inicie pelo app MLab ou por `npm run dev`.", auth.HostKeyEnv)
 	}
 
+	handler, err := newServer(serverConfig{
+		UDPPortMin: 50000,
+		UDPPortMax: 50100,
+		NAT1To1IP:  room.GetPrimaryPhysicalIP(),
+		WebDir:     resolveWebDir(),
+	})
+	if err != nil {
+		log.Fatalf("%v", err)
+	}
+
+	addr := ":" + port
+	log.Printf("MLab backend escutando em %s", addr)
+	if err := http.ListenAndServe(addr, handler); err != nil {
+		log.Fatalf("erro no servidor: %v", err)
+	}
+}
+
+// serverConfig reúne o que varia entre a execução real e os testes de smoke (004/T401).
+type serverConfig struct {
+	UDPPortMin uint16
+	UDPPortMax uint16
+	NAT1To1IP  string
+	WebDir     string
+}
+
+// newServer monta store, SFU, handlers, ligações entre eles e rotas, e devolve o handler HTTP com CORS.
+// É a mesma montagem usada pelo main; os testes de smoke sobem o servidor real por aqui.
+func newServer(cfg serverConfig) (http.Handler, error) {
 	// ── Store de salas (em memória — ADR 0005) ───────────────────────────────
 	roomStore := room.NewInMemoryStore()
 
 	// ── SFU Pion WebRTC (T011) ────────────────────────────────────────────────
-	lanIP := room.GetPrimaryPhysicalIP()
 	sfuService, err := webrtc.NewSFUService(webrtc.Config{
-		UDPPortMin: 50000,
-		UDPPortMax: 50100,
-		NAT1To1IP:  lanIP,
+		UDPPortMin: cfg.UDPPortMin,
+		UDPPortMax: cfg.UDPPortMax,
+		NAT1To1IP:  cfg.NAT1To1IP,
 	})
 	if err != nil {
-		log.Fatalf("erro ao inicializar SFUService: %v", err)
+		return nil, fmt.Errorf("erro ao inicializar SFUService: %w", err)
 	}
 
 	// ── Handlers ──────────────────────────────────────────────────────────────
@@ -100,19 +127,15 @@ func main() {
 	sigHandler.RegisterRoutes(mux)
 
 	// Servidor SPA do Aluno (Frontend Web)
-	webDir := resolveWebDir()
-	if webDir != "" {
-		log.Printf("MLab servindo frontend web do aluno a partir de: %s", webDir)
-		mux.Handle("/", spaHandler(webDir))
+	if cfg.WebDir != "" {
+		log.Printf("MLab servindo frontend web do aluno a partir de: %s", cfg.WebDir)
+		mux.Handle("/", spaHandler(cfg.WebDir))
 	} else {
 		log.Println("AVISO: Diretório do frontend web não encontrado. Servidor operando apenas como API/SFU.")
 	}
 
-	addr := ":" + port
-	log.Printf("MLab backend escutando em %s", addr)
-	if err := http.ListenAndServe(addr, corsMiddleware(mux)); err != nil {
-		log.Fatalf("erro no servidor: %v", err)
-	}
+	return corsMiddleware(mux), nil
+
 }
 
 // jwtSecretBytes é o tamanho do segredo JWT gerado quando JWT_SECRET não é fornecido.

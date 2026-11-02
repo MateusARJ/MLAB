@@ -144,16 +144,6 @@ func StartMDNSServer(profSlug string, ipStr string) (*MDNSServer, error) {
 	return m, nil
 }
 
-// GetActiveMDNSIP retorna o IP atualmente anunciado pelo servidor mDNS ativo, ou vazio se inativo.
-func GetActiveMDNSIP() string {
-	activeMDNSServerMu.Lock()
-	defer activeMDNSServerMu.Unlock()
-	if activeMDNSServer != nil {
-		return activeMDNSServer.localIP
-	}
-	return ""
-}
-
 // StopMDNSServer encerra o anúncio mDNS ativo no momento.
 func StopMDNSServer() {
 	activeMDNSServerMu.Lock()
