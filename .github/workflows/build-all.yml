@@ -4,13 +4,13 @@ on:
   workflow_dispatch: # Permite disparar manualmente na aba Actions do GitHub
     inputs:
       tag_name:
-        description: 'Tag/Versão da Release (ex: v1.4.8)'
+        description: 'Tag da Release (vazio = versão do package.json, ex: v1.5.7)'
         required: false
-        default: 'v1.5.0'
+        default: ''
       release_title:
-        description: 'Título da Release'
+        description: 'Título da Release (vazio = MLab v<versão>)'
         required: false
-        default: 'MLab v1.5.0'
+        default: ''
   pull_request: # Validação automática apenas em Pull Requests destinados à main
     branches:
       - main
@@ -111,7 +111,7 @@ jobs:
         run: |
           if [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ -n "${{ github.event.inputs.tag_name }}" ]; then
             echo "tag=${{ github.event.inputs.tag_name }}" >> $GITHUB_OUTPUT
-            echo "title=${{ github.event.inputs.release_title }}" >> $GITHUB_OUTPUT
+            echo "title=${{ github.event.inputs.release_title || format('MLab {0}', github.event.inputs.tag_name) }}" >> $GITHUB_OUTPUT
           elif [[ "${{ github.ref }}" == refs/tags/* ]]; then
             TAG_NAME="${GITHUB_REF#refs/tags/}"
             echo "tag=$TAG_NAME" >> $GITHUB_OUTPUT
