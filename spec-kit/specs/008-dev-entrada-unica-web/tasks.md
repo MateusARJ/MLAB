@@ -16,10 +16,10 @@ Checks:
 - [x] `go test ./...` do backend verde e smoke (`-tags smoke`) verde em 2026-11-02.
 
 ### T802 — Verificação manual e converge
-[ ] T802
+[x] T802
 Depends On: T801
 Allowed Paths: `spec-kit/specs/008-dev-entrada-unica-web/**`
 Prohibited Paths: `apps/**`, `packages/**`
 Checks:
-- [ ] No `npm run dev`, `http://<ip>:8080/` e o link da sala com a porta 8080 abrem a página da 5173.
-- [ ] `converge.md` da 008.
+- [x] No `npm run dev`, `http://<ip>:8080/` e o link da sala com a porta 8080 abrem a página da 5173 (confirmado pelo responsável em 2026-11-02).
+- [x] `converge.md` da 008.
