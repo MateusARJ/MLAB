@@ -324,7 +324,7 @@ go build -ldflags="-s -w" -o ./bin/mlab-server ./cmd/server
 
 ### Versões e releases
 
-O monorepo tem uma versão única, que só muda numa release (`npm run bump`) e é publicada com a tag `vX.Y.Z`. Confira com `npm run version:check`. Regras, comandos e o passo a passo da release: [docs/versionamento.md](docs/versionamento.md).
+O MLab segue o versionamento semântico (`MAJOR.MINOR.PATCH`), com uma versão única para todo o monorepo. Cada PR que muda o app incrementa a versão no nível certo (`npm run bump -- patch|minor|major`), e a release é publicada com a tag `vX.Y.Z`. Confira com `npm run version:check`. O escopo de cada nível e o passo a passo estão em [docs/versionamento.md](docs/versionamento.md).
 
 ---
 
