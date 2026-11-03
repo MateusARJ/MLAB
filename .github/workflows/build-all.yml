@@ -4,7 +4,7 @@ on:
   workflow_dispatch: # Permite disparar manualmente na aba Actions do GitHub
     inputs:
       tag_name:
-        description: 'Tag da Release (vazio = versão do package.json, ex: v1.5.7)'
+        description: 'Tag da Release (vazio = versão do package.json, ex: v1.7.1)'
         required: false
         default: ''
       release_title:
@@ -16,7 +16,7 @@ on:
       - main
   push:
     tags:
-      - 'v*' # Dispara automaticamente ao criar uma tag de versão (ex: v1.4.6)
+      - 'v*' # Dispara automaticamente ao criar uma tag de versão (ex: v1.7.1)
 
 jobs:
   build:
@@ -117,7 +117,7 @@ jobs:
             echo "tag=$TAG_NAME" >> $GITHUB_OUTPUT
             echo "title=MLab $TAG_NAME" >> $GITHUB_OUTPUT
           else
-            PKG_VER=$(node -p "require('./package.json').version" 2>/dev/null || echo "1.4.8")
+            PKG_VER=$(node -p "require('./package.json').version") || { echo "Versão do package.json não encontrada"; exit 1; }
             echo "tag=v$PKG_VER" >> $GITHUB_OUTPUT
             echo "title=MLab v$PKG_VER" >> $GITHUB_OUTPUT
           fi
