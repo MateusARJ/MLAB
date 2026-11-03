@@ -177,6 +177,54 @@ function copyRows(
   }
 }
 
+/**
+ * Fração das amostras que mudaram entre `cur` e `ref` num anel de `ring` pixels em volta do retângulo (recortado nas
+ * bordas do quadro, sem o retângulo), no primeiro plano (luma em YUV; canais de cor nos formatos empacotados). Uma
+ * amostra muda quando algum canal difere mais que `tolerance`. Serve para saber se o conteúdo em volta do cursor está
+ * em movimento (vídeo, animação), quando a placa não representa o que está sob ele (RF-707, C-704).
+ * Devolve `null` quando o anel não tem amostras.
+ */
+export function ringChangeRatio(
+  cur: Uint8Array,
+  ref: Uint8Array,
+  geom: FrameGeometry,
+  rect: PixelRect,
+  ring: number,
+  tolerance: number
+): number | null {
+  const p = geom.planes[0];
+  if (!p || rect.w <= 0 || rect.h <= 0 || ring <= 0) return null;
+  const x0 = Math.max(0, rect.x - ring);
+  const y0 = Math.max(0, rect.y - ring);
+  const x1 = Math.min(p.cols, rect.x + rect.w + ring);
+  const y1 = Math.min(p.rows, rect.y + rect.h + ring);
+  const innerX1 = rect.x + rect.w;
+  const innerY1 = rect.y + rect.h;
+  const channels = Math.min(p.bps, 3);
+  let total = 0;
+  let changed = 0;
+  for (let y = y0; y < y1; y++) {
+    const insideRows = y >= rect.y && y < innerY1;
+    const row = p.offset + y * p.stride;
+    for (let x = x0; x < x1; x++) {
+      if (insideRows && x >= rect.x && x < innerX1) {
+        x = innerX1 - 1;
+        continue;
+      }
+      const i = row + x * p.bps;
+      let diff = 0;
+      for (let c = 0; c < channels; c++) {
+        const d = cur[i + c] - ref[i + c];
+        const a = d < 0 ? -d : d;
+        if (a > diff) diff = a;
+      }
+      total++;
+      if (diff > tolerance) changed++;
+    }
+  }
+  return total > 0 ? changed / total : null;
+}
+
 /** Linhas de cada lado usadas como entorno (por plano). */
 const NEIGHBOR_ROWS = 3;
 

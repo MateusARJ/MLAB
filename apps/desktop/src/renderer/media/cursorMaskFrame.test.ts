@@ -5,6 +5,7 @@ import {
   fillFromNeighborhood,
   frameGeometry,
   planeSpecs,
+  ringChangeRatio,
   toPixelRect,
   type FrameGeometry,
 } from './cursorMaskFrame';
@@ -137,6 +138,56 @@ describe('copyAllExcept', () => {
     expect(dst[7]).toBe(5);
     expect(dst[8]).toBe(0);
     expect(dst[12 + 7]).toBe(5);
+  });
+});
+
+describe('ringChangeRatio', () => {
+  /** Muda o luma (I420) ou o pixel (RGBA) em (x, y). */
+  function poke(buf: Uint8Array, geom: FrameGeometry, x: number, y: number, v: number) {
+    const p = geom.planes[0];
+    buf.fill(v, p.offset + y * p.stride + x * p.bps, p.offset + y * p.stride + (x + 1) * p.bps);
+  }
+
+  it('devolve 0 com o anel parado', () => {
+    const a = makeFrame('I420', 20, 20, 100);
+    const b = makeFrame('I420', 20, 20, 100);
+    expect(ringChangeRatio(a.buf, b.buf, a.geom, { x: 8, y: 8, w: 4, h: 4 }, 2, 12)).toBe(0);
+  });
+
+  it('ignora mudança só dentro do retângulo e na croma', () => {
+    const cur = makeFrame('I420', 20, 20, 100);
+    const ref = makeFrame('I420', 20, 20, 100);
+    for (let y = 8; y < 12; y++) for (let x = 8; x < 12; x++) poke(cur.buf, cur.geom, x, y, 255);
+    const u = cur.geom.planes[1];
+    cur.buf.fill(0, u.offset, u.offset + u.stride * u.rows);
+    expect(ringChangeRatio(cur.buf, ref.buf, cur.geom, { x: 8, y: 8, w: 4, h: 4 }, 2, 12)).toBe(0);
+  });
+
+  it('conta as amostras do anel que passam da tolerância', () => {
+    const cur = makeFrame('I420', 20, 20, 100);
+    const ref = makeFrame('I420', 20, 20, 100);
+    // Anel de 2 px em volta de 4×4 em (8,8): 8×8 − 4×4 = 48 amostras.
+    poke(cur.buf, cur.geom, 6, 6, 200);
+    poke(cur.buf, cur.geom, 13, 13, 200);
+    poke(cur.buf, cur.geom, 7, 10, 110); // dentro da tolerância
+    poke(cur.buf, cur.geom, 5, 5, 200); // fora do anel
+    expect(ringChangeRatio(cur.buf, ref.buf, cur.geom, { x: 8, y: 8, w: 4, h: 4 }, 2, 12)).toBeCloseTo(2 / 48);
+  });
+
+  it('recorta o anel na borda e compara os canais de cor no RGBA', () => {
+    const cur = makeFrame('RGBA', 10, 10, 50);
+    const ref = makeFrame('RGBA', 10, 10, 50);
+    // Retângulo no canto: anel só à direita e abaixo (3×3 − 2×2 = 5 amostras).
+    const p = cur.geom.planes[0];
+    cur.buf[p.offset + 2 * 4 + 1] = 90; // canal G do pixel (2, 0)
+    cur.buf[p.offset + 1 * p.stride + 2 * 4 + 3] = 255; // só o alfa do pixel (2, 1): ignorado
+    expect(ringChangeRatio(cur.buf, ref.buf, cur.geom, { x: 0, y: 0, w: 2, h: 2 }, 1, 12)).toBeCloseTo(1 / 5);
+  });
+
+  it('devolve null sem anel', () => {
+    const a = makeFrame('I420', 4, 4, 0);
+    expect(ringChangeRatio(a.buf, a.buf, a.geom, { x: 0, y: 0, w: 4, h: 4 }, 2, 12)).toBeNull();
+    expect(ringChangeRatio(a.buf, a.buf, a.geom, { x: 1, y: 1, w: 0, h: 2 }, 2, 12)).toBeNull();
   });
 });
 

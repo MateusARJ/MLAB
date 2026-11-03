@@ -86,12 +86,14 @@ Depends On: T708
 Allowed Paths: `apps/desktop/src/renderer/media/cursorMaskFrame.ts`, `apps/desktop/src/renderer/media/cursorMaskFrame.test.ts`, `apps/desktop/src/renderer/media/cursorMask.worker.ts`
 Prohibited Paths: `apps/desktop/src/main/**`, `apps/desktop/src/shared/**`, `apps/desktop/src/renderer/hooks/**`, `apps/backend/**`, `apps/web/**`, `packages/**`
 Checks:
-- [ ] `ringChangeRatio`: anel em volta do retângulo, recortado nas bordas, sem o retângulo; tolerância por amostra;
+- [x] `ringChangeRatio`: anel em volta do retângulo, recortado nas bordas, sem o retângulo; tolerância por amostra;
   testes com `I420` e `RGBA`, anel parado (0), anel mudando, mudança só dentro do retângulo (0), retângulo na
   borda e anel vazio (RF-707).
-- [ ] Worker: fração acima de 3% mostra o cursor até 500 ms após a última mudança; placa mantida; com anotações, só
+- [x] Worker: fração acima de 3% mostra o cursor até 500 ms após a última mudança; placa mantida; com anotações, só
   as anotações são desenhadas; custo na proteção de FPS (RF-703, RF-707).
-- [ ] Harness com janela animada: sem quadrado acompanhando o cursor; com janela parada, cursor continua oculto.
+- [x] Harness com janela animada: sem quadrado acompanhando o cursor; com janela parada, cursor continua oculto
+  (2026-11-03, I420 1366×776: janela animada com o cursor mostrado em quase todos os quadros e sem quadrado no
+  quadro recebido; Bloco de Notas com texto, máscara em 100% dos quadros, sem detecção falsa).
 - [ ] Teste manual do professor: sobre vídeo o cursor aparece sem quadrado; sobre conteúdo parado continua oculto.
 
 ### T705 — Medição A/B e smoke A12 (manual)
