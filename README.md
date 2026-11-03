@@ -302,7 +302,7 @@ Variáveis opcionais do backend: `PORT`, `WEB_PORT`, `PUBLIC_URL`, `BASE_URL`, `
 
 O aplicativo do professor é empacotado com `electron-builder`. Cada comando compila o web do aluno, o backend Go para o sistema de destino e o app desktop. Os arquivos saem em `apps/desktop/dist/`.
 
-> O `npm run make*` incrementa a versão do pacote automaticamente (`premake`). Para gerar sem mudar a versão, rode os passos `build:web`, `build:backend:<so>`, `build` e `electron-builder` manualmente dentro de `apps/desktop`.
+> Os comandos `npm run make*` não alteram a versão: os instaladores saem com a versão atual do `package.json`. Para mudar de versão, siga [Versionamento](docs/versionamento.md).
 
 | Sistema | Comando (na raiz) | Saída |
 |---|---|---|
@@ -321,6 +321,10 @@ O aplicativo do professor é empacotado com `electron-builder`. Cada comando com
 cd apps/backend
 go build -ldflags="-s -w" -o ./bin/mlab-server ./cmd/server
 ```
+
+### Versões e releases
+
+O MLab segue o versionamento semântico (`MAJOR.MINOR.PATCH`), com uma versão única para todo o monorepo. Cada PR que muda o app incrementa a versão no nível certo (`npm run bump -- patch|minor|major`), e a release é publicada com a tag `vX.Y.Z`. Confira com `npm run version:check`. O escopo de cada nível e o passo a passo estão em [docs/versionamento.md](docs/versionamento.md).
 
 ---
 

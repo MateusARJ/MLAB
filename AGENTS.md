@@ -227,6 +227,7 @@ ADRs aprovadas existentes (fonte: `spec-kit/docs/adrs/`; manter esta lista sincr
 - `spec-kit/docs/adrs/0004-arquitetura-de-seguranca-e-testes-de-seguranca.md` — arquitetura e testes de segurança.
 - `spec-kit/docs/adrs/0005-operacao-lan-offline.md` — LAN offline como modo primário, TURN opcional, estado em memória.
 - `spec-kit/docs/adrs/0006-descontinuacao-do-login-e-sessao-local.md` — login removido; sessão do professor por nome com chave de host; segredo JWT aleatório por execução.
+- `spec-kit/docs/adrs/0007-versionamento-semantico.md` — versionamento semântico (`MAJOR.MINOR.PATCH`) a partir da 1.7.1, com incremento no PR da mudança.
 
 Fluxo:
 
@@ -248,6 +249,9 @@ Uma tarefa só pode ser marcada como concluída quando:
 - contratos foram atualizados quando necessário;
 - não há violação da constitution;
 - a tarefa foi validada antes de marcar `[x]`.
+
+Um PR que altera `apps/` ou `packages/` só está pronto com o incremento de versão da seção 13 (ou a justificativa de
+"sem incremento").
 
 ## 11. Regra de alteração dos artefatos
 
@@ -271,6 +275,9 @@ Todo commit e todo Pull Request no repositório devem seguir obrigatoriamente a 
 ### Formato
 `<tipo>(<escopo>): <descrição em português no imperativo>`
 
+Mudança incompatível (MAJOR, seção 13): `<tipo>(<escopo>)!: <descrição>`, com um parágrafo no corpo começando com
+`Quebra de compatibilidade:`.
+
 ### Exemplos válidos (isolados por feature/fix)
 - `feat(web): implementa reproducao de video no aluno`
 - `feat(backend): link fixo por professor`
@@ -282,3 +289,20 @@ Todo commit e todo Pull Request no repositório devem seguir obrigatoriamente a 
 Templates oficiais configurados no repositório:
 - Commit: `.gitmessage` e `.github/.gitmessage` (ativo via `git config commit.template .gitmessage`)
 - Pull Request: `.github/pull_request_template.md`
+
+## 13. Versionamento semântico
+
+Fonte: `docs/versionamento.md` (ADR 0007). O MLab segue `MAJOR.MINOR.PATCH` com versão única no monorepo, a partir
+da 1.7.1.
+
+- Todo PR para a `development` que altera o que é entregue (`apps/`, `packages/`) termina com **um** commit
+  `chore(release): versao X.Y.Z`, gerado por `npm run bump -- patch|minor|major`, seguido de `npm run version:check`.
+- O nível segue o escopo de `docs/versionamento.md` §2:
+  - **MAJOR**: quebra de compatibilidade (funcionalidade removida ou fluxo incompatível, contrato incompatível,
+    requisito de sistema maior, configuração ou dados incompatíveis);
+  - **MINOR**: funcionalidade nova compatível (US/RF novo, adição compatível em contrato, nova opção ou formato);
+  - **PATCH**: correção, segurança, desempenho ou refatoração sem mudança de capacidade nem de contrato;
+  - **sem incremento**: só `docs`, `test`, `ci`, `style`, `spec-kit/**` ou ferramentas que não mudam o instalador.
+- Num PR com vários commits vale o maior nível. Registre o nível e a justificativa no `converge.md` e no PR.
+- Na dúvida sobre MAJOR, pare e pergunte (seção 4). Nunca edite `"version"` à mão, nunca crie tag ou release.
+- Nenhum build (`npm run make*`) altera a versão.

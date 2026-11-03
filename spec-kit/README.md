@@ -95,3 +95,4 @@ o `analyze.md` não está em `Status: PASS`, a checklist não está `APPROVED`, 
 | ADR 0004 | Arquitetura de segurança e testes de segurança |
 | ADR 0005 | Operação em LAN offline como modo primário (TURN opcional, estado em memória) |
 | ADR 0006 | Descontinuação do login; sessão local do professor vinculada ao host |
+| ADR 0007 | Versionamento semântico (`MAJOR.MINOR.PATCH`) a partir da 1.7.1, com incremento no PR da mudança |

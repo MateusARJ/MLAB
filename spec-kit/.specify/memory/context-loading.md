@@ -59,4 +59,10 @@ Ler:
 - artefatos upstream necessários para aquela tarefa
 - arquivos-alvo reais
 
+## Converge / Pull Request
+
+Ler:
+- `spec.md`, `plan.md`, `tasks.md` da feature
+- `docs/versionamento.md` (escopo de MAJOR/MINOR/PATCH e incremento no PR)
+
 Nunca carregue toda a pasta `spec-kit/.specify/` sem necessidade.

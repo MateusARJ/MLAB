@@ -52,6 +52,11 @@ Liste somente dependências aprovadas.
 |---|---|---|
 | | | |
 
+## 9a. Impacto de versão previsto
+
+Nível previsto pelo escopo de `docs/versionamento.md` §2 (MAJOR / MINOR / PATCH / nenhum) e motivo. Mudança
+incompatível (MAJOR) exige aprovação explícita do responsável antes das tasks.
+
 ## Scope Lock
 
 ### IN

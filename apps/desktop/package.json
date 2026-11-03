@@ -1,6 +1,6 @@
 {
   "name": "@mlab/desktop",
-  "version": "1.5.7",
+  "version": "1.7.1",
   "description": "MLab - App Desktop do Professor",
   "homepage": "https://mlab.com",
   "author": {
@@ -23,7 +23,6 @@
     "build": "electron-vite build",
     "preview": "electron-vite preview",
     "start": "electron .",
-    "premake": "npm version patch --no-git-tag-version && node ../../scripts/sync-version.js",
     "make": "npm run build:web && npm run build:backend && npm run build && electron-builder --win --publish never && node ../../scripts/build-linux-wsl.js all",
     "make:win": "npm run build:web && npm run build:backend:win && npm run build && electron-builder --win --publish never",
     "make:linux": "npm run build:web && npm run build:backend:linux && npm run build && node ../../scripts/build-linux-wsl.js all",
