@@ -67,16 +67,16 @@ Depends On: T707
 Allowed Paths: `apps/desktop/src/renderer/media/cursorMaskFrame.ts`, `apps/desktop/src/renderer/media/cursorMaskFrame.test.ts`, `apps/desktop/src/renderer/media/cursorMask.worker.ts`
 Prohibited Paths: `apps/desktop/src/main/**`, `apps/desktop/src/shared/**`, `apps/desktop/src/renderer/hooks/**`, `apps/backend/**`, `apps/web/**`, `packages/**`
 Checks:
-- [ ] `cursorMaskFrame.ts`: planos por formato (`I420`, `I420A`, `I422`, `I444`, `NV12`, `RGBA`, `RGBX`, `BGRA`, `BGRX`;
+- [x] `cursorMaskFrame.ts`: planos por formato (`I420`, `I420A`, `I422`, `I444`, `NV12`, `RGBA`, `RGBX`, `BGRA`, `BGRX`;
   outros → `null`), cópia de retângulo, cópia preservando retângulo e preenchimento pelo entorno; testes com buffers
   `I420`, `NV12` e `RGBA`, incluindo bordas e dimensões ímpares (RF-701, RF-706).
-- [ ] Worker: com formato mapeável, a máscara é feita em memória e o quadro sai no mesmo formato e resolução de
+- [x] Worker: com formato mapeável, a máscara é feita em memória e o quadro sai no mesmo formato e resolução de
   exibição do capturado (RF-701, RF-704); placa em buffer com as mesmas regras de 90/250 ms, rastro e região suja
   (RF-702, RF-706); formato não mapeável segue o canvas.
-- [ ] Com anotações no worker, o quadro mascarado em memória é a base do canvas das anotações.
-- [ ] Proteção de FPS mede composição + `await writer.write` dos quadros com máscara (RF-703).
-- [ ] Harness de captura (janela real, loopback WebRTC): com a máscara ativa, a espera do `writer.write` cai em
-  relação à versão em canvas e o FPS acompanha a captura.
+- [x] Com anotações no worker, o quadro mascarado em memória é a base do canvas das anotações (revisão de código; não exercitado no harness).
+- [x] Proteção de FPS mede composição + `await writer.write` dos quadros com máscara (RF-703).
+- [x] Harness de captura (janela real, loopback WebRTC): com a máscara ativa, a espera do `writer.write` cai em
+  relação à versão em canvas e o FPS acompanha a captura (2026-11-02, I420 1376×782 a ~55 fps: espera de 300–680 para 3–5 ms por segundo; cursor ausente no quadro recebido).
 - [ ] Teste manual do professor: sem engasgo com a máscara ativa (MLab ou outra janela em foco).
 
 ### T705 — Medição A/B e smoke A12 (manual)

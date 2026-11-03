@@ -7,6 +7,15 @@ import {
   type FrameBudgetEvent,
   type NormRect,
 } from './cursorMaskPolicy';
+import {
+  copyAllExcept,
+  copyRect,
+  fillFromNeighborhood,
+  frameGeometry,
+  planeSpecs,
+  toPixelRect as toPixelRectIn,
+  type FrameGeometry,
+} from './cursorMaskFrame';
 
 interface InitMessage {
   type: 'init';
@@ -107,6 +116,121 @@ async function runPipeline(
     try {
       self.postMessage(event);
     } catch {}
+  };
+
+  /**
+   * Máscara em memória (T708): planos do quadro copiados para `work`, placa de fundo em `plate` (mesmo layout).
+   * O quadro de saída é criado a partir de `work` no formato do capturado, sem passar pela GPU, como no repasse.
+   */
+  interface MemState {
+    format: VideoPixelFormat;
+    size: number;
+    work: Uint8Array;
+    plate: Uint8Array;
+    geom: FrameGeometry | null;
+    layout: PlaneLayout[] | null;
+    plateInitialized: boolean;
+    plateDirtyRect: NormRect | null;
+  }
+  let mem: MemState | null = null;
+
+  const isMemCapable = (frame: VideoFrame): boolean =>
+    planeSpecs(frame.format) !== null && typeof frame.copyTo === 'function';
+
+  const sameLayout = (a: PlaneLayout[] | null, b: PlaneLayout[]): boolean =>
+    !!a && a.length === b.length && a.every((p, i) => p.offset === b[i].offset && p.stride === b[i].stride);
+
+  /** Copia os planos do quadro para `mem.work`; geometria ou formato novos reiniciam a placa. */
+  const copyFrameToMem = async (frame: VideoFrame): Promise<MemState | null> => {
+    const format = frame.format;
+    if (!format) return null;
+    const w = frame.visibleRect?.width ?? frame.codedWidth;
+    const h = frame.visibleRect?.height ?? frame.codedHeight;
+    const size = frame.allocationSize();
+    if (!mem || mem.size !== size || mem.format !== format || mem.geom?.width !== w || mem.geom?.height !== h) {
+      mem = {
+        format,
+        size,
+        work: new Uint8Array(size),
+        plate: new Uint8Array(size),
+        geom: null,
+        layout: null,
+        plateInitialized: false,
+        plateDirtyRect: null,
+      };
+    }
+    const m = mem;
+    const layout = await frame.copyTo(m.work);
+    const geom = frameGeometry(format, w, h, layout);
+    if (!geom) return null;
+    if (m.layout && !sameLayout(m.layout, layout)) {
+      m.plateInitialized = false;
+      m.plateDirtyRect = null;
+    }
+    m.geom = geom;
+    m.layout = layout;
+    return m;
+  };
+
+  /** Mesmas regras de `updatePlatePreservingCursor`, sobre os buffers (RF-702, RF-706). */
+  const updateMemPlate = (m: MemState, preserveNorm: NormRect | null) => {
+    const geom = m.geom;
+    if (!geom) return;
+    if (!m.plateInitialized) {
+      m.plate.set(m.work);
+      m.plateInitialized = true;
+      m.plateDirtyRect = preserveNorm;
+      return;
+    }
+    const px = preserveNorm ? toPixelRectIn(preserveNorm, geom.width, geom.height) : null;
+    if (!px || px.w <= 0 || px.h <= 0) {
+      m.plate.set(m.work);
+      m.plateDirtyRect = null;
+      return;
+    }
+    copyAllExcept(m.work, m.plate, geom, px);
+    if (m.plateDirtyRect && !rectsOverlap(preserveNorm, m.plateDirtyRect)) {
+      m.plateDirtyRect = null;
+    }
+  };
+
+  /** Apaga o cursor em `m.work` e devolve o quadro de saída no formato e resolução do capturado (RF-701, RF-704). */
+  const buildMemMaskedFrame = (
+    frame: VideoFrame,
+    m: MemState,
+    maskNorm: NormRect,
+    preserveNorm: NormRect | null,
+    now: number
+  ): VideoFrame | null => {
+    const geom = m.geom;
+    if (!geom || !m.layout) return null;
+    if (!m.plateInitialized || now - lastPlateUpdateAt >= 90) {
+      updateMemPlate(m, preserveNorm);
+      lastPlateUpdateAt = now;
+    }
+    const px = toPixelRectIn(maskNorm, geom.width, geom.height);
+    if (px.w > 0 && px.h > 0) {
+      if (m.plateInitialized && !rectsOverlap(maskNorm, m.plateDirtyRect)) {
+        copyRect(m.plate, m.work, geom, px);
+      } else {
+        fillFromNeighborhood(m.work, geom, px);
+      }
+    }
+    let colorSpace: VideoColorSpaceInit | undefined;
+    try {
+      colorSpace = frame.colorSpace?.toJSON();
+    } catch {}
+    return new VideoFrame(m.work, {
+      format: m.format,
+      codedWidth: geom.width,
+      codedHeight: geom.height,
+      displayWidth: frame.displayWidth,
+      displayHeight: frame.displayHeight,
+      timestamp: frame.timestamp,
+      duration: frame.duration ?? undefined,
+      layout: m.layout,
+      colorSpace,
+    });
   };
 
   const ensureOutCanvas = (w: number, h: number): boolean => {
@@ -399,21 +523,77 @@ async function runPipeline(
 
       // Caminho rápido sem cópia: o quadro capturado segue direto, sem gerar quadro novo, quando o cursor deve
       // aparecer (ou está fora da fonte) e não há overlay no worker (RF-702).
-      if (!path.compose) {
-        // Mantém a placa de fundo a cada 250 ms para que, quando o cursor precisar sumir, já existam pixels
-        // limpos da área onde ele vai parar (RF-702, RF-706): uma cópia do quadro, sem gerar quadro novo.
-        // O custo entra na proteção de FPS e a atualização para enquanto ela estiver suspensa (RF-703).
-        if (!budgetGuard.isSuspended && now - lastPlateUpdateAt >= 250 && ensureCursorMaskCanvases(fw, fh)) {
-          try {
-            const t0 = performance.now();
+      const memCapable = isMemCapable(frame);
+
+      /**
+       * Mantém a placa de fundo a cada 250 ms fora da máscara, para que, quando o cursor precisar sumir, já existam
+       * pixels limpos da área onde ele vai parar (RF-702, RF-706): uma cópia do quadro, sem gerar quadro novo.
+       * Em memória quando o formato permite (T708); senão, no canvas. O custo entra na proteção de FPS (RF-703).
+       */
+      const refreshPlateOutsideMask = async () => {
+        if (budgetGuard.isSuspended || now - lastPlateUpdateAt < 250) return;
+        try {
+          const t0 = performance.now();
+          if (memCapable) {
+            const m = await copyFrameToMem(frame);
+            if (!m) return;
+            updateMemPlate(m, preserveRect);
+          } else {
+            if (!ensureCursorMaskCanvases(fw, fh)) return;
             updatePlatePreservingCursor(frame, preserveRect);
-            lastPlateUpdateAt = now;
-            postBudgetEvent(budgetGuard.record(performance.now() - t0));
-          } catch {}
-        }
+          }
+          lastPlateUpdateAt = now;
+          postBudgetEvent(budgetGuard.record(performance.now() - t0));
+        } catch {}
+      };
+
+      if (!path.compose) {
+        await refreshPlateOutsideMask();
         await writer.write(frame);
         frame.close();
         continue;
+      }
+
+      // Máscara em memória (T708): o quadro sai no formato do capturado, sem leitura da GPU pelo encoder.
+      // A proteção de FPS mede composição + entrega ao gerador (RF-703).
+      if (path.maskCursor && maskRect !== null && memCapable) {
+        const t0 = performance.now();
+        let masked: VideoFrame | null = null;
+        try {
+          const m = await copyFrameToMem(frame);
+          masked = m ? buildMemMaskedFrame(frame, m, maskRect, preserveRect, t0) : null;
+        } catch {
+          masked = null;
+        }
+        if (masked) {
+          let out: VideoFrame = masked;
+          const annReady = path.drawAnnotations && ensureOutCanvas(fw, fh);
+          const annCtx = outCtx as OffscreenCanvasRenderingContext2D | null;
+          const annCanvas = outCanvas as OffscreenCanvas | null;
+          if (annReady && annCtx && annCanvas) {
+            // Anotações sobre o quadro já mascarado; o canvas só entra quando há o que desenhar.
+            try {
+              annCtx.drawImage(masked, 0, 0, width, height);
+              renderAnnotationsAndSpotlight(annCtx, annCanvas, ann, state.rect);
+              out = new VideoFrame(annCanvas, {
+                timestamp: frame.timestamp,
+                duration: frame.duration ?? undefined,
+              });
+              masked.close();
+            } catch {
+              out = masked;
+            }
+          }
+          frame.close();
+          try {
+            await writer.write(out);
+          } finally {
+            out.close();
+          }
+          postBudgetEvent(budgetGuard.record(performance.now() - t0));
+          continue;
+        }
+        // Falha em memória: segue pelo canvas abaixo, com o quadro original intacto.
       }
 
       const maskCursor = path.maskCursor && maskRect !== null && ensureCursorMaskCanvases(fw, fh);
@@ -427,19 +607,16 @@ async function runPipeline(
         continue;
       }
 
+      if (!maskCursor) {
+        // Só anotações: mantém a placa no mesmo ritmo do repasse (RF-706).
+        await refreshPlateOutsideMask();
+      }
+
       try {
         const t0 = performance.now();
         ctx.drawImage(frame, 0, 0, width, height);
         if (maskCursor && maskRect) {
           maskCursorRegion(frame, maskRect, preserveRect, t0);
-        } else if (
-          !budgetGuard.isSuspended &&
-          now - lastPlateUpdateAt >= 250 &&
-          ensureCursorMaskCanvases(fw, fh)
-        ) {
-          // Só anotações: mantém a placa no mesmo ritmo do repasse (RF-706).
-          updatePlatePreservingCursor(frame, preserveRect);
-          lastPlateUpdateAt = now;
         }
         if (path.drawAnnotations) {
           renderAnnotationsAndSpotlight(ctx, canvas, ann, state.rect);
@@ -449,13 +626,16 @@ async function runPipeline(
           timestamp: frame.timestamp,
           duration: frame.duration ?? undefined,
         });
-        // Mede só a composição (sem a espera do writer) e só nos quadros com máscara.
+        frame.close();
+        try {
+          await writer.write(cleanFrame);
+        } finally {
+          cleanFrame.close();
+        }
+        // Quadros com máscara: mede composição + entrega ao gerador, onde a leitura da GPU acontece (RF-703).
         if (maskCursor) {
           postBudgetEvent(budgetGuard.record(performance.now() - t0));
         }
-        frame.close();
-        await writer.write(cleanFrame);
-        cleanFrame.close();
       } catch {
         try {
           await writer.write(frame);
