@@ -22,6 +22,7 @@ Nenhuma outra contradição: a regra de visibilidade (RN-701) e o contrato `Curs
 | RF-703 | T703, T707, T708 |
 | RF-704 | T702, T705, T708 |
 | RF-705 | T704 |
+| RF-707 | T709 |
 | RF-706 | T707, T708 |
 | RNF-701 | T705 |
 | RNF-702 | T703 (testes de `createCursorMaskedTrack` mantidos) |
@@ -64,7 +65,20 @@ proteção de FPS. O plan ganhou o item 4a e a linha de medição foi corrigida;
 - Non-Goal "novo algoritmo de preenchimento": respeitado; o preenchimento em memória usa o mesmo critério do canvas.
 - Cobertura: RF-701, RF-703, RF-704 e RF-706 também por T708; T705 e T706 passam a depender da T708.
 
+## 5c. Revalidação após o quadrado sobre conteúdo em movimento (2026-11-03)
+
+O professor relatou um quadrado borrado acompanhando o cursor oculto sobre vídeo ou animação; com conteúdo parado,
+a ocultação funciona. Harness com janela animada reproduz: a área apagada mostra conteúdo de 0,3 a 0,5 s atrás,
+congelado na placa enquanto o cursor passa. C-704 decide mostrar o cursor nesse caso.
+
+- Requisitos: RF-707 novo; o "Não incluído" da spec troca a aceitação de C-703 (último conteúdo limpo sob cursor
+  parado sobre vídeo) por C-704. RF-701 e RF-706 continuam valendo sobre conteúdo parado; RN-702 (FPS primeiro)
+  mantido, a detecção entra na proteção de FPS.
+- Scope Lock: os mesmos paths da T708; nenhuma dependência nova; nenhum contrato.
+- Non-Goals: acrescentado "reconstrução de conteúdo em movimento sob o cursor"; nenhum conflito.
+- Cobertura: RF-707 pela T709; T705 e T706 passam a depender da T709.
+
 ## 6. Resultado
 
 - [ ] FAIL
-- [x] PASS — próxima execução: T708 (a T707 aguarda só o teste manual do professor).
+- [x] PASS — próxima execução: T709 (a T707 aguarda só o teste manual do professor).

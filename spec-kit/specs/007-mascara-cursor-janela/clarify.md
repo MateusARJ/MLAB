@@ -39,6 +39,19 @@ Decisões tomadas com o dono do produto em 2026-11-02.
   cursor parado sobre vídeo, a área mostra o último conteúdo limpo (aceito: aulas usam majoritariamente conteúdo
   estático).
 
+## C-704 — Conteúdo em movimento sob o cursor (teste do professor, 2026-11-03)
+
+- **Contexto:** com vídeo ou animação na janela transmitida e o cursor oculto (outra janela em foco), um quadrado
+  borrado acompanha o cursor. Com conteúdo parado, a ocultação funciona. Reproduzido em harness com janela animada:
+  a placa congela a área do cursor e do rastro enquanto ele passa, então a área apagada mostra conteúdo de 0,3 a
+  0,5 s atrás. Não há como saber o conteúdo real sob o cursor num quadro de vídeo.
+- **Alternativas consideradas:** reduzir a área e atualizar a placa a cada quadro (quadrado menor, ainda visível);
+  preencher pelo entorno do quadro atual (mancha borrada do tamanho do cursor); mostrar o cursor.
+- **Resposta aprovada:** mostrar o cursor quando o conteúdo em volta da área apagada estiver mudando; com conteúdo
+  parado, continuar ocultando. A mudança é detectada comparando, num anel em volta da área apagada, o quadro atual
+  com a placa de fundo; a máscara volta 500 ms depois da última mudança, para o cursor não piscar. Substitui a
+  aceitação de C-703 para o cursor parado sobre vídeo.
+
 ## Resultado
 
-CLOSED — C-701, C-702 e C-703 respondidas; nenhuma ambiguidade em aberto.
+CLOSED — C-701, C-702, C-703 e C-704 respondidas; nenhuma ambiguidade em aberto.

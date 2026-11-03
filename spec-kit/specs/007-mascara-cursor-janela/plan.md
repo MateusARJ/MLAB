@@ -50,6 +50,17 @@ Clarify: `./clarify.md` (CLOSED — C-701, C-702, C-703)
      máscara, para enxergar o custo de conversão onde quer que ele aconteça;
    - funções puras de planos (geometria, cópia de retângulo, cópia preservando retângulo, preenchimento) ficam em
      `apps/desktop/src/renderer/media/cursorMaskFrame.ts`, testáveis em vitest.
+4b. **Conteúdo em movimento sob o cursor (RF-707; C-704, T709)** — no caminho em memória, antes de apagar o cursor:
+   - função pura `ringChangeRatio` em `cursorMaskFrame.ts`: fração das amostras do primeiro plano (luma em YUV;
+     canais de cor nos formatos empacotados) que diferem entre o quadro atual e a placa num anel de 12 px em volta
+     da área apagada, com tolerância por amostra de 12 níveis;
+   - fração acima de 3% marca o conteúdo como em movimento; enquanto houver mudança e até 500 ms depois da última,
+     o quadro segue sem a máscara (repasse do quadro capturado, ou só as anotações, quando houver);
+   - sem comparação confiável (placa sem pixels limpos no anel, anel vazio na borda do quadro), mantém a decisão
+     anterior;
+   - a placa continua sendo atualizada nesse período (90 ms), para a detecção seguir valendo;
+   - o custo (cópia + comparação + entrega) entra na proteção de FPS como os quadros com máscara;
+   - formatos não mapeáveis (caminho do canvas) não têm detecção e seguem como hoje.
 5. **Tela cheia (RF-705)** — nenhuma mudança de código. Emenda do US-20 / RF-310 em
    `spec-kit/specs/003-classroom-interaction/spec.md` e roteiro do A12 em `docs/metrics/smoke-runbook.md`.
 6. **Medição (RNF-701)** — no app empacotado, janela específica em 1080p. No aluno (Chrome),
@@ -70,6 +81,7 @@ Clarify: `./clarify.md` (CLOSED — C-701, C-702, C-703)
 | Orçamento | 8 ms, EMA α 0,1, 10 amostras, espera 5→60 s | RF-703, C-701 |
 | Medição do tempo | do início da composição até o fim do `await writer.write` do quadro com máscara (T708; antes: só até criar o `VideoFrame`) | RF-703 |
 | Quadro composto com máscara | em memória, no formato do quadro capturado, quando mapeável; canvas só para formatos não mapeáveis e para desenhar anotações | RF-701, RF-704, T708 |
+| Conteúdo em movimento | anel de 12 px, tolerância 12 níveis, limiar 3%, cursor mostrado até 500 ms após a última mudança; só no caminho em memória | RF-707, C-704 |
 | Log | `[CursorMask]` no renderer | RNF-703 |
 | Tela cheia | sem mudança de código | RF-705, C-702 |
 
@@ -84,6 +96,8 @@ Clarify: `./clarify.md` (CLOSED — C-701, C-702, C-703)
 | Cópia da placa no repasse | custo pequeno e periódico com o cursor visível | 4 cópias/s; medida pela proteção de FPS, que suspende máscara e placa |
 | Quadro composto na GPU convertido a cada quadro pelo encoder | engasgo com a máscara ativa, invisível à proteção de FPS | composição em memória no formato capturado e medição incluindo a entrega ao gerador (T708) |
 | Layout ou formato do quadro mudando no meio da transmissão | cópia com geometria errada | geometria recalculada a cada quadro a partir do `copyTo`; mudança reinicia a placa |
+| Conteúdo em movimento sob o cursor | quadrado com conteúdo antigo acompanhando o cursor | cursor mostrado enquanto o anel em volta muda (RF-707, T709) |
+| Detecção falsa (cursor desenhado fora da área, cursor de texto piscando no anel) | cursor aparece por 500 ms sobre conteúdo parado | limiar de 3% do anel; tolerância por amostra |
 | Suspensão e retomada alternando | cursor aparece e some periodicamente | espera crescente até 60 s |
 | Mudança no caminho das anotações por `displayWidth` | quadro anotado com outra resolução | é correção: hoje a resolução pode divergir do repasse; coberto pela medição com anotação ativa |
 
@@ -133,6 +147,7 @@ Clarify: `./clarify.md` (CLOSED — C-701, C-702, C-703)
 
 - ocultar o cursor na tela cheia;
 - novo algoritmo de preenchimento da área do cursor;
+- reconstrução de conteúdo em movimento sob o cursor (C-704: o cursor é mostrado);
 - painel de métricas WebRTC no app.
 
 ## 4. Constitution Check
@@ -154,3 +169,4 @@ Clarify: `./clarify.md` (CLOSED — C-701, C-702, C-703)
 | 2026-11-02 | Tela cheia sem ocultação; `replaceTrack` como estudo futuro | C-702 |
 | 2026-11-02 | Rastro de 150 ms e placa mantida no repasse após o teste do professor | C-703 |
 | 2026-11-02 | Máscara composta em memória no formato capturado; proteção de FPS mede também a entrega ao gerador | T708 |
+| 2026-11-03 | Cursor mostrado quando o conteúdo em volta dele está mudando | C-704, T709 |

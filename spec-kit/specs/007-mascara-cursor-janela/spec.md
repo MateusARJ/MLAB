@@ -21,6 +21,7 @@ ajustar o requisito da 003: o cursor não é ocultado sobre a área do MLab ness
 
 - ocultação do cursor no modo janela específica, só nos quadros em que ela é necessária;
 - cobertura do rastro do cursor em movimento rápido e preenchimento sem borrão com o cursor parado (C-703);
+- cursor mostrado, em vez de apagado, quando o conteúdo em volta dele está mudando (vídeo, animação) (C-704);
 - proteção de FPS: a ocultação é suspensa quando custa mais que o orçamento por quadro, e é retentada depois;
 - resolução do quadro composto igual à do quadro capturado;
 - emenda do US-20 / RF-310 da 003 para o modo tela cheia;
@@ -31,7 +32,7 @@ ajustar o requisito da 003: o cursor não é ocultado sobre a área do MLab ness
 - ocultação no modo tela cheia (estudo futuro: troca dinâmica de faixa com `replaceTrack`, C-702);
 - mudanças na regra de visibilidade (`cursorPresence.ts`, `cursorVisibility.ts`), no contrato `CursorState`, na SFU,
   no SDP, no REMB ou na `degradationPreference`;
-- reconstrução de conteúdo em movimento (vídeo) sob um cursor parado: a área mostra o último conteúdo limpo (C-703).
+- reconstrução de conteúdo em movimento (vídeo) sob o cursor: nesse caso o cursor é mostrado (C-704).
 
 ## 3. Atores
 
@@ -66,6 +67,9 @@ aula continuar fluida.
 - RF-706: a área apagada é preenchida com a placa de fundo sempre que a placa tem pixels limpos naquela região,
   inclusive com o cursor parado; o preenchimento pelo entorno (borrado) só é usado quando não há pixel limpo
   conhecido (C-703).
+- RF-707: quando o conteúdo em volta da área apagada muda em relação à placa de fundo (vídeo, animação, rolagem), o
+  quadro segue sem a máscara e o cursor aparece; a máscara volta 500 ms depois da última mudança detectada. Sobre
+  conteúdo parado, a ocultação continua como em RF-701 e RF-706 (C-704).
 - RF-705: no modo tela cheia, o cursor não é ocultado; a captura segue direto ao WebRTC (C-702).
 - RNF-701: com o cursor visível, FPS e resolução recebidos pelo aluno iguais à linha de base (`development` antes da
   feature); com o cursor oculto, FPS recebido ≥ 95% do alvo, resolução inalterada e nenhum keyframe extra a cada
