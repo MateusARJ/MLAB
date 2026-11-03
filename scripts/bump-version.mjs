@@ -1,7 +1,9 @@
-// Versionamento oficial do MLab: docs/versionamento.md
+// Versionamento semântico oficial do MLab: docs/versionamento.md
 //
-//   npm run bump                    -> próxima versão pela regra decimal (1.5.7 -> 1.5.8; 1.5.9 -> 1.6.0)
-//   npm run bump -- --set 1.6.0     -> define uma versão explícita
+//   npm run bump -- patch           -> correção compatível        (1.7.1 -> 1.7.2)
+//   npm run bump -- minor           -> funcionalidade compatível  (1.7.1 -> 1.8.0)
+//   npm run bump -- major           -> mudança incompatível       (1.7.1 -> 2.0.0)
+//   npm run bump -- --set 1.8.0     -> define uma versão explícita (nunca menor que a atual)
 //   npm run version:check           -> confere se todos os pacotes e o package-lock estão na mesma versão
 //
 // A versão é única para todo o monorepo. Nenhum build (npm run make*) altera a versão.
@@ -60,23 +62,17 @@ function collectVersions() {
   return found;
 }
 
-/** Regra decimal: cada componente vai de 0 a 9; ao passar de 9 volta a 0 e incrementa o da esquerda. */
-function nextDecimalVersion(current) {
+/** Níveis do versionamento semântico; o escopo de cada um está em docs/versionamento.md §2. */
+const LEVELS = ['major', 'minor', 'patch'];
+
+/** major zera MINOR e PATCH; minor zera PATCH; patch só incrementa PATCH. */
+function nextSemver(current, level) {
   const m = VERSION_RE.exec(current);
   if (!m) throw new Error(`versão inválida no package.json raiz: ${current}`);
-  let [major, minor, patch] = m.slice(1).map(Number);
-  if (patch < 9) {
-    patch += 1;
-  } else {
-    patch = 0;
-    if (minor < 9) {
-      minor += 1;
-    } else {
-      minor = 0;
-      major += 1;
-    }
-  }
-  return `${major}.${minor}.${patch}`;
+  const [major, minor, patch] = m.slice(1).map(Number);
+  if (level === 'major') return `${major + 1}.0.0`;
+  if (level === 'minor') return `${major}.${minor + 1}.0`;
+  return `${major}.${minor}.${patch + 1}`;
 }
 
 function compareVersions(a, b) {
@@ -112,7 +108,7 @@ function apply(version) {
   writeLockVersion(version);
   console.log(`MLab: ${current} -> ${version}`);
   check();
-  console.log(`\nPróximo passo: commit "chore(release): versao ${version}" em PR para a development (docs/versionamento.md).`);
+  console.log(`\nPróximo passo: commit "chore(release): versao ${version}" no mesmo PR da mudança (docs/versionamento.md §4).`);
 }
 
 const args = process.argv.slice(2);
@@ -122,7 +118,7 @@ try {
   } else if (args.includes('--set')) {
     const version = args[args.indexOf('--set') + 1];
     if (!version || !VERSION_RE.test(version)) {
-      throw new Error('uso: npm run bump -- --set <MAIOR.MENOR.CORRECAO>, ex.: 1.6.0');
+      throw new Error('uso: npm run bump -- --set <MAJOR.MINOR.PATCH>, ex.: 1.8.0');
     }
     const current = readJson('package.json').version;
     if (VERSION_RE.test(current) && compareVersions(version, current) < 0) {
@@ -130,7 +126,13 @@ try {
     }
     apply(version);
   } else {
-    apply(nextDecimalVersion(readJson('package.json').version));
+    const level = args.find((a) => LEVELS.includes(a));
+    if (!level) {
+      throw new Error(
+        'informe o nível: npm run bump -- patch | minor | major (escopo de cada um em docs/versionamento.md §2)'
+      );
+    }
+    apply(nextSemver(readJson('package.json').version, level));
   }
 } catch (err) {
   console.error(`[bump-version] ${err.message}`);
