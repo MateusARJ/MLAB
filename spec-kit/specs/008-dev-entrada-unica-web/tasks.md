@@ -5,15 +5,15 @@ Prerequisites: spec/clarify/plan/checklist/analyze aprovados
 Status: READY-FOR-IMPLEMENTATION
 
 ### T801 — Redirecionar as páginas da 8080 para o Vite no modo de desenvolvimento
-[ ] T801
+[x] T801
 Allowed Paths: `apps/backend/cmd/server/main.go`, `apps/backend/cmd/server/main_test.go`
 Prohibited Paths: `apps/backend/internal/**`, `apps/web/**`, `apps/desktop/**`, `packages/**`, `scripts/**`, `turbo.json`
 Checks:
-- [ ] `GET`/`HEAD` fora da API → `307` para `http://<host>:<WEB_PORT|5173><caminho e query>`, inclusive IPv6 (RF-801).
-- [ ] Outros métodos fora da API → `404` (RF-802).
-- [ ] Sem `MLAB_DEV_MONOREPO=1`, `spaHandler` como hoje (RF-803).
-- [ ] `/health` e rotas de API respondem no modo de desenvolvimento (RNF-801).
-- [ ] `go test ./...` do backend verde.
+- [x] `GET`/`HEAD` fora da API → `307` para `http://<host>:<WEB_PORT|5173><caminho e query>`, inclusive IPv6 (RF-801).
+- [x] Outros métodos fora da API → `404` (RF-802).
+- [x] Sem `MLAB_DEV_MONOREPO=1`, `spaHandler` como hoje (RF-803).
+- [x] `/health` e rotas de API respondem no modo de desenvolvimento (RNF-801).
+- [x] `go test ./...` do backend verde e smoke (`-tags smoke`) verde em 2026-11-02.
 
 ### T802 — Verificação manual e converge
 [ ] T802
