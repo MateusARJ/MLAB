@@ -44,7 +44,15 @@ Status: OPEN
 
 - 
 
-## 7. Resultado
+## 7. Impacto de versão
+
+Classificação pelo escopo de `docs/versionamento.md` §2 (ADR 0007).
+
+| Nível | Versão resultante | Justificativa |
+|---|---|---|
+| MAJOR / MINOR / PATCH / nenhum | X.Y.Z | |
+
+## 8. Resultado
 
 - [ ] OPEN — há gaps registrados acima com encaminhamento definido.
 - [ ] CONVERGED — não há divergência, código sem requisito ou teste faltante.

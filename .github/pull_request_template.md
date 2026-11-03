@@ -60,6 +60,7 @@ Exemplos:
 Closes #
 - **Task do Spec-Kit (obrigatório):** (ex: `001/T022`, `002/S1`) — PR que altera comportamento sem task é bloqueado (`AGENTS.md` §4, regra anti-deriva)
 - **Requisitos Vinculados:** (ex: `RF-004`, `RF-026`, `RNF-018`)
+- **Impacto de versão (obrigatório):** `MAJOR` | `MINOR` | `PATCH` | `nenhum` — versão resultante e justificativa pelo escopo de `docs/versionamento.md` §2 (ex: `PATCH → 1.7.2: corrige regressão do RF-310`)
 
 ## Checklist do autor
 
@@ -68,6 +69,7 @@ Closes #
 - [ ] A alteração está coesa e respeita o **Scope Lock** e as tarefas aprovadas do `AGENTS.md`.
 - [ ] Alterou exclusivamente os caminhos autorizados (**Allowed Paths**).
 - [ ] Todo comportamento novo ou alterado possui task em `tasks.md` e `npm run spec:check` passou.
+- [ ] Incrementei a versão no nível certo (`npm run bump -- <nível>`, último commit) e `npm run version:check` passou, ou o PR não tem impacto no app.
 - [ ] Revisei meu próprio diff.
 - [ ] A barra de menus nativa do Electron e layouts essenciais permanecem íntegros.
 - [ ] Atualizei testes e documentação quando necessário.
