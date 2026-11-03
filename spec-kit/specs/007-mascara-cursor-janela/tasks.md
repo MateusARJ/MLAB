@@ -50,7 +50,7 @@ Checks:
 - [x] A12 do runbook com o passo "outra janela cobrindo a janela transmitida sob o ponteiro".
 
 ### T707 — Rastro do cursor e preenchimento sem borrão (C-703)
-[ ] T707
+[x] T707
 Depends On: T703
 Allowed Paths: `apps/desktop/src/renderer/media/cursorMaskPolicy.ts`, `apps/desktop/src/renderer/media/cursorMaskPolicy.test.ts`, `apps/desktop/src/renderer/media/cursorMask.worker.ts`
 Prohibited Paths: `apps/desktop/src/main/**`, `apps/desktop/src/shared/**`, `apps/desktop/src/renderer/hooks/**`, `apps/backend/**`, `apps/web/**`, `packages/**`
@@ -59,7 +59,8 @@ Checks:
 - [x] `decideFramePath` recebe `maskRect`; testes atualizados.
 - [x] Placa no repasse a cada 250 ms, preservando o rastro, com custo na proteção de FPS (RF-702, RF-703).
 - [x] Placa usada com o cursor parado; borrão só sem pixel limpo (RF-706).
-- [ ] Teste manual do professor: sem cursor no movimento rápido e sem quadrado borrado parado.
+- [x] Teste manual do professor: sem cursor no movimento rápido e sem quadrado borrado parado — confirmado pelo
+  responsável em 2026-11-03 (com a T709).
 
 ### T708 — Máscara composta em memória e proteção de FPS com a entrega ao gerador
 [x] T708
@@ -81,7 +82,7 @@ Checks:
   responsável em 2026-11-03.
 
 ### T709 — Cursor mostrado sobre conteúdo em movimento (C-704)
-[ ] T709
+[x] T709
 Depends On: T708
 Allowed Paths: `apps/desktop/src/renderer/media/cursorMaskFrame.ts`, `apps/desktop/src/renderer/media/cursorMaskFrame.test.ts`, `apps/desktop/src/renderer/media/cursorMask.worker.ts`
 Prohibited Paths: `apps/desktop/src/main/**`, `apps/desktop/src/shared/**`, `apps/desktop/src/renderer/hooks/**`, `apps/backend/**`, `apps/web/**`, `packages/**`
@@ -94,7 +95,8 @@ Checks:
 - [x] Harness com janela animada: sem quadrado acompanhando o cursor; com janela parada, cursor continua oculto
   (2026-11-03, I420 1366×776: janela animada com o cursor mostrado em quase todos os quadros e sem quadrado no
   quadro recebido; Bloco de Notas com texto, máscara em 100% dos quadros, sem detecção falsa).
-- [ ] Teste manual do professor: sobre vídeo o cursor aparece sem quadrado; sobre conteúdo parado continua oculto.
+- [x] Teste manual do professor: sobre vídeo o cursor aparece sem quadrado; sobre conteúdo parado continua oculto —
+  confirmado pelo responsável em 2026-11-03.
 
 ### T705 — Medição A/B e smoke A12 (manual)
 [ ] T705
