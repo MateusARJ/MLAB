@@ -32,6 +32,24 @@ Clarify: `./clarify.md` (CLOSED — C-701, C-702, C-703)
    - a máscara copia da placa sempre que `maskRect` não sobrepõe a região suja; senão, preenche pelo entorno;
    - a regra dos 350 ms parado é removida; o canvas de recorte cresce conforme o rastro (antes, fixo em 256 px);
    - o custo de cada atualização da placa no repasse entra na `FrameBudgetGuard`.
+4a. **Composição em memória (RF-701, RF-703, RF-704; T708)** — medição do professor (2026-11-02): com a máscara
+   ativa a transmissão engasga. Causa medida em harness: o quadro capturado chega em memória (`I420`) e vai direto
+   ao encoder no repasse, mas o quadro composto sai do `OffscreenCanvas` acelerado (RGBA na GPU) e o encoder precisa
+   lê-lo de volta da GPU e convertê-lo a cada quadro. Essa leitura acontece dentro do `await writer.write` (7–13 ms
+   por quadro a 50 fps numa janela de 1376×782), fora do tempo medido pela proteção de FPS (~0,7 ms), que por isso
+   nunca suspende. Mudanças:
+   - quando o formato do quadro é mapeável em memória (`I420`, `I420A`, `I422`, `I444`, `NV12`, `RGBA`, `RGBX`,
+     `BGRA`, `BGRX`), a máscara é feita nos planos do próprio quadro: `VideoFrame.copyTo` para um buffer, cópia do
+     retângulo a partir da placa (também um buffer no mesmo layout) ou preenchimento pelo entorno, e
+     `new VideoFrame(buffer, { format, layout })` no mesmo formato e resolução de exibição do quadro capturado;
+   - o preenchimento pelo entorno em memória é o mesmo critério do canvas (linhas logo acima e abaixo da área,
+     interpoladas na vertical), não um algoritmo novo;
+   - com anotações no worker, o quadro já mascarado em memória é a base do canvas das anotações;
+   - formatos não mapeáveis seguem o caminho do canvas atual;
+   - a proteção de FPS passa a medir a composição **e** a entrega ao gerador (`await writer.write`) dos quadros com
+     máscara, para enxergar o custo de conversão onde quer que ele aconteça;
+   - funções puras de planos (geometria, cópia de retângulo, cópia preservando retângulo, preenchimento) ficam em
+     `apps/desktop/src/renderer/media/cursorMaskFrame.ts`, testáveis em vitest.
 5. **Tela cheia (RF-705)** — nenhuma mudança de código. Emenda do US-20 / RF-310 em
    `spec-kit/specs/003-classroom-interaction/spec.md` e roteiro do A12 em `docs/metrics/smoke-runbook.md`.
 6. **Medição (RNF-701)** — no app empacotado, janela específica em 1080p. No aluno (Chrome),
@@ -50,7 +68,8 @@ Clarify: `./clarify.md` (CLOSED — C-701, C-702, C-703)
 | Rastro | união dos retângulos dos últimos 150 ms | RF-701, C-703 |
 | Resolução | `displayWidth`/`displayHeight` | RF-704 |
 | Orçamento | 8 ms, EMA α 0,1, 10 amostras, espera 5→60 s | RF-703, C-701 |
-| Medição do tempo | do início da composição até criar o `VideoFrame` (sem o `await writer.write`) | RF-703 |
+| Medição do tempo | do início da composição até o fim do `await writer.write` do quadro com máscara (T708; antes: só até criar o `VideoFrame`) | RF-703 |
+| Quadro composto com máscara | em memória, no formato do quadro capturado, quando mapeável; canvas só para formatos não mapeáveis e para desenhar anotações | RF-701, RF-704, T708 |
 | Log | `[CursorMask]` no renderer | RNF-703 |
 | Tela cheia | sem mudança de código | RF-705, C-702 |
 
@@ -63,6 +82,8 @@ Clarify: `./clarify.md` (CLOSED — C-701, C-702, C-703)
 | Cursor pisca 1–2 quadros na transição | cursor visível por instantes | atraso do IPC já existia antes do `29c54d0`; margem por velocidade do `toNormalizedCursorRect` |
 | Cursor parado sobre vídeo | área congelada no último conteúdo limpo | aceito (C-703); conteúdo de aula é majoritariamente estático |
 | Cópia da placa no repasse | custo pequeno e periódico com o cursor visível | 4 cópias/s; medida pela proteção de FPS, que suspende máscara e placa |
+| Quadro composto na GPU convertido a cada quadro pelo encoder | engasgo com a máscara ativa, invisível à proteção de FPS | composição em memória no formato capturado e medição incluindo a entrega ao gerador (T708) |
+| Layout ou formato do quadro mudando no meio da transmissão | cópia com geometria errada | geometria recalculada a cada quadro a partir do `copyTo`; mudança reinicia a placa |
 | Suspensão e retomada alternando | cursor aparece e some periodicamente | espera crescente até 60 s |
 | Mudança no caminho das anotações por `displayWidth` | quadro anotado com outra resolução | é correção: hoje a resolução pode divergir do repasse; coberto pela medição com anotação ativa |
 
@@ -86,6 +107,8 @@ Clarify: `./clarify.md` (CLOSED — C-701, C-702, C-703)
 - `apps/desktop/src/renderer/media/cursorMaskPolicy.ts`
 - `apps/desktop/src/renderer/media/cursorMaskPolicy.test.ts`
 - `apps/desktop/src/renderer/media/cursorMask.worker.ts`
+- `apps/desktop/src/renderer/media/cursorMaskFrame.ts`
+- `apps/desktop/src/renderer/media/cursorMaskFrame.test.ts`
 - `apps/desktop/src/renderer/media/createCursorMaskedTrack.ts`
 - `apps/desktop/src/renderer/media/createCursorMaskedTrack.test.ts`
 - `spec-kit/specs/003-classroom-interaction/spec.md`
@@ -104,7 +127,7 @@ Clarify: `./clarify.md` (CLOSED — C-701, C-702, C-703)
 ### Dependencies
 
 - Nenhuma nova. Existentes: Insertable Streams do Chromium (`MediaStreamTrackProcessor`/`MediaStreamTrackGenerator`),
-  `OffscreenCanvas`, `VideoFrame`, `@mlab/types` (`CursorState`, `AnnotationOverlayState`), `vitest`.
+  `OffscreenCanvas`, `VideoFrame` (inclusive `copyTo` e construção a partir de buffer), `@mlab/types` (`CursorState`, `AnnotationOverlayState`), `vitest`.
 
 ### Non-Goals
 
@@ -130,3 +153,4 @@ Clarify: `./clarify.md` (CLOSED — C-701, C-702, C-703)
 | 2026-11-02 | FPS tem prioridade; máscara condicional com proteção reversível | C-701 |
 | 2026-11-02 | Tela cheia sem ocultação; `replaceTrack` como estudo futuro | C-702 |
 | 2026-11-02 | Rastro de 150 ms e placa mantida no repasse após o teste do professor | C-703 |
+| 2026-11-02 | Máscara composta em memória no formato capturado; proteção de FPS mede também a entrega ao gerador | T708 |

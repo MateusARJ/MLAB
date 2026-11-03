@@ -17,12 +17,12 @@ Nenhuma outra contradição: a regra de visibilidade (RN-701) e o contrato `Curs
 
 | Requisito | Task |
 |---|---|
-| RF-701 | T701, T702, T707 |
+| RF-701 | T701, T702, T707, T708 |
 | RF-702 | T701, T702 |
-| RF-703 | T703, T707 |
-| RF-704 | T702, T705 |
+| RF-703 | T703, T707, T708 |
+| RF-704 | T702, T705, T708 |
 | RF-705 | T704 |
-| RF-706 | T707 |
+| RF-706 | T707, T708 |
 | RNF-701 | T705 |
 | RNF-702 | T703 (testes de `createCursorMaskedTrack` mantidos) |
 | RNF-703 | T703 |
@@ -49,7 +49,22 @@ RF-701, RF-702 e RF-703 emendados e RF-706 criado a partir do teste do professor
 dos mesmos Allowed Paths. A T702 continua válida como base; a T707 substitui a regra dos 350 ms e a invalidação da
 placa no repasse. Nenhum contrato ou path novo.
 
+## 5b. Revalidação após o engasgo com a máscara ativa (2026-11-02)
+
+O professor relatou engasgo com o MLab (ou outra janela) em foco e o cursor sobre a janela transmitida, ou seja,
+com a máscara ativa; com a janela transmitida em foco (repasse) não há engasgo. Harness com captura real e
+loopback WebRTC: quadros capturados em `I420`; o quadro composto no canvas custa ~0,7 ms medido, mas o
+`await writer.write` espera 7–13 ms por quadro (leitura da GPU e conversão para o encoder), fora da medição da
+proteção de FPS. O plan ganhou o item 4a e a linha de medição foi corrigida; a T708 cobre a mudança.
+
+- Requisitos: nenhum muda. RF-703 ("tempo médio de composição") passa a contar a entrega ao gerador, que é parte
+  de produzir o quadro; RF-704 é mantido (mesmo formato e resolução de exibição do capturado).
+- Scope Lock: dois paths novos em `renderer/media` (`cursorMaskFrame.ts` e o teste), dentro do IN; nenhuma
+  dependência nova (`VideoFrame.copyTo` já faz parte do `VideoFrame`).
+- Non-Goal "novo algoritmo de preenchimento": respeitado; o preenchimento em memória usa o mesmo critério do canvas.
+- Cobertura: RF-701, RF-703, RF-704 e RF-706 também por T708; T705 e T706 passam a depender da T708.
+
 ## 6. Resultado
 
 - [ ] FAIL
-- [x] PASS — próxima execução: T707.
+- [x] PASS — próxima execução: T708 (a T707 aguarda só o teste manual do professor).
