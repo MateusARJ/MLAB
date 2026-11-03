@@ -62,7 +62,7 @@ Checks:
 - [ ] Teste manual do professor: sem cursor no movimento rápido e sem quadrado borrado parado.
 
 ### T708 — Máscara composta em memória e proteção de FPS com a entrega ao gerador
-[ ] T708
+[x] T708
 Depends On: T707
 Allowed Paths: `apps/desktop/src/renderer/media/cursorMaskFrame.ts`, `apps/desktop/src/renderer/media/cursorMaskFrame.test.ts`, `apps/desktop/src/renderer/media/cursorMask.worker.ts`
 Prohibited Paths: `apps/desktop/src/main/**`, `apps/desktop/src/shared/**`, `apps/desktop/src/renderer/hooks/**`, `apps/backend/**`, `apps/web/**`, `packages/**`
@@ -77,7 +77,8 @@ Checks:
 - [x] Proteção de FPS mede composição + `await writer.write` dos quadros com máscara (RF-703).
 - [x] Harness de captura (janela real, loopback WebRTC): com a máscara ativa, a espera do `writer.write` cai em
   relação à versão em canvas e o FPS acompanha a captura (2026-11-02, I420 1376×782 a ~55 fps: espera de 300–680 para 3–5 ms por segundo; cursor ausente no quadro recebido).
-- [ ] Teste manual do professor: sem engasgo com a máscara ativa (MLab ou outra janela em foco).
+- [x] Teste manual do professor: sem engasgo com a máscara ativa (MLab ou outra janela em foco) — confirmado pelo
+  responsável em 2026-11-03.
 
 ### T705 — Medição A/B e smoke A12 (manual)
 [ ] T705
