@@ -53,7 +53,8 @@ Clarify: `./clarify.md` (CLOSED — C-701, C-702, C-703)
 4b. **Conteúdo em movimento sob o cursor (RF-707; C-704, T709)** — no caminho em memória, antes de apagar o cursor:
    - função pura `ringChangeRatio` em `cursorMaskFrame.ts`: fração das amostras do primeiro plano (luma em YUV;
      canais de cor nos formatos empacotados) que diferem entre o quadro atual e a placa num anel de 12 px em volta
-     da área apagada, com tolerância por amostra de 12 níveis;
+     da área apagada, com tolerância por amostra de 2 níveis (captura de conteúdo parado é idêntica byte a byte; um
+     degradê que muda devagar fica abaixo de 12 níveis entre duas atualizações da placa);
    - fração acima de 3% marca o conteúdo como em movimento; enquanto houver mudança e até 500 ms depois da última,
      o quadro segue sem a máscara (repasse do quadro capturado, ou só as anotações, quando houver);
    - sem comparação confiável (placa sem pixels limpos no anel, anel vazio na borda do quadro), mantém a decisão
@@ -81,7 +82,7 @@ Clarify: `./clarify.md` (CLOSED — C-701, C-702, C-703)
 | Orçamento | 8 ms, EMA α 0,1, 10 amostras, espera 5→60 s | RF-703, C-701 |
 | Medição do tempo | do início da composição até o fim do `await writer.write` do quadro com máscara (T708; antes: só até criar o `VideoFrame`) | RF-703 |
 | Quadro composto com máscara | em memória, no formato do quadro capturado, quando mapeável; canvas só para formatos não mapeáveis e para desenhar anotações | RF-701, RF-704, T708 |
-| Conteúdo em movimento | anel de 12 px, tolerância 12 níveis, limiar 3%, cursor mostrado até 500 ms após a última mudança; só no caminho em memória | RF-707, C-704 |
+| Conteúdo em movimento | anel de 12 px, tolerância 2 níveis, limiar 3%, cursor mostrado até 500 ms após a última mudança; só no caminho em memória | RF-707, C-704 |
 | Log | `[CursorMask]` no renderer | RNF-703 |
 | Tela cheia | sem mudança de código | RF-705, C-702 |
 
