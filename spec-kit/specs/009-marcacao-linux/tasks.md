@@ -51,16 +51,17 @@ Checks:
 - [x] `annotationOverlayWindow.test.ts` 11/11; vitest desktop 116/116, `turbo test` 5/5; `tsc` sem erro novo.
 
 ### T904 — Overlay envia o retângulo da barra
-[ ] T904
+[x] T904
 Depends On: T901
 Allowed Paths: `apps/desktop/src/renderer/components/FloatingAnnotationOverlay.tsx`,
 `apps/desktop/src/renderer/components/FloatingAnnotationOverlay.test.tsx`
 Prohibited Paths: `apps/desktop/src/renderer/media/**`, `apps/desktop/src/renderer/pages/**`, `apps/desktop/src/main/**`,
 `apps/backend/**`, `apps/web/**`, `packages/**`
 Checks:
-- [ ] União de barra + popover de cores enviada ao mudar posição, recolhida, orientação ou popover, com dedupe (RF-902).
-- [ ] `null` com o MLab em foco sem arraste (C-903) e ao desmontar.
-- [ ] Testes: envio inicial, recolher, popover, dedupe, `null` com MLab em foco.
+- [x] União de barra + popover de cores enviada ao mudar posição, recolhida, orientação ou popover, com dedupe (RF-902).
+- [x] `null` com o MLab em foco sem arraste (C-903) e ao desmontar.
+- [x] Testes: envio inicial, recolher, popover, dedupe, `null` com MLab em foco.
+- [x] `FloatingAnnotationOverlay.test.tsx` 14/14; vitest desktop 121/121, `turbo test` 5/5; `tsc` sem erro novo.
 
 ### T905 — Verificação manual no Linux (WSLg) e smoke no Windows
 [ ] T905

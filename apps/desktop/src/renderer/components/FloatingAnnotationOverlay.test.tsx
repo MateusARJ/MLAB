@@ -19,6 +19,7 @@ describe('FloatingAnnotationOverlay Component & Adaptive Orientation', () => {
       onAnnotationStateSync: vi.fn().mockReturnValue(() => {}),
       onCursorState: vi.fn().mockReturnValue(() => {}),
       onAnnotationShortcutCommand: vi.fn().mockReturnValue(() => {}),
+      setAnnotationToolbarRect: vi.fn().mockResolvedValue(undefined),
     } as any;
   });
 
@@ -233,6 +234,84 @@ describe('FloatingAnnotationOverlay Component & Adaptive Orientation', () => {
       });
       expect(spotlightBtn).toHaveStyle({ borderColor: '#facc15' });
       expect(penBtn).toHaveStyle({ borderColor: 'transparent' });
+    });
+  });
+
+  describe('Retângulo da barra para o hit-test do Linux (009/RF-902, C-903)', () => {
+    // jsdom não tem layout: simula o tamanho da barra (expandida/recolhida) e do popover de cores.
+    function mockLayout() {
+      return vi.spyOn(Element.prototype, 'getBoundingClientRect').mockImplementation(function (this: Element) {
+        const testId = this.getAttribute('data-testid');
+        const box = (left: number, top: number, width: number, height: number) =>
+          ({ left, top, width, height, right: left + width, bottom: top + height, x: left, y: top, toJSON: () => ({}) }) as DOMRect;
+        if (testId === 'external-floating-toolbar') {
+          const collapsed = this.getAttribute('data-collapsed') === 'true';
+          return collapsed ? box(100, 20, 52, 52) : box(100, 20, 440, 54);
+        }
+        if (testId === 'external-palette-popover') return box(300, 80, 175, 200);
+        return box(0, 0, 0, 0);
+      });
+    }
+
+    const lastRect = () => {
+      const calls = (window.electronAPI.setAnnotationToolbarRect as any).mock.calls;
+      return calls[calls.length - 1]?.[0];
+    };
+
+    it('envia o retângulo inicial e atualiza ao recolher e expandir', () => {
+      mockLayout();
+      render(<FloatingAnnotationOverlay />);
+      expect(lastRect()).toEqual({ x: 100, y: 20, width: 440, height: 54 });
+
+      fireEvent.click(screen.getByTestId('external-collapse-btn'));
+      expect(lastRect()).toEqual({ x: 100, y: 20, width: 52, height: 52 });
+
+      fireEvent.click(screen.getByTestId('external-collapsed-btn'));
+      expect(lastRect()).toEqual({ x: 100, y: 20, width: 440, height: 54 });
+    });
+
+    it('inclui o popover de cores aberto no retângulo', () => {
+      mockLayout();
+      render(<FloatingAnnotationOverlay />);
+      fireEvent.click(screen.getByTestId('external-tool-palette'));
+      expect(lastRect()).toEqual({ x: 100, y: 20, width: 440, height: 260 });
+
+      fireEvent.click(screen.getByTestId('external-tool-pen'));
+      expect(lastRect()).toEqual({ x: 100, y: 20, width: 440, height: 54 });
+    });
+
+    it('não reenvia o mesmo retângulo', () => {
+      mockLayout();
+      render(<FloatingAnnotationOverlay />);
+      const before = (window.electronAPI.setAnnotationToolbarRect as any).mock.calls.length;
+      act(() => {
+        window.dispatchEvent(new Event('resize'));
+      });
+      fireEvent.click(screen.getByTestId('external-tool-pen'));
+      expect((window.electronAPI.setAnnotationToolbarRect as any).mock.calls.length).toBe(before);
+    });
+
+    it('envia null com o MLab em foco e o retângulo de volta ao sair', () => {
+      let cursorStateCb: (state: any) => void = () => {};
+      window.electronAPI.onCursorState = vi.fn().mockImplementation((cb) => {
+        cursorStateCb = cb;
+        return () => {};
+      });
+      mockLayout();
+      render(<FloatingAnnotationOverlay />);
+
+      act(() => cursorStateCb({ visible: false, x: 0.5, y: 0.5, mlabFocused: true }));
+      expect(lastRect()).toBeNull();
+
+      act(() => cursorStateCb({ visible: true, x: 0.2, y: 0.2, mlabFocused: false }));
+      expect(lastRect()).toEqual({ x: 100, y: 20, width: 440, height: 54 });
+    });
+
+    it('envia null ao desmontar', () => {
+      mockLayout();
+      const { unmount } = render(<FloatingAnnotationOverlay />);
+      unmount();
+      expect(lastRect()).toBeNull();
     });
   });
 });
