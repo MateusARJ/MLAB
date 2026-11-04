@@ -23,16 +23,17 @@ Checks:
   `Room.tsx`, `Room.test.tsx` e `media/cursorMask.worker.ts`, fora do escopo).
 
 ### T902 — Hit-test puro da barra
-[ ] T902
+[x] T902
 Depends On: T901
 Allowed Paths: `apps/desktop/src/main/toolbarHitTest.ts`, `apps/desktop/src/main/toolbarHitTest.test.ts`
 Prohibited Paths: `apps/desktop/src/main/annotationOverlayWindow.ts`, `apps/desktop/src/renderer/**`,
 `apps/backend/**`, `apps/web/**`, `packages/**`
 Checks:
-- [ ] `isPointerOverToolbar(cursor, overlayBounds, rect, margin = 4)`: dentro, fora, borda com folga, overlay
+- [x] `isPointerOverToolbar(cursor, overlayBounds, rect, margin = 4)`: dentro, fora, borda com folga, overlay
   deslocado, `rect` nulo (RF-901).
-- [ ] `resolveIgnoreMouse(requested, over)` = `requested && !over`.
-- [ ] `sanitizeToolbarRect(input, maxW, maxH)`: rejeita não finitos, ≤ 0 e acima do limite.
+- [x] `resolveIgnoreMouse(requested, over)` = `requested && !over`.
+- [x] `sanitizeToolbarRect(input, maxW, maxH)`: rejeita não finitos, ≤ 0 e acima do limite.
+- [x] `toolbarHitTest.test.ts` 10/10; `tsc` sem erro novo.
 
 ### T903 — Manager: hit-test no Linux e log de atalhos recusados
 [ ] T903
