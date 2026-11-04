@@ -406,6 +406,12 @@ ipcMain.handle('annotation-overlay:set-ignore-mouse', (_event, ignore: boolean) 
   annotationOverlayManager.setIgnoreMouseEvents(Boolean(ignore))
 })
 
+// 009/RF-902: só o renderer do overlay informa o retângulo da barra; o manager valida os valores.
+ipcMain.handle('annotation-overlay:toolbar-rect', (event, rect: unknown) => {
+  if (!annotationOverlayManager.isOverlayWebContents(event.sender)) return
+  annotationOverlayManager.setToolbarRect(rect)
+})
+
 async function closeActiveRoomGracefully(): Promise<void> {
   if (!activeRoom || !activeRoom.id) return
 

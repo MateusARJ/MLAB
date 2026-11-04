@@ -235,6 +235,17 @@ export class AnnotationOverlayManager {
     } catch {}
   }
 
+  /** Verdadeiro se `wc` é o renderer da janela de overlay (único remetente aceito do retângulo da barra). */
+  public isOverlayWebContents(wc: WebContents): boolean {
+    return Boolean(
+      this.overlayWin && !this.overlayWin.isDestroyed() && !this.overlayWin.webContents.isDestroyed() &&
+        this.overlayWin.webContents.id === wc.id
+    );
+  }
+
+  /** Recebe o retângulo da barra informado pelo overlay (009, RF-902). O hit-test do Linux entra na T903. */
+  public setToolbarRect(_rect: unknown): void {}
+
   public forwardCursorState(state: CursorState): void {
     this.lastCursorState = state;
     if (!this.overlayWin || this.overlayWin.isDestroyed() || this.overlayWin.webContents.isDestroyed()) {

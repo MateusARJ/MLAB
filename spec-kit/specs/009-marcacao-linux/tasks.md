@@ -8,17 +8,19 @@ Regra de cada task: `npx vitest run` e `npx tsc --noEmit` em `apps/desktop` verd
 verde antes do `[x]`.
 
 ### T901 — Tipo, contrato e canal IPC do retângulo da barra
-[ ] T901
+[x] T901
 Allowed Paths: `packages/types/src/index.ts`, `apps/desktop/src/main/preload.ts`, `apps/desktop/src/main/main.ts`,
 `apps/desktop/src/main/annotationOverlayWindow.ts`, `apps/desktop/src/test/setup.ts`,
 `spec-kit/specs/003-classroom-interaction/contracts/desktop-ipc.md`
 Prohibited Paths: `apps/backend/**`, `apps/web/**`, `packages/ui/**`, `apps/desktop/src/renderer/**`,
 `apps/desktop/package.json`
 Checks:
-- [ ] `AnnotationToolbarRect { x, y, width, height }` em `packages/types` (RF-902).
-- [ ] `ElectronAPI.setAnnotationToolbarRect(rect | null)` em `preload.ts` → `annotation-overlay:toolbar-rect`.
-- [ ] Handler em `main.ts` aceita só o webContents do overlay e repassa ao manager (stub `setToolbarRect`).
-- [ ] Canal registrado em `003/contracts/desktop-ipc.md`; mock em `test/setup.ts`.
+- [x] `AnnotationToolbarRect { x, y, width, height }` em `packages/types` (RF-902).
+- [x] `ElectronAPI.setAnnotationToolbarRect(rect | null)` em `preload.ts` → `annotation-overlay:toolbar-rect`.
+- [x] Handler em `main.ts` aceita só o webContents do overlay e repassa ao manager (stub `setToolbarRect`).
+- [x] Canal registrado em `003/contracts/desktop-ipc.md`; mock em `test/setup.ts`.
+- [x] vitest desktop 95/95, `turbo test` 5/5; `tsc --noEmit` sem erro novo (14 erros já existentes em `main.ts:9`,
+  `Room.tsx`, `Room.test.tsx` e `media/cursorMask.worker.ts`, fora do escopo).
 
 ### T902 — Hit-test puro da barra
 [ ] T902
