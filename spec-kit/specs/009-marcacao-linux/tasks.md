@@ -36,18 +36,19 @@ Checks:
 - [x] `toolbarHitTest.test.ts` 10/10; `tsc` sem erro novo.
 
 ### T903 — Manager: hit-test no Linux e log de atalhos recusados
-[ ] T903
+[x] T903
 Depends On: T902
 Allowed Paths: `apps/desktop/src/main/annotationOverlayWindow.ts`, `apps/desktop/src/main/annotationOverlayWindow.test.ts`
 Prohibited Paths: `apps/desktop/src/main/nativeWindowTracker.ts`, `apps/desktop/src/main/cursorPresence.ts`,
 `apps/desktop/src/main/doubleCtrlDetector.ts`, `apps/desktop/src/renderer/**`, `apps/backend/**`, `apps/web/**`,
 `packages/**`
 Checks:
-- [ ] `requestedIgnore` separado do valor aplicado; Windows/macOS chamam `setIgnoreMouseEvents` como hoje (RNF-901).
-- [ ] No Linux: temporizador de 16 ms só com overlay vivo e retângulo; aplica só quando o valor efetivo muda;
+- [x] `requestedIgnore` separado do valor aplicado; Windows/macOS chamam `setIgnoreMouseEvents` como hoje (RNF-901).
+- [x] No Linux: temporizador de 16 ms só com overlay vivo e retângulo; aplica só quando o valor efetivo muda;
   parado em `stop()`, `closed` e retângulo `null` (RF-901, RNF-902).
-- [ ] `console.warn('[AnnotationOverlay] atalho recusado: <acc>')` para `false` e exceção (RF-903).
-- [ ] Testes com `electron` mockado e `process.platform` = `linux`/`win32`.
+- [x] `console.warn('[AnnotationOverlay] atalho recusado: <acc>')` para `false` e exceção (RF-903).
+- [x] Testes com `electron` mockado e `process.platform` = `linux`/`win32`.
+- [x] `annotationOverlayWindow.test.ts` 11/11; vitest desktop 116/116, `turbo test` 5/5; `tsc` sem erro novo.
 
 ### T904 — Overlay envia o retângulo da barra
 [ ] T904
