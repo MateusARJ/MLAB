@@ -8,6 +8,7 @@ Registre:
 - divergências;
 - testes faltantes;
 - novos tasks necessários;
+- desvios registrados como issue durante a feature (`AGENTS.md` §14), com número, bloqueante sim/não e situação;
 - impacto de versão (MAJOR, MINOR, PATCH ou nenhum) com justificativa pelo escopo de `docs/versionamento.md` §2.
 
 Nunca esconda gaps para produzir um PASS artificial.
