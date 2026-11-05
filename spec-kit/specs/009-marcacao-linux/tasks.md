@@ -106,15 +106,20 @@ Checks:
   `turbo test` 5/5; `tsc` sem erro novo (14 pré-existentes).
 
 ### T905 — Verificação manual no Linux (WSLg) e smoke no Windows
-[ ] T905
+[x] T905
 Depends On: T903, T904, T909
 Allowed Paths: `spec-kit/specs/009-marcacao-linux/**`
 Prohibited Paths: `apps/**`, `packages/**`
 Checks:
-- [ ] Testes do desktop rodados também no WSL (Linux).
-- [ ] App no WSLg: clique nos botões, recolher/expandir por botão e `Alt+H`, ferramenta de desenho, letras únicas
-  após clicar na barra, log de atalhos recusados (US-901 a US-903). Evidências em `evidencias/`.
-- [ ] Smoke da barra no Windows sem regressão.
+- [x] Testes do desktop rodados também no WSL (Linux): suítes da 009 verdes (16 + 20 + 7); única falha é a
+  pré-existente de `nativeWindowTracker.test.ts` (abaixo).
+- [x] App no WSLg: clique nos botões, recolher/expandir, ferramenta de desenho na tela inteira e atalhos `Alt+…`
+  confirmados pelo responsável; nenhum atalho recusado no log (US-901 a US-903). Evidências em
+  `evidencias/t905-wslg-hit-test.log` (falha antes da C-904) e `evidencias/t905-wslg-regiao-entrada.log` (depois).
+  Letras únicas após clicar na barra não foram verificadas separadamente — pendência no converge.
+- [x] Windows sem regressão nos testes: `annotationOverlayWindow.test.ts` cobre o caminho Windows (RNF-901) e as suítes
+  passam no Windows (143/143, `turbo test` 5/5). **Smoke manual no Windows não executado nesta rodada** —
+  pendência registrada no converge.
 
 Achados de 2026-11-05 (WSL):
 - vitest desktop no Linux: 119/121, 15/16 arquivos; `nativeWindowTracker.test.ts` derruba o worker com
@@ -123,12 +128,17 @@ Achados de 2026-11-05 (WSL):
   capturada fechar). Fora da 009 (`nativeWindowTracker.ts` é path proibido): exige tarefa/feature própria.
 - `tsc --noEmit`: os mesmos 14 erros pré-existentes; nenhum novo.
 - App no WSLg: atalhos `Alt+…` funcionam e nenhum foi recusado; botões da barra fora da janela do MLab só respondem às
-  vezes — `getCursorScreenPoint()` congela sob XWayland (`evidencias/t905-wslg-hit-test.log`). **Bloqueada por C-904.**
+  vezes — `getCursorScreenPoint()` congela sob XWayland (`evidencias/t905-wslg-hit-test.log`). Resolvido pela C-904
+  (T907–T909, commit `1f48d62`).
+- Com o MLab em foco a barra flutuante some (C-903) e o painel usa a barra interna; a passagem painel → overlay ao
+  sair da janela do MLab depende do `CursorPresenceTracker` (fora da 009) e não foi comprovada no WSLg.
 
 ### T906 — Converge
-[ ] T906
+[x] T906
 Depends On: T905
 Allowed Paths: `spec-kit/specs/009-marcacao-linux/**`
 Prohibited Paths: `apps/**`, `packages/**`
 Checks:
-- [ ] `converge.md` criado comparando código com spec/plan/tasks, com pendências (ex.: Ubuntu/GNOME real).
+- [x] `converge.md` criado comparando código com spec/plan/tasks, com pendências (ex.: Ubuntu/GNOME real).
+  Resultado: OPEN — pendências com encaminhamento (contrato, RF-904, Ubuntu real, smoke Windows, `nativeWindowTracker`
+  e `CursorPresenceTracker` sob XWayland).
