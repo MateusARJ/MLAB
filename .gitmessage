@@ -40,3 +40,8 @@
 #
 # Tarefas relacionadas / Spec-Kit (opcional):
 # Ref: T022, T023, RF-026
+# Refs #<issue>   (issue relacionada ou desvio registrado — AGENTS.md §14)
+#
+# Branch: todo commit nasce em branch dedicada <tipo>/<descricao> criada a
+# partir da development (AGENTS.md §15). Nunca commite direto na development
+# ou na main.

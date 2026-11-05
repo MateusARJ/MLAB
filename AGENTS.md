@@ -117,7 +117,8 @@ O agente DEVE PARAR, sem implementar, quando qualquer uma das condições ocorre
 - código exigir mudança de contrato não registrada em `contracts/`;
 - mudança arquitetural relevante não possuir ADR aprovada;
 - requisito entrar em conflito com a constitution;
-- agente precisar inventar comportamento não especificado.
+- agente precisar inventar comportamento não especificado;
+- bug bloqueante encontrado durante a tarefa (seção 14).
 
 Nunca resolva uma lacuna silenciosamente.
 
@@ -306,3 +307,43 @@ da 1.7.1.
 - Num PR com vários commits vale o maior nível. Registre o nível e a justificativa no `converge.md` e no PR.
 - Na dúvida sobre MAJOR, pare e pergunte (seção 4). Nunca edite `"version"` à mão, nunca crie tag ou release.
 - Nenhum build (`npm run make*`) altera a versão.
+
+## 14. Desvios encontrados durante o trabalho
+
+Desvio é qualquer bug, erro, teste instável, regressão ou incoerência entre código e artefatos que o agente encontra
+**fora do escopo da tarefa em andamento** (feature, fix, docs, refatoração ou qualquer outra). Nenhum desvio fica
+registrado só na conversa.
+
+1. **Registrar como issue no repositório MLab**, pelo template `.github/ISSUE_TEMPLATE/bug-desvio.md`, com título no
+   padrão da seção 12 e as labels:
+   - tipo: `bug`, `enhancement` ou `documentation`;
+   - origem: `desvio`;
+   - área: `area:desktop`, `area:web`, `area:backend`, `area:types`, `area:ci` ou `area:spec-kit`;
+   - `bloqueante`, somente quando o item 3 se aplica.
+2. **Evitar duplicata:** antes de abrir, pesquisar (`gh issue list --search "<termo>" --state all`). Se já existir
+   issue aberta, comentar nela com a nova evidência em vez de abrir outra.
+3. **Classificar o impacto na tarefa atual:**
+   - **Não bloqueante** — a tarefa pode ser cumprida e verificada sem corrigir o desvio. O agente abre a issue, cita o
+     número no PR (campo "Desvios encontrados") e no `converge.md` (seção "Desvios registrados") e **continua** a
+     tarefa.
+   - **Bloqueante** — o desvio impede cumprir ou verificar a tarefa, invalida seus testes/checks ou obrigaria o agente
+     a inventar comportamento. O agente **para imediatamente**, sem commit parcial da tarefa, abre a issue com a label
+     `bloqueante` e responde ao usuário com: o que estava fazendo, por que parou, a evidência e o número da issue.
+4. **Não corrigir o desvio dentro da tarefa atual.** A correção segue o fluxo da seção 3 em tarefa própria, respeitando
+   o Scope Lock (seção 5).
+5. Se a issue não puder ser criada (ex.: falha do `gh`), o agente para e entrega ao usuário o texto pronto da issue.
+
+## 15. Fluxo de branch, commit e Pull Request
+
+Vale para todo trabalho que altera o repositório — feature, fix, docs, spec-kit, refatoração, CI, build ou chore.
+
+- **Branch nova por entrega**, criada a partir da `development` atualizada (`git pull` antes). Nunca commitar
+  diretamente na `development` nem na `main`.
+- **Nome da branch:** `<tipo>/<descricao-curta-em-kebab-case>`, com o mesmo `<tipo>` dos commits (seção 12):
+  `feat/`, `fix/`, `docs/`, `refactor/`, `perf/`, `test/`, `build/`, `ci/`, `chore/`, `style/`.
+- **Commits** atômicos pelo template `.gitmessage` (seção 12); referenciar a tarefa (`Ref: Txxx`) e, quando houver, a
+  issue (`Refs #N`).
+- **Um PR por branch**, para a `development`, pelo template `.github/pull_request_template.md`, preenchendo tarefa do
+  Spec-Kit, impacto de versão (seção 13) e desvios encontrados (seção 14). PR `development → main` só para release
+  (`docs/versionamento.md`).
+- **Push forçado** somente na própria branch, sem PR em revisão ou com aviso no PR, e sempre com `--force-with-lease`.

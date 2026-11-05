@@ -58,6 +58,8 @@ Ler:
 - tarefa corrente
 - artefatos upstream necessários para aquela tarefa
 - arquivos-alvo reais
+- `AGENTS.md` §14 (desvios) e §15 (branch, commit e PR)
+- `.github/ISSUE_TEMPLATE/bug-desvio.md`, quando surgir um desvio
 
 ## Converge / Pull Request
 
