@@ -39,7 +39,15 @@ Nenhum.
 
 Nenhuma nesta feature.
 
-## 6. Resultado
+## 6. Impacto de versão
+
+Classificação pelo escopo de `docs/versionamento.md` §2 (ADR 0007).
+
+| Nível | Versão resultante | Justificativa |
+|---|---|---|
+| MINOR | 1.9.0 | A 008 cria requisitos novos (RF-801 a RF-803, RNF-801, RN-801), e PR que cria RF novo é MINOR (`docs/versionamento.md` §3). O comportamento novo só existe com `MLAB_DEV_MONOREPO=1`; o app empacotado mantém o `spaHandler` (RF-803), sem quebrar contrato nem fluxo existente. A branch foi criada antes da regra do §13 do `AGENTS.md` e foi rebaseada sobre a 1.8.0. |
+
+## 7. Resultado
 
 - [ ] OPEN
 - [x] CONVERGED — T801–T802 entregues e verificadas.
