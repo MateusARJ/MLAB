@@ -1,9 +1,10 @@
-import React, { useState, useRef, useEffect, useCallback } from 'react';
+import React, { useState, useRef, useEffect, useLayoutEffect, useCallback } from 'react';
 import type {
   AnnotationPoint,
   AnnotationSessionState,
   AnnotationStroke,
   AnnotationTool,
+  AnnotationToolbarRect,
 } from '@mlab/types';
 import {
   Cursor_1,
@@ -108,6 +109,8 @@ export const FloatingAnnotationOverlay: React.FC = () => {
 
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const toolbarRef = useRef<HTMLDivElement | null>(null);
+  const paletteRef = useRef<HTMLDivElement | null>(null);
+  const lastToolbarRectKeyRef = useRef<string>('');
   const isDrawingRef = useRef<boolean>(false);
   const hadCanvasContentRef = useRef<boolean>(false);
   const isHoveringToolbarRef = useRef<boolean>(false);
@@ -981,6 +984,71 @@ export const FloatingAnnotationOverlay: React.FC = () => {
   // oculta apenas os botões móveis para não duplicar com a barra interna do painel (mantendo o canvas de marcações 100% visível!)
   const showFloatingToolbar = !mlabFocused || isDraggingState;
 
+  // 009/RF-902: informa ao main o retângulo da barra (+ popover de cores) para o hit-test do Linux. Com a barra
+  // oculta (MLab em foco, sem arraste) envia null, mantendo o click-through como no Windows (C-903).
+  const reportToolbarRect = useCallback(() => {
+    if (!window.electronAPI || typeof window.electronAPI.setAnnotationToolbarRect !== 'function') return;
+    let rect: AnnotationToolbarRect | null = null;
+    const visible = !mlabFocusedRef.current || isDraggingToolbarRef.current;
+    const el = toolbarRef.current;
+    if (visible && el) {
+      const r = el.getBoundingClientRect();
+      let left = r.left;
+      let top = r.top;
+      let right = r.right;
+      let bottom = r.bottom;
+      const pop = paletteRef.current?.getBoundingClientRect();
+      if (pop && pop.width > 0 && pop.height > 0) {
+        left = Math.min(left, pop.left);
+        top = Math.min(top, pop.top);
+        right = Math.max(right, pop.right);
+        bottom = Math.max(bottom, pop.bottom);
+      }
+      if (right - left > 0 && bottom - top > 0) {
+        rect = {
+          x: Math.floor(left),
+          y: Math.floor(top),
+          width: Math.ceil(right - left),
+          height: Math.ceil(bottom - top),
+        };
+      }
+    }
+    const key = rect ? `${rect.x},${rect.y},${rect.width},${rect.height}` : 'null';
+    if (key === lastToolbarRectKeyRef.current) return;
+    lastToolbarRectKeyRef.current = key;
+    window.electronAPI.setAnnotationToolbarRect(rect).catch(() => {});
+  }, []);
+
+  useLayoutEffect(() => {
+    reportToolbarRect();
+  }, [
+    reportToolbarRect,
+    toolbarPos,
+    collapsed,
+    orientation,
+    showPalettePopover,
+    mlabFocused,
+    isDraggingState,
+    vw,
+    vh,
+  ]);
+
+  useEffect(() => {
+    const el = toolbarRef.current;
+    let observer: ResizeObserver | null = null;
+    if (el && typeof ResizeObserver !== 'undefined') {
+      observer = new ResizeObserver(() => reportToolbarRect());
+      observer.observe(el);
+    }
+    window.addEventListener('resize', reportToolbarRect);
+    return () => {
+      observer?.disconnect();
+      window.removeEventListener('resize', reportToolbarRect);
+      lastToolbarRectKeyRef.current = '';
+      window.electronAPI?.setAnnotationToolbarRect?.(null)?.catch(() => {});
+    };
+  }, [reportToolbarRect]);
+
   const dividerStyle: React.CSSProperties = isHorizontal
     ? overlayStyles.dividerHorizontalMode
     : overlayStyles.dividerVerticalMode;
@@ -1341,6 +1409,7 @@ export const FloatingAnnotationOverlay: React.FC = () => {
               boxShadow: '0 10px 28px rgba(0, 0, 0, 0.75)',
               minWidth: '175px',
             }}
+            ref={paletteRef}
             data-testid="external-palette-popover"
           >
             <div style={overlayStyles.popoverTitle}>Cor da Marcação</div>

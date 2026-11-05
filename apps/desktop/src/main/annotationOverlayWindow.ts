@@ -3,10 +3,30 @@ import { join } from 'path';
 import type {
   AnnotationSessionState,
   AnnotationShortcutCommand,
+  AnnotationToolbarRect,
   CursorState,
 } from '@mlab/types';
 import { DoubleCtrlDetector } from './doubleCtrlDetector';
 import { hardenWebContents } from './navigationGuard';
+import {
+  isPointerOverToolbar,
+  resolveIgnoreMouse,
+  resolveInputRegion,
+  sanitizeToolbarRect,
+  toDevicePixels,
+} from './toolbarHitTest';
+import { createX11InputShaper, type X11InputShaper } from './x11InputShape';
+
+/** Período do hit-test da barra no Linux (009, RNF-902). */
+export const TOOLBAR_HIT_TEST_INTERVAL_MS = 16;
+
+/**
+ * No Linux, `setIgnoreMouseEvents(true, { forward: true })` não encaminha o mouse ao renderer; o main faz o
+ * hit-test da barra (009, C-901). Lido a cada chamada para os testes poderem trocar a plataforma.
+ */
+function needsToolbarHitTest(): boolean {
+  return process.platform === 'linux';
+}
 
 const GLOBAL_SHORTCUT_MAP: Array<{ accelerator: string; command: AnnotationShortcutCommand }> = [
   // Atalhos diretos (Alt+...) para evitar conflito com alternância de idioma do Windows (Alt+Shift)
@@ -42,6 +62,17 @@ export class AnnotationOverlayManager {
   private currentDisplayBounds: { x: number; y: number; width: number; height: number } | null = null;
   private lastTargetBoundsKey = '';
   private lastIgnoreMouse: boolean | null = null;
+  /** Click-through pedido pelo renderer do overlay; o valor aplicado pode diferir no Linux (009). */
+  private requestedIgnoreMouse = true;
+  private toolbarRect: AnnotationToolbarRect | null = null;
+  private pointerOverToolbar = false;
+  private hitTestTimer: ReturnType<typeof setInterval> | null = null;
+  /**
+   * Linux: região de entrada X11 do overlay (009, C-904). `undefined` = ainda não tentou criar; `null` = indisponível,
+   * usa o hit-test por posição do ponteiro (C-901) como alternativa.
+   */
+  private inputShaper: X11InputShaper | null | undefined = undefined;
+  private lastInputRegionKey = '';
   private lastMlabFocused: boolean | null = null;
   private lastCursorState: CursorState | null = null;
   private doubleCtrlDetector: DoubleCtrlDetector | null = null;
@@ -63,6 +94,7 @@ export class AnnotationOverlayManager {
         this.overlayWin.setContentProtection(false);
         this.overlayWin.showInactive();
       } catch {}
+      this.reapplyInputRegion();
       return true;
     }
 
@@ -71,6 +103,9 @@ export class AnnotationOverlayManager {
       const bounds = primaryDisplay.bounds;
       this.currentDisplayBounds = { ...bounds };
       this.lastIgnoreMouse = null;
+      this.requestedIgnoreMouse = true;
+      this.toolbarRect = null;
+      this.pointerOverToolbar = false;
       this.lastTargetBoundsKey = '';
       this.lastMlabFocused = null;
 
@@ -120,6 +155,9 @@ export class AnnotationOverlayManager {
         win.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
       } catch {}
 
+      this.lastInputRegionKey = '';
+      this.ensureInputShaper();
+
       // Inicia em modo click-through para que os cliques passem para as janelas abaixo
       this.setIgnoreMouseEvents(true);
 
@@ -129,6 +167,7 @@ export class AnnotationOverlayManager {
             win.setContentProtection(false);
             win.showInactive();
           } catch {}
+          this.reapplyInputRegion();
           if (this.lastState && !win.webContents.isDestroyed()) {
             win.webContents.send('annotation-overlay:state', this.lastState);
           }
@@ -162,6 +201,9 @@ export class AnnotationOverlayManager {
         if (this.overlayWin === win) {
           this.overlayWin = null;
           this.lastIgnoreMouse = null;
+          this.lastInputRegionKey = '';
+          this.stopToolbarHitTest();
+          this.toolbarRect = null;
         }
       });
 
@@ -223,7 +265,20 @@ export class AnnotationOverlayManager {
   }
 
   public setIgnoreMouseEvents(ignore: boolean): void {
+    this.requestedIgnoreMouse = ignore;
+    this.applyIgnoreMouse();
+  }
+
+  /**
+   * Aplica o click-through efetivo. Windows/macOS: o pedido do renderer, como antes (RNF-901). Linux: o pedido,
+   * exceto com o ponteiro sobre a barra (RF-901).
+   */
+  private applyIgnoreMouse(): void {
     if (!this.overlayWin || this.overlayWin.isDestroyed()) return;
+    if (needsToolbarHitTest() && this.inputShaper && this.applyInputRegion()) return;
+    const ignore = needsToolbarHitTest()
+      ? resolveIgnoreMouse(this.requestedIgnoreMouse, this.pointerOverToolbar)
+      : this.requestedIgnoreMouse;
     if (this.lastIgnoreMouse === ignore) return;
     this.lastIgnoreMouse = ignore;
     try {
@@ -233,6 +288,128 @@ export class AnnotationOverlayManager {
         this.overlayWin.setIgnoreMouseEvents(false);
       }
     } catch {}
+  }
+
+  /** Verdadeiro se `wc` é o renderer da janela de overlay (único remetente aceito do retângulo da barra). */
+  public isOverlayWebContents(wc: WebContents): boolean {
+    return Boolean(
+      this.overlayWin && !this.overlayWin.isDestroyed() && !this.overlayWin.webContents.isDestroyed() &&
+        this.overlayWin.webContents.id === wc.id
+    );
+  }
+
+  /**
+   * Recebe o retângulo da barra informado pelo overlay (009, RF-902). Valores inválidos viram `null`. No Linux liga o
+   * hit-test enquanto houver retângulo e o desliga com `null` (RNF-902).
+   */
+  public setToolbarRect(rect: unknown): void {
+    const display = this.currentDisplayBounds;
+    const maxW = display ? display.width * 2 : 16384;
+    const maxH = display ? display.height * 2 : 16384;
+    this.toolbarRect = sanitizeToolbarRect(rect, maxW, maxH);
+
+    if (!needsToolbarHitTest()) return;
+
+    // C-904: com a região de entrada X11 não há temporizador; só reaplica a região.
+    if (this.inputShaper) {
+      this.applyIgnoreMouse();
+      if (this.inputShaper) return;
+    }
+
+    if (!this.toolbarRect) {
+      const wasOver = this.pointerOverToolbar;
+      this.stopToolbarHitTest();
+      if (wasOver) this.applyIgnoreMouse();
+      return;
+    }
+    this.runToolbarHitTest();
+    if (!this.hitTestTimer && this.toolbarRect) {
+      this.hitTestTimer = setInterval(() => this.runToolbarHitTest(), TOOLBAR_HIT_TEST_INTERVAL_MS);
+    }
+  }
+
+  /** Linux: cria a região de entrada X11 uma vez por sessão; sem ela, avisa e fica no hit-test (C-901). */
+  private ensureInputShaper(): void {
+    if (!needsToolbarHitTest() || this.inputShaper !== undefined) return;
+    this.inputShaper = createX11InputShaper();
+    if (!this.inputShaper) {
+      console.warn('[AnnotationOverlay] região de entrada X11 indisponível; usando hit-test por posição do ponteiro');
+    }
+  }
+
+  /**
+   * Linux (C-904): a janela aceita mouse (`setIgnoreMouseEvents(false)` uma vez) e a região de entrada X11 decide o
+   * que atravessa — tela inteira com captura pedida, só a barra com click-through, vazia sem retângulo. Reaplica só
+   * quando a região muda. Devolve `false` se a chamada nativa falhar; aí desliga a região e volta ao hit-test.
+   */
+  private applyInputRegion(): boolean {
+    const win = this.overlayWin;
+    const shaper = this.inputShaper;
+    if (!win || win.isDestroyed() || !shaper) return false;
+    try {
+      const bounds = win.getBounds();
+      const scale = screen.getDisplayMatching(bounds)?.scaleFactor ?? 1;
+      const region = toDevicePixels(
+        resolveInputRegion(this.requestedIgnoreMouse, this.toolbarRect, bounds),
+        scale
+      );
+      if (this.lastIgnoreMouse !== false) {
+        this.lastIgnoreMouse = false;
+        this.lastInputRegionKey = '';
+        win.setIgnoreMouseEvents(false);
+      }
+      const key = JSON.stringify(region);
+      if (key === this.lastInputRegionKey) return true;
+      shaper.apply(win.getNativeWindowHandle(), region);
+      this.lastInputRegionKey = key;
+      return true;
+    } catch (err) {
+      console.warn('[AnnotationOverlay] falha na região de entrada X11; usando hit-test por posição do ponteiro', err);
+      try {
+        shaper.dispose();
+      } catch {}
+      this.inputShaper = null;
+      this.lastInputRegionKey = '';
+      this.lastIgnoreMouse = null;
+      if (this.toolbarRect && !this.hitTestTimer) {
+        this.hitTestTimer = setInterval(() => this.runToolbarHitTest(), TOOLBAR_HIT_TEST_INTERVAL_MS);
+      }
+      return false;
+    }
+  }
+
+  /** Reaplica a região de entrada mesmo sem mudança (janela exibida ou redimensionada pode perder a forma). */
+  private reapplyInputRegion(): void {
+    if (!needsToolbarHitTest() || !this.inputShaper) return;
+    this.lastInputRegionKey = '';
+    this.applyInputRegion();
+  }
+
+  private runToolbarHitTest(): void {
+    if (!this.overlayWin || this.overlayWin.isDestroyed() || !this.toolbarRect) {
+      this.stopToolbarHitTest();
+      return;
+    }
+    let over = false;
+    try {
+      const cursor = screen.getCursorScreenPoint();
+      const bounds = this.overlayWin.getBounds();
+      over = isPointerOverToolbar(cursor, bounds, this.toolbarRect);
+    } catch {
+      over = false;
+    }
+    if (over !== this.pointerOverToolbar) {
+      this.pointerOverToolbar = over;
+      this.applyIgnoreMouse();
+    }
+  }
+
+  private stopToolbarHitTest(): void {
+    if (this.hitTestTimer) {
+      clearInterval(this.hitTestTimer);
+      this.hitTestTimer = null;
+    }
+    this.pointerOverToolbar = false;
   }
 
   public forwardCursorState(state: CursorState): void {
@@ -268,6 +445,7 @@ export class AnnotationOverlayManager {
             ) {
               this.currentDisplayBounds = { ...b };
               this.overlayWin.setBounds(b);
+              this.reapplyInputRegion();
             }
           }
         } catch {}
@@ -301,8 +479,13 @@ export class AnnotationOverlayManager {
         });
         if (ok) {
           this.registeredAccelerators.push(item.accelerator);
+        } else {
+          // 009/RF-903: o sistema (ex.: GNOME/Wayland) recusou a combinação; registra para diagnóstico.
+          console.warn(`[AnnotationOverlay] atalho recusado: ${item.accelerator}`);
         }
-      } catch {}
+      } catch (err) {
+        console.warn(`[AnnotationOverlay] atalho recusado: ${item.accelerator}`, err);
+      }
     }
   }
 
@@ -373,6 +556,16 @@ export class AnnotationOverlayManager {
     this.lastState = null;
     this.lastSpotlightToggleTime = 0;
     this.lastIgnoreMouse = null;
+    this.stopToolbarHitTest();
+    this.toolbarRect = null;
+    this.requestedIgnoreMouse = true;
+    if (this.inputShaper) {
+      try {
+        this.inputShaper.dispose();
+      } catch {}
+    }
+    this.inputShaper = undefined;
+    this.lastInputRegionKey = '';
     this.lastTargetBoundsKey = '';
     this.lastMlabFocused = null;
     if (this.overlayWin && !this.overlayWin.isDestroyed()) {

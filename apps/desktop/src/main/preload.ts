@@ -2,6 +2,7 @@ import { contextBridge, ipcRenderer } from 'electron'
 import type {
   AnnotationSessionState,
   AnnotationShortcutCommand,
+  AnnotationToolbarRect,
   CaptureSource,
   CaptureSourceType,
   CursorState,
@@ -118,6 +119,12 @@ export interface ElectronAPI {
   setAnnotationOverlayIgnoreMouse: (ignore: boolean) => Promise<void>
 
   /**
+   * Informa ao main o retângulo da barra de marcação no overlay (ou null quando não deve capturar o mouse).
+   * No Linux o main usa esse retângulo para tirar o overlay do click-through sob o ponteiro (009, RF-901/RF-902).
+   */
+  setAnnotationToolbarRect: (rect: AnnotationToolbarRect | null) => Promise<void>
+
+  /**
    * Inscreve um callback para receber atualizações de estado da sessão de marcação e lupa.
    */
   onAnnotationStateSync: (cb: (state: AnnotationSessionState) => void) => () => void
@@ -156,6 +163,7 @@ const api: ElectronAPI = {
   syncAnnotationState: (state) => ipcRenderer.invoke('annotation-overlay:sync-state', state),
   setAnnotationOverlayIgnoreMouse: (ignore) =>
     ipcRenderer.invoke('annotation-overlay:set-ignore-mouse', ignore),
+  setAnnotationToolbarRect: (rect) => ipcRenderer.invoke('annotation-overlay:toolbar-rect', rect),
   onAnnotationStateSync: (cb) => {
     const listener = (_event: unknown, state: AnnotationSessionState) => {
       if (state && typeof cb === 'function') {

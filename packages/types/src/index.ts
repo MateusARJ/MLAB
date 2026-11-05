@@ -337,3 +337,14 @@ export interface AnnotationSessionState {
   collapsed: boolean;
   toolbarPos?: { x: number; y: number } | null;
 }
+
+/**
+ * Retângulo da barra de marcação (e do popover de cores) em px CSS do overlay (= DIP), relativo ao canto do overlay.
+ * Usado pelo hit-test do main no Linux (009, RF-902).
+ */
+export interface AnnotationToolbarRect {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}

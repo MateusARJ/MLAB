@@ -1,0 +1,39 @@
+# 009 / T905 — região de entrada X11 (C-904) no WSLg, 2026-11-05, commit 1f48d62
+# Ambiente: WSLg 1.0.79, Ubuntu 26.04, Electron 31 via XWayland, tela 1365x767, escala 1.
+# Instrumentação temporária ([DBG909], não commitada) em setIgnoreMouseEvents, applyInputRegion, setToolbarRect e
+# forwardCursorState. Trecho transcrito da saída da execução (o log é recriado a cada abertura do app).
+# TELA = {"x":0,"y":0,"width":1365,"height":767}. "t" = ms (módulo 100000).
+
+## Execução 1 — barra flutuante: cursor → pincel → desenho → cursor → recolher
+[DBG909] pedido ignore=true t=99461
+[DBG909] regiao=[] t=99462
+[DBG909] rect={"x":24,"y":140,"width":496,"height":46} t=99592
+[DBG909] regiao=[{"x":24,"y":140,"width":496,"height":46}] t=99593
+[DBG909] regiao=[{"x":24,"y":140,"width":496,"height":46}] t=99598
+[DBG909] pedido ignore=true t=99598
+[DBG909] rect=null t=99604
+[DBG909] regiao=[] t=99605
+[DBG909] mlabFocused=false visible=true t=99647
+[DBG909] rect={"x":24,"y":140,"width":496,"height":46} t=99652
+[DBG909] regiao=[{"x":24,"y":140,"width":496,"height":46}] t=99652
+[DBG909] pedido ignore=false t=6618
+[DBG909] regiao=[{TELA}] t=6618
+[DBG909] pedido ignore=true t=6760
+[DBG909] regiao=[{"x":24,"y":140,"width":496,"height":46}] t=6760
+[DBG909] pedido ignore=false t=7217
+[DBG909] regiao=[{TELA}] t=7217
+[DBG909] rect={"x":24,"y":140,"width":54,"height":54} t=33870
+# Resultado relatado pelo responsável: botões da barra respondem; com o pincel, desenho em toda a tela; nenhum
+# "[AnnotationOverlay] atalho recusado" nem erro do X no log.
+
+## Execução 2 — MLab em foco, pincel pela barra interna do painel (não exercita o overlay)
+[DBG909] pedido ignore=true t=3509
+[DBG909] regiao=[] t=3510
+[DBG909] regiao=[] t=3729
+[DBG909] mlabFocused=false visible=false t=3777
+[DBG909] rect={"x":24,"y":140,"width":496,"height":46} t=3854
+[DBG909] regiao=[{"x":24,"y":140,"width":496,"height":46}] t=3854
+[DBG909] pedido ignore=true t=3900
+# Nenhum pedido de captura chegou ao main e mlabFocused não mudou durante o teste: o desenho foi feito pela barra
+# interna do painel. A passagem painel → overlay ao sair da janela do MLab depende do CursorPresenceTracker
+# (fora da 009) e não foi comprovada no WSLg.

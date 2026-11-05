@@ -1,0 +1,48 @@
+# 009 / T905 — hit-test da barra no WSLg (XWayland), 2026-11-05
+# Ambiente: WSLg 1.0.79, Ubuntu 26.04, Electron 31 (X11 via XWayland), DISPLAY=:0 WAYLAND_DISPLAY=wayland-0
+# Instrumentação temporária em runToolbarHitTest/applyIgnoreMouse (não commitada). 'hit' é impresso quando
+# o cursor muda ou a cada 1 s sem mudança; repetições = getCursorScreenPoint() parado.
+
+## Totais
+hit=835 over=true=100 apply=21 rect=13
+
+## Cursor parado (amostras seguidas com o mesmo valor, >= 3)
+     80 828,746
+     47 715,753
+     25 756,764
+     13 272,213
+      5 283,216
+     28 433,514
+      8 279,211
+    140 797,633
+
+## Trecho: cursor congelado e salto até a barra
+[DBG009] apply requested=false over=false efetivo=false anterior=false
+[DBG009] apply requested=true over=false efetivo=true anterior=false
+[DBG009] hit cursor=275,206 rect={"x":24,"y":140,"width":496,"height":46} over=false
+[DBG009] hit cursor=272,213 rect={"x":24,"y":140,"width":496,"height":46} over=false
+[DBG009] hit cursor=272,213 rect={"x":24,"y":140,"width":496,"height":46} over=false
+[DBG009] hit cursor=272,213 rect={"x":24,"y":140,"width":496,"height":46} over=false
+[DBG009] hit cursor=272,213 rect={"x":24,"y":140,"width":496,"height":46} over=false
+[DBG009] hit cursor=272,213 rect={"x":24,"y":140,"width":496,"height":46} over=false
+[DBG009] hit cursor=272,213 rect={"x":24,"y":140,"width":496,"height":46} over=false
+[DBG009] hit cursor=272,213 rect={"x":24,"y":140,"width":496,"height":46} over=false
+[DBG009] hit cursor=272,213 rect={"x":24,"y":140,"width":496,"height":46} over=false
+[DBG009] hit cursor=272,213 rect={"x":24,"y":140,"width":496,"height":46} over=false
+[DBG009] hit cursor=272,213 rect={"x":24,"y":140,"width":496,"height":46} over=false
+[DBG009] hit cursor=272,213 rect={"x":24,"y":140,"width":496,"height":46} over=false
+[DBG009] hit cursor=272,213 rect={"x":24,"y":140,"width":496,"height":46} over=false
+[DBG009] hit cursor=272,213 rect={"x":24,"y":140,"width":496,"height":46} over=false
+[DBG009] apply requested=false over=false efetivo=false anterior=true
+[DBG009] hit cursor=283,216 rect={"x":24,"y":140,"width":496,"height":46} over=false
+[DBG009] hit cursor=283,216 rect={"x":24,"y":140,"width":496,"height":46} over=false
+[DBG009] hit cursor=283,216 rect={"x":24,"y":140,"width":496,"height":46} over=false
+[DBG009] hit cursor=283,216 rect={"x":24,"y":140,"width":496,"height":46} over=false
+[DBG009] hit cursor=283,216 rect={"x":24,"y":140,"width":496,"height":46} over=false
+[DBG009] hit cursor=1243,0 rect={"x":24,"y":140,"width":496,"height":46} over=false
+[DBG009] hit cursor=1233,7 rect={"x":24,"y":140,"width":496,"height":46} over=false
+[DBG009] hit cursor=1208,23 rect={"x":24,"y":140,"width":496,"height":46} over=false
+[DBG009] hit cursor=1153,61 rect={"x":24,"y":140,"width":496,"height":46} over=false
+
+## Atalhos recusados (RF-903)
+nenhum
