@@ -47,3 +47,18 @@ Use KISS, YAGNI, DRY, SOLID e baixo acoplamento. Nenhum padrão ou abstração e
 Após implementação, o código deve ser comparado contra spec, plan e tasks. Divergência não pode ficar implícita.
 
 **Gate:** `converge` deve registrar qualquer gap restante.
+
+## Princípio IX — Desvios rastreáveis
+
+Bug, erro ou incoerência encontrado fora da tarefa em andamento é registrado como issue com labels no repositório
+(`AGENTS.md` §14). O desvio não é corrigido dentro da tarefa atual: ganha tarefa própria pelo fluxo SDD.
+
+**Gate:** nenhum desvio fica só na conversa. Desvio não bloqueante = issue aberta e tarefa continua. Desvio bloqueante =
+issue com `bloqueante` e tarefa interrompida imediatamente, com o motivo informado ao responsável.
+
+## Princípio X — Entrega rastreável
+
+Toda mudança no repositório chega à `development` por branch dedicada `<tipo>/<descricao>`, commits pelo `.gitmessage`
+e Pull Request pelo template (`AGENTS.md` §12 e §15).
+
+**Gate:** commit direto na `development` ou na `main`, ou PR fora do template = entrega inválida.
