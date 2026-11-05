@@ -76,17 +76,18 @@ Checks:
 - [x] `toolbarHitTest.test.ts` 16/16; vitest desktop 127/127, `turbo test` 5/5; `tsc` sem erro novo (14 pré-existentes).
 
 ### T908 — Módulo nativo da região de entrada X11 (C-904)
-[ ] T908
+[x] T908
 Depends On: T907
 Allowed Paths: `apps/desktop/src/main/x11InputShape.ts`, `apps/desktop/src/main/x11InputShape.test.ts`
 Prohibited Paths: `apps/desktop/src/main/nativeWindowTracker.ts`, `apps/desktop/src/main/annotationOverlayWindow.ts`,
 `apps/desktop/src/renderer/**`, `apps/desktop/package.json`, `apps/backend/**`, `apps/web/**`, `packages/**`
 Checks:
-- [ ] `createX11InputShaper()` carrega `libX11.so.6`/`libXext.so.6` via `koffi`, abre o display e devolve
+- [x] `createX11InputShaper()` carrega `libX11.so.6`/`libXext.so.6` via `koffi`, abre o display e devolve
   `{ apply(handle, rects), dispose() }`; devolve `null` sem `koffi`, sem biblioteca ou sem display.
-- [ ] `apply` lê o XID do `Buffer` (64 ou 32 bits), chama `XShapeCombineRectangles` com `ShapeInput`/`ShapeSet` e
+- [x] `apply` lê o XID do `Buffer` (64 ou 32 bits), chama `XShapeCombineRectangles` com `ShapeInput`/`ShapeSet` e
   `XFlush`; XID 0 não chama nada.
-- [ ] Testes com `koffi` mockado: carregamento, falha → `null`, argumentos da chamada, XID 32/64 bits, `dispose`.
+- [x] Testes com `koffi` mockado: carregamento, falha → `null`, argumentos da chamada, XID 32/64 bits, `dispose`.
+- [x] `x11InputShape.test.ts` 7/7; vitest desktop 134/134, `turbo test` 5/5; `tsc` sem erro novo.
 
 ### T909 — Manager usa a região de entrada no Linux (C-904)
 [ ] T909
