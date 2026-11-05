@@ -60,11 +60,13 @@ Exemplos:
 Closes #
 - **Task do Spec-Kit (obrigatório):** (ex: `001/T022`, `002/S1`) — PR que altera comportamento sem task é bloqueado (`AGENTS.md` §4, regra anti-deriva)
 - **Requisitos Vinculados:** (ex: `RF-004`, `RF-026`, `RNF-018`)
+- **Desvios encontrados (obrigatório):** issues abertas durante este trabalho (`AGENTS.md` §14), ex: `#35 (não bloqueante)`, ou `nenhum`
 - **Impacto de versão (obrigatório):** `MAJOR` | `MINOR` | `PATCH` | `nenhum` — versão resultante e justificativa pelo escopo de `docs/versionamento.md` §2 (ex: `PATCH → 1.7.2: corrige regressão do RF-310`)
 
 ## Checklist do autor
 
-- [ ] A branch partiu da branch principal atualizada.
+- [ ] Trabalhei em branch dedicada `<tipo>/<descricao>` criada a partir da `development` atualizada (`AGENTS.md` §15).
+- [ ] Desvios encontrados fora do escopo foram abertos como issue com labels, sem correção neste PR (`AGENTS.md` §14).
 - [ ] O título segue rigorosamente `tipo(escopo): mensagem objetiva em português` (com prefixo em inglês: `feat`, `fix`, etc.).
 - [ ] A alteração está coesa e respeita o **Scope Lock** e as tarefas aprovadas do `AGENTS.md`.
 - [ ] Alterou exclusivamente os caminhos autorizados (**Allowed Paths**).
