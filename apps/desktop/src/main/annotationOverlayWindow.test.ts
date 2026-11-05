@@ -5,6 +5,9 @@ const h = vi.hoisted(() => {
     cursor: { x: 0, y: 0 },
     windows: [] as any[],
     registerResult: true as boolean | 'throw',
+    /** Região de entrada X11 falsa (C-904); `null` = indisponível, usa o hit-test alternativo. */
+    shaper: null as null | { apply: ReturnType<typeof vi.fn>; dispose: ReturnType<typeof vi.fn> },
+    scaleFactor: 1,
   };
   class FakeBrowserWindow {
     public ignoreCalls: Array<[boolean, unknown?]> = [];
@@ -24,6 +27,14 @@ const h = vi.hoisted(() => {
     }
     getBounds() {
       return { x: this.opts.x, y: this.opts.y, width: this.opts.width, height: this.opts.height };
+    }
+    setBounds(b: { x: number; y: number; width: number; height: number }) {
+      Object.assign(this.opts, b);
+    }
+    getNativeWindowHandle() {
+      const b = Buffer.alloc(8);
+      b.writeBigUInt64LE(0x600004n);
+      return b;
     }
     isDestroyed() {
       return this.destroyed;
@@ -65,6 +76,7 @@ vi.mock('electron', () => ({
     getPrimaryDisplay: () => ({ bounds: { x: 0, y: 0, width: 1920, height: 1080 } }),
     getCursorScreenPoint: () => h.state.cursor,
     getDisplayNearestPoint: () => ({ bounds: { x: 0, y: 0, width: 1920, height: 1080 } }),
+    getDisplayMatching: () => ({ scaleFactor: h.state.scaleFactor }),
   },
   shell: { openExternal: vi.fn() },
 }));
@@ -78,6 +90,8 @@ vi.mock('./doubleCtrlDetector', () => ({
 }));
 
 vi.mock('./navigationGuard', () => ({ hardenWebContents: vi.fn() }));
+
+vi.mock('./x11InputShape', () => ({ createX11InputShaper: vi.fn(() => h.state.shaper) }));
 
 import { AnnotationOverlayManager, TOOLBAR_HIT_TEST_INTERVAL_MS } from './annotationOverlayWindow';
 
@@ -101,6 +115,9 @@ beforeEach(() => {
   h.state.cursor = { x: 0, y: 0 };
   h.state.windows = [];
   h.state.registerResult = true;
+  h.state.shaper = null;
+  h.state.scaleFactor = 1;
+  vi.spyOn(console, 'warn').mockImplementation(() => {});
 });
 
 afterEach(() => {
@@ -109,7 +126,7 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
-describe('AnnotationOverlayManager — Linux (009/RF-901, RNF-902)', () => {
+describe('AnnotationOverlayManager — Linux, hit-test alternativo sem região X11 (009/RF-901, RNF-902)', () => {
   beforeEach(() => setPlatform('linux'));
 
   it('sai do click-through com o ponteiro sobre a barra e volta ao sair', () => {
@@ -191,6 +208,122 @@ describe('AnnotationOverlayManager — Linux (009/RF-901, RNF-902)', () => {
   });
 });
 
+describe('AnnotationOverlayManager — Linux, região de entrada X11 (009/RF-901, RNF-902, C-904)', () => {
+  const FULL = [{ x: 0, y: 0, width: 1920, height: 1080 }];
+  const XID = 0x600004n;
+
+  beforeEach(() => {
+    setPlatform('linux');
+    h.state.shaper = { apply: vi.fn(), dispose: vi.fn() };
+  });
+
+  const regions = () => h.state.shaper!.apply.mock.calls.map((c) => c[1]);
+  const lastRegion = () => regions().at(-1);
+
+  it('aceita mouse uma vez e recorta a entrada na barra com click-through', () => {
+    const { mgr, win } = startManager();
+    expect(win.ignoreCalls).toEqual([[false]]);
+    expect(lastRegion()).toEqual([]);
+    expect(h.state.shaper!.apply.mock.calls[0][0].readBigUInt64LE(0)).toBe(XID);
+
+    mgr.setToolbarRect(RECT);
+    expect(lastRegion()).toEqual([RECT]);
+    expect(vi.getTimerCount()).toBe(0);
+    expect(win.ignoreCalls).toEqual([[false]]);
+    mgr.stop();
+  });
+
+  it('tela inteira com captura pedida e de volta à barra com click-through', () => {
+    const { mgr } = startManager();
+    mgr.setToolbarRect(RECT);
+    mgr.setIgnoreMouseEvents(false);
+    expect(lastRegion()).toEqual(FULL);
+    mgr.setIgnoreMouseEvents(true);
+    expect(lastRegion()).toEqual([RECT]);
+    mgr.stop();
+  });
+
+  it('retângulo nulo (MLab em foco, C-903) deixa a região vazia', () => {
+    const { mgr } = startManager();
+    mgr.setToolbarRect(RECT);
+    mgr.setToolbarRect(null);
+    expect(lastRegion()).toEqual([]);
+    mgr.stop();
+  });
+
+  it('não reaplica a mesma região', () => {
+    const { mgr } = startManager();
+    mgr.setToolbarRect(RECT);
+    const n = regions().length;
+    mgr.setToolbarRect({ ...RECT });
+    mgr.setIgnoreMouseEvents(true);
+    expect(regions().length).toBe(n);
+    mgr.stop();
+  });
+
+  it('converte para pixels físicos pela escala do display', () => {
+    h.state.scaleFactor = 2;
+    const { mgr } = startManager();
+    mgr.setToolbarRect(RECT);
+    expect(lastRegion()).toEqual([{ x: 200, y: 40, width: 880, height: 108 }]);
+    mgr.stop();
+  });
+
+  it('reaplica ao exibir a janela e ao mudar os limites do overlay', () => {
+    const { mgr, win } = startManager();
+    mgr.setToolbarRect(RECT);
+    const n = regions().length;
+    (win as any).handlers['ready-to-show']?.();
+    expect(regions().length).toBe(n + 1);
+
+    mgr.setIgnoreMouseEvents(false);
+    mgr.forwardCursorState({ visible: true, x: 0.5, y: 0.5, targetBounds: { x: 10, y: 10, w: 800, h: 600 } } as any);
+    expect(regions().length).toBeGreaterThan(n + 1);
+    mgr.stop();
+  });
+
+  it('falha na chamada nativa volta ao hit-test alternativo, com aviso', () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const { mgr, win } = startManager();
+    h.state.shaper!.apply.mockImplementation(() => {
+      throw new Error('BadMatch');
+    });
+    mgr.setToolbarRect(RECT);
+    expect(warn).toHaveBeenCalledWith(
+      '[AnnotationOverlay] falha na região de entrada X11; usando hit-test por posição do ponteiro',
+      expect.any(Error)
+    );
+    expect(h.state.shaper!.dispose).toHaveBeenCalled();
+    expect(vi.getTimerCount()).toBe(1);
+
+    h.state.cursor = { x: 300, y: 40 };
+    vi.advanceTimersByTime(TOOLBAR_HIT_TEST_INTERVAL_MS);
+    expect(win.ignoreCalls.at(-1)).toEqual([false]);
+    h.state.cursor = { x: 900, y: 600 };
+    vi.advanceTimersByTime(TOOLBAR_HIT_TEST_INTERVAL_MS);
+    expect(win.ignoreCalls.at(-1)).toEqual([true, { forward: true }]);
+    mgr.stop();
+  });
+
+  it('avisa uma vez quando a região X11 não existe', () => {
+    h.state.shaper = null;
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const { mgr } = startManager();
+    mgr.setToolbarRect(RECT);
+    expect(
+      warn.mock.calls.filter((c) => String(c[0]).includes('região de entrada X11 indisponível'))
+    ).toHaveLength(1);
+    mgr.stop();
+  });
+
+  it('libera a região no stop()', () => {
+    const shaper = h.state.shaper!;
+    const { mgr } = startManager();
+    mgr.stop();
+    expect(shaper.dispose).toHaveBeenCalledTimes(1);
+  });
+});
+
 describe('AnnotationOverlayManager — Windows (009/RNF-901)', () => {
   beforeEach(() => setPlatform('win32'));
 
@@ -230,7 +363,7 @@ describe('AnnotationOverlayManager — atalhos recusados (009/RF-903)', () => {
   it('não registra nada quando todos os atalhos são aceitos', () => {
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
     const { mgr } = startManager();
-    expect(warn).not.toHaveBeenCalled();
+    expect(warn.mock.calls.filter((c) => String(c[0]).includes('atalho recusado'))).toEqual([]);
     mgr.stop();
   });
 });

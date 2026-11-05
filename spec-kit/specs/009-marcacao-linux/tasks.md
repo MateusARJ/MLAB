@@ -90,18 +90,20 @@ Checks:
 - [x] `x11InputShape.test.ts` 7/7; vitest desktop 134/134, `turbo test` 5/5; `tsc` sem erro novo.
 
 ### T909 — Manager usa a região de entrada no Linux (C-904)
-[ ] T909
+[x] T909
 Depends On: T907, T908
 Allowed Paths: `apps/desktop/src/main/annotationOverlayWindow.ts`, `apps/desktop/src/main/annotationOverlayWindow.test.ts`
 Prohibited Paths: `apps/desktop/src/main/nativeWindowTracker.ts`, `apps/desktop/src/main/cursorPresence.ts`,
 `apps/desktop/src/main/doubleCtrlDetector.ts`, `apps/desktop/src/renderer/**`, `apps/backend/**`, `apps/web/**`,
 `packages/**`
 Checks:
-- [ ] No Linux com o módulo disponível: `setIgnoreMouseEvents(false)` uma vez; região reaplicada ao mudar o pedido, o
+- [x] No Linux com o módulo disponível: `setIgnoreMouseEvents(false)` uma vez; região reaplicada ao mudar o pedido, o
   retângulo, os limites (`setBounds`) e ao exibir; sem temporizador (RF-901, RNF-902).
-- [ ] Módulo `null` ou chamada que lança → hit-test da T903 (alternativa), com aviso único no log.
-- [ ] Windows/macOS sem mudança (RNF-901); `dispose` do módulo em `stop()`.
-- [ ] Testes com `electron` e `./x11InputShape` mockados; vitest desktop e `turbo test` verdes; `tsc` sem erro novo.
+- [x] Módulo `null` ou chamada que lança → hit-test da T903 (alternativa), com aviso único no log.
+- [x] Windows/macOS sem mudança (RNF-901); `dispose` do módulo em `stop()`.
+- [x] Testes com `electron` e `./x11InputShape` mockados; vitest desktop e `turbo test` verdes; `tsc` sem erro novo.
+- [x] `annotationOverlayWindow.test.ts` 20/20 (11 da alternativa + 9 da região X11); vitest desktop 143/143,
+  `turbo test` 5/5; `tsc` sem erro novo (14 pré-existentes).
 
 ### T905 — Verificação manual no Linux (WSLg) e smoke no Windows
 [ ] T905

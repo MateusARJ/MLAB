@@ -8,7 +8,14 @@ import type {
 } from '@mlab/types';
 import { DoubleCtrlDetector } from './doubleCtrlDetector';
 import { hardenWebContents } from './navigationGuard';
-import { isPointerOverToolbar, resolveIgnoreMouse, sanitizeToolbarRect } from './toolbarHitTest';
+import {
+  isPointerOverToolbar,
+  resolveIgnoreMouse,
+  resolveInputRegion,
+  sanitizeToolbarRect,
+  toDevicePixels,
+} from './toolbarHitTest';
+import { createX11InputShaper, type X11InputShaper } from './x11InputShape';
 
 /** Período do hit-test da barra no Linux (009, RNF-902). */
 export const TOOLBAR_HIT_TEST_INTERVAL_MS = 16;
@@ -60,6 +67,12 @@ export class AnnotationOverlayManager {
   private toolbarRect: AnnotationToolbarRect | null = null;
   private pointerOverToolbar = false;
   private hitTestTimer: ReturnType<typeof setInterval> | null = null;
+  /**
+   * Linux: região de entrada X11 do overlay (009, C-904). `undefined` = ainda não tentou criar; `null` = indisponível,
+   * usa o hit-test por posição do ponteiro (C-901) como alternativa.
+   */
+  private inputShaper: X11InputShaper | null | undefined = undefined;
+  private lastInputRegionKey = '';
   private lastMlabFocused: boolean | null = null;
   private lastCursorState: CursorState | null = null;
   private doubleCtrlDetector: DoubleCtrlDetector | null = null;
@@ -81,6 +94,7 @@ export class AnnotationOverlayManager {
         this.overlayWin.setContentProtection(false);
         this.overlayWin.showInactive();
       } catch {}
+      this.reapplyInputRegion();
       return true;
     }
 
@@ -141,6 +155,9 @@ export class AnnotationOverlayManager {
         win.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
       } catch {}
 
+      this.lastInputRegionKey = '';
+      this.ensureInputShaper();
+
       // Inicia em modo click-through para que os cliques passem para as janelas abaixo
       this.setIgnoreMouseEvents(true);
 
@@ -150,6 +167,7 @@ export class AnnotationOverlayManager {
             win.setContentProtection(false);
             win.showInactive();
           } catch {}
+          this.reapplyInputRegion();
           if (this.lastState && !win.webContents.isDestroyed()) {
             win.webContents.send('annotation-overlay:state', this.lastState);
           }
@@ -183,6 +201,7 @@ export class AnnotationOverlayManager {
         if (this.overlayWin === win) {
           this.overlayWin = null;
           this.lastIgnoreMouse = null;
+          this.lastInputRegionKey = '';
           this.stopToolbarHitTest();
           this.toolbarRect = null;
         }
@@ -256,6 +275,7 @@ export class AnnotationOverlayManager {
    */
   private applyIgnoreMouse(): void {
     if (!this.overlayWin || this.overlayWin.isDestroyed()) return;
+    if (needsToolbarHitTest() && this.inputShaper && this.applyInputRegion()) return;
     const ignore = needsToolbarHitTest()
       ? resolveIgnoreMouse(this.requestedIgnoreMouse, this.pointerOverToolbar)
       : this.requestedIgnoreMouse;
@@ -290,6 +310,12 @@ export class AnnotationOverlayManager {
 
     if (!needsToolbarHitTest()) return;
 
+    // C-904: com a região de entrada X11 não há temporizador; só reaplica a região.
+    if (this.inputShaper) {
+      this.applyIgnoreMouse();
+      if (this.inputShaper) return;
+    }
+
     if (!this.toolbarRect) {
       const wasOver = this.pointerOverToolbar;
       this.stopToolbarHitTest();
@@ -300,6 +326,63 @@ export class AnnotationOverlayManager {
     if (!this.hitTestTimer && this.toolbarRect) {
       this.hitTestTimer = setInterval(() => this.runToolbarHitTest(), TOOLBAR_HIT_TEST_INTERVAL_MS);
     }
+  }
+
+  /** Linux: cria a região de entrada X11 uma vez por sessão; sem ela, avisa e fica no hit-test (C-901). */
+  private ensureInputShaper(): void {
+    if (!needsToolbarHitTest() || this.inputShaper !== undefined) return;
+    this.inputShaper = createX11InputShaper();
+    if (!this.inputShaper) {
+      console.warn('[AnnotationOverlay] região de entrada X11 indisponível; usando hit-test por posição do ponteiro');
+    }
+  }
+
+  /**
+   * Linux (C-904): a janela aceita mouse (`setIgnoreMouseEvents(false)` uma vez) e a região de entrada X11 decide o
+   * que atravessa — tela inteira com captura pedida, só a barra com click-through, vazia sem retângulo. Reaplica só
+   * quando a região muda. Devolve `false` se a chamada nativa falhar; aí desliga a região e volta ao hit-test.
+   */
+  private applyInputRegion(): boolean {
+    const win = this.overlayWin;
+    const shaper = this.inputShaper;
+    if (!win || win.isDestroyed() || !shaper) return false;
+    try {
+      const bounds = win.getBounds();
+      const scale = screen.getDisplayMatching(bounds)?.scaleFactor ?? 1;
+      const region = toDevicePixels(
+        resolveInputRegion(this.requestedIgnoreMouse, this.toolbarRect, bounds),
+        scale
+      );
+      if (this.lastIgnoreMouse !== false) {
+        this.lastIgnoreMouse = false;
+        this.lastInputRegionKey = '';
+        win.setIgnoreMouseEvents(false);
+      }
+      const key = JSON.stringify(region);
+      if (key === this.lastInputRegionKey) return true;
+      shaper.apply(win.getNativeWindowHandle(), region);
+      this.lastInputRegionKey = key;
+      return true;
+    } catch (err) {
+      console.warn('[AnnotationOverlay] falha na região de entrada X11; usando hit-test por posição do ponteiro', err);
+      try {
+        shaper.dispose();
+      } catch {}
+      this.inputShaper = null;
+      this.lastInputRegionKey = '';
+      this.lastIgnoreMouse = null;
+      if (this.toolbarRect && !this.hitTestTimer) {
+        this.hitTestTimer = setInterval(() => this.runToolbarHitTest(), TOOLBAR_HIT_TEST_INTERVAL_MS);
+      }
+      return false;
+    }
+  }
+
+  /** Reaplica a região de entrada mesmo sem mudança (janela exibida ou redimensionada pode perder a forma). */
+  private reapplyInputRegion(): void {
+    if (!needsToolbarHitTest() || !this.inputShaper) return;
+    this.lastInputRegionKey = '';
+    this.applyInputRegion();
   }
 
   private runToolbarHitTest(): void {
@@ -362,6 +445,7 @@ export class AnnotationOverlayManager {
             ) {
               this.currentDisplayBounds = { ...b };
               this.overlayWin.setBounds(b);
+              this.reapplyInputRegion();
             }
           }
         } catch {}
@@ -475,6 +559,13 @@ export class AnnotationOverlayManager {
     this.stopToolbarHitTest();
     this.toolbarRect = null;
     this.requestedIgnoreMouse = true;
+    if (this.inputShaper) {
+      try {
+        this.inputShaper.dispose();
+      } catch {}
+    }
+    this.inputShaper = undefined;
+    this.lastInputRegionKey = '';
     this.lastTargetBoundsKey = '';
     this.lastMlabFocused = null;
     if (this.overlayWin && !this.overlayWin.isDestroyed()) {
