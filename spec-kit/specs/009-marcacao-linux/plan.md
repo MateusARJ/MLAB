@@ -3,7 +3,7 @@
 Feature: `009-marcacao-linux`
 Status: READY
 Spec: `./spec.md`
-Clarify: `./clarify.md` (CLOSED — C-901, C-902, C-903)
+Clarify: `./clarify.md` (C-901 a C-903; C-904 aprovada em 2026-11-05 após spike no WSLg)
 
 ## 1. Summary
 
@@ -18,21 +18,36 @@ Clarify: `./clarify.md` (CLOSED — C-901, C-902, C-903)
    temporizador de 16 ms enquanto o overlay existe e há retângulo: lê `screen.getCursorScreenPoint()`, testa contra o
    retângulo (convertido para tela com `overlayWin.getBounds()`) e aplica `setIgnoreMouseEvents(efetivo)` só quando o
    valor efetivo muda. Efetivo = `requestedIgnore && !pointerOverToolbar`. No Windows/macOS o caminho atual fica igual.
+   **Desde a C-904, este hit-test é só a alternativa** para quando a região de entrada X11 (item 5) não puder ser usada.
 3. **Atalhos (RF-903, RF-904)** — `registerGlobalShortcuts` registra em log (`console.warn` com o acelerador) quando
    `globalShortcut.register` devolve `false` ou lança. Os atalhos locais passam a funcionar porque, com o clique
    aceito (item 2), o overlay `focusable` recebe o foco no clique.
 4. **Contrato** — canal novo registrado em `003/contracts/desktop-ipc.md` e em `ElectronAPI` (`preload.ts`); tipo
    `AnnotationToolbarRect` em `packages/types`. O handler em `main.ts` só aceita mensagens do webContents do overlay e
    o manager valida o retângulo (números finitos, largura e altura > 0 e no máximo 2× o display; senão trata como `null`).
+5. **Região de entrada X11 (C-904, RF-901, RNF-902)** — no WSLg o `getCursorScreenPoint()` congela fora de janelas
+   X11 (`evidencias/t905-wslg-hit-test.log`), então o caminho principal no Linux passa a ser recortar a região de
+   entrada do overlay. Função pura `resolveInputRegion(requestedIgnore, toolbarRect, overlaySize)` em
+   `toolbarHitTest.ts` (tela inteira / barra / vazia) e `toDevicePixels(rects, scale)`. Módulo novo
+   `x11InputShape.ts` carrega `libX11.so.6` e `libXext.so.6` via `koffi` (já é dependência) e chama
+   `XShapeCombineRectangles(dpy, xid, ShapeInput, 0, 0, rects, n, ShapeSet, Unsorted)` + `XFlush` no XID de
+   `getNativeWindowHandle()`; devolve `null` se não carregar (ex.: sem `DISPLAY` ou sem `libXext`). O manager, no
+   Linux com o módulo disponível, chama `setIgnoreMouseEvents(false)` uma vez e passa a ser o único dono da região:
+   reaplica ao mudar o pedido, o retângulo ou os limites do overlay (`setBounds` em `forwardCursorState`) e ao
+   exibir a janela; sem temporizador. Se o módulo for `null` ou a chamada lançar, volta ao hit-test do item 2.
+   Validado por spike no WSLg (2026-11-05): botões da barra respondem com o ponteiro vindo de janelas do Windows, o
+   resto da tela atravessa e a ferramenta de desenho captura a tela inteira.
 
 ## 2. Technical Context
 
 | Item | Decisão | Ref |
 |---|---|---|
-| Plataforma | `process.platform === 'linux'` liga o hit-test; demais plataformas sem mudança | RNF-901 |
+| Plataforma | `process.platform === 'linux'` liga a região de entrada (ou o hit-test alternativo); demais plataformas sem mudança | RNF-901 |
+| Região de entrada | `XShapeCombineRectangles` (`ShapeInput`=2, `ShapeSet`=0) via `koffi`, em px físicos (DIP × `scaleFactor` do display do overlay) | RF-901, C-904 |
+| XID do overlay | `getNativeWindowHandle()` lido como inteiro de 64 bits (LE) ou 32 bits | C-904 |
 | Coordenadas | retângulo em px CSS do overlay (= DIP); soma `overlayWin.getBounds().x/y` para tela | RF-901 |
 | Margem | 4 px de folga em volta do retângulo, para a borda não piscar | RF-901 |
-| Temporizador | `setInterval` 16 ms, parado em `stop()` e quando o retângulo é `null` | RNF-902 |
+| Temporizador | só na alternativa: `setInterval` 16 ms, parado em `stop()` e quando o retângulo é `null` | RNF-902 |
 | Log de atalho | `console.warn('[AnnotationOverlay] atalho recusado: <acc>')` | RF-903 |
 | Foco | sem `focus()` explícito; o clique no overlay `focusable` dá o foco | C-902 |
 
@@ -43,7 +58,10 @@ Clarify: `./clarify.md` (CLOSED — C-901, C-902, C-903)
 | Escala de DPI no Linux diferente de DIP | hit-test deslocado | `getCursorScreenPoint` e `getBounds` são DIP; verificação manual com escala 100% e 200% se disponível |
 | Clique atravessar no primeiro quadro | 1º clique perdido | folga de 4 px e ciclo de 16 ms (o ponteiro chega à barra antes do clique) |
 | Foco preso no overlay após clicar | teclas do app do professor vão ao overlay | só letras sem modificador são tratadas pelo overlay; registrar no teste manual |
-| Wayland nativo sem XWayland | `getCursorScreenPoint` fora de janelas do app não atualiza | Electron 31 usa XWayland por padrão; limitação registrada em C-901 |
+| Wayland nativo sem XWayland | sem X11, não há região de entrada nem cursor global | Electron 31 usa XWayland por padrão; fora do escopo (C-901, C-904) |
+| Electron reaplicar a forma de entrada | região de entrada perdida | manager não chama `setIgnoreMouseEvents` depois da 1ª vez no Linux e reaplica a região após `setBounds` e ao exibir |
+| `BadWindow` no Xlib encerra o processo | app fecha | só chama com a janela viva (`!isDestroyed()`); XID lido a cada chamada |
+| WSLg: janela Linux abaixo de apps do Windows | desenhos somem atrás deles | limitação do ambiente, registrada no converge; validar em Ubuntu/GNOME real |
 
 ## Scope Lock
 
@@ -63,6 +81,7 @@ Clarify: `./clarify.md` (CLOSED — C-901, C-902, C-903)
 
 - `apps/desktop/src/main/annotationOverlayWindow.ts`
 - `apps/desktop/src/main/toolbarHitTest.ts`, `apps/desktop/src/main/toolbarHitTest.test.ts`
+- `apps/desktop/src/main/x11InputShape.ts`, `apps/desktop/src/main/x11InputShape.test.ts` (C-904)
 - `apps/desktop/src/main/annotationOverlayWindow.test.ts`
 - `apps/desktop/src/main/main.ts` (só o handler do canal novo)
 - `apps/desktop/src/main/preload.ts`
@@ -82,7 +101,10 @@ Clarify: `./clarify.md` (CLOSED — C-901, C-902, C-903)
 
 ### Dependencies
 
-- Nenhuma nova. Existentes: `electron` (`screen`, `globalShortcut`, `BrowserWindow`), `vitest`, `@testing-library/react`.
+- Nenhuma nova no `package.json`. Existentes: `electron` (`screen`, `globalShortcut`, `BrowserWindow`), `koffi`
+  (já usado por `nativeWindowTracker.ts`), `vitest`, `@testing-library/react`.
+- Bibliotecas do sistema carregadas em tempo de execução (C-904): `libX11.so.6` e `libXext.so.6`, já exigidas pelo
+  Electron no Linux.
 
 ### Non-Goals
 
@@ -109,3 +131,4 @@ Clarify: `./clarify.md` (CLOSED — C-901, C-902, C-903)
 | 2026-11-03 | Atalhos globais via portal do Wayland fora do escopo; foco pelo clique | C-902 |
 | 2026-11-04 | Feature renumerada de 008 para 009 (colisão com `008-dev-entrada-unica-web`); IDs 8xx → 9xx | — |
 | 2026-11-04 | Retângulo `null` com o MLab em foco, para manter paridade com o Windows | C-903 |
+| 2026-11-05 | Região de entrada X11 via `koffi` como caminho principal no Linux; hit-test vira alternativa | C-904 |

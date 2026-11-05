@@ -63,9 +63,48 @@ Checks:
 - [x] Testes: envio inicial, recolher, popover, dedupe, `null` com MLab em foco.
 - [x] `FloatingAnnotationOverlay.test.tsx` 14/14; vitest desktop 121/121, `turbo test` 5/5; `tsc` sem erro novo.
 
+### T907 — Região de entrada pura da barra (C-904)
+[ ] T907
+Depends On: T902
+Allowed Paths: `apps/desktop/src/main/toolbarHitTest.ts`, `apps/desktop/src/main/toolbarHitTest.test.ts`
+Prohibited Paths: `apps/desktop/src/main/annotationOverlayWindow.ts`, `apps/desktop/src/renderer/**`,
+`apps/backend/**`, `apps/web/**`, `packages/**`
+Checks:
+- [ ] `resolveInputRegion(requestedIgnore, rect, overlaySize)`: tela inteira com `requestedIgnore=false`; `[rect]`
+  com `true` e retângulo; `[]` com `true` e `null` (RF-901, C-903).
+- [ ] `toDevicePixels(rects, scale)`: arredonda e multiplica pela escala; escala inválida vira 1.
+- [ ] Testes novos em `toolbarHitTest.test.ts`; `tsc` sem erro novo.
+
+### T908 — Módulo nativo da região de entrada X11 (C-904)
+[ ] T908
+Depends On: T907
+Allowed Paths: `apps/desktop/src/main/x11InputShape.ts`, `apps/desktop/src/main/x11InputShape.test.ts`
+Prohibited Paths: `apps/desktop/src/main/nativeWindowTracker.ts`, `apps/desktop/src/main/annotationOverlayWindow.ts`,
+`apps/desktop/src/renderer/**`, `apps/desktop/package.json`, `apps/backend/**`, `apps/web/**`, `packages/**`
+Checks:
+- [ ] `createX11InputShaper()` carrega `libX11.so.6`/`libXext.so.6` via `koffi`, abre o display e devolve
+  `{ apply(handle, rects), dispose() }`; devolve `null` sem `koffi`, sem biblioteca ou sem display.
+- [ ] `apply` lê o XID do `Buffer` (64 ou 32 bits), chama `XShapeCombineRectangles` com `ShapeInput`/`ShapeSet` e
+  `XFlush`; XID 0 não chama nada.
+- [ ] Testes com `koffi` mockado: carregamento, falha → `null`, argumentos da chamada, XID 32/64 bits, `dispose`.
+
+### T909 — Manager usa a região de entrada no Linux (C-904)
+[ ] T909
+Depends On: T907, T908
+Allowed Paths: `apps/desktop/src/main/annotationOverlayWindow.ts`, `apps/desktop/src/main/annotationOverlayWindow.test.ts`
+Prohibited Paths: `apps/desktop/src/main/nativeWindowTracker.ts`, `apps/desktop/src/main/cursorPresence.ts`,
+`apps/desktop/src/main/doubleCtrlDetector.ts`, `apps/desktop/src/renderer/**`, `apps/backend/**`, `apps/web/**`,
+`packages/**`
+Checks:
+- [ ] No Linux com o módulo disponível: `setIgnoreMouseEvents(false)` uma vez; região reaplicada ao mudar o pedido, o
+  retângulo, os limites (`setBounds`) e ao exibir; sem temporizador (RF-901, RNF-902).
+- [ ] Módulo `null` ou chamada que lança → hit-test da T903 (alternativa), com aviso único no log.
+- [ ] Windows/macOS sem mudança (RNF-901); `dispose` do módulo em `stop()`.
+- [ ] Testes com `electron` e `./x11InputShape` mockados; vitest desktop e `turbo test` verdes; `tsc` sem erro novo.
+
 ### T905 — Verificação manual no Linux (WSLg) e smoke no Windows
 [ ] T905
-Depends On: T903, T904
+Depends On: T903, T904, T909
 Allowed Paths: `spec-kit/specs/009-marcacao-linux/**`
 Prohibited Paths: `apps/**`, `packages/**`
 Checks:
@@ -73,6 +112,15 @@ Checks:
 - [ ] App no WSLg: clique nos botões, recolher/expandir por botão e `Alt+H`, ferramenta de desenho, letras únicas
   após clicar na barra, log de atalhos recusados (US-901 a US-903). Evidências em `evidencias/`.
 - [ ] Smoke da barra no Windows sem regressão.
+
+Achados de 2026-11-05 (WSL):
+- vitest desktop no Linux: 119/121, 15/16 arquivos; `nativeWindowTracker.test.ts` derruba o worker com
+  `X Error of failed request: BadWindow`. Causa: `createLinuxX11Tracker` não instala `XSetErrorHandler`, e o handler
+  padrão do Xlib chama `exit()` diante de um XID inválido (no app real, pode encerrar o processo principal se a janela
+  capturada fechar). Fora da 009 (`nativeWindowTracker.ts` é path proibido): exige tarefa/feature própria.
+- `tsc --noEmit`: os mesmos 14 erros pré-existentes; nenhum novo.
+- App no WSLg: atalhos `Alt+…` funcionam e nenhum foi recusado; botões da barra fora da janela do MLab só respondem às
+  vezes — `getCursorScreenPoint()` congela sob XWayland (`evidencias/t905-wslg-hit-test.log`). **Bloqueada por C-904.**
 
 ### T906 — Converge
 [ ] T906

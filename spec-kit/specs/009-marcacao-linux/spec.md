@@ -50,9 +50,13 @@ limpar e ligar a lupa como no Windows.
 
 ## 5. Requisitos
 
-- RF-901: no Linux, o overlay sai do modo click-through enquanto o ponteiro está sobre o retângulo da barra (incluindo
-  o popover de cores) e volta a ele ao sair, sem depender do encaminhamento de eventos de mouse do sistema (C-901).
+- RF-901: no Linux, a barra (incluindo o popover de cores) recebe os cliques e o resto da tela segue em click-through,
+  sem depender do encaminhamento de eventos de mouse nem da posição do ponteiro informada pelo sistema (C-901, C-904).
+  O overlay recorta sua região de entrada X11: só o retângulo da barra quando o renderer pede click-through; a tela
+  inteira quando pede captura (ferramenta de desenho, ponteiro sobre a barra, arraste); vazia com retângulo `null`.
   Enquanto o MLab estiver em foco e não houver arraste da barra, o overlay segue em click-through, como no Windows (C-903).
+  Se a região de entrada X11 não puder ser aplicada (ex.: `libXext` ausente), o main usa o hit-test por posição do
+  ponteiro (C-901) como alternativa.
 - RF-902: o retângulo da barra é informado pelo overlay ao processo principal sempre que muda (posição, recolhida ou
   expandida, orientação, popover aberto ou fechado).
 - RF-903: o processo principal registra em log cada atalho global que o sistema recusar.
@@ -60,9 +64,11 @@ limpar e ligar a lupa como no Windows.
   foco do teclado (C-902).
 - RNF-901: Windows e macOS mantêm o caminho atual (`setIgnoreMouseEvents(true, { forward: true })`), sem nova chamada
   de IPC por quadro.
-- RNF-902: no Linux, o teste de posição do ponteiro roda num único temporizador de 16 ms, ativo só enquanto o overlay
-  existir e a barra estiver visível; ele não envia IPC por ciclo, só chama `setIgnoreMouseEvents` quando o estado muda.
-  O laço do `CursorPresenceTracker` não serve: ele só roda durante a captura, e o overlay vive a sessão inteira.
+- RNF-902: no Linux, com a região de entrada X11, não há temporizador: a região só é reaplicada quando muda o pedido
+  de click-through, o retângulo da barra ou os limites do overlay. Só na alternativa por posição do ponteiro roda um
+  único temporizador de 16 ms, ativo enquanto o overlay existir e a barra estiver visível, sem IPC por ciclo e
+  chamando `setIgnoreMouseEvents` só quando o estado muda. O laço do `CursorPresenceTracker` não serve: ele só roda
+  durante a captura, e o overlay vive a sessão inteira.
 
 ## 6. Regras de Negócio
 
@@ -70,9 +76,11 @@ limpar e ligar a lupa como no Windows.
 
 ## 7. Critérios de Sucesso
 
-- Testes unitários cobrem o hit-test da barra no Linux (entrar, sair, recolhida, ferramenta de desenho), o envio do
-  retângulo pelo overlay e o log de atalho recusado.
+- Testes unitários cobrem a região de entrada da barra no Linux (cursor, recolhida, ferramenta de desenho, `null`,
+  limites do overlay alterados, alternativa por posição do ponteiro), o envio do retângulo pelo overlay e o log de
+  atalho recusado.
 - Teste manual no Ubuntu com GNOME (X11) e no WSLg (Wayland + XWayland): clique, recolher e atalhos conforme US-901
-  a US-903.
+  a US-903. No WSLg, janelas Linux não ficam acima de apps nativos do Windows; esconder o overlay atrás deles é
+  limitação do ambiente, não falha da feature.
 - Smoke da barra no Windows sem regressão.
 - Suítes normais e builds continuam verdes.

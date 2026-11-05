@@ -41,3 +41,46 @@ Nenhuma. Todos os paths das tasks estão em `Allowed Paths` do plan; `nativeWind
 
 - [ ] FAIL
 - [x] PASS — próxima execução: T901.
+
+## 7. Rodada 2 — C-904 (2026-11-05)
+
+### Inconsistências
+
+Nenhuma. A T905 mostrou que `getCursorScreenPoint()` congela sob XWayland (`evidencias/t905-wslg-hit-test.log`); a
+C-904 foi aprovada após spike no WSLg e propagada na ordem spec (RF-901, RNF-902, critérios) → plan (item 5, contexto,
+riscos, Allowed Paths, dependências, decision log) → checklist → tasks (T907–T909; T905 depende de T909). A T903 não é
+desfeita: o hit-test continua como alternativa, o que mantém RF-901 coberto se `libXext` faltar. C-903 segue igual
+(retângulo `null` → região vazia). Nenhum `NEEDS CLARIFICATION`.
+
+### Cobertura
+
+| Requisito | Task |
+|---|---|
+| RF-901 | T902, T903 (alternativa), T907, T908, T909, T905 |
+| RF-902 | T901, T904 |
+| RF-903 | T903, T905 |
+| RF-904 | T905 (decorre do clique aceito na barra — C-902) |
+| RNF-901 | T903, T909 |
+| RNF-902 | T903 (alternativa), T909 |
+| RN-901 | T905 (smoke Windows) |
+
+### Contratos
+
+Sem mudança: o canal `annotation-overlay:toolbar-rect` e o tipo `AnnotationToolbarRect` atendem a C-904.
+
+### Scope Lock
+
+T907–T909 só tocam paths permitidos (`x11InputShape.ts` e teste foram incluídos no plan). `nativeWindowTracker.ts`
+segue proibido; o defeito de `XSetErrorHandler` achado nele (T905) fica para tarefa/feature própria. Nenhuma
+dependência nova no `package.json`.
+
+### Riscos
+
+- Electron reaplicar a forma de entrada: mitigado no T909 (main único dono, reaplica após `setBounds`/exibição).
+- `BadWindow` no Xlib: chamada só com janela viva.
+- WSLg não mantém janelas Linux acima de apps do Windows: limitação do ambiente, para o converge.
+
+### Resultado
+
+- [ ] FAIL
+- [x] PASS — próxima execução: T907.
