@@ -62,3 +62,37 @@ export function sanitizeToolbarRect(
   if (Math.abs(rect.x) > maxWidth || Math.abs(rect.y) > maxHeight) return null;
   return rect;
 }
+
+export interface OverlaySize {
+  width: number;
+  height: number;
+}
+
+/**
+ * Região de entrada do overlay no Linux, em DIP relativos ao overlay (009, RF-901 / C-904). Com captura pedida
+ * (ferramenta de desenho, ponteiro sobre a barra, arraste) cobre a tela inteira; com click-through, só a barra;
+ * sem retângulo (barra oculta, MLab em foco — C-903), fica vazia e tudo atravessa.
+ */
+export function resolveInputRegion(
+  requestedIgnore: boolean,
+  rect: AnnotationToolbarRect | null,
+  overlaySize: OverlaySize
+): AnnotationToolbarRect[] {
+  if (!requestedIgnore) {
+    if (!(overlaySize.width > 0) || !(overlaySize.height > 0)) return [];
+    return [{ x: 0, y: 0, width: overlaySize.width, height: overlaySize.height }];
+  }
+  return rect ? [rect] : [];
+}
+
+/** Converte retângulos de DIP para pixels físicos, arredondando para fora para a borda nunca perder clique. */
+export function toDevicePixels(rects: AnnotationToolbarRect[], scale: number): AnnotationToolbarRect[] {
+  const s = Number.isFinite(scale) && scale > 0 ? scale : 1;
+  return rects.map((r) => {
+    const left = Math.floor(r.x * s);
+    const top = Math.floor(r.y * s);
+    const right = Math.ceil((r.x + r.width) * s);
+    const bottom = Math.ceil((r.y + r.height) * s);
+    return { x: left, y: top, width: right - left, height: bottom - top };
+  });
+}

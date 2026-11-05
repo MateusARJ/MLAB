@@ -4,6 +4,8 @@ import {
   resolveIgnoreMouse,
   sanitizeToolbarRect,
   TOOLBAR_HIT_MARGIN,
+  resolveInputRegion,
+  toDevicePixels,
 } from './toolbarHitTest';
 
 const rect = { x: 100, y: 20, width: 440, height: 54 };
@@ -69,5 +71,39 @@ describe('sanitizeToolbarRect', () => {
     expect(sanitizeToolbarRect({ ...rect, height: -5 }, 1920, 1080)).toBeNull();
     expect(sanitizeToolbarRect({ ...rect, width: 5000 }, 1920, 1080)).toBeNull();
     expect(sanitizeToolbarRect({ ...rect, x: 99999 }, 1920, 1080)).toBeNull();
+  });
+});
+
+describe('resolveInputRegion (009/RF-901, C-904)', () => {
+  const size = { width: 1365, height: 767 };
+
+  it('cobre a tela inteira quando o renderer pede captura do mouse', () => {
+    expect(resolveInputRegion(false, rect, size)).toEqual([{ x: 0, y: 0, width: 1365, height: 767 }]);
+    expect(resolveInputRegion(false, null, size)).toEqual([{ x: 0, y: 0, width: 1365, height: 767 }]);
+  });
+
+  it('recorta só a barra quando o renderer pede click-through', () => {
+    expect(resolveInputRegion(true, rect, size)).toEqual([rect]);
+  });
+
+  it('fica vazia com click-through e retângulo nulo (C-903)', () => {
+    expect(resolveInputRegion(true, null, size)).toEqual([]);
+  });
+
+  it('não cria região com tamanho de overlay inválido', () => {
+    expect(resolveInputRegion(false, rect, { width: 0, height: 767 })).toEqual([]);
+  });
+});
+
+describe('toDevicePixels (009/C-904)', () => {
+  it('multiplica pela escala e arredonda para fora', () => {
+    expect(toDevicePixels([{ x: 10.4, y: 20.6, width: 100.2, height: 50.5 }], 1.5)).toEqual([
+      { x: 15, y: 30, width: 151, height: 77 },
+    ]);
+  });
+
+  it('usa escala 1 quando a escala é inválida', () => {
+    expect(toDevicePixels([rect], 0)).toEqual([rect]);
+    expect(toDevicePixels([rect], Number.NaN)).toEqual([rect]);
   });
 });

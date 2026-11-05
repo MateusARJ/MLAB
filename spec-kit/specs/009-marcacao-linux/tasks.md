@@ -64,16 +64,16 @@ Checks:
 - [x] `FloatingAnnotationOverlay.test.tsx` 14/14; vitest desktop 121/121, `turbo test` 5/5; `tsc` sem erro novo.
 
 ### T907 — Região de entrada pura da barra (C-904)
-[ ] T907
+[x] T907
 Depends On: T902
 Allowed Paths: `apps/desktop/src/main/toolbarHitTest.ts`, `apps/desktop/src/main/toolbarHitTest.test.ts`
 Prohibited Paths: `apps/desktop/src/main/annotationOverlayWindow.ts`, `apps/desktop/src/renderer/**`,
 `apps/backend/**`, `apps/web/**`, `packages/**`
 Checks:
-- [ ] `resolveInputRegion(requestedIgnore, rect, overlaySize)`: tela inteira com `requestedIgnore=false`; `[rect]`
+- [x] `resolveInputRegion(requestedIgnore, rect, overlaySize)`: tela inteira com `requestedIgnore=false`; `[rect]`
   com `true` e retângulo; `[]` com `true` e `null` (RF-901, C-903).
-- [ ] `toDevicePixels(rects, scale)`: arredonda e multiplica pela escala; escala inválida vira 1.
-- [ ] Testes novos em `toolbarHitTest.test.ts`; `tsc` sem erro novo.
+- [x] `toDevicePixels(rects, scale)`: arredonda e multiplica pela escala; escala inválida vira 1.
+- [x] `toolbarHitTest.test.ts` 16/16; vitest desktop 127/127, `turbo test` 5/5; `tsc` sem erro novo (14 pré-existentes).
 
 ### T908 — Módulo nativo da região de entrada X11 (C-904)
 [ ] T908
