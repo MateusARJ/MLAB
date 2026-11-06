@@ -37,8 +37,7 @@ O sistema é uma plataforma de transmissão de tela para aula ao vivo, composta 
 
 ```text
 mlab/
-├── AGENTS.md       ← este arquivo (regras canônicas)
-├── CLAUDE.md       ← importa AGENTS.md
+├── AGENTS.md       ← este arquivo (regras canônicas); lido direto pelo Claude Code
 ├── turbo.json
 ├── package.json
 ├── apps/

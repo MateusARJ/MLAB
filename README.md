@@ -430,7 +430,7 @@ mlab/
 ├── docs/                      # Requisitos detalhados, métricas, teste de carga e design system
 ├── spec-kit/                  # Constituição, specs por feature e ADRs (SDD)
 ├── scripts/                   # dev, build do backend, empacotamento, smoke e spec:check
-├── AGENTS.md                  # Regras para os agentes de IA (CLAUDE.md importa este arquivo)
+├── AGENTS.md                  # Regras para os agentes de IA (lido direto pelo Claude Code e outros agentes)
 ├── package.json               # Scripts da raiz
 └── turbo.json                 # Pipelines do Turborepo
 ```
