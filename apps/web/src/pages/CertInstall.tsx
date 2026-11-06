@@ -20,11 +20,11 @@ const PLATFORM_LABEL: Record<Platform, string> = {
 
 const STEPS: Record<Platform, string[]> = {
   windows: [
-    'Toque em "Baixar certificado do MLab" e abra o arquivo mlab-ca.crt.',
+    'Clique em "Baixar certificado do MLab" e abra o arquivo mlab-ca.crt.',
     'Clique em "Instalar Certificado…" e escolha "Usuário Atual".',
     'Marque "Colocar todos os certificados no repositório a seguir", clique em "Procurar" e escolha "Autoridades de Certificação Raiz Confiáveis".',
     'Clique em "Concluir" e confirme o aviso de segurança com "Sim".',
-    'Feche e abra de novo o navegador e toque em "Continuar com HTTPS".',
+    'Feche e abra de novo o navegador e clique em "Continuar com HTTPS".',
   ],
   android: [
     'Toque em "Baixar certificado do MLab".',
