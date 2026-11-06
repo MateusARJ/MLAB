@@ -42,3 +42,8 @@ apps/backend/tls-dev/
 # ── Scratch / Temp scripts ─────────────────────────────
 scratch/
 .gotmp/
+
+# ── CA local da edição MLab HTTPS (ADR 0008) ───────────
+# Chave privada da CA: nunca versionar.
+mlab-ca.key
+mlab-ca.crt
