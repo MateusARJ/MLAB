@@ -110,8 +110,23 @@ com a proteção ligada, e a captura cola corretamente.
 1. No celular, abra `http://mlab.local:8080` (ou o link `mdns_link` mostrado no app).
 2. Abra também pelo IP (`ip_link`).
 
-**OK quando:** os dois abrem a sala. Se `mlab.local` não resolver no celular (Android antigo não resolve mDNS),
-registre "N/E" com o modelo do celular e confirme que o IP funciona.
+**OK quando:** os dois abrem a sala num Android 12+ com Chrome (obrigatório) e num iPhone com Safari (se houver;
+senão "N/E"). Registre o modelo e a versão do sistema de cada aparelho.
+
+Fora de escopo (registre "N/E" com o motivo e confirme que o IP funciona): Firefox, que não resolve `.local`;
+Android anterior ao 12; Wi-Fi com isolamento de clientes ou filtro de mDNS na controladora (comum em rede
+corporativa/escolar).
+
+Se `mlab.local` não abrir num aparelho dentro do escopo, faça o diagnóstico antes de registrar falha:
+
+1. No PC do professor: `Resolve-DnsName mlab.local -Type A` deve devolver o IP do link `ip_link`. Se houver `dig`
+   (ex.: no WSL na mesma rede), `dig -p 5353 @224.0.0.251 mlab.local` simula a consulta do Android e deve responder.
+2. Log do backend: precisa ter `[mDNS] Servidor mDNS ativo ... (Interface: Wi-Fi|Ethernet)`. Interface virtual
+   (VMware, Hyper-V, WSL) ou aviso de porta 5353 indica problema no PC, não no celular.
+3. Firewall do Windows: o backend precisa receber UDP 5353 no perfil de rede ativo (se a rede estiver como
+   "Pública", libere o app nesse perfil).
+4. Se o IP abre e os itens 1 a 3 estão ok, a rede provavelmente bloqueia multicast entre clientes: registre como
+   fora de escopo, com o nome da rede.
 
 ## A17 — Acesso via ngrok
 
