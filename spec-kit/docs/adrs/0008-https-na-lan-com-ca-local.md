@@ -1,10 +1,14 @@
 # ADR 0008 — HTTPS na LAN com autoridade certificadora (CA) local
 
-Status: PROPOSED
+Status: APROVADA — somente para a edição isolada "MLab HTTPS" (branch `feat/https-lan`)
 Data: 2026-11-06
 Feature impactada: `003-classroom-interaction` (links da sala, download de arquivos), nova feature `011-https-lan`
 Complementa: ADR 0005 (LAN offline), com exceção pontual à regra "sem persistência" (só material criptográfico)
 Issue: #47
+
+> **Escopo da aprovação:** esta decisão vale só para a edição **MLab HTTPS**, mantida na branch `feat/https-lan` e
+> **não mergeada na `development`**. O MLab principal continua em HTTP como define a ADR 0005. O professor escolhe
+> qual das duas edições instalar.
 
 ## Contexto
 
@@ -72,6 +76,11 @@ decisão de segurança e infraestrutura e exige ADR.
    para a TI distribuir por política (ex.: GPO) nos PCs gerenciados.
 6. **Ativação.** O TLS fica ligado no app empacotado e é opcional no modo de desenvolvimento (`MLAB_TLS`), para não
    quebrar `npm run dev`. O ngrok (Opção D) continua disponível.
+7. **Edição separada.** A edição tem nome de produto e identificador próprios ("MLab HTTPS",
+   `com.mlab.classroom.https`). Por isso pode ser instalada ao lado do MLab normal, com dados (e CA) separados. Só não
+   devem rodar ao mesmo tempo, porque usam as mesmas portas.
+8. **Sem caminho HTTP para o aluno.** A página de instalação oferece o botão **"Continuar com HTTPS"**, que testa de
+   novo a confiança e redireciona. Não há opção de seguir a aula pelo HTTP nesta edição.
 
 ## Consequências
 
@@ -88,6 +97,8 @@ decisão de segurança e infraestrutura e exige ADR.
 - **Exceção à ADR 0005 ("sem persistência"):** a CA (certificado e chave) fica em disco entre execuções. Nenhum dado de
   aula passa a ser persistido.
 - **Reinstalar o app ou apagar o `userData` gera uma CA nova**, e os alunos precisam instalar de novo.
+- O próprio certificado da CA é baixado pelo HTTP (ainda não há confiança), então o navegador pode avisar nesse único
+  download. A página orienta o aluno a escolher "Manter" e a conferir a impressão digital.
 - Nova porta de rede (`8443`) para liberar no firewall junto com a `8080`.
 - Risco residual: quem obtiver a chave da CA e estiver na mesma LAN pode personificar nomes `.local` e IPs privados
   para os aparelhos que confiam nela. Mitigado por Name Constraints, permissão de arquivo e CA por instalação. As
@@ -105,5 +116,5 @@ decisão de segurança e infraestrutura e exige ADR.
 
 ## Aprovação humana
 
-- Responsável:
-- Data:
+- Responsável: MateusARJ. Aprovou a opção B e pediu a implementação como edição isolada, fora da `development`.
+- Data: 2026-11-06
