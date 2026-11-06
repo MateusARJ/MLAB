@@ -57,8 +57,8 @@
     "vitest": "^2.0.5"
   },
   "build": {
-    "appId": "com.mlab.classroom",
-    "productName": "MLab",
+    "appId": "com.mlab.classroom.https",
+    "productName": "MLab HTTPS",
     "electronVersion": "31.7.7",
     "copyright": "Copyright © 2026 Mateus de Araujo",
     "publish": {
@@ -100,8 +100,8 @@
       "include": "installer/installer.nsh",
       "perMachine": true,
       "allowToChangeInstallationDirectory": true,
-      "shortcutName": "MLab",
-      "uninstallDisplayName": "MLab",
+      "shortcutName": "MLab HTTPS",
+      "uninstallDisplayName": "MLab HTTPS",
       "deleteAppDataOnUninstall": true,
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true
@@ -131,10 +131,10 @@
       "icon": "resources/icon-dark.png",
       "artifactName": "${productName}-Linux-${version}.${ext}",
       "maintainer": "MLab Team <contato@mlab.com>",
-      "synopsis": "MLab Classroom - Aplicativo Desktop do Professor",
+      "synopsis": "MLab HTTPS - Aplicativo Desktop do Professor (HTTPS na rede local)",
       "description": "Plataforma de transmissão de tela e interação para aulas ao vivo",
       "desktop": {
-        "Name": "MLab",
+        "Name": "MLab HTTPS",
         "Type": "Application",
         "Categories": "Education;AudioVideo;"
       },
