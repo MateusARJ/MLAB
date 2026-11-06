@@ -25,7 +25,7 @@ type RoomCloseBroadcasterFunc func(roomID string)
 // Handler agrupa os endpoints HTTP do módulo room.
 type Handler struct {
 	store                Store
-	baseURL              string // ex: https://screenshare.example.com
+	baseURL              string // ex: https://mlab.example.com
 	fileStore            *FileStore
 	fileBroadcaster      FileBroadcasterFunc
 	roomCloseBroadcaster RoomCloseBroadcasterFunc
