@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { createRoom } from '../services/room';
 import { useRoomLinks } from '../hooks/useRoomLinks';
+import { caCertificateUrl, getTlsInfo, type TlsInfo } from '../services/tls';
 import {
   Button,
   IconButton,
@@ -12,6 +13,8 @@ import {
   Exit,
   BrandMark,
   ThemeToggle,
+  Security,
+  Download,
   colors,
   typography,
 } from '@mlab/ui';
@@ -49,6 +52,18 @@ export const Dashboard: React.FC<DashboardProps> = ({ onEnterRoom, onLogout }) =
   const [error, setError] = useState<string | null>(null);
   // Links com o nome mDNS realmente anunciado, relidos a cada 10 s (012, RF-127/RF-128)
   const { links, notice: linkNotice, dismissNotice } = useRoomLinks(currentRoom);
+  const [tlsInfo, setTlsInfo] = useState<TlsInfo | null>(null);
+
+  // Edição MLab HTTPS (011, RF-1108): impressão digital da CA local para os alunos conferirem.
+  useEffect(() => {
+    let cancelled = false;
+    getTlsInfo().then((info) => {
+      if (!cancelled) setTlsInfo(info);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   // Permite abrir a sala pressionando Enter assim que os links forem gerados
   useEffect(() => {
@@ -246,6 +261,38 @@ export const Dashboard: React.FC<DashboardProps> = ({ onEnterRoom, onLogout }) =
               )}
             </div>
           </div>
+
+          {tlsInfo?.fingerprint && (
+            <section
+              className="ml-panel"
+              data-testid="https-card"
+              aria-labelledby="https-card-title"
+            >
+              <div className="ml-panel__head" style={styles.httpsHeader}>
+                <Security size={18} style={{ color: colors.accent, flexShrink: 0 }} />
+                <h2 id="https-card-title" style={styles.panelTitle}>
+                  HTTPS na rede local
+                </h2>
+              </div>
+              <div className="ml-panel__body" style={styles.panelBody}>
+                <p style={styles.panelEmpty}>
+                  Na primeira vez, cada aluno instala o certificado do MLab no aparelho. O link da sala mostra o passo a
+                  passo e depois abre a aula em HTTPS. Peça para conferirem esta impressão digital:
+                </p>
+                <code data-testid="https-fingerprint" style={styles.httpsFingerprint}>
+                  {tlsInfo.fingerprint}
+                </code>
+                <a
+                  href={caCertificateUrl(tlsInfo)}
+                  download="mlab-ca.crt"
+                  data-testid="export-ca"
+                  style={styles.httpsExport}
+                >
+                  <Download size={16} /> Exportar certificado (para a TI do laboratório)
+                </a>
+              </div>
+            </section>
+          )}
         </aside>
       </main>
 
@@ -300,7 +347,23 @@ const styles: { [key: string]: React.CSSProperties } = {
   },
   pageForm: { flex: 1, display: 'flex', flexDirection: 'column' },
   formCol: { display: 'flex', flexDirection: 'column', gap: '40px', minWidth: 0 },
-  sideCol: { minWidth: 0 },
+  sideCol: { minWidth: 0, display: 'flex', flexDirection: 'column', gap: '16px' },
+  httpsHeader: { display: 'flex', alignItems: 'center', gap: '8px' },
+  httpsFingerprint: {
+    fontFamily: 'Consolas, "Courier New", monospace',
+    fontSize: '18px',
+    letterSpacing: '0.08em',
+    color: colors.textPrimary,
+    overflowWrap: 'anywhere',
+  },
+  httpsExport: {
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: '6px',
+    fontSize: 'var(--fs-small)',
+    color: colors.accent,
+    textDecoration: 'none',
+  },
   pageTitle: { fontSize: 'var(--fs-title)', lineHeight: 1.2, fontWeight: 700, letterSpacing: '-0.01em', margin: 0 },
   pageSub: { fontSize: 'var(--fs-body)', color: colors.textSecondary, margin: '8px 0 0' },
   block: { display: 'flex', flexDirection: 'column', gap: '16px' },

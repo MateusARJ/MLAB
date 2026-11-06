@@ -51,9 +51,10 @@ if (process.platform === 'win32') {
 }
 
 
-// Registra o AppUserModelId no Windows para agrupar e exibir a logo na Barra de Tarefas
+// Registra o AppUserModelId no Windows para agrupar e exibir a logo na Barra de Tarefas.
+// Edição MLab HTTPS (011, RF-1109): identificador próprio, igual ao appId do electron-builder.
 if (process.platform === 'win32') {
-  app.setAppUserModelId('com.mlab.classroom')
+  app.setAppUserModelId('com.mlab.classroom.https')
 }
 
 function logApp(msg: string): void {
@@ -600,7 +601,8 @@ async function startBackendServer(): Promise<void> {
     binaryPath,
     cwd: app.getPath('userData'),
     env: buildBackendEnv({
-      base: process.env,
+      // Edição MLab HTTPS (ADR 0008, 011/RF-1109): CA local em <userData>/tls e HTTPS na 8443.
+      base: { ...process.env, MLAB_TLS: '1', WEB_TLS_PORT: '8443' },
       webDir,
       parentPid: process.pid,
       // Log persistente do backend, ao lado do mlab-main.log (RF-3414).
