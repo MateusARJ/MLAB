@@ -1,4 +1,4 @@
-# Constituição do Projeto — ScreenShare Classroom
+# Constituição do Projeto — MLab
 
 ## Princípio I — Especificação antes da implementação
 

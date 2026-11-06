@@ -31,7 +31,7 @@ O sistema é uma plataforma de transmissão de tela para aula ao vivo, composta 
 - **Backend Go** (HTTP/WebSocket + SFU Pion): autenticação, salas, sinalização, chat em tempo real e encaminhamento de mídia via SFU.
 - Alunos consumindo a mídia em tempo real sem publicar câmera ou microfone.
 - Chat de texto em tempo real acessível a todos os participantes da sala (estilo Jitsi).
-- Operação primária em rede local offline, com estado em memória e TURN opcional (ADR 0005). Persistência (PostgreSQL) só com nova spec e nova ADR.
+- Operação primária em rede local offline, com estado em memória e TURN opcional (ADR 0005). Não há banco de dados; persistência só com nova spec e nova ADR.
 
 ### Estrutura do repositório (Monorepo Turborepo — ADR 0001)
 
@@ -182,8 +182,9 @@ Uma tarefa nunca pode expandir o Scope Lock por conta própria.
 
 ### Persistência
 
-- PostgreSQL somente onde a spec exigir persistência.
-- Alteração de schema exige contrato e decisão registrada na feature.
+- O MLab não tem banco de dados: salas, chat, arquivos e sessões vivem em memória e somem quando o backend
+  embarcado encerra (ADR 0005).
+- Qualquer persistência exige nova spec e nova ADR antes de implementar.
 
 ## 7. Regras de WebRTC e desempenho
 

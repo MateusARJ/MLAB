@@ -83,8 +83,10 @@ Infraestrutura:
 
 ## 4. Estrutura do Repositório
 
+Estrutura planejada para a 001. A árvore real e atual do monorepo está em `AGENTS.md` §2.
+
 ```text
-screenshare/
+mlab/
 ├── turbo.json
 ├── package.json                    ← npm workspaces root
 ├── .gitignore
@@ -98,7 +100,7 @@ screenshare/
 │   │   │   └── renderer/           ← React UI
 │   │   │       ├── components/
 │   │   │       ├── pages/
-│   │   │       │   ├── Login.tsx
+│   │   │       │   ├── ProfessorEntry.tsx   ← entrada por nome (ADR 0006)
 │   │   │       │   ├── Dashboard.tsx
 │   │   │       │   └── Room.tsx
 │   │   │       ├── hooks/

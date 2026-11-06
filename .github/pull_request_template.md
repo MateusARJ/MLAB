@@ -22,9 +22,8 @@ Exemplos:
 - [ ] Web App dos Alunos (`apps/web` — React + Vite)
 - [ ] Backend & SFU (`apps/backend` — Go + Pion WebRTC)
 - [ ] Pacotes Compartilhados (`packages/types`, `packages/ui`)
-- [ ] Banco de dados ou migrations (PostgreSQL)
 - [ ] Documentação ou Especificações (`spec-kit`, `docs/`)
-- [ ] Configuração, deploy ou infraestrutura (Turborepo, coturn, Docker)
+- [ ] Configuração, deploy ou infraestrutura (Turborepo, electron-builder, scripts de build)
 
 ## Mudanca sensivel
 
@@ -32,9 +31,9 @@ Exemplos:
 
 - [ ] Arquitetura (exige aprovação prévia de ADR)
 - [ ] WebRTC / SFU Pion (pipeline de mídia ou sinalização)
-- [ ] Autenticação ou autorização (JWT, senhas, tokens de sala)
-- [ ] Banco de dados ou contratos de persistência
-- [ ] Infraestrutura, TURN (coturn) ou portas de rede
+- [ ] Autenticação ou autorização (JWT, chave de host, tokens de sala)
+- [ ] Contratos entre módulos (`contracts/`: API HTTP, WebSocket ou IPC)
+- [ ] Infraestrutura, TURN opcional ou portas de rede (ex.: UDP 5353 do mDNS)
 - [ ] Regra de negócio crítica (RN-01 a RN-020)
 - [ ] Documento oficial do projeto (`AGENTS.md`, `spec.md`, `constitution`)
 - [ ] Não se aplica

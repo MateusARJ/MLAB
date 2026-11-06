@@ -18,8 +18,9 @@ var (
 	ErrNotOwner           = errors.New("professor não é dono desta sala")
 )
 
-// Store é a interface de persistência do módulo room.
-// Implementação concreta: inMemoryStore (dev) → PostgreSQL store (produção).
+// Store é a interface de armazenamento do módulo room.
+// Implementação única: inMemoryStore. O MLab não tem banco de dados; o estado vive em memória durante a
+// execução do backend embarcado (ADR 0005).
 type Store interface {
 	// Sala
 	CreateRoom(ctx context.Context, room *Room) error
@@ -298,7 +299,8 @@ func slugify(input string) string {
 	return strings.Trim(b.String(), "-")
 }
 
-// slugFromEmail gera um slug fixo e amigável baseado no login/email do professor.
+// slugFromEmail gera um slug a partir da claim "email" do JWT do professor. Não existe login (ADR 0006): a
+// claim tem valor fixo e serve só de fallback quando o nome do professor não vem na requisição nem no token.
 func slugFromEmail(email string) string {
 	email = strings.TrimSpace(strings.ToLower(email))
 	if email == "" {

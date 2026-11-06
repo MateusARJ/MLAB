@@ -15,7 +15,7 @@ Resumo da solução técnica.
 | Linguagem | Go / TypeScript |
 | Transporte | HTTP / WebSocket / WebRTC |
 | SFU | Pion ou decisão registrada em ADR |
-| Persistência | PostgreSQL / N/A |
+| Persistência | em memória (ADR 0005); outra forma exige nova ADR |
 | Testes | unit / integration / e2e |
 
 ## 3. Architecture

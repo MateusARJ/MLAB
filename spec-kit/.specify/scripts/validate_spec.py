@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Valida gates mínimos de uma feature do ScreenShare Classroom."""
+"""Valida gates mínimos de uma feature do MLab."""
 from __future__ import annotations
 
 import re

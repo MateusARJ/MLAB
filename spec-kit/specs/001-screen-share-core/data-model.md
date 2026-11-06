@@ -5,14 +5,15 @@ Status: READY
 
 ## Entidades
 
-### Professor (credenciais de acesso ao app desktop)
+### Sessão do Professor (sem conta — ADR 0006)
 
 | Campo | Tipo | Obrigatório | Regras |
 |---|---|---|---|
-| id | UUID | sim | único, gerado pelo servidor |
-| email | string | sim | único; usado como login |
-| password_hash | string | sim | nunca exposto ao cliente |
-| created_at | timestamp | sim | gerado pelo servidor |
+| id | string | sim | identificador aleatório gerado a cada sessão (`sub` do JWT) |
+| name | string | sim | nome informado no app; origem do slug do professor (RN-06) |
+
+Não existe e-mail, senha ou cadastro de professor. A sessão só é emitida mediante a chave de host da execução
+(`contracts/auth.md`).
 
 ### Room
 
@@ -21,7 +22,7 @@ Status: READY
 | id | UUID | sim | único |
 | slug | string | sim | identificador amigável no link único |
 | status | enum | sim | waiting / publishing / closed |
-| owner_id | UUID | sim | FK → Professor; somente ele pode publicar |
+| owner_id | string | sim | id da sessão do professor que criou a sala; somente ele pode publicar |
 | max_participants | int | sim | padrão 50; configurável |
 | created_at | timestamp | sim | gerado pelo servidor |
 | closed_at | timestamp | não | preenchido ao encerrar |
@@ -65,6 +66,7 @@ Status: READY
 ## Observações
 
 - `student_id` é um campo de texto livre nesta versão; sem validação contra banco da instituição.
-- `ChatMessage` é persistida no PostgreSQL para exibir histórico ao aluno que entra durante a aula.
-- Métricas de `Session` podem ser armazenadas em memória e opcionalmente em banco para análise posterior.
+- Não há banco de dados (ADR 0005): todas as entidades vivem em memória no backend embarcado e somem quando ele
+  encerra. `ChatMessage` não tem histórico retroativo para quem entra depois (RN-18).
+- Métricas de `Session` ficam em memória; análises posteriores usam os relatórios de `docs/metrics/`.
 - Campos de matrícula e nome são validados como não-vazios no servidor; a UI impede campos em branco, mas o servidor nunca confia apenas na validação do cliente.
