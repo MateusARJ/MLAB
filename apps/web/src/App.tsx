@@ -4,6 +4,7 @@ import { Join } from './pages/Join'
 import { Room } from './pages/Room'
 import { getActiveRoom } from './services/api'
 import { BrandMark } from '@mlab/ui'
+import { TlsGate } from './components/TlsGate'
 
 /**
  * Roteamento do web app dos alunos.
@@ -32,6 +33,7 @@ export default function App(): React.ReactElement {
   }, [])
 
   return (
+    <TlsGate>
     <Routes>
       <Route
         path="/:roomName/:professorName/entrar"
@@ -56,6 +58,7 @@ export default function App(): React.ReactElement {
         element={<RootRedirect />}
       />
     </Routes>
+    </TlsGate>
   )
 }
 
