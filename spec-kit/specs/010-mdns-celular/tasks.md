@@ -40,10 +40,10 @@ Checks:
 - [x] A16 lista os limites reais (Firefox, Android < 12, isolamento de AP, firewall do Windows) e o diagnóstico rápido; `Resolve-DnsName mlab.local -Type A` conferido contra o servidor (devolveu o IP da Wi-Fi). Commit `f8375e8`.
 
 ### T104 — Verificação manual (A16) e converge
-[ ] T104
+[x] T104
 Depends On: T102, T103
 Allowed Paths: `spec-kit/specs/010-mdns-celular/**`
 Prohibited Paths: `apps/**`, `packages/**`
 Checks:
-- [ ] A16 executado: `mlab.local` abre a sala num Android 12+ (Chrome); iOS (Safari) ou "N/E"; link por IP segue.
-- [ ] `converge.md` com o resultado, as pendências e o nível de versão (PATCH).
+- [x] A16 executado: `mlab.local` abre a sala no Chrome e no Safari de celulares de alunos (responsável, 2026-11-06). Link por IP não foi reverificado: código intocado (`handler.go`).
+- [x] `converge.md` com o resultado, as pendências e o nível de versão (PATCH, 1.8.1). Resultado: CONVERGED.
