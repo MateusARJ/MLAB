@@ -112,7 +112,7 @@ ADR: `spec-kit/docs/adrs/0008-https-na-lan-com-ca-local.md` (aprovada para a edi
 - [x] Princípio V — `contracts/tls.md` novo.
 - [x] Princípio VI — Scope Lock e paths por task.
 - [x] Princípio VII — um pacote pequeno e testável; nenhuma abstração sem consumidor.
-- [ ] Princípio VIII — converge ao final (T1106).
+- [x] Princípio VIII — converge registrado (T1106).
 
 ## 5. Decision Log
 
