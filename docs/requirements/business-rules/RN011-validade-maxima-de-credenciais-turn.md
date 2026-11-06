@@ -7,7 +7,7 @@
 
 ##  Regra de Negócio
 
-As credenciais temporárias do servidor TURN têm validade máxima de 24 horas e são geradas via algoritmo HMAC-SHA1.
+Quando o TURN estiver habilitado (opcional — ADR 0005), as credenciais temporárias têm validade máxima de 24 horas e são geradas via algoritmo HMAC-SHA1.
 
 ---
 
