@@ -17,6 +17,7 @@ import (
 	"github.com/MateusARJ/MLAB/apps/backend/internal/auth"
 	"github.com/MateusARJ/MLAB/apps/backend/internal/room"
 	"github.com/MateusARJ/MLAB/apps/backend/internal/signaling"
+	"github.com/MateusARJ/MLAB/apps/backend/internal/tlsca"
 	"github.com/MateusARJ/MLAB/apps/backend/internal/webrtc"
 )
 
@@ -51,15 +52,34 @@ func main() {
 		log.Printf("AVISO: %s não configurado: sessões de professor serão recusadas. Inicie pelo app MLab ou por `npm run dev`.", auth.HostKeyEnv)
 	}
 
+	// HTTPS na LAN com CA local (edição MLab HTTPS — ADR 0008, feature 011).
+	ca, tlsPort, err := loadTLSFromEnv()
+	if err != nil {
+		log.Fatalf("erro ao preparar o HTTPS: %v", err)
+	}
+
 	handler, err := newServer(serverConfig{
 		UDPPortMin: 50000,
 		UDPPortMax: 50100,
 		NAT1To1IP:  room.GetPrimaryPhysicalIP(),
 		WebDir:     resolveWebDir(),
 		DevWebPort: resolveDevWebPort(),
+		TLS:        ca,
+		TLSPort:    tlsPort,
 	})
 	if err != nil {
 		log.Fatalf("%v", err)
+	}
+
+	var tlsServer *http.Server
+	if ca != nil {
+		tlsServer = newTLSServer(tlsPort, handler, ca)
+		go func() {
+			log.Printf("MLab backend escutando HTTPS em :%s", tlsPort)
+			if err := tlsServer.ListenAndServeTLS("", ""); err != nil && err != http.ErrServerClosed {
+				log.Fatalf("erro no servidor HTTPS: %v", err)
+			}
+		}()
 	}
 
 	addr := ":" + port
@@ -85,6 +105,9 @@ func main() {
 	if err := gracefulShutdown(srv, gracefulShutdownTimeout, room.StopMDNSServer); err != nil {
 		log.Printf("[Lifecycle] encerramento gracioso excedeu %s; conexões fechadas à força: %v", gracefulShutdownTimeout, err)
 	}
+	if tlsServer != nil {
+		_ = tlsServer.Close()
+	}
 	log.Printf("[Lifecycle] encerrado em %s (motivo: %s)", time.Since(started).Round(time.Millisecond), reason)
 }
 
@@ -97,6 +120,9 @@ type serverConfig struct {
 	// DevWebPort, quando preenchida (modo de desenvolvimento), faz a rota "/" redirecionar para o servidor
 	// do Vite nessa porta em vez de servir o build de WebDir (008-dev-entrada-unica-web).
 	DevWebPort string
+	// TLS é a CA local da edição MLab HTTPS (nil = HTTPS desligado) e TLSPort a porta HTTPS (011, RF-1103/RF-1104).
+	TLS     *tlsca.CA
+	TLSPort string
 }
 
 // newServer monta store, SFU, handlers, ligações entre eles e rotas, e devolve o handler HTTP com CORS.
@@ -178,6 +204,9 @@ func newServer(cfg serverConfig) (http.Handler, error) {
 
 	// WebSocket: GET /ws/rooms/{id}/signal?token=<jwt>
 	sigHandler.RegisterRoutes(mux)
+
+	// HTTPS na LAN: /tls/info, /tls/ok e /mlab-ca.crt (011, RF-1104/RF-1105).
+	registerTLSRoutes(mux, cfg.TLS, cfg.TLSPort, cfg.DevWebPort == "")
 
 	// Servidor SPA do Aluno (Frontend Web). No modo de desenvolvimento a página é do Vite: a 8080 redireciona
 	// para ele, para não servir o build antigo de apps/web/dist como segunda entrada (008, RF-801/RF-803).
