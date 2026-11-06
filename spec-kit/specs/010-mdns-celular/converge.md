@@ -3,7 +3,7 @@
 Feature: `010-mdns-celular`
 Mode: READ-ONLY sobre o código (só este arquivo é escrito)
 Data: 2026-11-06
-Commit avaliado: `6bedc82`
+Commit avaliado: `4ed017c`
 Status: CONVERGED
 
 ## Entradas
@@ -18,7 +18,7 @@ Status: CONVERGED
 
 | Requisito | Evidência (arquivo, teste ou commit) |
 |---|---|
-| RF-101 | `pion/mdns/v2` em `mdns.go` (`da62529`); `TestMDNSRespondeConsultaLegacyUnicast` falha com a v0.0.12 (`c7d1cf4`) e passa com a v2; A16: `mlab.local` abriu a sala no Chrome e no Safari de celulares de alunos |
+| RF-101 | `pion/mdns/v2` em `mdns.go` (`78c5d5d`); `TestMDNSRespondeConsultaLegacyUnicast` falha com a v0.0.12 (`991c954`) e passa com a v2; A16: `mlab.local` abriu a sala no Chrome e no Safari de celulares de alunos |
 | RF-102 | `TestMDNSServerLifecycleAndQuery` verde; `Resolve-DnsName mlab.local -Type A` no Windows devolveu o IP da Wi-Fi |
 | RF-103 | subteste AAAA de `TestMDNSRespondeConsultaLegacyUnicast`; `mdns.Server` da v2 limita a A/AAAA e não responde A a pergunta AAAA |
 | RNF-101 | `StartMDNSServer` mantém aviso em log e retorno de erro quando a 5353 falha; `handler.go` intocado |
@@ -54,18 +54,24 @@ Status: CONVERGED
   backend anuncia `mlab.local` com o próprio IP, sem sondagem nem detecção de conflito (RFC 6762 §8); o celular
   fica com a resposta que chegar primeiro. O link com caminho (`/<sala>/<professor>/entrar`) que cair no backend
   errado mostra "sala não encontrada"; a raiz `mlab.local:8080/` redireciona para a sala ativa do backend que
-  respondeu, ou seja, pode levar o aluno para a aula de outro professor. Exige feature própria (ex.: sondar o nome
-  antes de anunciar e usar `mlab-<professor>.local`, já anunciado hoje, no link).
+  respondeu, ou seja, pode levar o aluno para a aula de outro professor. Exige feature própria: issue #37
+  (nomes numerados: 1º professor `mlab.local`, 2º `mlab-2.local`, e assim por diante).
 
-## 7. Impacto de versão
+## 7. Desvios registrados
+
+| Issue | Labels | Bloqueante? | Situação |
+|---|---|---|---|
+| #37 | enhancement, desvio, area:backend | não | aberta |
+
+## 8. Impacto de versão
 
 Classificação pelo escopo de `docs/versionamento.md` §2 (ADR 0007).
 
 | Nível | Versão resultante | Justificativa |
 |---|---|---|
-| PATCH | 1.8.1 | Correção de capacidade existente (RF-312 da 003) e troca de dependência, sem requisito de produto novo, sem mudança de contrato nem de fluxo. |
+| PATCH | 1.9.1 | Correção de capacidade existente (RF-312 da 003) e troca de dependência, sem requisito de produto novo, sem mudança de contrato nem de fluxo. |
 
-## 8. Resultado
+## 9. Resultado
 
 - [ ] OPEN — há gaps registrados acima com encaminhamento definido.
 - [x] CONVERGED — requisitos da 010 atendidos e verificados; o item da seção 6 é anterior à 010 e fica para
