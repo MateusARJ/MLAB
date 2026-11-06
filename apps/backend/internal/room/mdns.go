@@ -7,7 +7,7 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/pion/mdns"
+	"github.com/pion/mdns/v2"
 	"golang.org/x/net/ipv4"
 )
 
@@ -120,7 +120,11 @@ func StartMDNSServer(profSlug string, ipStr string) (*MDNSServer, error) {
 		localNames = append(localNames, profHostName)
 	}
 
-	server, err := mdns.Server(packetConn, &mdns.Config{
+	// A pion/mdns v2 responde por unicast às consultas feitas de porta diferente da 5353 ("legacy unicast",
+	// RFC 6762 §6.7) e às que pedem resposta unicast (bit QU), ecoando o ID e a pergunta. É assim que o
+	// resolvedor .local do Android pergunta; a v0.0.12 só respondia por multicast e o celular não recebia.
+	// Só IPv4: o socket IPv6 fica nulo.
+	server, err := mdns.Server(packetConn, nil, &mdns.Config{
 		LocalNames:   localNames,
 		LocalAddress: ip.To4(),
 		Interfaces:   ifacesToUse,
