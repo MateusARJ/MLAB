@@ -7,19 +7,19 @@ Status: READY-FOR-IMPLEMENTATION
 Regra de cada task de código: `go vet ./...` e `go test ./...` em `apps/backend` verdes antes do `[x]`.
 
 ### T101 — Teste de regressão da consulta *legacy unicast*
-[ ] T101
+[x] T101
 Allowed Paths: `apps/backend/internal/room/mdns_test.go`
 Prohibited Paths: `apps/backend/internal/room/mdns.go`, `apps/backend/go.mod`, `apps/web/**`, `apps/desktop/**`,
 `packages/**`
 Checks:
-- [ ] Consulta A `mlab.local` com ID ≠ 0, de porta efêmera, para `224.0.0.251:5353`; exige resposta unicast nessa
+- [x] Consulta A `mlab.local` com ID ≠ 0, de porta efêmera, para `224.0.0.251:5353`; exige resposta unicast nessa
   porta com o mesmo ID, a pergunta ecoada e A = IP anunciado (RF-101).
-- [ ] Consulta AAAA não recebe registro A (RF-103).
-- [ ] `t.Skip` quando a 5353 ou o multicast não estiverem disponíveis.
-- [ ] Evidência de que o teste falha com a `pion/mdns v0.0.12`.
+- [x] Consulta AAAA não recebe registro A (RF-103).
+- [x] `t.Skip` quando a 5353 ou o multicast não estiverem disponíveis.
+- [x] Evidência: com a v0.0.12, `TestMDNSRespondeConsultaLegacyUnicast` falha com "nenhuma resposta unicast à consulta legacy de mlab.local" (Windows 11, Wi-Fi, 2026-11-06; commit `c7d1cf4`).
 
 ### T102 — Migrar o responder para `pion/mdns/v2`
-[ ] T102
+[x] T102
 Depends On: T101
 Allowed Paths: `apps/backend/internal/room/mdns.go`, `apps/backend/internal/room/mdns_windows.go`,
 `apps/backend/internal/room/mdns_posix.go`, `apps/backend/go.mod`, `apps/backend/go.sum`
@@ -27,17 +27,17 @@ Prohibited Paths: `apps/backend/internal/room/handler.go`, `apps/backend/interna
 `apps/backend/internal/room/network.go`, `apps/backend/internal/webrtc/**`, `apps/web/**`, `apps/desktop/**`,
 `packages/**`
 Checks:
-- [ ] Import `github.com/pion/mdns/v2` v2.2.2; `github.com/pion/mdns` v0.0.12 removido do `go.mod`.
-- [ ] Socket, interfaces, nomes, `LocalAddress` e `Start/StopMDNSServer` sem mudança de comportamento (RF-102, RNF-101).
-- [ ] T101 e `TestMDNSServerLifecycleAndQuery` passam; `go vet ./...` e `go test ./...` verdes.
+- [x] Import `github.com/pion/mdns/v2` v2.2.2; `github.com/pion/mdns` v0.0.12 deixa de ser dependência direta (continua indireta via `pion/ice/v2` do `webrtc/v3`). `go mod tidy` também atualizou `x/net` 0.35, `x/sys` 0.41, `pion/logging` 0.2.4 e moveu `pion/rtp` para dependência direta (já era importado).
+- [x] Socket, interfaces, nomes, `LocalAddress` e `Start/StopMDNSServer` sem mudança de comportamento (RF-102, RNF-101).
+- [x] T101 e `TestMDNSServerLifecycleAndQuery` passam; `go vet ./...` e `go test ./...` verdes (6 pacotes); `GOOS=linux go vet ./...` e `GOOS=darwin go build ./...` ok. Commit `da62529`.
 
 ### T103 — Roteiro do smoke A16
-[ ] T103
+[x] T103
 Depends On: T102
 Allowed Paths: `docs/metrics/smoke-runbook.md`
 Prohibited Paths: `apps/**`, `packages/**`
 Checks:
-- [ ] A16 lista os limites reais (Firefox, Android < 12, isolamento de AP, firewall do Windows) e o diagnóstico rápido.
+- [x] A16 lista os limites reais (Firefox, Android < 12, isolamento de AP, firewall do Windows) e o diagnóstico rápido; `Resolve-DnsName mlab.local -Type A` conferido contra o servidor (devolveu o IP da Wi-Fi). Commit `f8375e8`.
 
 ### T104 — Verificação manual (A16) e converge
 [ ] T104
