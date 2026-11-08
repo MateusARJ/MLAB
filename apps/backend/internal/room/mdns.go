@@ -22,11 +22,24 @@ type MDNSServer struct {
 	localIP    string
 	mu         sync.Mutex
 	isClosed   bool
+
+	// Monitor de conflito (RF-125): stop é fechado no Close; done fecha quando a goroutine termina.
+	prober nameProber
+	ifaces []net.Interface
+	stop   chan struct{}
+	done   chan struct{}
 }
 
 var (
 	activeMDNSServer   *MDNSServer
 	activeMDNSServerMu sync.Mutex
+)
+
+// Reconsultas do próprio nome depois do anúncio (012, RF-125): +2 s, +5 s e depois a cada 60 s.
+// Variáveis para os testes poderem encurtar.
+var (
+	conflictCheckWaits = []time.Duration{2 * time.Second, 3 * time.Second}
+	conflictCheckEvery = 60 * time.Second
 )
 
 // newMDNSProber cria o prober usado para escolher o nome. Variável para os testes injetarem um prober falso.
@@ -99,7 +112,8 @@ func ClaimMDNSName(ipStr string) (string, error) {
 
 	candidates := mdnsCandidates(mdnsMaxNames)
 	inicio := time.Now()
-	taken, err := newMDNSProber(&ifacesToUse[0], ip.To4()).probe(candidates)
+	prober := newMDNSProber(&ifacesToUse[0], ip.To4())
+	taken, err := prober.probe(candidates)
 	if err != nil {
 		// Sem sondagem não há como ver os outros backends; anuncia o primeiro candidato e o monitor de conflito
 		// corrige depois, se for o caso.
@@ -121,6 +135,7 @@ func ClaimMDNSName(ipStr string) (string, error) {
 		return "", err
 	}
 	activeMDNSServer = m
+	m.startMonitor(prober)
 	return name, nil
 }
 
@@ -177,7 +192,91 @@ func startMDNSResponder(rawConn net.PacketConn, name, ipStr string, ifaces []net
 		rawConn:    rawConn,
 		localName:  name,
 		localIP:    ipStr,
+		ifaces:     ifaces,
+		stop:       make(chan struct{}),
+		done:       make(chan struct{}),
 	}, nil
+}
+
+// startMonitor inicia a goroutine que reconsulta o próprio nome e cede o nome em conflito (RF-125).
+func (m *MDNSServer) startMonitor(prober nameProber) {
+	m.prober = prober
+	go m.monitor()
+}
+
+// monitor reconsulta o nome anunciado em +2 s, +5 s e a cada 60 s. Se outra máquina responder pelo mesmo nome, o
+// IPv4 numericamente menor fica com ele: este backend cede (troca de nome) ou só registra o conflito em log.
+func (m *MDNSServer) monitor() {
+	defer close(m.done)
+	ownIP := net.ParseIP(m.localIP)
+
+	for i := 0; ; i++ {
+		wait := conflictCheckEvery
+		if i < len(conflictCheckWaits) {
+			wait = conflictCheckWaits[i]
+		}
+		select {
+		case <-m.stop:
+			return
+		case <-time.After(wait):
+		}
+
+		taken, err := m.prober.probe([]string{m.localName})
+		if err != nil {
+			continue
+		}
+		other, conflict := taken[m.localName]
+		if !conflict {
+			continue
+		}
+		if !yieldsName(ownIP, other) {
+			log.Printf("[mDNS] Conflito: %s também é anunciado por %s; este backend (%s) mantém o nome (IP menor).", m.localName, other, m.localIP)
+			continue
+		}
+		if m.yieldName(other) {
+			return
+		}
+	}
+}
+
+// yieldName troca o nome deste backend depois de um conflito perdido: sonda de novo com o nome atual marcado como
+// ocupado e anuncia o primeiro livre. Devolve verdadeiro quando este servidor deixou de ser o ativo.
+func (m *MDNSServer) yieldName(other net.IP) bool {
+	candidates := mdnsCandidates(mdnsMaxNames)
+	taken, err := m.prober.probe(candidates)
+	if err != nil || taken == nil {
+		taken = map[string]net.IP{}
+	}
+	taken[m.localName] = other
+
+	activeMDNSServerMu.Lock()
+	defer activeMDNSServerMu.Unlock()
+
+	if activeMDNSServer != m {
+		return true // já foi encerrado ou substituído por uma nova sala
+	}
+	_ = m.Close()
+	activeMDNSServer = nil
+
+	name, ok := chooseName(candidates, taken)
+	if !ok {
+		log.Printf("[mDNS] Conflito: %s é de %s e não há nome livre; sem anúncio, use o link por IP.", m.localName, other)
+		return true
+	}
+	rawConn, err := listenReusablePacketConn("0.0.0.0:5353")
+	if err != nil {
+		log.Printf("[mDNS] Aviso: Porta UDP 5353 não pôde ser associada ao trocar de nome: %v", err)
+		return true
+	}
+	next, err := startMDNSResponder(rawConn, name, m.localIP, m.ifaces)
+	if err != nil {
+		log.Printf("[mDNS] Aviso: falha ao anunciar %s: %v", name, err)
+		return true
+	}
+	activeMDNSServer = next
+	next.startMonitor(m.prober)
+	log.Printf("[mDNS] Conflito: %s também é anunciado por %s (IP menor); este backend passou a anunciar %s.", m.localName, other, name)
+	return true
 }
 
 // takenSummary formata os nomes ocupados para o log.
@@ -211,6 +310,9 @@ func (m *MDNSServer) Close() error {
 		return nil
 	}
 	m.isClosed = true
+	if m.stop != nil {
+		close(m.stop)
+	}
 
 	var firstErr error
 	if m.conn != nil {

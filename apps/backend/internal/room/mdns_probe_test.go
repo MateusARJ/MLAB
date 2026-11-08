@@ -3,6 +3,7 @@ package room
 import (
 	"net"
 	"reflect"
+	"sync"
 	"testing"
 	"time"
 )
@@ -158,6 +159,108 @@ func TestClaimMDNSNameEscolheNome(t *testing.T) {
 	t.Run("IP inválido", func(t *testing.T) {
 		if _, err := ClaimMDNSName("nao-e-ip"); err == nil || CurrentMDNSHost() != "" {
 			t.Fatalf("esperava erro e nenhum anúncio para IP inválido")
+		}
+	})
+}
+
+// proberMutavel permite mudar, durante o teste, os nomes que "outra máquina" anuncia.
+type proberMutavel struct {
+	mu    sync.Mutex
+	taken map[string]net.IP
+}
+
+func (p *proberMutavel) set(taken map[string]net.IP) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	p.taken = taken
+}
+
+func (p *proberMutavel) probe(names []string) (map[string]net.IP, error) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	out := map[string]net.IP{}
+	for _, n := range names {
+		if ip, ok := p.taken[n]; ok {
+			out[n] = ip
+		}
+	}
+	return out, nil
+}
+
+// monitorRapido encurta os intervalos do monitor de conflito e injeta o prober dado até o fim do teste.
+func monitorRapido(t *testing.T, p nameProber) {
+	t.Helper()
+	origProber, origWaits, origEvery := newMDNSProber, conflictCheckWaits, conflictCheckEvery
+	newMDNSProber = func(*net.Interface, net.IP) nameProber { return p }
+	conflictCheckWaits = []time.Duration{20 * time.Millisecond, 30 * time.Millisecond}
+	conflictCheckEvery = 50 * time.Millisecond
+	t.Cleanup(func() {
+		newMDNSProber, conflictCheckWaits, conflictCheckEvery = origProber, origWaits, origEvery
+	})
+}
+
+// esperaHost espera CurrentMDNSHost chegar ao valor dado.
+func esperaHost(want string, prazo time.Duration) string {
+	fim := time.Now().Add(prazo)
+	for {
+		got := CurrentMDNSHost()
+		if got == want || time.Now().After(fim) {
+			return got
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+}
+
+// TestMonitorDeConflitoCedeOuMantemNome cobre RF-125 com prober falso (só o socket 5353 é real).
+func TestMonitorDeConflitoCedeOuMantemNome(t *testing.T) {
+	ip := GetPrimaryPhysicalIP()
+	if net.ParseIP(ip).To4() == nil {
+		t.Skipf("sem IPv4 de rede para o teste (IP detectado: %q)", ip)
+	}
+
+	t.Run("IP alheio menor: cede e troca de nome", func(t *testing.T) {
+		p := &proberMutavel{}
+		monitorRapido(t, p)
+		if _, err := ClaimMDNSName(ip); err != nil {
+			t.Skipf("Porta 5353 indisponível: %v", err)
+		}
+		defer StopMDNSServer()
+
+		p.set(map[string]net.IP{"mlab.local": net.ParseIP("0.0.0.1")})
+		if got := esperaHost("mlab-2.local", 2*time.Second); got != "mlab-2.local" {
+			t.Fatalf("esperava trocar para mlab-2.local depois do conflito, ficou com %q", got)
+		}
+	})
+
+	t.Run("IP alheio maior: mantém o nome", func(t *testing.T) {
+		p := &proberMutavel{}
+		monitorRapido(t, p)
+		if _, err := ClaimMDNSName(ip); err != nil {
+			t.Skipf("Porta 5353 indisponível: %v", err)
+		}
+		defer StopMDNSServer()
+
+		p.set(map[string]net.IP{"mlab.local": net.ParseIP("255.255.255.254")})
+		time.Sleep(300 * time.Millisecond) // várias reconsultas
+		if got := CurrentMDNSHost(); got != "mlab.local" {
+			t.Fatalf("com IP alheio maior, deveria manter mlab.local; ficou com %q", got)
+		}
+	})
+
+	t.Run("StopMDNSServer encerra o monitor", func(t *testing.T) {
+		monitorRapido(t, &proberMutavel{})
+		if _, err := ClaimMDNSName(ip); err != nil {
+			t.Skipf("Porta 5353 indisponível: %v", err)
+		}
+		activeMDNSServerMu.Lock()
+		m := activeMDNSServer
+		activeMDNSServerMu.Unlock()
+
+		StopMDNSServer()
+		select {
+		case <-m.done:
+		case <-time.After(time.Second):
+			t.Fatal("a goroutine do monitor continuou viva depois do StopMDNSServer")
 		}
 	})
 }
