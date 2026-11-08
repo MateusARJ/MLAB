@@ -128,6 +128,23 @@ Se `mlab.local` não abrir num aparelho dentro do escopo, faça o diagnóstico a
 4. Se o IP abre e os itens 1 a 3 estão ok, a rede provavelmente bloqueia multicast entre clientes: registre como
    fora de escopo, com o nome da rede.
 
+## A16b — Dois professores na mesma rede (`mlab.local` e `mlab-2.local`)
+
+Requer dois PCs com MLab **1.10.0 ou posterior** na mesma Wi-Fi (antes da 1.10.0 todo backend anuncia `mlab.local`;
+antes da 1.9.1 o backend nem responde à sondagem) e um celular Android 12+ com Chrome (iPhone com Safari, se houver).
+
+1. PC 1: crie uma sala. O Dashboard mostra o Link Fixo `http://mlab.local:8080`.
+2. PC 2: crie outra sala. O Dashboard mostra `http://mlab-2.local:8080`. No log do backend do PC 2:
+   `[mDNS] Nomes já em uso na rede: mlab.local=<IP do PC 1>; escolhido mlab-2.local`.
+3. No PC 2: `Resolve-DnsName mlab-2.local -Type A` devolve o IP do PC 2, e `Resolve-DnsName mlab.local -Type A`
+   devolve o do PC 1.
+4. No celular, abra os dois links: cada um abre a sala do próprio professor.
+5. Conflito: encerre as duas salas e crie-as ao mesmo tempo nos dois PCs. Em até ~10 s, um dos apps passa a mostrar
+   `mlab-2.local` com o aviso "O link fixo da sala mudou…" (o PC de IP maior cede o nome).
+
+**OK quando:** os dois professores veem links diferentes, cada link abre a própria sala no celular, e o conflito
+termina com nomes diferentes e aviso no app que trocou. Fora de escopo e diagnóstico: os mesmos do A16.
+
 ## A17 — Acesso via ngrok
 
 Sem conta ngrok: registre `"N/E"` com a justificativa "sem conta ngrok" (C-404).

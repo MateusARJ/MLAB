@@ -95,7 +95,7 @@ A arquitetura do MLab combina um aplicativo desktop para o professor, um servido
 
 - **Professor:** aplicativo desktop em Electron + React + TypeScript. O professor informa o nome (sem login), cria a sala, escolhe o monitor ou a janela, define a qualidade e transmite. O upload do professor é único: não cresce com o número de alunos.
 - **Servidor:** backend em Go com Pion WebRTC, iniciado pelo próprio aplicativo do professor. Atua como SFU (Selective Forwarding Unit), repassando os pacotes de vídeo e áudio sem decodificar nem recomprimir. Também mantém o WebSocket da sala, o histórico da aula em memória e os arquivos compartilhados.
-- **Alunos:** página web responsiva servida pelo backend na rede local. O aluno abre o link exibido no app do professor — no formato `http://<ip-do-professor>:8080/<sala>/<professor>/entrar` ou `http://mlab.local:8080/...` — e se identifica com Nome e Matrícula.
+- **Alunos:** página web responsiva servida pelo backend na rede local. O aluno abre o link exibido no app do professor — no formato `http://<ip-do-professor>:8080/<sala>/<professor>/entrar` ou `http://mlab.local:8080/...` (`mlab-2.local`, `mlab-3.local`… quando há outros professores na mesma rede) — e se identifica com Nome e Matrícula.
 
 ---
 
@@ -110,7 +110,7 @@ A arquitetura do MLab combina um aplicativo desktop para o professor, um servido
 ### Operação 100% Offline e Detecção de Rede
 - Funciona em salas sem conexão externa de internet; o estado da aula fica em memória (ADR 0005).
 - O backend descarta adaptadores virtuais (VMware, VirtualBox, WSL, Hyper-V, Docker, ZeroTier e VPNs) e identifica o IPv4 físico da interface Ethernet ou Wi-Fi da sala.
-- Anuncia `mlab.local` na rede via mDNS, como alternativa ao IP.
+- Anuncia `mlab.local` na rede via mDNS, como alternativa ao IP. Com vários professores na mesma rede, cada backend usa o primeiro nome livre (`mlab.local`, `mlab-2.local`, `mlab-3.local`…), e o app mostra o link com esse nome.
 
 ### Perfis de Qualidade Full HD 1080p (30 fps e 60 fps)
 - **1080p @ 30 fps (4,0 Mbps):** perfil padrão para programação, slides e código-fonte, com `contentHint = 'detail'` e `degradationPreference = 'maintain-resolution'`.

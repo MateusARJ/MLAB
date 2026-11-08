@@ -43,6 +43,7 @@ const MATRIX = [
   ['A14', 'Chat: palavrão mascarado, privado, fixar 3, histórico', ['backend', 'e2e-desktop']],
   ['A15', 'Levantar/abaixar mão; fila ordenada', ['backend', 'e2e-desktop', 'manual:A15_celular']],
   ['A16', 'Acesso via `mlab.local` e IP', ['manual']],
+  ['A16b', 'Dois professores na mesma rede: `mlab.local` e `mlab-2.local`', ['manual']],
   ['A17', 'Acesso via ngrok', ['manual']],
   ['A18', 'Queda do aluno → backoff; queda do professor → reconnecting 30 s', ['backend', 'e2e-desktop']],
   ['A19', 'Sessão duplicada do mesmo aluno → `4001`', ['backend']],

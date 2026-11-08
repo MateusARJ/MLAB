@@ -153,6 +153,9 @@ contratos, testes e tarefas rastreáveis.
 
 **Critérios de aceitação**
 - O backend anuncia `mlab.local` (e `mlab-<professor>.local`) via mDNS na porta UDP 5353; se a porta estiver ocupada, o link por IP continua funcionando.
+  - **Nota (012-mdns-nome-unico):** o nome passou a ser único por backend na rede (`mlab.local`, `mlab-2.local` …
+    `mlab-20.local`, o primeiro livre) e o alias `mlab-<professor>.local` deixou de ser anunciado (RF-121 a RF-126
+    da 012).
 - O IP anunciado é o da interface física (Ethernet/Wi-Fi), descartando adaptadores virtuais (VMware, VirtualBox, WSL, Hyper-V, Docker, ZeroTier, VPN).
 
 ## 5. Requisitos Funcionais
