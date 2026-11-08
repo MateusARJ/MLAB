@@ -7,8 +7,8 @@ describe('Room Component (Desktop)', () => {
   const dummyRoom = {
     id: 'room-101',
     slug: 'charlie-delta-7342',
-    link: 'http://mlab-charlie.local:3000',
-    mdnsLink: 'http://mlab-charlie.local:3000',
+    link: 'http://mlab-2.local:3000',
+    mdnsLink: 'http://mlab-2.local:3000',
     ipLink: 'http://192.168.1.100:3000',
   };
 
@@ -172,6 +172,13 @@ describe('Room Component (Desktop)', () => {
     await waitFor(() => {
       expect(screen.getByTitle(/Link Fixo Copiado/i)).toBeInTheDocument();
     });
+  });
+
+  it('deve esconder o Link Fixo no cabeçalho quando não há nome mDNS anunciado (012, RF-127)', () => {
+    render(<Room room={{ ...dummyRoom, link: dummyRoom.ipLink, mdnsLink: undefined }} onCloseRoom={vi.fn()} />);
+
+    expect(screen.queryByRole('button', { name: /Copiar Link Fixo/i })).not.toBeInTheDocument();
+    expect(screen.getByText(dummyRoom.ipLink)).toBeInTheDocument();
   });
 
   it('deve chamar onCloseRoom ao clicar em Encerrar Transmissão', async () => {
