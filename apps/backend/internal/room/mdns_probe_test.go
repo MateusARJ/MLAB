@@ -105,3 +105,59 @@ func TestLegacyProberDetectaNomeOcupado(t *testing.T) {
 	}
 	t.Logf("sondagem em %v: %v", duracao, taken)
 }
+
+// proberFalso devolve sempre os mesmos nomes ocupados, sem usar a rede.
+type proberFalso struct {
+	taken map[string]net.IP
+	err   error
+}
+
+func (p proberFalso) probe([]string) (map[string]net.IP, error) { return p.taken, p.err }
+
+// usaProberFalso troca o prober do claim por um falso até o fim do teste.
+func usaProberFalso(t *testing.T, taken map[string]net.IP) {
+	t.Helper()
+	original := newMDNSProber
+	newMDNSProber = func(*net.Interface, net.IP) nameProber { return proberFalso{taken: taken} }
+	t.Cleanup(func() { newMDNSProber = original })
+}
+
+// TestClaimMDNSNameEscolheNome cobre RF-122, RF-124 e RF-126 com prober falso (só o socket 5353 é real).
+func TestClaimMDNSNameEscolheNome(t *testing.T) {
+	ip := GetPrimaryPhysicalIP()
+	if net.ParseIP(ip).To4() == nil {
+		t.Skipf("sem IPv4 de rede para o teste (IP detectado: %q)", ip)
+	}
+	other := net.ParseIP("192.0.2.10")
+
+	t.Run("mlab.local ocupado", func(t *testing.T) {
+		usaProberFalso(t, map[string]net.IP{"mlab.local": other})
+		name, err := ClaimMDNSName(ip)
+		if err != nil {
+			t.Skipf("Porta 5353 indisponível: %v", err)
+		}
+		defer StopMDNSServer()
+		if name != "mlab-2.local" || CurrentMDNSHost() != "mlab-2.local" {
+			t.Fatalf("esperava mlab-2.local, obteve %q (CurrentMDNSHost=%q)", name, CurrentMDNSHost())
+		}
+	})
+
+	t.Run("todos ocupados", func(t *testing.T) {
+		taken := map[string]net.IP{}
+		for _, n := range mdnsCandidates(mdnsMaxNames) {
+			taken[n] = other
+		}
+		usaProberFalso(t, taken)
+		name, err := ClaimMDNSName(ip)
+		defer StopMDNSServer()
+		if err == nil || name != "" || CurrentMDNSHost() != "" {
+			t.Fatalf("esperava erro e nenhum anúncio, obteve (%q, %v), CurrentMDNSHost=%q", name, err, CurrentMDNSHost())
+		}
+	})
+
+	t.Run("IP inválido", func(t *testing.T) {
+		if _, err := ClaimMDNSName("nao-e-ip"); err == nil || CurrentMDNSHost() != "" {
+			t.Fatalf("esperava erro e nenhum anúncio para IP inválido")
+		}
+	})
+}

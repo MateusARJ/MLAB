@@ -12,29 +12,27 @@ import (
 )
 
 func TestMDNSServerLifecycleAndQuery(t *testing.T) {
-	server, err := StartMDNSServer("mateus", "192.168.1.89")
+	ip := GetPrimaryPhysicalIP()
+	if net.ParseIP(ip).To4() == nil {
+		t.Skipf("sem IPv4 de rede para o teste (IP detectado: %q)", ip)
+	}
+	usaProberFalso(t, nil)
+
+	name, err := ClaimMDNSName(ip)
 	if err != nil {
 		t.Skipf("Porta 5353 ocupada ou indisponível no ambiente de teste: %v", err)
 	}
 	defer StopMDNSServer()
 
+	if name != "mlab.local" || CurrentMDNSHost() != "mlab.local" {
+		t.Fatalf("esperava anunciar mlab.local numa rede vazia, obteve %q (CurrentMDNSHost=%q)", name, CurrentMDNSHost())
+	}
+
+	activeMDNSServerMu.Lock()
+	server := activeMDNSServer
+	activeMDNSServerMu.Unlock()
 	if server == nil {
-		t.Fatal("esperava servidor mDNS não nulo")
-	}
-
-	if server.localName != "mlab.local" {
-		t.Fatalf("localName esperado 'mlab.local', obteve '%s'", server.localName)
-	}
-
-	hasProf := false
-	for _, n := range server.localNames {
-		if n == "mlab-mateus.local" {
-			hasProf = true
-			break
-		}
-	}
-	if !hasProf {
-		t.Fatalf("esperava 'mlab-mateus.local' em server.localNames, obteve %v", server.localNames)
+		t.Fatal("esperava servidor mDNS ativo")
 	}
 
 	// Testa consulta mDNS com timeout
@@ -46,6 +44,11 @@ func TestMDNSServerLifecycleAndQuery(t *testing.T) {
 		t.Logf("Query mDNS retornou: %v (comum caso interface de teste não responda imediatamente)", err)
 	} else {
 		t.Logf("mDNS Query sucesso: %s de %v", answer.Name.String(), remoteAddr)
+	}
+
+	StopMDNSServer()
+	if got := CurrentMDNSHost(); got != "" {
+		t.Fatalf("CurrentMDNSHost deveria ficar vazio sem anúncio, obteve %q", got)
 	}
 }
 
@@ -76,7 +79,8 @@ func TestMDNSRespondeConsultaLegacyUnicast(t *testing.T) {
 		t.Skipf("sem interface física com IPv4 para o teste (IP detectado: %q)", ip)
 	}
 
-	if _, err := StartMDNSServer("mateus", ip); err != nil {
+	usaProberFalso(t, nil)
+	if _, err := ClaimMDNSName(ip); err != nil {
 		t.Skipf("Porta 5353 ocupada ou indisponível no ambiente de teste: %v", err)
 	}
 	defer StopMDNSServer()
@@ -168,8 +172,9 @@ func ipsRespondidos(respostas []dnsmessage.Message, id uint16, nome string) []st
 	return ips
 }
 
-// TestMDNSNaoDisputaNomeDeOutroBackend cobre RF-121 e RF-122 da feature 012: com outro backend já anunciando
-// mlab.local na rede, o backend não pode responder por mlab.local.
+// TestMDNSNaoDisputaNomeDeOutroBackend cobre RF-121, RF-122 e RF-124 da feature 012: com outro backend já
+// anunciando mlab.local na rede, o backend fica com mlab-2.local, que resolve para o IP dele, e não responde por
+// mlab.local.
 func TestMDNSNaoDisputaNomeDeOutroBackend(t *testing.T) {
 	ip := GetPrimaryPhysicalIP()
 	ifc := findInterfaceByIP(ip)
@@ -187,10 +192,21 @@ func TestMDNSNaoDisputaNomeDeOutroBackend(t *testing.T) {
 		t.Skip("o responder falso não respondeu à consulta legacy (multicast indisponível no ambiente)")
 	}
 
-	if _, err := StartMDNSServer("mateus", ip); err != nil {
+	inicio := time.Now()
+	host, err := ClaimMDNSName(ip)
+	duracao := time.Since(inicio)
+	if err != nil {
 		t.Skipf("Porta 5353 ocupada ou indisponível no ambiente de teste: %v", err)
 	}
 	defer StopMDNSServer()
+	t.Logf("nome escolhido %s em %v", host, duracao)
+
+	if host != "mlab-2.local" {
+		t.Fatalf("com mlab.local em uso, o backend deveria ficar com mlab-2.local; ficou com %q", host)
+	}
+	if duracao > 1500*time.Millisecond {
+		t.Errorf("claim levou %v; limite é 1,5 s (RNF-121)", duracao)
+	}
 	time.Sleep(200 * time.Millisecond)
 
 	const id = 0x4d02
@@ -199,5 +215,11 @@ func TestMDNSNaoDisputaNomeDeOutroBackend(t *testing.T) {
 		if got == ip {
 			t.Fatalf("o backend respondeu por mlab.local, já anunciado por outro backend (%s); respostas: %v", ipAlheio, ips)
 		}
+	}
+
+	const id2 = 0x4d03
+	ips2 := ipsRespondidos(consultaLegacy(t, ifc, id2, "mlab-2.local.", dnsmessage.TypeA, 2*time.Second), id2, "mlab-2.local.")
+	if len(ips2) == 0 || ips2[0] != ip {
+		t.Fatalf("mlab-2.local deveria resolver para %s; respostas: %v", ip, ips2)
 	}
 }

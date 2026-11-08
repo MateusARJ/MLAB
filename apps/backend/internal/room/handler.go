@@ -238,11 +238,11 @@ func (h *Handler) createRoom(w http.ResponseWriter, r *http.Request) {
 
 	lanIP := getOutboundIP()
 	if lanIP != "" && lanIP != "127.0.0.1" && lanIP != "localhost" {
-		go func(pSlug, ip string) {
-			if _, err := StartMDNSServer(pSlug, ip); err != nil {
+		go func(ip string) {
+			if _, err := ClaimMDNSName(ip); err != nil {
 				log.Printf("[mDNS] Aviso: falha ao registrar anúncio mDNS: %v", err)
 			}
-		}(room.ProfessorSlug, lanIP)
+		}(lanIP)
 	}
 
 	links := h.buildRoomLinks(r, room)
