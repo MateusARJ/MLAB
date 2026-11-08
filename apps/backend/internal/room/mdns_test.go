@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/pion/mdns/v2"
 	"golang.org/x/net/dns/dnsmessage"
 	"golang.org/x/net/ipv4"
 )
@@ -149,6 +150,84 @@ func TestMDNSRespondeConsultaLegacyUnicast(t *testing.T) {
 			if a.Header.Type == dnsmessage.TypeA {
 				t.Fatalf("pergunta AAAA respondida com registro A (RF-103)")
 			}
+		}
+	}
+}
+
+// ipAlheio é o IP anunciado pelo responder falso que faz o papel do backend de outro professor (TEST-NET-1).
+const ipAlheio = "192.0.2.10"
+
+// iniciaResponderAlheio sobe, num segundo socket 5353 (SO_REUSEADDR), um responder pion/mdns/v2 que anuncia os
+// nomes dados com ipAlheio, como faria o backend de outro professor na mesma rede.
+func iniciaResponderAlheio(t *testing.T, ifc *net.Interface, nomes ...string) func() {
+	t.Helper()
+
+	raw, err := listenReusablePacketConn("0.0.0.0:5353")
+	if err != nil {
+		t.Skipf("Porta 5353 ocupada ou indisponível para o responder falso: %v", err)
+	}
+	srv, err := mdns.Server(ipv4.NewPacketConn(raw), nil, &mdns.Config{
+		LocalNames:   nomes,
+		LocalAddress: net.ParseIP(ipAlheio).To4(),
+		Interfaces:   []net.Interface{*ifc},
+	})
+	if err != nil {
+		_ = raw.Close()
+		t.Skipf("falha ao iniciar o responder falso: %v", err)
+	}
+	return func() {
+		_ = srv.Close()
+		_ = raw.Close()
+	}
+}
+
+// ipsRespondidos devolve os IPs das respostas A com o ID dado para o nome perguntado.
+func ipsRespondidos(respostas []dnsmessage.Message, id uint16, nome string) []string {
+	var ips []string
+	for _, r := range respostas {
+		if r.Header.ID != id {
+			continue
+		}
+		for _, a := range r.Answers {
+			body, ok := a.Body.(*dnsmessage.AResource)
+			if ok && a.Header.Name.String() == nome {
+				ips = append(ips, net.IP(body.A[:]).String())
+			}
+		}
+	}
+	return ips
+}
+
+// TestMDNSNaoDisputaNomeDeOutroBackend cobre RF-121 e RF-122 da feature 012: com outro backend já anunciando
+// mlab.local na rede, o backend não pode responder por mlab.local.
+func TestMDNSNaoDisputaNomeDeOutroBackend(t *testing.T) {
+	ip := GetPrimaryPhysicalIP()
+	ifc := findInterfaceByIP(ip)
+	if ifc == nil || net.ParseIP(ip).To4() == nil {
+		t.Skipf("sem interface física com IPv4 para o teste (IP detectado: %q)", ip)
+	}
+
+	pararAlheio := iniciaResponderAlheio(t, ifc, "mlab.local")
+	defer pararAlheio()
+	time.Sleep(200 * time.Millisecond)
+
+	// Confere que o ambiente entrega a consulta aos dois sockets 5353 antes de avaliar o backend.
+	const idAntes = 0x4d01
+	if ips := ipsRespondidos(consultaLegacy(t, ifc, idAntes, "mlab.local.", dnsmessage.TypeA, time.Second), idAntes, "mlab.local."); len(ips) == 0 {
+		t.Skip("o responder falso não respondeu à consulta legacy (multicast indisponível no ambiente)")
+	}
+
+	if _, err := StartMDNSServer("mateus", ip); err != nil {
+		t.Skipf("Porta 5353 ocupada ou indisponível no ambiente de teste: %v", err)
+	}
+	defer StopMDNSServer()
+	time.Sleep(200 * time.Millisecond)
+
+	const id = 0x4d02
+	ips := ipsRespondidos(consultaLegacy(t, ifc, id, "mlab.local.", dnsmessage.TypeA, 2*time.Second), id, "mlab.local.")
+	for _, got := range ips {
+		if got == ip {
+			t.Fatalf("o backend respondeu por mlab.local, já anunciado por outro backend (%s); respostas: %v", ipAlheio, ips)
 		}
 	}
 }
