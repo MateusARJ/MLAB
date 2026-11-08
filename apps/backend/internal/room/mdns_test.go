@@ -55,52 +55,16 @@ func TestMDNSServerLifecycleAndQuery(t *testing.T) {
 func consultaLegacy(t *testing.T, ifc *net.Interface, id uint16, nome string, tipo dnsmessage.Type, prazo time.Duration) []dnsmessage.Message {
 	t.Helper()
 
-	conn, err := net.ListenPacket("udp4", "0.0.0.0:0")
+	conn, pc, err := openLegacySocket(ifc)
 	if err != nil {
-		t.Skipf("sem socket UDP para a consulta: %v", err)
+		t.Skipf("sem socket/multicast para a consulta: %v", err)
 	}
 	defer conn.Close()
 
-	pc := ipv4.NewPacketConn(conn)
-	if err := pc.SetMulticastInterface(ifc); err != nil {
-		t.Skipf("sem multicast na interface %s: %v", ifc.Name, err)
-	}
-	_ = pc.SetMulticastLoopback(true)
-
-	pergunta := dnsmessage.Message{
-		Header: dnsmessage.Header{ID: id},
-		Questions: []dnsmessage.Question{{
-			Name:  dnsmessage.MustNewName(nome),
-			Type:  tipo,
-			Class: dnsmessage.ClassINET,
-		}},
-	}
-	pacote, err := pergunta.Pack()
-	if err != nil {
-		t.Fatalf("falha ao montar a consulta: %v", err)
-	}
-
-	destino := &net.UDPAddr{IP: net.IPv4(224, 0, 0, 251), Port: 5353}
-	if _, err := pc.WriteTo(pacote, nil, destino); err != nil {
+	if err := sendLegacyQuery(pc, id, []string{nome}, tipo); err != nil {
 		t.Skipf("falha ao enviar a consulta multicast: %v", err)
 	}
-
-	var respostas []dnsmessage.Message
-	buf := make([]byte, 1500)
-	fim := time.Now().Add(prazo)
-	for time.Now().Before(fim) {
-		_ = conn.SetReadDeadline(fim)
-		n, _, err := conn.ReadFrom(buf)
-		if err != nil {
-			break
-		}
-		var msg dnsmessage.Message
-		if err := msg.Unpack(buf[:n]); err != nil || !msg.Header.Response {
-			continue
-		}
-		respostas = append(respostas, msg)
-	}
-	return respostas
+	return readMDNSResponses(conn, time.Now().Add(prazo))
 }
 
 // TestMDNSRespondeConsultaLegacyUnicast cobre RF-101 e RF-103 da feature 010: a consulta feita de porta efêmera
@@ -161,6 +125,12 @@ const ipAlheio = "192.0.2.10"
 // nomes dados com ipAlheio, como faria o backend de outro professor na mesma rede.
 func iniciaResponderAlheio(t *testing.T, ifc *net.Interface, nomes ...string) func() {
 	t.Helper()
+	return iniciaResponder(t, ifc, ipAlheio, nomes...)
+}
+
+// iniciaResponder sobe um responder pion/mdns/v2 num socket 5353 próprio, anunciando os nomes com o IP dado.
+func iniciaResponder(t *testing.T, ifc *net.Interface, ipStr string, nomes ...string) func() {
+	t.Helper()
 
 	raw, err := listenReusablePacketConn("0.0.0.0:5353")
 	if err != nil {
@@ -168,7 +138,7 @@ func iniciaResponderAlheio(t *testing.T, ifc *net.Interface, nomes ...string) fu
 	}
 	srv, err := mdns.Server(ipv4.NewPacketConn(raw), nil, &mdns.Config{
 		LocalNames:   nomes,
-		LocalAddress: net.ParseIP(ipAlheio).To4(),
+		LocalAddress: net.ParseIP(ipStr).To4(),
 		Interfaces:   []net.Interface{*ifc},
 	})
 	if err != nil {
