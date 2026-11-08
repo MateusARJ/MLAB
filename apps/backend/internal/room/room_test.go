@@ -4,14 +4,137 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/screenshare/classroom/internal/auth"
 )
+
+// anuncioFalso é o nome mDNS "anunciado" nos testes do handler; vazio simula a falta de anúncio.
+var anuncioFalso = "mlab.local"
+
+// TestMain impede que o POST /rooms dos testes sonde a rede e ocupe a porta 5353: o claim e a leitura do nome usam
+// anuncioFalso. Os testes de mDNS chamam ClaimMDNSName diretamente e não são afetados.
+func TestMain(m *testing.M) {
+	mdnsClaim = func(string) (string, error) {
+		if anuncioFalso == "" {
+			return "", errors.New("sem anúncio (teste)")
+		}
+		return anuncioFalso, nil
+	}
+	mdnsHost = func() string { return anuncioFalso }
+	os.Exit(m.Run())
+}
+
+// comAnuncio troca o nome anunciado até o fim do teste.
+func comAnuncio(t *testing.T, host string) {
+	t.Helper()
+	original := anuncioFalso
+	anuncioFalso = host
+	t.Cleanup(func() { anuncioFalso = original })
+}
+
+// TestBuildRoomLinksUsaNomeAnunciado cobre RF-123 e RF-126 da feature 012.
+func TestBuildRoomLinksUsaNomeAnunciado(t *testing.T) {
+	t.Setenv("NGROK_URL", "")
+	t.Setenv("PUBLIC_URL", "")
+	t.Setenv("BASE_URL", "")
+	t.Setenv("WEB_PORT", "8080")
+
+	h := NewHandler(NewInMemoryStore())
+	room := &Room{ProfessorSlug: "silva"}
+	ip := getOutboundIP()
+	if ip == "" || ip == "127.0.0.1" {
+		ip = "localhost"
+	}
+	ipLink := "http://" + ip + ":8080"
+
+	cases := []struct {
+		name, host, wantMDNS, wantLink string
+	}{
+		{"primeiro professor", "mlab.local", "http://mlab.local:8080", "http://mlab.local:8080"},
+		{"segundo professor", "mlab-2.local", "http://mlab-2.local:8080", "http://mlab-2.local:8080"},
+		{"sem anúncio", "", "", ipLink},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			comAnuncio(t, tc.host)
+			got := h.buildRoomLinks(nil, room)
+			if got.MDNSLink != tc.wantMDNS || got.ShortMDNSLink != tc.wantMDNS {
+				t.Errorf("mdns_link = %q / short = %q, esperado %q", got.MDNSLink, got.ShortMDNSLink, tc.wantMDNS)
+			}
+			if got.Link != tc.wantLink {
+				t.Errorf("link = %q, esperado %q", got.Link, tc.wantLink)
+			}
+			if got.IPLink != ipLink {
+				t.Errorf("ip_link = %q, esperado %q", got.IPLink, ipLink)
+			}
+		})
+	}
+
+	t.Run("BASE_URL tem precedência no link", func(t *testing.T) {
+		comAnuncio(t, "mlab-2.local")
+		t.Setenv("BASE_URL", "https://aula.example.com/")
+		got := h.buildRoomLinks(nil, room)
+		if got.Link != "https://aula.example.com" || got.MDNSLink != "http://mlab-2.local:8080" {
+			t.Errorf("link = %q, mdns_link = %q", got.Link, got.MDNSLink)
+		}
+	})
+}
+
+// TestCreateRoomDevolveNomeAnunciado cobre RF-123 e RF-126: a resposta do POST /rooms usa o nome escolhido no
+// claim, e sem anúncio não traz mdns_link.
+func TestCreateRoomDevolveNomeAnunciado(t *testing.T) {
+	t.Setenv("JWT_SECRET", "test-secret-12345")
+	t.Setenv("NGROK_URL", "")
+	t.Setenv("PUBLIC_URL", "")
+	t.Setenv("BASE_URL", "")
+	if ip := getOutboundIP(); ip == "" || ip == "127.0.0.1" || ip == "localhost" {
+		t.Skip("sem IP de LAN: o claim não é chamado")
+	}
+
+	for _, host := range []string{"mlab-2.local", ""} {
+		t.Run("anúncio="+host, func(t *testing.T) {
+			comAnuncio(t, host)
+			mux := http.NewServeMux()
+			h := NewHandler(NewInMemoryStore())
+			h.RegisterRoutes(mux)
+			h.RegisterProtectedRoutes(mux, auth.Middleware)
+			token, _, err := auth.SignProfessorToken("prof-mdns", "prof@test.com", "Professor Silva")
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			req := httptest.NewRequest("POST", "/rooms", bytes.NewReader([]byte(`{"title":"Turma"}`)))
+			req.Header.Set("Authorization", "Bearer "+token)
+			rec := httptest.NewRecorder()
+			mux.ServeHTTP(rec, req)
+			if rec.Code != http.StatusCreated {
+				t.Fatalf("esperava 201, obteve %d: %s", rec.Code, rec.Body.String())
+			}
+
+			var raw map[string]any
+			_ = json.Unmarshal(rec.Body.Bytes(), &raw)
+			if host == "" {
+				if _, ok := raw["mdns_link"]; ok {
+					t.Errorf("sem anúncio, mdns_link não deveria vir: %v", raw)
+				}
+				if link, _ := raw["link"].(string); link != raw["ip_link"] {
+					t.Errorf("sem anúncio, link deveria ser o link por IP: link=%v ip_link=%v", raw["link"], raw["ip_link"])
+				}
+				return
+			}
+			if raw["mdns_link"] != "http://"+host+":"+getWebPort() {
+				t.Errorf("mdns_link = %v, esperado o nome anunciado %s", raw["mdns_link"], host)
+			}
+		})
+	}
+}
 
 func TestSlugify(t *testing.T) {
 	cases := []struct {
@@ -86,8 +209,8 @@ func TestRoomLifecycle(t *testing.T) {
 	if linkResp.Link == "" {
 		t.Error("expected non-empty link in LinkResponse")
 	}
-	if linkResp.IPLink == "" || linkResp.MDNSLink == "" {
-		t.Errorf("expected non-empty ip_link and mdns_link in LinkResponse: %+v", linkResp)
+	if linkResp.IPLink == "" || linkResp.MDNSLink != "http://mlab.local:"+getWebPort() {
+		t.Errorf("expected ip_link and mdns_link with the announced name in LinkResponse: %+v", linkResp)
 	}
 	if strings.Contains(linkResp.IPLink, "/entrar") || strings.Contains(linkResp.MDNSLink, "/entrar") {
 		t.Errorf("expected short root URLs without /entrar, got ip=%q mdns=%q", linkResp.IPLink, linkResp.MDNSLink)

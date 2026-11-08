@@ -79,6 +79,13 @@ func (h *Handler) SetRoomCloseBroadcaster(fn RoomCloseBroadcasterFunc) {
 	h.roomCloseBroadcaster = fn
 }
 
+// mdnsClaim e mdnsHost escolhem/anunciam e leem o nome mDNS deste backend. Variáveis para os testes do handler não
+// usarem a rede.
+var (
+	mdnsClaim = ClaimMDNSName
+	mdnsHost  = CurrentMDNSHost
+)
+
 // getOutboundIP descobre o endereço IP de saída da interface de rede primária física.
 func getOutboundIP() string {
 	return GetPrimaryPhysicalIP()
@@ -236,13 +243,13 @@ func (h *Handler) createRoom(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// O nome mDNS é escolhido antes de montar a resposta, para os links usarem o nome anunciado de fato
+	// (012, RF-123). Falha só gera log: a sala existe e o link por IP funciona (RNF-123).
 	lanIP := getOutboundIP()
 	if lanIP != "" && lanIP != "127.0.0.1" && lanIP != "localhost" {
-		go func(ip string) {
-			if _, err := ClaimMDNSName(ip); err != nil {
-				log.Printf("[mDNS] Aviso: falha ao registrar anúncio mDNS: %v", err)
-			}
-		}(lanIP)
+		if _, err := mdnsClaim(lanIP); err != nil {
+			log.Printf("[mDNS] Aviso: falha ao registrar anúncio mDNS: %v", err)
+		}
 	}
 
 	links := h.buildRoomLinks(r, room)
@@ -570,10 +577,15 @@ func (h *Handler) buildRoomLinks(r *http.Request, room *Room) roomLinks {
 		profSlug = "professor"
 	}
 
+	// Sem anúncio mDNS ativo não há link .local e o link padrão é o por IP (012, RF-126).
 	ipBase := fmt.Sprintf("%s://%s:%s", proto, ip, webPort)
-	mdnsBase := fmt.Sprintf("%s://mlab.local:%s", proto, webPort)
+	mdnsBase := ""
+	defaultLink := ipBase
+	if host := mdnsHost(); host != "" {
+		mdnsBase = fmt.Sprintf("%s://%s:%s", proto, host, webPort)
+		defaultLink = mdnsBase
+	}
 
-	defaultLink := mdnsBase
 	if ngrok := os.Getenv("NGROK_URL"); ngrok != "" {
 		defaultLink = strings.TrimRight(ngrok, "/")
 	} else if pub := os.Getenv("PUBLIC_URL"); pub != "" {
