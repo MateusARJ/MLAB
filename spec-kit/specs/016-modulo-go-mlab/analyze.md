@@ -9,8 +9,8 @@ Status: PASS
 Nenhuma. Spec, clarify (C-161 a C-163) e plan concordam: só `go.mod` e imports, com versão PATCH. A faixa `16x` não
 colide com outras features (verificado por busca em `spec-kit/` e `docs/`).
 
-Observação: o commit do bump (T162) roda antes do converge (T163), para o converge registrar a versão resultante; o
-`chore(release)` continua sendo o último commit que altera `apps/` ou `packages/` no PR.
+Observação: o converge (T163) registra a versão que o bump (T162) gera; o commit `chore(release)` fica por último
+no PR, depois do commit do converge (AGENTS §13).
 
 ## 2. Cobertura
 
