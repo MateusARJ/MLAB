@@ -2,7 +2,7 @@
 
 Feature: `011-https-lan`
 Data: 2026-11-06
-Branch: `feat/https-lan`. Edição isolada, **sem merge na `development`** (C-1102). PR #48 (ADR) fechado sem merge.
+Branch: `edicao/https-lan`. Edição isolada, **sem merge na `development`** (C-1102). PR #48 (ADR) fechado sem merge.
 Issue: #47
 
 ## 1. O que foi entregue

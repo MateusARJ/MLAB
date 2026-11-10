@@ -1,6 +1,6 @@
 # MLab HTTPS — HTTPS na rede local com certificado do MLab
 
-Edição isolada do MLab (ADR 0008, feature `011-https-lan`), mantida na branch `feat/https-lan` e **não mergeada na
+Edição isolada do MLab (ADR 0008, feature `011-https-lan`), mantida na branch `edicao/https-lan` e **não mergeada na
 `development`**. O professor escolhe entre instalar o **MLab** (HTTP, como sempre) ou o **MLab HTTPS**.
 
 ## Por que existe
