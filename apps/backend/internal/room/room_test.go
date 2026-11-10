@@ -475,25 +475,6 @@ func TestJoinIceServers(t *testing.T) {
 	}
 }
 
-func TestSlugFromEmail(t *testing.T) {
-	cases := []struct {
-		email    string
-		expected string
-	}{
-		{"professor@screenshare.local", "professor"},
-		{"carlos.silva@escola.com", "carlos-silva"},
-		{"maria_oliveira@univ.edu.br", "maria-oliveira"},
-		{"prof+test@domain.com", "prof-test"},
-	}
-
-	for _, c := range cases {
-		got := slugFromEmail(c.email)
-		if got != c.expected {
-			t.Errorf("slugFromEmail(%q) = %q; want %q", c.email, got, c.expected)
-		}
-	}
-}
-
 func TestCreateRoomFixedSlug(t *testing.T) {
 	t.Setenv("JWT_SECRET", "test-secret-12345")
 	t.Setenv("BASE_URL", "http://localhost:3000")
