@@ -31,6 +31,8 @@ apps/backend/tmp/
 .env
 .env.*
 !.env.example
+# CA local (certificado e chave privada) gerada pela edicao HTTPS
+apps/backend/tls-dev/
 
 # ── IDEs ──────────────────────────────────────────────
 .vscode/
