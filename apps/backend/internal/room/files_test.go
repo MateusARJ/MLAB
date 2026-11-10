@@ -9,7 +9,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/screenshare/classroom/internal/auth"
+	"github.com/MateusARJ/MLAB/apps/backend/internal/auth"
 )
 
 // filesFixture monta um servidor com uma sala criada pelo professor "prof-owner" e tokens prontos.

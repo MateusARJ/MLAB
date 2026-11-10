@@ -12,9 +12,9 @@ import (
 	"sync"
 	"time"
 
+	"github.com/MateusARJ/MLAB/apps/backend/internal/auth"
+	"github.com/MateusARJ/MLAB/apps/backend/internal/room"
 	"github.com/gorilla/websocket"
-	"github.com/screenshare/classroom/internal/auth"
-	"github.com/screenshare/classroom/internal/room"
 )
 
 // Handler gerencia o ciclo de vida dos Hubs e faz upgrade HTTP → WebSocket.

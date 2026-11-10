@@ -10,7 +10,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/screenshare/classroom/internal/chat"
+	"github.com/MateusARJ/MLAB/apps/backend/internal/chat"
 	"golang.org/x/text/unicode/norm"
 )
 

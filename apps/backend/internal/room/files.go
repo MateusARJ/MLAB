@@ -13,7 +13,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/screenshare/classroom/internal/auth"
+	"github.com/MateusARJ/MLAB/apps/backend/internal/auth"
 )
 
 // Limites de arquivos (contracts/files.md — 003-classroom-interaction; 002-security-hardening/S4).

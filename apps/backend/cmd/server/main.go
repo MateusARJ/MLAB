@@ -10,10 +10,10 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/screenshare/classroom/internal/auth"
-	"github.com/screenshare/classroom/internal/room"
-	"github.com/screenshare/classroom/internal/signaling"
-	"github.com/screenshare/classroom/internal/webrtc"
+	"github.com/MateusARJ/MLAB/apps/backend/internal/auth"
+	"github.com/MateusARJ/MLAB/apps/backend/internal/room"
+	"github.com/MateusARJ/MLAB/apps/backend/internal/signaling"
+	"github.com/MateusARJ/MLAB/apps/backend/internal/webrtc"
 )
 
 func main() {

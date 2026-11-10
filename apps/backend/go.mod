@@ -1,4 +1,4 @@
-module github.com/screenshare/classroom
+module github.com/MateusARJ/MLAB/apps/backend
 
 go 1.26.0
 
