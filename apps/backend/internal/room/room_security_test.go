@@ -34,8 +34,8 @@ func TestRoomSecurity_AccessControl(t *testing.T) {
 		t.Fatalf("failed to setup room in store: %v", err)
 	}
 
-	profLegitimoToken, _, _ := auth.SignProfessorToken("prof-legitimo", "owner@screenshare.local")
-	profAttackerToken, _, _ := auth.SignProfessorToken("prof-intruso", "intruso@screenshare.local")
+	profLegitimoToken, _, _ := auth.SignProfessorToken("prof-legitimo")
+	profAttackerToken, _, _ := auth.SignProfessorToken("prof-intruso")
 	studClaims := auth.StudentMapClaims("student-1", "Aluno Teste", "RA-999", "room-sec-1")
 	studToken, _ := auth.SignToken(studClaims)
 

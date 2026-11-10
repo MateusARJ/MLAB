@@ -298,18 +298,3 @@ func slugify(input string) string {
 	}
 	return strings.Trim(b.String(), "-")
 }
-
-// slugFromEmail gera um slug a partir da claim "email" do JWT do professor. Não existe login (ADR 0006): a
-// claim tem valor fixo e serve só de fallback quando o nome do professor não vem na requisição nem no token.
-func slugFromEmail(email string) string {
-	email = strings.TrimSpace(strings.ToLower(email))
-	if email == "" {
-		return "professor"
-	}
-	parts := strings.Split(email, "@")
-	clean := slugify(parts[0])
-	if clean == "" {
-		return "professor"
-	}
-	return clean
-}

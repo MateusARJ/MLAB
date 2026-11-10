@@ -105,7 +105,7 @@ func TestCreateRoomDevolveNomeAnunciado(t *testing.T) {
 			h := NewHandler(NewInMemoryStore())
 			h.RegisterRoutes(mux)
 			h.RegisterProtectedRoutes(mux, auth.Middleware)
-			token, _, err := auth.SignProfessorToken("prof-mdns", "prof@test.com", "Professor Silva")
+			token, _, err := auth.SignProfessorToken("prof-mdns", "Professor Silva")
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -166,7 +166,7 @@ func TestRoomLifecycle(t *testing.T) {
 	handler.RegisterRoutes(mux)
 	handler.RegisterProtectedRoutes(mux, auth.Middleware)
 
-	profToken, _, err := auth.SignProfessorToken("prof-owner", "prof@test.com", "Professor Silva")
+	profToken, _, err := auth.SignProfessorToken("prof-owner", "Professor Silva")
 	if err != nil {
 		t.Fatalf("failed to sign professor token: %v", err)
 	}
@@ -475,25 +475,6 @@ func TestJoinIceServers(t *testing.T) {
 	}
 }
 
-func TestSlugFromEmail(t *testing.T) {
-	cases := []struct {
-		email    string
-		expected string
-	}{
-		{"professor@screenshare.local", "professor"},
-		{"carlos.silva@escola.com", "carlos-silva"},
-		{"maria_oliveira@univ.edu.br", "maria-oliveira"},
-		{"prof+test@domain.com", "prof-test"},
-	}
-
-	for _, c := range cases {
-		got := slugFromEmail(c.email)
-		if got != c.expected {
-			t.Errorf("slugFromEmail(%q) = %q; want %q", c.email, got, c.expected)
-		}
-	}
-}
-
 func TestCreateRoomFixedSlug(t *testing.T) {
 	t.Setenv("JWT_SECRET", "test-secret-12345")
 	t.Setenv("BASE_URL", "http://localhost:3000")
@@ -503,8 +484,8 @@ func TestCreateRoomFixedSlug(t *testing.T) {
 	mux := http.NewServeMux()
 	handler.RegisterProtectedRoutes(mux, auth.Middleware)
 
-	// Gera token de professor com email
-	profClaims := auth.ProfessorMapClaims("prof-123", "professor@screenshare.local")
+	// Gera token de professor sem nome (o slug cai no fallback "professor")
+	profClaims := auth.ProfessorMapClaims("prof-123")
 	profToken, err := auth.SignToken(profClaims)
 	if err != nil {
 		t.Fatalf("falha ao assinar token: %v", err)
@@ -572,7 +553,7 @@ func TestCreateRoomNgrok(t *testing.T) {
 	mux := http.NewServeMux()
 	handler.RegisterProtectedRoutes(mux, auth.Middleware)
 
-	profClaims := auth.ProfessorMapClaims("prof-ngrok", "professor.silva@screenshare.local")
+	profClaims := auth.ProfessorMapClaims("prof-ngrok")
 	profToken, err := auth.SignToken(profClaims)
 	if err != nil {
 		t.Fatalf("falha ao assinar token: %v", err)

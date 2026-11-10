@@ -99,7 +99,7 @@ func TestAuthSecurity_AlgorithmNoneAttack(t *testing.T) {
 func TestAuthSecurity_MissingSecret(t *testing.T) {
 	t.Setenv("JWT_SECRET", "")
 
-	_, _, err := SignProfessorToken("prof", "prof@test.com")
+	_, _, err := SignProfessorToken("prof")
 	if err != ErrMissingSecret {
 		t.Errorf("expected ErrMissingSecret on sign without JWT_SECRET, got: %v", err)
 	}

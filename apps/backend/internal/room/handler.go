@@ -200,13 +200,11 @@ func (h *Handler) createRoom(w http.ResponseWriter, r *http.Request) {
 		roomSlug = "sala"
 	}
 
-	// Extrai e normaliza o nome do professor (request > claims["name"] > claims["email"])
+	// Extrai e normaliza o nome do professor (request > claims["name"] > "professor"; ADR 0009)
 	profName := strings.TrimSpace(req.ProfessorName)
 	if profName == "" {
-		if nameClaim, ok := claims["name"].(string); ok && strings.TrimSpace(nameClaim) != "" {
+		if nameClaim, ok := claims["name"].(string); ok {
 			profName = strings.TrimSpace(nameClaim)
-		} else if emailClaim, ok := claims["email"].(string); ok && strings.TrimSpace(emailClaim) != "" {
-			profName = slugFromEmail(emailClaim)
 		}
 	}
 	profSlug := slugify(profName)

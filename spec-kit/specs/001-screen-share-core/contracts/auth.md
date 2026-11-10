@@ -1,6 +1,6 @@
 # Contract: Auth
 
-Status: READY (revisado em 2026-11-01 — ADR 0006)
+Status: READY (revisado em 2026-11-01 — ADR 0006; emendado em 2026-11-10 — ADR 0009)
 Feature: `001-screen-share-core`
 
 ## Purpose
@@ -26,7 +26,6 @@ Emitido por `POST /auth/session` mediante chave de host válida.
 {
   "sub": "<professor_session_id>",
   "role": "professor",
-  "email": "professor@mlab.local",
   "name": "<nome informado>",
   "exp": <unix_timestamp>,
   "iat": <unix_timestamp>
@@ -34,7 +33,8 @@ Emitido por `POST /auth/session` mediante chave de host válida.
 ```
 
 - `sub`: identificador aleatório gerado a cada sessão.
-- `email`: valor fixo mantido por compatibilidade (fallback na derivação do slug do professor, RN-06). Não identifica uma conta.
+- `name`: nome informado na sessão (`"Professor"` quando vazio); base do segmento do professor no slug (RN-06).
+- Não há claim `email` (removida pela ADR 0009 em 2026-11-10; não existe conta de professor).
 - Validade: 8 horas (`PROFESSOR_TOKEN_TTL_H`).
 
 ### Token do Aluno

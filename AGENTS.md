@@ -229,6 +229,7 @@ ADRs aprovadas existentes (fonte: `spec-kit/docs/adrs/`; manter esta lista sincr
 - `spec-kit/docs/adrs/0005-operacao-lan-offline.md` — LAN offline como modo primário, TURN opcional, estado em memória.
 - `spec-kit/docs/adrs/0006-descontinuacao-do-login-e-sessao-local.md` — login removido; sessão do professor por nome com chave de host; segredo JWT aleatório por execução.
 - `spec-kit/docs/adrs/0007-versionamento-semantico.md` — versionamento semântico (`MAJOR.MINOR.PATCH`) a partir da 1.7.1, com incremento no PR da mudança.
+- `spec-kit/docs/adrs/0009-remocao-da-claim-email-do-professor.md` — remove a claim `email` fixa do JWT do professor; substitui o item 5 da ADR 0006.
 
 Fluxo:
 
