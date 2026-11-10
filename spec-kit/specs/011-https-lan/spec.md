@@ -3,7 +3,7 @@
 Status: READY
 Feature ID: `011-https-lan`
 Origem: issue #47 ("Download inseguro bloqueado" nos alunos). Decisão: ADR 0008 (aprovada só para esta edição).
-Edição: **MLab HTTPS**, branch `feat/https-lan`, isolada da `development`.
+Edição: **MLab HTTPS**, branch `edicao/https-lan`, isolada da `development`.
 
 ## 1. Objetivo
 

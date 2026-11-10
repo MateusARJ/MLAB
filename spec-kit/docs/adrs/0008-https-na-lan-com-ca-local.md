@@ -1,12 +1,12 @@
 # ADR 0008 — HTTPS na LAN com autoridade certificadora (CA) local
 
-Status: APROVADA — somente para a edição isolada "MLab HTTPS" (branch `feat/https-lan`)
+Status: APROVADA — somente para a edição isolada "MLab HTTPS" (branch `edicao/https-lan`)
 Data: 2026-11-06
 Feature impactada: `003-classroom-interaction` (links da sala, download de arquivos), nova feature `011-https-lan`
 Complementa: ADR 0005 (LAN offline), com exceção pontual à regra "sem persistência" (só material criptográfico)
 Issue: #47
 
-> **Escopo da aprovação:** esta decisão vale só para a edição **MLab HTTPS**, mantida na branch `feat/https-lan` e
+> **Escopo da aprovação:** esta decisão vale só para a edição **MLab HTTPS**, mantida na branch `edicao/https-lan` e
 > **não mergeada na `development`**. O MLab principal continua em HTTP como define a ADR 0005. O professor escolhe
 > qual das duas edições instalar.
 
