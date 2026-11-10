@@ -177,7 +177,6 @@ func (r *Room) createSubscriberOffer(subscriberID, publisherID string) (string, 
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
-
 	// Se já existe um PeerConnection com oferta pendente com SDP local válido, reutiliza a oferta existente
 	if existingPC, exists := r.subscribers[subscriberID]; exists {
 		if existingPC.SignalingState() == webrtc.SignalingStateHaveLocalOffer && existingPC.LocalDescription() != nil {

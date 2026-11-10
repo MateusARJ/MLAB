@@ -550,9 +550,6 @@ func TestHub_PinMessage_RoleEnforcementLimitAndBroadcast(t *testing.T) {
 	}
 }
 
-
-
-
 func TestHub_OnClosedCallback_CalledWhenRoomCloses(t *testing.T) {
 	closed := make(chan string, 1)
 	hub := newHub("room-onclosed", nil, func(roomID string) { closed <- roomID })

@@ -18,12 +18,12 @@ import (
 
 // Limites de arquivos (contracts/files.md — 003-classroom-interaction; 002-security-hardening/S4).
 const (
-	maxFileBytes            int64 = 50 << 20 // 50 MB por arquivo
-	multipartOverheadBytes  int64 = 1 << 20  // margem para cabeçalhos multipart
-	defaultRoomFilesMaxMB         = 300
-	defaultRoomFilesMaxCount      = 50
-	envRoomFilesMaxMB             = "MLAB_ROOM_FILES_MAX_MB"
-	envRoomFilesMaxCount          = "MLAB_ROOM_FILES_MAX_COUNT"
+	maxFileBytes             int64 = 50 << 20 // 50 MB por arquivo
+	multipartOverheadBytes   int64 = 1 << 20  // margem para cabeçalhos multipart
+	defaultRoomFilesMaxMB          = 300
+	defaultRoomFilesMaxCount       = 50
+	envRoomFilesMaxMB              = "MLAB_ROOM_FILES_MAX_MB"
+	envRoomFilesMaxCount           = "MLAB_ROOM_FILES_MAX_COUNT"
 )
 
 // errRoomFilesLimit indica que a sala atingiu o teto de memória ou de quantidade de arquivos.

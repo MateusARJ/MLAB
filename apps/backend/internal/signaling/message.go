@@ -14,7 +14,7 @@ const (
 	TypeSubscribeRequest = "subscribe-request"
 	TypeChatMessage      = "chat-message"
 	TypeEndSession       = "end-session"
-	TypeStreamPause      = "stream-pause" // professor envia para pausar/retomar transmissão
+	TypeStreamPause      = "stream-pause"     // professor envia para pausar/retomar transmissão
 	TypeRequestKeyFrame  = "request-keyframe" // professor (após troca de fonte) ou aluno (ao conectar/congelar) pede keyframe; aluno limitado (002/S9)
 	TypeRaiseHand        = "raise-hand"       // aluno levanta ou abaixa a mão
 	TypeLowerHand        = "lower-hand"       // professor (ou aluno) abaixa a mão
@@ -23,18 +23,18 @@ const (
 
 // Mensagens que o servidor envia ao(s) cliente(s).
 const (
-	TypeSessionState      = "session-state"
-	TypePublishApproved   = "publish-approved"
-	TypeParticipantJoined = "participant-joined"
-	TypeParticipantLeft   = "participant-left"
-	TypeRoomClosed        = "room-closed"
-	TypeIceServers        = "ice-servers"
-	TypeError             = "error"
-	TypeStreamPaused      = "stream-paused"      // broadcast: transmissão pausada/retomada
-	TypeFileShared        = "file-shared"         // broadcast: novo arquivo compartilhado
+	TypeSessionState       = "session-state"
+	TypePublishApproved    = "publish-approved"
+	TypeParticipantJoined  = "participant-joined"
+	TypeParticipantLeft    = "participant-left"
+	TypeRoomClosed         = "room-closed"
+	TypeIceServers         = "ice-servers"
+	TypeError              = "error"
+	TypeStreamPaused       = "stream-paused"       // broadcast: transmissão pausada/retomada
+	TypeFileShared         = "file-shared"         // broadcast: novo arquivo compartilhado
 	TypeParticipantsUpdate = "participants-update" // broadcast: lista atualizada de participantes
-	TypeChatHistory       = "chat-history"       // unicast: histórico de chat público para novo participante
-	TypeFilesHistory      = "files-history"      // unicast: lista de arquivos já compartilhados para novo participante
+	TypeChatHistory        = "chat-history"        // unicast: histórico de chat público para novo participante
+	TypeFilesHistory       = "files-history"       // unicast: lista de arquivos já compartilhados para novo participante
 	TypeStreamStarted      = "stream-started"      // broadcast: professor iniciou a transmissão e a mídia está pronta
 	TypeHandUpdated        = "hand-updated"        // broadcast: status de mão levantada atualizado
 	TypeChatMessagePinned  = "chat-message-pinned" // broadcast/unicast: mensagem fixada ou desafixada pelo professor
