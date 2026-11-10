@@ -12,10 +12,10 @@ import (
 
 // Erros do store.
 var (
-	ErrRoomNotFound       = errors.New("sala não encontrada")
-	ErrRoomClosed         = errors.New("sala já encerrada")
-	ErrParticipantLimit   = errors.New("sala cheia")
-	ErrNotOwner           = errors.New("professor não é dono desta sala")
+	ErrRoomNotFound     = errors.New("sala não encontrada")
+	ErrRoomClosed       = errors.New("sala já encerrada")
+	ErrParticipantLimit = errors.New("sala cheia")
+	ErrNotOwner         = errors.New("professor não é dono desta sala")
 )
 
 // Store é a interface de armazenamento do módulo room.
@@ -42,8 +42,8 @@ type Store interface {
 
 type inMemoryStore struct {
 	mu           sync.RWMutex
-	rooms        map[string]*Room        // por ID
-	slugIndex    map[string]string       // slug → roomID
+	rooms        map[string]*Room          // por ID
+	slugIndex    map[string]string         // slug → roomID
 	participants map[string][]*Participant // roomID → lista
 }
 

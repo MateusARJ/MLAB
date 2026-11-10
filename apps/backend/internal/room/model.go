@@ -107,4 +107,3 @@ type CloseResponse struct {
 	Status   Status `json:"status"`
 	ClosedAt string `json:"closed_at"`
 }
-
