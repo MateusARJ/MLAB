@@ -12,7 +12,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/screenshare/classroom/internal/auth"
+	"github.com/MateusARJ/MLAB/apps/backend/internal/auth"
 )
 
 // anuncioFalso é o nome mDNS "anunciado" nos testes do handler; vazio simula a falta de anúncio.

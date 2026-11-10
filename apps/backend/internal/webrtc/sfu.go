@@ -6,9 +6,9 @@ import (
 	"os"
 	"sync"
 
+	"github.com/MateusARJ/MLAB/apps/backend/internal/room"
 	"github.com/pion/interceptor"
 	"github.com/pion/webrtc/v3"
-	"github.com/screenshare/classroom/internal/room"
 )
 
 // Config contém as opções de inicialização do SFU.

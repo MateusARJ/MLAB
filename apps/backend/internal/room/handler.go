@@ -11,7 +11,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/screenshare/classroom/internal/auth"
+	"github.com/MateusARJ/MLAB/apps/backend/internal/auth"
 )
 
 const defaultMaxParticipants = 50

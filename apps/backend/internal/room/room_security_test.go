@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/screenshare/classroom/internal/auth"
+	"github.com/MateusARJ/MLAB/apps/backend/internal/auth"
 )
 
 // TestRoomSecurity_AccessControl valida restrições de propriedade e papéis em salas (ADR 0004 §2.2.2).
