@@ -1,6 +1,6 @@
 # ADR 0009 — Remoção da claim `email` do JWT do professor
 
-Status: PROPOSTA
+Status: APROVADA
 Data: 2026-11-10
 Feature impactada: `015-remove-claim-email` (issue #42); emenda o item 5 da ADR 0006
 Numeração: 0009 porque a 0008 já está reservada pela `0008-https-na-lan-com-ca-local.md` da edição HTTPS
@@ -71,5 +71,5 @@ do professor são `sub`, `role`, `name`, `iat` e `exp`, com TTL inalterado.
 
 ## Aprovação humana
 
-- Responsável:
-- Data:
+- Responsável: MateusARJ
+- Data: 2026-11-10
