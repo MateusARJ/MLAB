@@ -15,9 +15,9 @@ func TestSignAndParseProfessorToken(t *testing.T) {
 	t.Setenv("JWT_SECRET", "super-secret-key-for-testing-12345")
 
 	profID := "prof-001"
-	email := "professor@screenshare.local"
+	name := "Prof. Ana"
 
-	tokenStr, exp, err := SignProfessorToken(profID, email)
+	tokenStr, exp, err := SignProfessorToken(profID, name)
 	if err != nil {
 		t.Fatalf("SignProfessorToken failed: %v", err)
 	}
@@ -39,8 +39,12 @@ func TestSignAndParseProfessorToken(t *testing.T) {
 	if ClaimRole(claims) != RoleProfessor {
 		t.Errorf("expected role %s, got %s", RoleProfessor, ClaimRole(claims))
 	}
-	if claims["email"] != email {
-		t.Errorf("expected email %s, got %v", email, claims["email"])
+	if claims["name"] != name {
+		t.Errorf("expected name %s, got %v", name, claims["name"])
+	}
+	// ADR 0009: o token do professor não tem claim email.
+	if _, ok := claims["email"]; ok {
+		t.Errorf("expected no email claim, got %v", claims["email"])
 	}
 }
 
@@ -120,7 +124,7 @@ func TestLoginEndpointRemoved(t *testing.T) {
 func TestMiddleware_ValidAndInvalid(t *testing.T) {
 	t.Setenv("JWT_SECRET", "super-secret-key-for-testing-12345")
 
-	tokenStr, _, err := SignProfessorToken("prof-test", "prof@test.com")
+	tokenStr, _, err := SignProfessorToken("prof-test")
 	if err != nil {
 		t.Fatalf("SignProfessorToken failed: %v", err)
 	}
@@ -171,7 +175,7 @@ func TestMiddleware_ValidAndInvalid(t *testing.T) {
 func TestRequireRole(t *testing.T) {
 	t.Setenv("JWT_SECRET", "super-secret-key-for-testing-12345")
 
-	profToken, _, _ := SignProfessorToken("prof-1", "prof@test.com")
+	profToken, _, _ := SignProfessorToken("prof-1")
 	studClaims := StudentMapClaims("stud-1", "Aluno", "RA123", "room-1")
 	studToken, _ := SignToken(studClaims)
 
@@ -243,6 +247,10 @@ func TestSessionEndpoint(t *testing.T) {
 	}
 	if claims["name"] != "Prof. Carlos Eduardo" {
 		t.Errorf("expected claim name 'Prof. Carlos Eduardo', got '%v'", claims["name"])
+	}
+	// RF-151 / ADR 0009: claims do professor sem email.
+	if _, ok := claims["email"]; ok {
+		t.Errorf("expected no email claim in session token, got %v", claims["email"])
 	}
 }
 

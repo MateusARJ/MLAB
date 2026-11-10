@@ -61,7 +61,7 @@ func (h *Handler) session(w http.ResponseWriter, r *http.Request) {
 	}
 
 	profID := newID()
-	tokenStr, expiresAt, err := SignProfessorToken(profID, "professor@mlab.local", name)
+	tokenStr, expiresAt, err := SignProfessorToken(profID, name)
 	if err != nil {
 		log.Printf("auth: SignProfessorToken: %v", err)
 		writeError(w, http.StatusInternalServerError, "erro ao gerar token")
