@@ -2,7 +2,7 @@
 
 Feature: `013-teste-ice-offline`
 Prerequisites: spec/clarify/plan/checklist/analyze aprovados
-Status: READY
+Status: DONE
 
 Regras:
 - `go vet ./...` e `go test -count=1 ./...` em `apps/backend` verdes antes do `[x]`;
@@ -34,10 +34,10 @@ Checks:
 - [x] Suíte do backend verde: `go vet ./...` e `go test -count=1 ./...` (6 pacotes).
 
 ### T133 — Converge
-[ ] T133
+[x] T133
 Depends On: T131, T132
 Allowed Paths: `spec-kit/specs/013-teste-ice-offline/**`
 Prohibited Paths: `apps/**`, `packages/**`, `package.json`, `package-lock.json`
 Checks:
-- [ ] `converge.md` com evidências, desvios e impacto de versão (nenhum).
-- [ ] `npm run spec:check` com PASS.
+- [x] `converge.md` com evidências, desvios e impacto de versão (nenhum).
+- [x] `npm run spec:check` com PASS.
