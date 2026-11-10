@@ -2,9 +2,9 @@
 
 Feature: `012-mdns-nome-unico`
 Mode: READ-ONLY sobre o código (só este arquivo e o `tasks.md` são escritos)
-Data: 2026-11-08
+Data: 2026-11-08 (smoke A16b em 2026-11-10)
 Commit avaliado: `4a3c5fc`
-Status: OPEN (falta só o smoke manual A16b)
+Status: CONVERGED
 
 ## Entradas
 
@@ -17,6 +17,9 @@ Status: OPEN (falta só o smoke manual A16b)
 - verificação local (Windows 11, Wi-Fi, 2026-11-08): backend real na porta 18080, `POST /rooms` em 1,2 s com
   `mdns_link` `http://mlab.local:18080`; `Resolve-DnsName mlab.local -Type A` → `192.168.0.35`; o alias antigo
   `mlab-teste.local` não resolve mais
+- smoke manual A16b (2026-11-10): instalador `MLab-Setup-1.10.0.exe` gerado da branch `feat/mdns-nome-unico`
+  (`npm run make:win`) e instalado em dois PCs Windows na mesma Wi-Fi; executado pelo responsável, que relatou todos
+  os passos OK
 
 ## 1. Requisitos atendidos
 
@@ -34,12 +37,13 @@ Status: OPEN (falta só o smoke manual A16b)
 | RNF-122 | `go.mod`/`go.sum` sem mudança; stack `pion/mdns/v2` mantida |
 | RNF-123 | `createRoom` só registra a falha do claim em log; sala criada e `link` por IP (teste sem anúncio) |
 | RN-121, RN-122 | `ip_link` sempre devolvido e mostrado; formato da API igual, `mdns_link` opcional (`omitempty`) |
+| Critério de sucesso "smoke A16b" | roteiro `docs/metrics/smoke-runbook.md` (A16b) executado em 2026-11-10 com dois PCs e o instalador 1.10.0: links diferentes por professor, cada link abre a própria sala no celular, conflito com criação simultânea termina com nomes diferentes e aviso no app que trocou (relato do responsável: tudo OK) |
 
 ## 2. Requisitos parcialmente atendidos
 
 | Requisito | O que falta | Evidência |
 |---|---|---|
-| Critério de sucesso "smoke A16b" | execução manual com dois PCs na mesma Wi-Fi e celulares (Chrome Android; Safari iOS se houver) | roteiro em `docs/metrics/smoke-runbook.md` (A16b), item em `scripts/smoke-report.js` |
+| — | — | nenhum |
 
 ## 3. Divergências (código ≠ spec/plan/contrato)
 
@@ -57,7 +61,6 @@ Status: OPEN (falta só o smoke manual A16b)
 
 - `go test -race` (T124) não executado: a máquina não tem `gcc` (CGO desligado), o Docker estava parado e o WSL não
   tem Go. A parada do monitor é verificada pelo canal `done` em `TestMonitorDeConflitoCedeOuMantemNome`.
-- Smoke A16b (seção 2), incluindo o conflito com criação simultânea nos dois PCs.
 - Os testes de rede pulam (`t.Skip`) em ambiente sem multicast; aqui rodaram de verdade (Wi-Fi).
 
 ## 6. Novas tasks necessárias
@@ -81,6 +84,6 @@ Classificação pelo escopo de `docs/versionamento.md` §2 (ADR 0007).
 
 ## 9. Resultado
 
-- [x] OPEN — código, testes automatizados e verificação local convergem com spec/plan/tasks; falta o smoke manual
-  A16b (seção 2), que depende de dois PCs e celulares do responsável.
-- [ ] CONVERGED
+- [ ] OPEN
+- [x] CONVERGED — código, testes automatizados, verificação local e smoke manual A16b convergem com
+  spec/plan/tasks. Fica registrado só o `go test -race` não executado (seção 5).

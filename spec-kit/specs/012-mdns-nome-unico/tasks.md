@@ -2,7 +2,7 @@
 
 Feature: `012-mdns-nome-unico`
 Prerequisites: spec/clarify/plan/checklist/analyze aprovados; contrato `001/contracts/room-api.md` atualizado
-Status: IMPLEMENTED (smoke A16b pendente)
+Status: DONE
 
 Regras:
 - task de backend: `go vet ./...` e `go test ./...` em `apps/backend` verdes antes do `[x]`;
@@ -104,7 +104,7 @@ Checks:
 - [x] Smoke A16b (dois professores na mesma rede) no runbook e no `smoke-report.js`.
 
 ### T128 — Verificação manual, converge e versão
-[ ] T128
+[x] T128
 Depends On: T121, T122, T123, T124, T125, T126, T127
 Allowed Paths: `spec-kit/specs/012-mdns-nome-unico/**`, `package.json`, `package-lock.json`, `apps/*/package.json`,
 `packages/*/package.json`
@@ -112,6 +112,6 @@ Prohibited Paths: `apps/**/src/**`, `apps/backend/**`, `packages/*/src/**`
 Checks:
 - [x] `Resolve-DnsName mlab.local -Type A` devolve `192.168.0.35` com o backend real (porta 18080, `POST /rooms` em
   1,2 s); o alias antigo não resolve (2026-11-08).
-- [ ] Smoke A16b executado pelo responsável (ou registrado como pendente no converge).
+- [x] Smoke A16b executado pelo responsável em 2026-11-10 com o instalador 1.10.0 em dois PCs na mesma Wi-Fi: tudo OK.
 - [x] `converge.md` com resultado, pendências, desvios (#50) e nível de versão (MINOR); `npm run bump -- minor` e
   `npm run version:check`.
