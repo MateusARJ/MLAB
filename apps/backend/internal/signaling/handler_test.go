@@ -3,7 +3,7 @@ package signaling
 import (
 	"testing"
 
-	"github.com/screenshare/classroom/internal/auth"
+	"github.com/MateusARJ/MLAB/apps/backend/internal/auth"
 )
 
 // TestExtractName cobre o nome exibido a partir dos claims (RF-152, ADR 0009): a claim email não é mais lida.
