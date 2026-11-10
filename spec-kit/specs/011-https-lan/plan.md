@@ -123,3 +123,4 @@ ADR: `spec-kit/docs/adrs/0008-https-na-lan-com-ca-local.md` (aprovada para a edi
 | 2026-11-06 | Edição "MLab HTTPS" com `appId` próprio | C-1103 |
 | 2026-11-06 | Botão "Continuar com HTTPS", sem fallback HTTP | C-1104 |
 | 2026-11-06 | Link continua HTTP; página redireciona | C-1105 |
+| 2026-11-10 | Branch renomeada para `edicao/https-lan` e atualizada por rebase sobre a `development`; ADR 0008 aprovada só nela | C-1102 |

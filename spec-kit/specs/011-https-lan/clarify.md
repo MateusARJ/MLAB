@@ -13,7 +13,7 @@ Decisões tomadas com o responsável em 2026-11-06.
   (ADR 0008, opção B).
 
 ## C-1102 — Onde vive a implementação
-- **Resposta aprovada:** edição isolada **MLab HTTPS** na branch `feat/https-lan`, criada a partir da ADR, **sem merge
+- **Resposta aprovada:** edição isolada **MLab HTTPS** na branch `edicao/https-lan`, criada a partir da ADR, **sem merge
   na `development`**. O PR #48 (ADR) foi fechado sem merge.
 
 ## C-1103 — Identidade da edição
