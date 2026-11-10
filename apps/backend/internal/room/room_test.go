@@ -435,6 +435,46 @@ func TestJoinRoomBySlug(t *testing.T) {
 	}
 }
 
+// TestJoinIceServers cobre os três ramos de ice_servers no join, sem acessar a rede (013, RF-132; ADR 0005).
+func TestJoinIceServers(t *testing.T) {
+	cases := []struct {
+		name     string
+		stunURL  string
+		online   bool
+		expected []string
+	}{
+		{"STUN_URL configurada sem internet", "stun:192.168.0.10:3478", false, []string{"stun:192.168.0.10:3478"}},
+		{"sem STUN_URL com internet", "", true, []string{"stun:stun.l.google.com:19302"}},
+		{"sem STUN_URL sem internet (LAN offline)", "", false, nil},
+	}
+
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			t.Setenv("STUN_URL", c.stunURL)
+			forceInternet(t, c.online)
+
+			resp, raw := joinBySlug(t)
+
+			if c.expected == nil {
+				if len(resp.IceServers) != 0 {
+					t.Errorf("esperava ice_servers vazio sem internet, obteve %+v", resp.IceServers)
+				}
+				if !strings.Contains(raw, `"ice_servers":[]`) {
+					t.Errorf("esperava \"ice_servers\":[] no JSON, corpo: %s", raw)
+				}
+				return
+			}
+			if len(resp.IceServers) != 1 {
+				t.Fatalf("esperava 1 servidor ICE, obteve %+v", resp.IceServers)
+			}
+			got := resp.IceServers[0].URLs
+			if len(got) != len(c.expected) || got[0] != c.expected[0] {
+				t.Errorf("esperava urls %v, obteve %v", c.expected, got)
+			}
+		})
+	}
+}
+
 func TestSlugFromEmail(t *testing.T) {
 	cases := []struct {
 		email    string

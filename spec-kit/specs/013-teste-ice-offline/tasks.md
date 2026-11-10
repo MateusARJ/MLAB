@@ -22,15 +22,16 @@ Checks:
   verdes (6 pacotes).
 
 ### T132 — Cobrir os três ramos de `ice_servers`
-[ ] T132
+[x] T132
 Depends On: T131
 Allowed Paths: `apps/backend/internal/room/room_test.go`
 Prohibited Paths: `apps/backend/internal/room/handler.go`, `apps/backend/internal/room/network.go`,
 `apps/backend/internal/signaling/**`, `apps/backend/go.mod`, `apps/desktop/**`, `apps/web/**`, `packages/**`
 Checks:
-- [ ] `TestJoinIceServers`: `STUN_URL` configurada sem internet → só ela; sem `STUN_URL` com internet → STUN público
-  padrão; sem `STUN_URL` sem internet → lista vazia e JSON `"ice_servers":[]` (RF-132, ADR 0005).
-- [ ] Suíte do backend verde.
+- [x] `TestJoinIceServers`: `STUN_URL` configurada sem internet → só ela; sem `STUN_URL` com internet → STUN público
+  padrão; sem `STUN_URL` sem internet → lista vazia e JSON `"ice_servers":[]` (RF-132, ADR 0005). Os três subtestes
+  passam.
+- [x] Suíte do backend verde: `go vet ./...` e `go test -count=1 ./...` (6 pacotes).
 
 ### T133 — Converge
 [ ] T133
