@@ -11,7 +11,8 @@ import { useLocalRecorder } from '../hooks/useLocalRecorder';
 import { useWebRTCPublisher } from '../hooks/useWebRTCPublisher';
 import { setAnnotationOverlayState } from '../media/createCursorMaskedTrack';
 import { getStoredToken } from '../services/auth';
-import { closeRoom, getRoomLink } from '../services/room';
+import { closeRoom } from '../services/room';
+import { useRoomLinks } from '../hooks/useRoomLinks';
 import mlabLogo from '../assets/MLAB-logo.png';
 import {
   colors,
@@ -57,6 +58,7 @@ import {
   Draggable,
   ChevronLeft,
   decodeChatEntities,
+  Alert,
 } from '@mlab/ui';
 
 
@@ -95,31 +97,8 @@ export const Room: React.FC<RoomProps> = ({ room, onCloseRoom }) => {
   const [copiedMdns, setCopiedMdns] = useState<boolean>(false);
   const [copiedIp, setCopiedIp] = useState<boolean>(false);
   const [screenshotMsg, setScreenshotMsg] = useState<string | null>(null);
-  const [links, setLinks] = useState({
-    link: room.link,
-    ipLink: room.ipLink || room.link,
-    mdnsLink: room.mdnsLink || '',
-    shortIpLink: room.shortIpLink || '',
-    shortMdnsLink: room.shortMdnsLink || '',
-  });
-
-  useEffect(() => {
-    if ((!room.mdnsLink || !room.ipLink) && room.id) {
-      getRoomLink(room.id)
-        .then((resp) => {
-          if (resp) {
-            setLinks({
-              link: resp.link || room.link,
-              ipLink: resp.ip_link || resp.link || room.link,
-              mdnsLink: resp.mdns_link || '',
-              shortIpLink: resp.short_ip_link || '',
-              shortMdnsLink: resp.short_mdns_link || '',
-            });
-          }
-        })
-        .catch(() => {});
-    }
-  }, [room.id, room.mdnsLink, room.ipLink, room.link]);
+  // Links com o nome mDNS realmente anunciado, relidos a cada 10 s; aviso quando o link fixo muda (012, RF-128)
+  const { links, notice: linkNotice, dismissNotice } = useRoomLinks(room);
 
   const handleTakeScreenshot = useCallback(async () => {
     if (window.electronAPI && typeof window.electronAPI.captureWindowToClipboard === 'function') {
@@ -346,12 +325,12 @@ export const Room: React.FC<RoomProps> = ({ room, onCloseRoom }) => {
   }, []);
 
   const handleCopyMdns = useCallback(async () => {
-    const link = links.mdnsLink || links.link;
+    const link = links.mdnsLink;
     if (!link) return;
     await copyToClipboard(link);
     setCopiedMdns(true);
     setTimeout(() => setCopiedMdns(false), 2000);
-  }, [copyToClipboard, links.mdnsLink, links.link]);
+  }, [copyToClipboard, links.mdnsLink]);
 
   const handleCopyIp = useCallback(async () => {
     const link = links.ipLink || links.link;
@@ -1457,10 +1436,11 @@ export const Room: React.FC<RoomProps> = ({ room, onCloseRoom }) => {
           <div>
             <h2 style={styles.title}>{professorName ? `MLab — Prof. ${professorName.charAt(0).toUpperCase() + professorName.slice(1)}` : `MLab — Sala: ${room.slug}`}</h2>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', marginTop: '4px' }}>
-              {/* Link Fixo */}
+              {/* Link Fixo (mDNS): só com anúncio ativo */}
+              {links.mdnsLink && (
               <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                 <span style={{ fontSize: '11px', color: colors.textMuted, fontWeight: 600, minWidth: '86px' }}>Link Fixo:</span>
-                <span style={styles.roomLinkStatic}>{links.mdnsLink || links.link}</span>
+                <span style={styles.roomLinkStatic}>{links.mdnsLink}</span>
                 <IconButton
                   type="button"
                   variant={copiedMdns ? 'success' : 'ghost'}
@@ -1472,6 +1452,7 @@ export const Room: React.FC<RoomProps> = ({ room, onCloseRoom }) => {
                   {copiedMdns ? <Checkmark size={14} /> : <Copy size={14} />}
                 </IconButton>
               </div>
+              )}
 
               {/* Link Direto IP */}
               <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
@@ -1501,6 +1482,10 @@ export const Room: React.FC<RoomProps> = ({ room, onCloseRoom }) => {
           </button>
         </div>
       </header>
+
+      {linkNotice && (
+        <Alert variant="warning" message={linkNotice} onClose={dismissNotice} style={{ margin: '8px 16px 0' }} />
+      )}
 
       {screenshotMsg && (
         <div style={styles.screenshotSuccessBanner}>

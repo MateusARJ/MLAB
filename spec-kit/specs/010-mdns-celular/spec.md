@@ -47,6 +47,8 @@ digitar o IP do professor.
 - RF-101: o backend responde à consulta mDNS do tipo A para `mlab.local` e `mlab-<professor>.local` com o IP
   anunciado, por unicast para o IP e a porta de origem, com o mesmo ID e a pergunta original, quando a consulta vier
   de porta diferente de 5353 (*legacy unicast*, RFC 6762 §6.7) ou tiver o bit QU (RFC 6762 §5.4).
+  - **Nota (012-mdns-nome-unico):** o nome anunciado passou a ser um só por backend (`mlab.local` ou
+    `mlab-N.local`); o alias `mlab-<professor>.local` saiu (012, RF-124). A forma da resposta descrita aqui não muda.
 - RF-102: consultas multicast comuns (porta de origem 5353, sem QU) continuam respondidas por multicast, como hoje.
 - RF-103: o backend não responde com registro A a perguntas de outro tipo (ex.: AAAA, HTTPS).
 - RNF-101: se a porta UDP 5353 estiver ocupada ou o anúncio falhar, o backend registra o aviso em log e o link por

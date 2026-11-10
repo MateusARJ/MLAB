@@ -6,34 +6,33 @@ import (
 	"testing"
 	"time"
 
+	"github.com/pion/mdns/v2"
 	"golang.org/x/net/dns/dnsmessage"
 	"golang.org/x/net/ipv4"
 )
 
 func TestMDNSServerLifecycleAndQuery(t *testing.T) {
-	server, err := StartMDNSServer("mateus", "192.168.1.89")
+	ip := GetPrimaryPhysicalIP()
+	if net.ParseIP(ip).To4() == nil {
+		t.Skipf("sem IPv4 de rede para o teste (IP detectado: %q)", ip)
+	}
+	usaProberFalso(t, nil)
+
+	name, err := ClaimMDNSName(ip)
 	if err != nil {
 		t.Skipf("Porta 5353 ocupada ou indisponível no ambiente de teste: %v", err)
 	}
 	defer StopMDNSServer()
 
+	if name != "mlab.local" || CurrentMDNSHost() != "mlab.local" {
+		t.Fatalf("esperava anunciar mlab.local numa rede vazia, obteve %q (CurrentMDNSHost=%q)", name, CurrentMDNSHost())
+	}
+
+	activeMDNSServerMu.Lock()
+	server := activeMDNSServer
+	activeMDNSServerMu.Unlock()
 	if server == nil {
-		t.Fatal("esperava servidor mDNS não nulo")
-	}
-
-	if server.localName != "mlab.local" {
-		t.Fatalf("localName esperado 'mlab.local', obteve '%s'", server.localName)
-	}
-
-	hasProf := false
-	for _, n := range server.localNames {
-		if n == "mlab-mateus.local" {
-			hasProf = true
-			break
-		}
-	}
-	if !hasProf {
-		t.Fatalf("esperava 'mlab-mateus.local' em server.localNames, obteve %v", server.localNames)
+		t.Fatal("esperava servidor mDNS ativo")
 	}
 
 	// Testa consulta mDNS com timeout
@@ -46,6 +45,11 @@ func TestMDNSServerLifecycleAndQuery(t *testing.T) {
 	} else {
 		t.Logf("mDNS Query sucesso: %s de %v", answer.Name.String(), remoteAddr)
 	}
+
+	StopMDNSServer()
+	if got := CurrentMDNSHost(); got != "" {
+		t.Fatalf("CurrentMDNSHost deveria ficar vazio sem anúncio, obteve %q", got)
+	}
 }
 
 // consultaLegacy envia, de uma porta efêmera (consulta "legacy unicast", RFC 6762 §6.7), uma pergunta mDNS
@@ -54,52 +58,16 @@ func TestMDNSServerLifecycleAndQuery(t *testing.T) {
 func consultaLegacy(t *testing.T, ifc *net.Interface, id uint16, nome string, tipo dnsmessage.Type, prazo time.Duration) []dnsmessage.Message {
 	t.Helper()
 
-	conn, err := net.ListenPacket("udp4", "0.0.0.0:0")
+	conn, pc, err := openLegacySocket(ifc)
 	if err != nil {
-		t.Skipf("sem socket UDP para a consulta: %v", err)
+		t.Skipf("sem socket/multicast para a consulta: %v", err)
 	}
 	defer conn.Close()
 
-	pc := ipv4.NewPacketConn(conn)
-	if err := pc.SetMulticastInterface(ifc); err != nil {
-		t.Skipf("sem multicast na interface %s: %v", ifc.Name, err)
-	}
-	_ = pc.SetMulticastLoopback(true)
-
-	pergunta := dnsmessage.Message{
-		Header: dnsmessage.Header{ID: id},
-		Questions: []dnsmessage.Question{{
-			Name:  dnsmessage.MustNewName(nome),
-			Type:  tipo,
-			Class: dnsmessage.ClassINET,
-		}},
-	}
-	pacote, err := pergunta.Pack()
-	if err != nil {
-		t.Fatalf("falha ao montar a consulta: %v", err)
-	}
-
-	destino := &net.UDPAddr{IP: net.IPv4(224, 0, 0, 251), Port: 5353}
-	if _, err := pc.WriteTo(pacote, nil, destino); err != nil {
+	if err := sendLegacyQuery(pc, id, []string{nome}, tipo); err != nil {
 		t.Skipf("falha ao enviar a consulta multicast: %v", err)
 	}
-
-	var respostas []dnsmessage.Message
-	buf := make([]byte, 1500)
-	fim := time.Now().Add(prazo)
-	for time.Now().Before(fim) {
-		_ = conn.SetReadDeadline(fim)
-		n, _, err := conn.ReadFrom(buf)
-		if err != nil {
-			break
-		}
-		var msg dnsmessage.Message
-		if err := msg.Unpack(buf[:n]); err != nil || !msg.Header.Response {
-			continue
-		}
-		respostas = append(respostas, msg)
-	}
-	return respostas
+	return readMDNSResponses(conn, time.Now().Add(prazo))
 }
 
 // TestMDNSRespondeConsultaLegacyUnicast cobre RF-101 e RF-103 da feature 010: a consulta feita de porta efêmera
@@ -111,7 +79,8 @@ func TestMDNSRespondeConsultaLegacyUnicast(t *testing.T) {
 		t.Skipf("sem interface física com IPv4 para o teste (IP detectado: %q)", ip)
 	}
 
-	if _, err := StartMDNSServer("mateus", ip); err != nil {
+	usaProberFalso(t, nil)
+	if _, err := ClaimMDNSName(ip); err != nil {
 		t.Skipf("Porta 5353 ocupada ou indisponível no ambiente de teste: %v", err)
 	}
 	defer StopMDNSServer()
@@ -150,5 +119,107 @@ func TestMDNSRespondeConsultaLegacyUnicast(t *testing.T) {
 				t.Fatalf("pergunta AAAA respondida com registro A (RF-103)")
 			}
 		}
+	}
+}
+
+// ipAlheio é o IP anunciado pelo responder falso que faz o papel do backend de outro professor (TEST-NET-1).
+const ipAlheio = "192.0.2.10"
+
+// iniciaResponderAlheio sobe, num segundo socket 5353 (SO_REUSEADDR), um responder pion/mdns/v2 que anuncia os
+// nomes dados com ipAlheio, como faria o backend de outro professor na mesma rede.
+func iniciaResponderAlheio(t *testing.T, ifc *net.Interface, nomes ...string) func() {
+	t.Helper()
+	return iniciaResponder(t, ifc, ipAlheio, nomes...)
+}
+
+// iniciaResponder sobe um responder pion/mdns/v2 num socket 5353 próprio, anunciando os nomes com o IP dado.
+func iniciaResponder(t *testing.T, ifc *net.Interface, ipStr string, nomes ...string) func() {
+	t.Helper()
+
+	raw, err := listenReusablePacketConn("0.0.0.0:5353")
+	if err != nil {
+		t.Skipf("Porta 5353 ocupada ou indisponível para o responder falso: %v", err)
+	}
+	srv, err := mdns.Server(ipv4.NewPacketConn(raw), nil, &mdns.Config{
+		LocalNames:   nomes,
+		LocalAddress: net.ParseIP(ipStr).To4(),
+		Interfaces:   []net.Interface{*ifc},
+	})
+	if err != nil {
+		_ = raw.Close()
+		t.Skipf("falha ao iniciar o responder falso: %v", err)
+	}
+	return func() {
+		_ = srv.Close()
+		_ = raw.Close()
+	}
+}
+
+// ipsRespondidos devolve os IPs das respostas A com o ID dado para o nome perguntado.
+func ipsRespondidos(respostas []dnsmessage.Message, id uint16, nome string) []string {
+	var ips []string
+	for _, r := range respostas {
+		if r.Header.ID != id {
+			continue
+		}
+		for _, a := range r.Answers {
+			body, ok := a.Body.(*dnsmessage.AResource)
+			if ok && a.Header.Name.String() == nome {
+				ips = append(ips, net.IP(body.A[:]).String())
+			}
+		}
+	}
+	return ips
+}
+
+// TestMDNSNaoDisputaNomeDeOutroBackend cobre RF-121, RF-122 e RF-124 da feature 012: com outro backend já
+// anunciando mlab.local na rede, o backend fica com mlab-2.local, que resolve para o IP dele, e não responde por
+// mlab.local.
+func TestMDNSNaoDisputaNomeDeOutroBackend(t *testing.T) {
+	ip := GetPrimaryPhysicalIP()
+	ifc := findInterfaceByIP(ip)
+	if ifc == nil || net.ParseIP(ip).To4() == nil {
+		t.Skipf("sem interface física com IPv4 para o teste (IP detectado: %q)", ip)
+	}
+
+	pararAlheio := iniciaResponderAlheio(t, ifc, "mlab.local")
+	defer pararAlheio()
+	time.Sleep(200 * time.Millisecond)
+
+	// Confere que o ambiente entrega a consulta aos dois sockets 5353 antes de avaliar o backend.
+	const idAntes = 0x4d01
+	if ips := ipsRespondidos(consultaLegacy(t, ifc, idAntes, "mlab.local.", dnsmessage.TypeA, time.Second), idAntes, "mlab.local."); len(ips) == 0 {
+		t.Skip("o responder falso não respondeu à consulta legacy (multicast indisponível no ambiente)")
+	}
+
+	inicio := time.Now()
+	host, err := ClaimMDNSName(ip)
+	duracao := time.Since(inicio)
+	if err != nil {
+		t.Skipf("Porta 5353 ocupada ou indisponível no ambiente de teste: %v", err)
+	}
+	defer StopMDNSServer()
+	t.Logf("nome escolhido %s em %v", host, duracao)
+
+	if host != "mlab-2.local" {
+		t.Fatalf("com mlab.local em uso, o backend deveria ficar com mlab-2.local; ficou com %q", host)
+	}
+	if duracao > 1500*time.Millisecond {
+		t.Errorf("claim levou %v; limite é 1,5 s (RNF-121)", duracao)
+	}
+	time.Sleep(200 * time.Millisecond)
+
+	const id = 0x4d02
+	ips := ipsRespondidos(consultaLegacy(t, ifc, id, "mlab.local.", dnsmessage.TypeA, 2*time.Second), id, "mlab.local.")
+	for _, got := range ips {
+		if got == ip {
+			t.Fatalf("o backend respondeu por mlab.local, já anunciado por outro backend (%s); respostas: %v", ipAlheio, ips)
+		}
+	}
+
+	const id2 = 0x4d03
+	ips2 := ipsRespondidos(consultaLegacy(t, ifc, id2, "mlab-2.local.", dnsmessage.TypeA, 2*time.Second), id2, "mlab-2.local.")
+	if len(ips2) == 0 || ips2[0] != ip {
+		t.Fatalf("mlab-2.local deveria resolver para %s; respostas: %v", ip, ips2)
 	}
 }
