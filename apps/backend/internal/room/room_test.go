@@ -353,7 +353,25 @@ func TestJoinValidation(t *testing.T) {
 	}
 }
 
-func TestJoinRoomBySlug(t *testing.T) {
+// forceInternet fixa o resultado de IsInternetAvailable() até o fim do teste, sem acessar a rede: preenche o cache
+// de conectividade (válido por 5 s) e restaura os valores anteriores no Cleanup (013, RF-131).
+func forceInternet(t *testing.T, online bool) {
+	t.Helper()
+	connectivityMu.Lock()
+	prevOnline, prevCheck := cachedIsOnline, lastConnectivityCheck
+	cachedIsOnline, lastConnectivityCheck = online, time.Now()
+	connectivityMu.Unlock()
+	t.Cleanup(func() {
+		connectivityMu.Lock()
+		cachedIsOnline, lastConnectivityCheck = prevOnline, prevCheck
+		connectivityMu.Unlock()
+	})
+}
+
+// joinBySlug cria a sala "uniform-lima-4770/prof-1" no store e faz o join do aluno pelo slug composto. Devolve a
+// resposta decodificada e o corpo bruto.
+func joinBySlug(t *testing.T) (JoinResponse, string) {
+	t.Helper()
 	t.Setenv("JWT_SECRET", "test-secret-12345")
 	t.Setenv("WS_URL", "ws://localhost:8080")
 
@@ -387,10 +405,19 @@ func TestJoinRoomBySlug(t *testing.T) {
 		t.Fatalf("expected 200 OK for join via slug, got %d: %s", rec.Code, rec.Body.String())
 	}
 
+	raw := rec.Body.String()
 	var resp JoinResponse
-	if err := json.NewDecoder(rec.Body).Decode(&resp); err != nil {
+	if err := json.Unmarshal([]byte(raw), &resp); err != nil {
 		t.Fatalf("falha ao decodificar JoinResponse: %v", err)
 	}
+	return resp, raw
+}
+
+func TestJoinRoomBySlug(t *testing.T) {
+	t.Setenv("STUN_URL", "")
+	forceInternet(t, true)
+
+	resp, _ := joinBySlug(t)
 
 	if resp.Token == "" {
 		t.Error("esperava token JWT gerado para o aluno")
@@ -402,8 +429,9 @@ func TestJoinRoomBySlug(t *testing.T) {
 	if resp.WsURL != expectedWs {
 		t.Errorf("esperava WsURL %s, obteve %s", expectedWs, resp.WsURL)
 	}
-	if len(resp.IceServers) == 0 {
-		t.Error("esperava IceServers configurados")
+	if len(resp.IceServers) != 1 || len(resp.IceServers[0].URLs) != 1 ||
+		resp.IceServers[0].URLs[0] != "stun:stun.l.google.com:19302" {
+		t.Errorf("esperava o STUN padrão com internet, obteve %+v", resp.IceServers)
 	}
 }
 

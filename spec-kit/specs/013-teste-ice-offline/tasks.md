@@ -9,16 +9,17 @@ Regras:
 - um commit atômico por task, com `Ref: T13x` e `Refs #35`.
 
 ### T131 — Isolar `TestJoinRoomBySlug` da rede
-[ ] T131
+[x] T131
 Allowed Paths: `apps/backend/internal/room/room_test.go`
 Prohibited Paths: `apps/backend/internal/room/handler.go`, `apps/backend/internal/room/network.go`,
 `apps/backend/internal/signaling/**`, `apps/backend/go.mod`, `apps/desktop/**`, `apps/web/**`, `packages/**`
 Checks:
-- [ ] Antes: `go test -count=1 -run TestJoinRoomBySlug ./internal/room/` falha sem internet ("esperava IceServers
-  configurados").
-- [ ] Helper `forceInternet(t, online)` fixa o cache de conectividade e restaura no `t.Cleanup` (RF-131).
-- [ ] Helper `joinBySlug(t)` com a montagem atual do teste; `TestJoinRoomBySlug` fixa `STUN_URL` vazio e internet
-  disponível e confere o STUN padrão; passa sem internet.
+- [x] Antes: `go test -count=1 -run TestJoinRoomBySlug ./internal/room/` falha sem internet ("esperava IceServers
+  configurados", `room_test.go:406`; Windows 11, 2026-11-10, máquina onde `IsInternetAvailable()` é falso).
+- [x] Helper `forceInternet(t, online)` fixa o cache de conectividade e restaura no `t.Cleanup` (RF-131).
+- [x] Helper `joinBySlug(t)` com a montagem atual do teste; `TestJoinRoomBySlug` fixa `STUN_URL` vazio e internet
+  disponível e confere o STUN padrão; passa na mesma máquina sem internet. `go vet ./...` e `go test -count=1 ./...`
+  verdes (6 pacotes).
 
 ### T132 — Cobrir os três ramos de `ice_servers`
 [ ] T132
