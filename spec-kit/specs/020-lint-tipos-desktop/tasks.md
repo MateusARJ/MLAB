@@ -9,13 +9,13 @@ Regras:
 - um commit atômico por task, com `Ref: T200x` e `Refs #51`.
 
 ### T2001 — Remover import morto do main
-[ ] T2001
+[x] T2001
 Allowed Paths: `apps/desktop/src/main/main.ts`
 Prohibited Paths: `apps/desktop/src/main/preload.ts`, `apps/desktop/src/main/cursorPresence.ts`, `apps/web/**`,
 `apps/backend/**`, `packages/**`, `package.json`
 Checks:
-- [ ] `systemPreferences` fora do import de `electron` (RF-2001).
-- [ ] `tsc`: 14 → 13 erros.
+- [x] `systemPreferences` fora do import de `electron` (RF-2001).
+- [x] `tsc`: 14 → 13 erros.
 
 ### T2002 — Limpar o worker do cursor e corrigir o tipo do canvas
 [ ] T2002
