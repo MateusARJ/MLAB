@@ -43,14 +43,14 @@ Checks:
 - [x] `tsc`: 3 → 2 erros; `Room.test.tsx` verde.
 
 ### T2004 — Completar os mocks do publisher
-[ ] T2004
+[x] T2004
 Depends On: T2003
 Allowed Paths: `apps/desktop/src/renderer/pages/Room.test.tsx`
 Prohibited Paths: `apps/desktop/src/renderer/pages/Room.tsx`, `apps/desktop/src/renderer/hooks/**`, `packages/**`,
 `package.json`
 Checks:
-- [ ] `stopPublishing: vi.fn()` nos dois mocks apontados pelo `tsc` (RF-2001).
-- [ ] `tsc`: 0 erros; `npm run lint` na raiz com código 0; suíte do desktop verde.
+- [x] `stopPublishing: vi.fn()` nos dois mocks apontados pelo `tsc` (RF-2001).
+- [x] `tsc`: 0 erros; `npm run lint` na raiz com código 0; suíte do desktop verde.
 
 ### T2005 — Lint no CI
 [ ] T2005

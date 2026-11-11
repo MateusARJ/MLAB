@@ -833,6 +833,7 @@ describe('Room Component (Desktop)', () => {
       pinChatMessage: vi.fn(),
       sendStreamPause: vi.fn(),
       startPublishing: vi.fn(),
+      stopPublishing: vi.fn(),
       changeStream: vi.fn(),
       endSession: vi.fn(),
     });
@@ -908,6 +909,7 @@ describe('Room Component (Desktop)', () => {
         pinChatMessage: vi.fn(),
         sendStreamPause: vi.fn(),
         startPublishing: vi.fn(),
+        stopPublishing: vi.fn(),
         changeStream: mockChangeStream,
         endSession: vi.fn(),
       };
