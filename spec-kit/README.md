@@ -86,6 +86,12 @@ o `analyze.md` não está em `Status: PASS`, a checklist não está `APPROVED`, 
 `Prohibited Paths:` ou um cabeçalho de tarefa foge do padrão `### T` + 3 ou mais dígitos + letra
 minúscula opcional (`T101`, `T101a`, `T1101`).
 
+Testes do próprio validador (biblioteca padrão do Python, sem dependência):
+
+```bash
+py -m unittest discover -s spec-kit/.specify/scripts -p "test_*.py"
+```
+
 ## Decisões Arquiteturais Aprovadas
 
 | ADR | Decisão |
