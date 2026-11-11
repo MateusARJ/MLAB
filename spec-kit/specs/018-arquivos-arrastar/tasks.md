@@ -66,7 +66,7 @@ Checks:
   tocados.
 
 ### T184 — Zona de soltar e integração na aba Arquivos
-[ ] T184
+[x] T184
 Depends On: T182, T183
 Allowed Paths: `apps/desktop/src/renderer/components/FileDropZone.tsx`,
 `apps/desktop/src/renderer/components/FileDropZone.test.tsx`, `apps/desktop/src/renderer/pages/Room.tsx`,
@@ -75,17 +75,18 @@ Prohibited Paths: `apps/desktop/src/renderer/hooks/useWebRTCPublisher.ts`, `apps
 `apps/desktop/src/renderer/services/room.ts`, `apps/desktop/src/main/**`, `packages/**`, `apps/backend/**`,
 `apps/web/**`
 Checks:
-- [ ] `FileDropZone`: o destaque "Solte para compartilhar" aparece no `dragenter` com `Files`, não pisca ao passar
+- [x] `FileDropZone`: o destaque "Solte para compartilhar" aparece no `dragenter` com `Files`, não pisca ao passar
   por filhos, some no `dragleave` final e no `drop`; arraste sem `Files` não ativa (RF-182).
-- [ ] `FileDropZone`: o `drop` chama `onFiles` com arquivos e pastas identificadas e não propaga para o `window`.
-- [ ] `Room`, aba Arquivos: o drop de 1 e de 3 arquivos mostra os estados e adiciona à lista "Arquivos
+- [x] `FileDropZone`: o `drop` chama `onFiles` com arquivos e pastas identificadas e não propaga para o `window`.
+- [x] `Room`, aba Arquivos: o drop de 1 e de 3 arquivos mostra os estados e adiciona à lista "Arquivos
   Compartilhados Nesta Aula" (RF-181, RF-184, RF-189).
-- [ ] `Room`: o 413 mostra a mensagem do servidor no item, com "Dispensar" (RF-185).
-- [ ] `Room`: o input tem `multiple` e usa a mesma fila; o botão mostra "Enviando Arquivo..." e fica desabilitado
-  durante o envio (RF-188).
-- [ ] `Room`: o `fetch` de upload não fica mais no `Room.tsx`; a listagem inicial não muda.
-- [ ] Testes existentes do `Room` verdes; `npm test` verde; `tsc` sem erro novo (`Room.tsx:94` e os de
-  `Room.test.tsx` já existiam).
+- [x] `Room`: o 413 mostra a mensagem do servidor no item, com "Dispensar" (RF-185).
+- [x] `Room`: o input tem `multiple` e usa a mesma fila; o botão mostra "Enviando Arquivo..." e fica desabilitado
+  durante o envio (RF-188). Texto de apoio "ou arraste arquivos para esta aba" abaixo do botão.
+- [x] `Room`: o `fetch` de upload não fica mais no `Room.tsx`; a listagem inicial não muda.
+- [x] Testes existentes do `Room` verdes (sem mudança no `Room.test.tsx`); `npm test` verde (23 arquivos, 198
+  testes; 11 novos, e os 4 do `RoomFileDrop` falham com o `Room.tsx` antigo); `tsc` com os mesmos 14 erros da #51
+  (`Room.tsx:96`, antigo `:94`, só deslocado); `electron-vite build` ok.
 
 ### T185 — Nota na 003 e item de smoke A13b
 [ ] T185

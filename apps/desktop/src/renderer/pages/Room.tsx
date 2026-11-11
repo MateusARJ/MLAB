@@ -13,6 +13,8 @@ import { setAnnotationOverlayState } from '../media/createCursorMaskedTrack';
 import { getStoredToken } from '../services/auth';
 import { closeRoom } from '../services/room';
 import { useRoomLinks } from '../hooks/useRoomLinks';
+import { useRoomFileUploads, type UploadItem } from '../hooks/useRoomFileUploads';
+import { FileDropZone } from '../components/FileDropZone';
 import mlabLogo from '../assets/MLAB-logo.png';
 import {
   colors,
@@ -132,8 +134,6 @@ export const Room: React.FC<RoomProps> = ({ room, onCloseRoom }) => {
   const [privateChatInput, setPrivateChatInput] = useState<string>('');
   const [targetStudent, setTargetStudent] = useState<{ id: string; name: string; student_id?: string } | null>(null);
   const [uploadedFiles, setUploadedFiles] = useState<any[]>([]);
-  const [isUploading, setIsUploading] = useState<boolean>(false);
-  const [uploadMsg, setUploadMsg] = useState<string | null>(null);
   const [unreadCount, setUnreadCount] = useState<number>(0);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -414,6 +414,18 @@ export const Room: React.FC<RoomProps> = ({ room, onCloseRoom }) => {
   } = useLocalRecorder({ stream });
 
   const token = getStoredToken();
+
+  // Fila de envio de arquivos: botão e zona de soltar da aba Arquivos (018, RF-183 a RF-189)
+  const handleFileUploaded = useCallback((file: any) => {
+    setUploadedFiles((prev) => [...prev, file]);
+  }, []);
+  const {
+    items: uploadItems,
+    enqueue: enqueueUploads,
+    dismiss: dismissUpload,
+    isUploading,
+  } = useRoomFileUploads({ roomId: room?.id, token: token ?? '', onUploaded: handleFileUploaded });
+
   const {
     isPublishing,
     connectionState,
@@ -1379,41 +1391,26 @@ export const Room: React.FC<RoomProps> = ({ room, onCloseRoom }) => {
     setPrivateChatInput('');
   };
 
-  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
-    if (!files || files.length === 0) return;
-    const file = files[0];
-    setIsUploading(true);
-    setUploadMsg(null);
+    if (files && files.length > 0) {
+      enqueueUploads(Array.from(files));
+    }
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  };
 
-    try {
-      const formData = new FormData();
-      formData.append('file', file);
-
-      const resp = await fetch(`http://localhost:8080/rooms/${room.id}/files`, {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-        body: formData,
-      });
-
-      if (!resp.ok) {
-        const errJson = await resp.json().catch(() => ({}));
-        throw new Error(errJson.error || 'Erro ao enviar arquivo');
-      }
-
-      const fileData = await resp.json();
-      setUploadedFiles((prev) => [...prev, fileData]);
-      setUploadMsg(`Arquivo "${file.name}" compartilhado com sucesso com a turma!`);
-      setTimeout(() => setUploadMsg(null), 5000);
-    } catch (err: any) {
-      setUploadMsg(`Falha no upload: ${err.message || 'Erro desconhecido'}`);
-    } finally {
-      setIsUploading(false);
-      if (fileInputRef.current) {
-        fileInputRef.current.value = '';
-      }
+  const uploadStatusLabel = (item: UploadItem): string => {
+    switch (item.status) {
+      case 'aguardando':
+        return 'Aguardando';
+      case 'enviando':
+        return 'Enviando...';
+      case 'enviado':
+        return 'Enviado';
+      default:
+        return item.error || 'Erro ao enviar arquivo';
     }
   };
 
@@ -2970,12 +2967,14 @@ export const Room: React.FC<RoomProps> = ({ room, onCloseRoom }) => {
 
                 {/* Aba 3: Compartilhamento de Arquivos com os Alunos */}
                 {sidebarTab === 'files' && (
-                  <div style={styles.filesTabContent}>
+                  <FileDropZone onFiles={enqueueUploads} style={styles.filesTabContent}>
                     <div style={styles.uploadSection}>
                       <input
                         ref={fileInputRef}
                         type="file"
-                        onChange={handleFileUpload}
+                        multiple
+                        data-testid="room-file-input"
+                        onChange={handleFileInputChange}
                         style={{ display: 'none' }}
                       />
                       <button
@@ -2987,10 +2986,37 @@ export const Room: React.FC<RoomProps> = ({ room, onCloseRoom }) => {
                         {isUploading ? 'Enviando Arquivo...' : <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}><Attachment size={16} /> Compartilhar Novo Arquivo</span>}
                       </button>
 
-                      {uploadMsg && (
-                        <div style={styles.uploadFeedbackBanner}>
-                          {uploadMsg}
-                        </div>
+                      <span style={styles.dropHint}>ou arraste arquivos para esta aba</span>
+
+                      {uploadItems.length > 0 && (
+                        <ul style={styles.uploadQueueList} role="status" aria-live="polite" aria-label="Envio de arquivos">
+                          {uploadItems.map((item) => (
+                            <li
+                              key={item.id}
+                              data-testid="upload-item"
+                              data-status={item.status}
+                              style={{
+                                ...styles.uploadQueueItem,
+                                ...(item.status === 'erro' ? styles.uploadQueueItemError : {}),
+                                ...(item.status === 'enviado' ? styles.uploadQueueItemDone : {}),
+                              }}
+                            >
+                              <span style={styles.uploadQueueName} title={item.name}>{item.name}</span>
+                              <span style={styles.uploadQueueStatus}>{uploadStatusLabel(item)}</span>
+                              {item.status === 'erro' && (
+                                <button
+                                  type="button"
+                                  onClick={() => dismissUpload(item.id)}
+                                  style={styles.uploadQueueDismiss}
+                                  title="Dispensar"
+                                  aria-label={`Dispensar ${item.name}`}
+                                >
+                                  <Close size={12} />
+                                </button>
+                              )}
+                            </li>
+                          ))}
+                        </ul>
                       )}
                     </div>
 
@@ -3011,7 +3037,7 @@ export const Room: React.FC<RoomProps> = ({ room, onCloseRoom }) => {
                         ))
                       )}
                     </div>
-                  </div>
+                  </FileDropZone>
                 )}
               </aside>
             </div>
@@ -4473,14 +4499,65 @@ const styles: { [key: string]: React.CSSProperties } = {
     cursor: 'not-allowed',
     textAlign: 'center',
   },
-  uploadFeedbackBanner: {
-    padding: '8px 10px',
+  dropHint: {
+    fontSize: '11px',
+    color: '#64748b',
+    textAlign: 'center',
+  },
+  uploadQueueList: {
+    listStyle: 'none',
+    margin: 0,
+    padding: 0,
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '4px',
+    maxHeight: '160px',
+    overflowY: 'auto',
+  },
+  uploadQueueItem: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '8px',
+    padding: '6px 8px',
     borderRadius: '6px',
+    backgroundColor: 'rgba(56, 189, 248, 0.08)',
+    border: '1px solid #1e3a5f',
+    color: '#cbd5e1',
+    fontSize: '11px',
+  },
+  uploadQueueItemDone: {
     backgroundColor: 'rgba(34, 197, 94, 0.15)',
     border: '1px solid #22c55e',
     color: '#86efac',
-    fontSize: '11px',
-    fontWeight: '500',
+  },
+  uploadQueueItemError: {
+    backgroundColor: 'rgba(239, 68, 68, 0.12)',
+    border: '1px solid #ef4444',
+    color: '#fca5a5',
+  },
+  uploadQueueName: {
+    flex: 1,
+    minWidth: 0,
+    fontWeight: '600',
+    whiteSpace: 'nowrap',
+    overflow: 'hidden',
+    textOverflow: 'ellipsis',
+  },
+  uploadQueueStatus: {
+    flexShrink: 0,
+    maxWidth: '55%',
+    textAlign: 'right',
+  },
+  uploadQueueDismiss: {
+    flexShrink: 0,
+    display: 'inline-flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: '2px',
+    border: 'none',
+    background: 'transparent',
+    color: 'inherit',
+    cursor: 'pointer',
   },
   uploadedFilesList: {
     flex: 1,
