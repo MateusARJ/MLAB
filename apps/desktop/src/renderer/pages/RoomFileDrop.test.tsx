@@ -174,4 +174,27 @@ describe('Room — arrastar arquivos para a aba Arquivos (018)', () => {
     expect(within(sharedList()).getByText('x.pdf')).toBeInTheDocument();
     expect(uploadPosts()).toHaveLength(2);
   });
+
+  it('rola a lista da aula até o último arquivo enviado, como o chat (RF-191)', async () => {
+    const scrolled: Element[] = [];
+    const original = (Element.prototype as any).scrollIntoView;
+    (Element.prototype as any).scrollIntoView = function (this: Element) {
+      scrolled.push(this);
+    };
+    try {
+      uploadResponses.push(() => Promise.resolve(created('aula.pdf')));
+      const zone = await openFilesTab();
+      const end = screen.getByTestId('uploaded-files-end');
+      const before = scrolled.filter((el) => el === end).length;
+
+      fireEvent.drop(zone, { dataTransfer: dropData([new File(['%PDF'], 'aula.pdf')]) });
+
+      await waitFor(() => expect(within(sharedList()).getByText('aula.pdf')).toBeInTheDocument());
+      expect(scrolled.filter((el) => el === end).length).toBeGreaterThan(before);
+      const last = within(sharedList()).getByText('aula.pdf');
+      expect(last.compareDocumentPosition(end) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    } finally {
+      (Element.prototype as any).scrollIntoView = original;
+    }
+  });
 });

@@ -463,6 +463,14 @@ export const Room: React.FC<RoomProps> = ({ room, onCloseRoom }) => {
     }
   }, [messages.length, sidebarTab, chatSubTab, isSidebarOpen]);
 
+  // Auto-scroll da lista "Arquivos Compartilhados Nesta Aula", no mesmo padrão do chat (018/RF-191)
+  const uploadedFilesEndRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (sidebarTab === 'files') {
+      uploadedFilesEndRef.current?.scrollIntoView?.({ behavior: 'smooth' });
+    }
+  }, [uploadedFiles.length, sidebarTab, isSidebarOpen]);
+
   useEffect(() => {
     if (!isSidebarOpen && messages.length > prevMessagesLength.current) {
       setUnreadCount((prev) => prev + (messages.length - prevMessagesLength.current));
@@ -3036,6 +3044,7 @@ export const Room: React.FC<RoomProps> = ({ room, onCloseRoom }) => {
                           </div>
                         ))
                       )}
+                      <div ref={uploadedFilesEndRef} data-testid="uploaded-files-end" />
                     </div>
                   </FileDropZone>
                 )}

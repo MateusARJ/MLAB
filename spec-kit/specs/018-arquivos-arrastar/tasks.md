@@ -104,7 +104,7 @@ Checks:
   `PENDENTE` — os arquivos gerados não foram versionados).
 
 ### T187 — Rolagem automática das listas de arquivos (padrão do chat)
-[ ] T187
+[x] T187
 Depends On: T184
 Allowed Paths: `apps/web/src/pages/Room.tsx`, `apps/web/src/pages/Room.test.tsx`,
 `apps/desktop/src/renderer/pages/Room.tsx`, `apps/desktop/src/renderer/pages/RoomFileDrop.test.tsx`
@@ -112,14 +112,16 @@ Prohibited Paths: `apps/web/src/hooks/**`, `apps/web/src/services/**`, `apps/web
 `apps/desktop/src/renderer/hooks/**`, `apps/desktop/src/renderer/services/**`, `apps/desktop/src/main/**`,
 `packages/**`, `apps/backend/**`
 Checks:
-- [ ] Web, gaveta "Arquivos da Aula" (desktop): ao abrir e quando chega um arquivo novo, `scrollIntoView` é chamado
+- [x] Web, gaveta "Arquivos da Aula" (desktop): ao abrir e quando chega um arquivo novo, `scrollIntoView` é chamado
   no marcador do fim da lista (RF-191).
-- [ ] Web, aba Arquivos do celular: idem (RF-191).
-- [ ] Desktop, "Arquivos Compartilhados Nesta Aula": após um envio, `scrollIntoView` é chamado no marcador do fim
+- [x] Web, aba Arquivos do celular: idem (RF-191).
+- [x] Desktop, "Arquivos Compartilhados Nesta Aula": após um envio, `scrollIntoView` é chamado no marcador do fim
   (RF-191).
-- [ ] A ordem das listas não muda (mais novo no fim); o chat continua rolando como antes.
-- [ ] `npm test` verde no web e no desktop, com os testes novos falhando sem a mudança; `tsc` do desktop com os
-  mesmos 14 erros da #51 e `lint` do web sem erro novo.
+- [x] A ordem das listas não muda (mais novo no fim); o chat continua rolando como antes (testes do chat sem
+  mudança e verdes).
+- [x] `npm test` verde no web (4 arquivos, 42 testes; 2 novos) e no desktop (23 arquivos, 199 testes; 1 novo), e os
+  3 novos falham sem a mudança; `tsc` do desktop com os mesmos 14 erros da #51, nenhum nos arquivos tocados; `lint`
+  do web sem erro; `vite build` e `electron-vite build` ok.
 
 ### T186 — Smoke, converge, issue do escopo retirado e versão
 [ ] T186

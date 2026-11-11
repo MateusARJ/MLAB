@@ -1,5 +1,5 @@
 import { render, screen, fireEvent, createEvent } from '@testing-library/react';
-import { describe, it, expect, vi, afterEach } from 'vitest';
+import { describe, it, expect, vi, afterEach, beforeEach } from 'vitest';
 import { Room } from './Room';
 
 const { mockSendChatMessage, mockToggleHand, mockSubscriberState } = vi.hoisted(() => ({
@@ -14,6 +14,7 @@ const { mockSendChatMessage, mockToggleHand, mockSubscriberState } = vi.hoisted(
       { id: 'pub-1', sender_name: 'Professor Girafales', sender_role: 'professor', content: 'Bem-vindos a aula!', is_private: false, pinned: false },
       { id: 'priv-1', sender_name: 'Professor Girafales', sender_role: 'professor', content: 'Sua nota da prova é 10', is_private: true, pinned: false },
     ] as any[],
+    sharedFiles: [] as any[],
   },
 }));
 
@@ -24,7 +25,7 @@ vi.mock('../hooks/useWebRTCSubscriber', () => ({
     setAutoplayBlocked: vi.fn(),
     connectionStatus: mockSubscriberState.connectionStatus,
     isStreamPaused: false,
-    sharedFiles: [],
+    sharedFiles: mockSubscriberState.sharedFiles,
     messages: mockSubscriberState.messages,
     sendChatMessage: mockSendChatMessage,
     isHandRaised: mockSubscriberState.isHandRaised,
@@ -495,4 +496,66 @@ describe('Room Component (Web Subscriber)', () => {
   });
 });
 
+describe('Room — rolagem automática da lista de arquivos (018/RF-191)', () => {
+  const token = 'student-jwt-123';
+  const roomInfo = { room_id: 'room-101', ws_url: 'ws://localhost:8080/ws/rooms/room-101/signal', ice_servers: [] };
+  let scrolled: Element[];
+  const original = (Element.prototype as any).scrollIntoView;
 
+  function sharedFile(n: number) {
+    return { id: `f${n}`, name: `material-${n}.pdf`, size: 1024, url: `/rooms/room-101/files/f${n}/download` };
+  }
+
+  beforeEach(() => {
+    scrolled = [];
+    (Element.prototype as any).scrollIntoView = function (this: Element) {
+      scrolled.push(this);
+    };
+    mockSubscriberState.sharedFiles = [sharedFile(1)];
+  });
+
+  afterEach(() => {
+    (Element.prototype as any).scrollIntoView = original;
+    mockSubscriberState.sharedFiles = [];
+    window.innerWidth = 1024;
+    fireEvent(window, new Event('resize'));
+  });
+
+  function scrolledToFilesEnd() {
+    return scrolled.filter((el) => el === screen.queryByTestId('files-end')).length;
+  }
+
+  it('rola a gaveta Arquivos da Aula até o último arquivo ao abrir e quando chega um arquivo novo', () => {
+    window.innerWidth = 1024;
+    fireEvent(window, new Event('resize'));
+    const { rerender } = render(<Room token={token} roomInfo={roomInfo} onLeave={vi.fn()} />);
+
+    fireEvent.click(screen.getAllByTitle('Arquivos da Aula')[0]);
+    const end = screen.getByTestId('files-end');
+    expect(scrolledToFilesEnd()).toBeGreaterThan(0);
+
+    const before = scrolledToFilesEnd();
+    mockSubscriberState.sharedFiles = [sharedFile(1), sharedFile(2)];
+    rerender(<Room token={token} roomInfo={roomInfo} onLeave={vi.fn()} />);
+
+    expect(scrolledToFilesEnd()).toBeGreaterThan(before);
+    const last = screen.getByText('material-2.pdf');
+    expect(last.compareDocumentPosition(end) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
+  it('rola a aba Arquivos do celular até o último arquivo quando chega um arquivo novo', () => {
+    window.innerWidth = 400;
+    fireEvent(window, new Event('resize'));
+    const { rerender } = render(<Room token={token} roomInfo={roomInfo} onLeave={vi.fn()} />);
+
+    fireEvent.click(screen.getByRole('button', { name: /^Arquivos/i }));
+    expect(screen.getByTestId('files-end')).toBeInTheDocument();
+    const before = scrolledToFilesEnd();
+    expect(before).toBeGreaterThan(0);
+
+    mockSubscriberState.sharedFiles = [sharedFile(1), sharedFile(2)];
+    rerender(<Room token={token} roomInfo={roomInfo} onLeave={vi.fn()} />);
+
+    expect(scrolledToFilesEnd()).toBeGreaterThan(before);
+  });
+});
