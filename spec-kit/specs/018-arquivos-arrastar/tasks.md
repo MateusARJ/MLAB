@@ -44,24 +44,26 @@ Checks:
   tocados; `electron-vite build` ok.
 
 ### T183 — Service de envio e fila sequencial
-[ ] T183
+[x] T183
 Allowed Paths: `apps/desktop/src/renderer/services/files.ts`, `apps/desktop/src/renderer/services/files.test.ts`,
 `apps/desktop/src/renderer/hooks/useRoomFileUploads.ts`, `apps/desktop/src/renderer/hooks/useRoomFileUploads.test.ts`
 Prohibited Paths: `apps/desktop/src/renderer/services/room.ts`, `apps/desktop/src/renderer/services/auth.ts`,
 `apps/desktop/src/renderer/pages/**`, `apps/desktop/src/main/**`, `packages/**`, `apps/backend/**`, `apps/web/**`
 Checks:
-- [ ] `uploadRoomFile` faz POST multipart `file` com `Authorization: Bearer` para `/rooms/{id}/files` e devolve o
+- [x] `uploadRoomFile` faz POST multipart `file` com `Authorization: Bearer` para `/rooms/{id}/files` e devolve o
   JSON 201 (RF-183).
-- [ ] Resposta 413/403 lança com o `error` do servidor; resposta sem JSON ou falha de rede lança "Erro ao enviar
+- [x] Resposta 413/403 lança com o `error` do servidor; resposta sem JSON ou falha de rede lança "Erro ao enviar
   arquivo" (RF-185).
-- [ ] Hook: 3 arquivos são enviados em ordem, e o 2º `fetch` só começa depois do 1º resolver; o estado passa por
+- [x] Hook: 3 arquivos são enviados em ordem, e o 2º `fetch` só começa depois do 1º resolver; o estado passa por
   `enviando` (RF-183, RF-184).
-- [ ] Hook: erro no 2º marca só ele e o 3º é enviado (RF-185, C-187).
-- [ ] Hook: arquivo > 50 MB e pasta viram `erro` sem `fetch` (RF-186).
-- [ ] Hook: `enqueue` durante o envio adiciona ao fim (RF-187); item enviado sai após 5 s; `dismiss` remove; erros
+- [x] Hook: erro no 2º marca só ele e o 3º é enviado (RF-185, C-187).
+- [x] Hook: arquivo > 50 MB e pasta viram `erro` sem `fetch`; exatamente 50 MB é enviado (RF-186).
+- [x] Hook: `enqueue` durante o envio adiciona ao fim (RF-187); item enviado sai após 5 s; `dismiss` remove; erros
   do lote anterior saem quando um lote novo começa (RF-184).
-- [ ] Hook: `onUploaded` recebe o arquivo do servidor; após o unmount, nada de `setState` e o timer é limpo.
-- [ ] `npm test` verde; `tsc` sem erro novo.
+- [x] Hook: `onUploaded` recebe o arquivo do servidor; após o unmount, a fila para, nada de `setState` e o timer é
+  limpo.
+- [x] `npm test` verde (21 arquivos, 187 testes; 13 novos); `tsc` com os mesmos 14 erros da #51, nenhum nos arquivos
+  tocados.
 
 ### T184 — Zona de soltar e integração na aba Arquivos
 [ ] T184
