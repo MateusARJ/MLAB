@@ -18,16 +18,16 @@ Checks:
 - [x] `tsc`: 14 → 13 erros.
 
 ### T2002 — Limpar o worker do cursor e corrigir o tipo do canvas
-[ ] T2002
+[x] T2002
 Depends On: T2001
 Allowed Paths: `apps/desktop/src/renderer/media/cursorMask.worker.ts`
 Prohibited Paths: `apps/desktop/src/renderer/media/createCursorMaskedTrack.ts`, `apps/desktop/src/renderer/hooks/**`,
 `packages/**`, `package.json`
 Checks:
-- [ ] Sobras do inpainting removidas (C-2003); `state.rect` continua alimentando a lupa (RNF-2001).
-- [ ] `ensureOutCanvas` devolve `{ canvas, ctx } | null`, sem `as` nem `!` (RF-2001).
-- [ ] Caminho sem sobreposição continua repassando o quadro sem cópia (RNF-2001).
-- [ ] `tsc`: 13 → 3 erros; testes de `src/renderer/media` verdes.
+- [x] Sobras do inpainting removidas (C-2003); `state.rect` continua alimentando a lupa (RNF-2001).
+- [x] `ensureOutCanvas` devolve `{ canvas, ctx } | null`, sem `as` nem `!` (RF-2001).
+- [x] Caminho sem sobreposição continua repassando o quadro sem cópia (RNF-2001).
+- [x] `tsc`: 13 → 3 erros; testes de `src/renderer/media` verdes.
 
 ### T2003 — Remover o estado do selo de privacidade da sala
 [ ] T2003
