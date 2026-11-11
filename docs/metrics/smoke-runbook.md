@@ -105,6 +105,34 @@ não ficam selecionadas ao mesmo tempo.
 **OK quando:** o cursor só aparece para o aluno dentro da janela transmitida, o print da janela do app sai preto
 com a proteção ligada, e a captura cola corretamente.
 
+## A13b — Arrastar arquivos para a aba Arquivos
+
+Requer MLab **1.12.0 ou posterior** (feature 018), no **instalador Windows** (`npm run make:win`): a navegação por
+arquivo solto só acontecia no app empacotado. Um aluno no celular, na sala.
+
+Prepare na Área de Trabalho: 5 arquivos pequenos (ex.: PDF, DOCX, PNG, TXT, ZIP), um arquivo **acima de 50 MB** e uma
+pasta qualquer.
+
+1. Abra a sala, inicie a transmissão e abra **Chat & Turma → Arquivos**.
+2. Arraste **1** PDF do Explorador sobre a aba: aparece a zona tracejada "Solte para compartilhar". Tire o arquivo de
+   cima da aba sem soltar: o destaque some.
+3. Solte o PDF na aba: o item mostra "Enviando..." e depois "Enviado"; o arquivo entra em "Arquivos Compartilhados
+   Nesta Aula", o contador da aba sobe e, uns 5 s depois, o item some da lista de envio.
+4. Selecione os **5** arquivos e solte de uma vez: eles são enviados um por vez, na ordem, cada um com o próprio
+   estado; o botão mostra "Enviando Arquivo..." enquanto isso.
+5. Solte juntos o arquivo **> 50 MB**, a **pasta** e um arquivo pequeno: o grande mostra "arquivo acima do limite de
+   50MB", a pasta mostra "pastas não são suportadas" e o pequeno é enviado. Dispense os dois erros pelo `×`.
+6. Solte um PDF **fora** da aba (sobre a prévia da transmissão, o cabeçalho ou outra aba da barra lateral): nada é
+   enviado e a janela **continua na sala** (não abre o PDF).
+7. Clique em "Compartilhar Novo Arquivo" e escolha 2 arquivos com `Ctrl`: os dois são enviados pela mesma fila.
+8. Saia do MLab clicando em outra janela e confira que a barra de marcação flutuante continua aparecendo (o guard de
+   navegação novo não bloqueia o overlay).
+9. No celular, o aluno vê os arquivos em "Arquivos da aula" e baixa pelo menos um.
+
+**OK quando:** o destaque aparece só com arquivos sobre a aba, os envios seguem em ordem com estado por arquivo, os
+limites mostram as mensagens acima, soltar fora da zona não tira a janela da sala, a barra de marcação abre e o
+aluno recebe os arquivos.
+
 ## A15b — Mãos levantadas na barra de marcação (fora do MLab)
 
 Requer MLab **1.11.0 ou posterior** (feature 017) e pelo menos dois alunos (celular e outro navegador ou aba anônima).

@@ -104,6 +104,9 @@ contratos, testes e tarefas rastreáveis.
 - Cada envio gera `file-shared` para a sala; quem entra depois recebe `files-history`.
 - Alunos listam e baixam os arquivos da sala pelo navegador, inclusive no celular.
 - Os arquivos ficam em memória e não sobrevivem ao reinício do backend (ADR 0005).
+  - **Nota (018-arquivos-arrastar):** o professor também pode arrastar arquivos para a aba Arquivos, com envio em
+    sequência e estado por arquivo; o botão aceita vários arquivos. Endpoint, limites e contrato não mudam
+    (RF-181 a RF-190 da 018).
 
 ### US-17 — Validação da matrícula
 
