@@ -53,13 +53,13 @@ Checks:
 - [x] `tsc`: 0 erros; `npm run lint` na raiz com código 0; suíte do desktop verde.
 
 ### T2005 — Lint no CI
-[ ] T2005
+[x] T2005
 Depends On: T2004
 Allowed Paths: `.github/workflows/build-all.yml`
 Prohibited Paths: `apps/**`, `packages/**`, `package.json`, demais arquivos de `.github/**`
 Checks:
-- [ ] Etapa `npm run lint` entre "Compilar pacotes compartilhados" e "Executar testes automatizados" (RF-2003).
-- [ ] Gatilhos do workflow inalterados (C-2004).
+- [x] Etapa `npm run lint` entre "Compilar pacotes compartilhados" e "Executar testes automatizados" (RF-2003).
+- [x] Gatilhos do workflow inalterados (C-2004).
 
 ### T2006 — Converge e versão
 [ ] T2006
