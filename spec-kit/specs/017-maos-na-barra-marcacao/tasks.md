@@ -47,25 +47,26 @@ Checks:
   14 erros da #51 (`Room.tsx:94`, `Room.test.tsx:828` e `:901` já existiam), nenhum novo.
 
 ### T173 — Indicador e borda de destaque na barra
-[ ] T173
+[x] T173
 Depends On: T171
 Allowed Paths: `apps/desktop/src/renderer/components/FloatingAnnotationOverlay.tsx`,
 `apps/desktop/src/renderer/components/FloatingAnnotationOverlay.test.tsx`
 Prohibited Paths: `apps/desktop/src/renderer/pages/**`, `apps/desktop/src/renderer/media/**`,
 `apps/desktop/src/main/**`, `packages/**`, `apps/backend/**`, `apps/web/**`
 Checks:
-- [ ] 0 mãos: sem indicador, sem badge, borda `#38bdf8` igual à atual (RF-175).
-- [ ] 1 e 9 mãos: indicador com badge `1`/`9`; 10 e 23 mãos: badge `9+` (RF-171, RF-173).
-- [ ] `title` e `aria-label` "Mãos levantadas: N" com N real (ex.: 23); nenhum outro texto visível sobre mãos na
+- [x] 0 mãos: sem indicador, sem badge, borda `#38bdf8` igual à atual (RF-175).
+- [x] 1 e 9 mãos: indicador com badge `1`/`9`; 10 e 23 mãos: badge `9+` (RF-171, RF-173).
+- [x] `title` e `aria-label` "Mãos levantadas: N" com N real (ex.: 23); nenhum outro texto visível sobre mãos na
   barra (RF-174).
-- [ ] Barra expandida (horizontal e vertical) e recolhida: indicador dentro de `toolbarRef` e borda `#facc15` com
+- [x] Barra expandida (horizontal e vertical) e recolhida: indicador dentro de `toolbarRef` e borda `#facc15` com
   anel; sem `animation` (RF-171, RF-172).
-- [ ] O indicador segue a visibilidade da barra: oculto com o MLab em foco e, ao a barra reaparecer, mostra a
+- [x] O indicador segue a visibilidade da barra: oculto com o MLab em foco e, ao a barra reaparecer, mostra a
   quantidade atual (RF-178, spec §7).
-- [ ] Clique no indicador não troca ferramenta, não recolhe/expande e não chama `syncAnnotationState` (RF-177).
-- [ ] Quando o indicador aparece, `setAnnotationToolbarRect` é chamado de novo (RNF-173).
-- [ ] Valor inválido recebido é ignorado (RNF-172).
-- [ ] `npm test` verde; nenhum erro novo de `tsc` em `FloatingAnnotationOverlay.tsx`.
+- [x] Clique no indicador não troca ferramenta, não recolhe/expande e não chama `syncAnnotationState` (RF-177).
+- [x] Quando o indicador aparece, `setAnnotationToolbarRect` é chamado de novo (RNF-173).
+- [x] Valor inválido recebido é ignorado (RNF-172).
+- [x] `npm test` verde (18 arquivos, 165 testes; 9 novos, que falham sem a mudança); `tsc` com os mesmos 14 erros
+  da #51, nenhum em `FloatingAnnotationOverlay.tsx`. Aparência real (legibilidade, RNF-174) fica para o smoke A15b.
 
 ### T174 — Nota na 003 e item de smoke A15b
 [ ] T174

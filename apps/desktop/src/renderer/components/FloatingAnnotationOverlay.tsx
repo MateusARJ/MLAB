@@ -19,6 +19,7 @@ import {
   Redo,
   TrashCan,
   Minimize,
+  Touch_1Filled,
 } from '@mlab/ui';
 
 const ANNOTATION_COLORS = [
@@ -106,6 +107,8 @@ export const FloatingAnnotationOverlay: React.FC = () => {
   const [toolbarPos, setToolbarPos] = useState<{ x: number; y: number }>(() => loadInitialToolbarPos());
   const [mlabFocused, setMlabFocused] = useState<boolean>(false);
   const [isDraggingState, setIsDraggingState] = useState<boolean>(false);
+  /** 017: quantidade de mãos levantadas enviada pela janela do MLab (RF-171, RF-176). */
+  const [raisedHands, setRaisedHands] = useState<number>(0);
 
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const toolbarRef = useRef<HTMLDivElement | null>(null);
@@ -350,6 +353,22 @@ export const FloatingAnnotationOverlay: React.FC = () => {
       } catch {}
     };
   }, [updateIgnoreMouse]);
+
+  // 017/RF-171, RF-176: quantidade de mãos levantadas (só o número), vinda da janela do MLab pelo main.
+  // Valores que não são inteiros ≥ 0 são ignorados e o indicador mantém o último válido (RNF-172).
+  useEffect(() => {
+    if (!window.electronAPI || typeof window.electronAPI.onAnnotationRaisedHands !== 'function') return;
+    const unsub = window.electronAPI.onAnnotationRaisedHands((count) => {
+      if (Number.isInteger(count) && count >= 0) {
+        setRaisedHands(count);
+      }
+    });
+    return () => {
+      try {
+        unsub();
+      } catch {}
+    };
+  }, []);
 
   // Recebe estado de cursor, foco do MLab e limites da fonte transmitida
   useEffect(() => {
@@ -1029,6 +1048,7 @@ export const FloatingAnnotationOverlay: React.FC = () => {
     showPalettePopover,
     mlabFocused,
     isDraggingState,
+    raisedHands,
     vw,
     vh,
   ]);
@@ -1122,18 +1142,25 @@ export const FloatingAnnotationOverlay: React.FC = () => {
           gap: '4px',
           padding: collapsed ? '6px' : isHorizontal ? '6px 8px' : '8px 6px',
           backgroundColor: 'rgba(15, 23, 42, 0.94)',
-          border: '1px solid #38bdf8',
+          // 017/RF-172: borda de destaque fixa (sem animação, C-171) enquanto houver mão levantada; mesma largura,
+          // e o anel vai no boxShadow, para não mudar o layout nem o retângulo da barra.
+          border: raisedHands > 0 ? '1px solid #facc15' : '1px solid #38bdf8',
           borderRadius: collapsed ? '999px' : '12px',
-          boxShadow: '0 10px 28px rgba(0, 0, 0, 0.72)',
+          boxShadow:
+            raisedHands > 0
+              ? '0 0 0 2px rgba(250, 204, 21, 0.55), 0 10px 28px rgba(0, 0, 0, 0.72)'
+              : '0 10px 28px rgba(0, 0, 0, 0.72)',
           transition: 'opacity 0.12s ease',
         }}
         data-testid="external-floating-toolbar"
+        data-raised-hands={raisedHands}
         data-collapsed={collapsed ? 'true' : 'false'}
         data-orientation={orientation}
         data-dock-zone={dockZone}
       >
         {collapsed ? (
-          /* Modo Retrátil Compacto: Ícone Flutuante Posicionável */
+          /* Modo Retrátil Compacto: Ícone Flutuante Posicionável (+ indicador de mãos abaixo, 017) */
+          <>
           <button
             type="button"
             onPointerDown={handleStartDragToolbar}
@@ -1159,6 +1186,8 @@ export const FloatingAnnotationOverlay: React.FC = () => {
           >
             <Pen size={18} />
           </button>
+          {raisedHands > 0 && <RaisedHandsIndicator count={raisedHands} />}
+          </>
         ) : (
           /* Barra Completa Adaptativa (Horizontal no Topo/Base, Vertical na Esquerda/Direita) */
           <>
@@ -1228,6 +1257,8 @@ export const FloatingAnnotationOverlay: React.FC = () => {
                 <Minimize size={12} />
               </button>
             </div>
+
+            {raisedHands > 0 && <RaisedHandsIndicator count={raisedHands} />}
 
             <button
               type="button"
@@ -1481,6 +1512,54 @@ export const FloatingAnnotationOverlay: React.FC = () => {
       </div>
     </div>
   );
+};
+
+/**
+ * 017: ícone de mão com badge da quantidade de mãos levantadas (RF-171, RF-173, RF-174, RF-177).
+ * Só informa: é um `span`, sem ação de clique nem de arraste. O badge fica dentro da caixa, para o indicador
+ * caber inteiro no retângulo da barra enviado ao main no Linux (RNF-173).
+ */
+function RaisedHandsIndicator({ count }: { count: number }) {
+  const label = `Mãos levantadas: ${count}`;
+  return (
+    <span role="img" aria-label={label} title={label} data-testid="external-raised-hands" style={raisedHandsStyles.box}>
+      <Touch_1Filled size={16} />
+      <span aria-hidden="true" data-testid="external-raised-hands-badge" style={raisedHandsStyles.badge}>
+        {count > 9 ? '9+' : String(count)}
+      </span>
+    </span>
+  );
+}
+
+const raisedHandsStyles: Record<'box' | 'badge', React.CSSProperties> = {
+  box: {
+    position: 'relative',
+    display: 'inline-flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    width: '30px',
+    height: '28px',
+    flexShrink: 0,
+    color: '#e2e8f0',
+    cursor: 'default',
+  },
+  badge: {
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    minWidth: '14px',
+    height: '14px',
+    padding: '0 3px',
+    boxSizing: 'border-box',
+    borderRadius: '7px',
+    backgroundColor: '#facc15',
+    color: '#0f172a',
+    fontSize: '10px',
+    fontWeight: 700,
+    lineHeight: '14px',
+    textAlign: 'center',
+    pointerEvents: 'none',
+  },
 };
 
 const overlayStyles: Record<string, React.CSSProperties> = {
