@@ -11,19 +11,21 @@ Regras:
 - um commit atômico por task, com `Ref: T18x` e `Refs #46`.
 
 ### T181 — Guard de navegação restrito ao index.html do app
-[ ] T181
+[x] T181
 Allowed Paths: `apps/desktop/src/main/navigationGuard.ts`, `apps/desktop/src/main/navigationGuard.test.ts`
 Prohibited Paths: `apps/desktop/src/main/main.ts`, `apps/desktop/src/main/annotationOverlayWindow.ts`,
 `apps/desktop/src/main/preload.ts`, `apps/desktop/src/renderer/**`, `packages/**`, `apps/backend/**`, `apps/web/**`
 Checks:
-- [ ] `isAppUrl` aceita o `index.html` do app com e sem `?overlay=annotation`/hash, inclusive com `%20` e, no
+- [x] `isAppUrl` aceita o `index.html` do app com e sem `?overlay=annotation`/hash, inclusive com `%20` e, no
   Windows, com letras em caixa diferente (RNF-181).
-- [ ] `isAppUrl` recusa outro `file://` (ex.: `file:///C:/Users/x/doc.pdf`) e qualquer `file:` sem `appIndexUrl`.
-- [ ] `hardenWebContents` com `appIndexUrl`: `will-navigate` para outro `file://` recebe `preventDefault` e não
+- [x] `isAppUrl` recusa outro `file://` (ex.: `file:///C:/Users/x/doc.pdf`) e qualquer `file:` sem `appIndexUrl`.
+  Também recusa `file://` com outro host (UNC).
+- [x] `hardenWebContents` com `appIndexUrl`: `will-navigate` para outro `file://` recebe `preventDefault` e não
   chama `openExternal`; o `index.html` do app navega; dev e http/https como antes.
-- [ ] O padrão de `appIndexUrl` é `pathToFileURL(join(__dirname, '../renderer/index.html'))`; `main.ts` e overlay
-  sem mudança.
-- [ ] `npm test` verde; `tsc` sem erro novo.
+- [x] O padrão de `appIndexUrl` é `pathToFileURL(join(__dirname, '../renderer/index.html'))` (`defaultAppIndexUrl`);
+  `main.ts` e overlay sem mudança.
+- [x] `npm test` verde (18 arquivos, 170 testes; 5 novos, que falham com o guard antigo); `tsc` com os mesmos 14
+  erros da #51, nenhum em `navigationGuard.ts`. O comportamento no app empacotado fica para o smoke A13b.
 
 ### T182 — Bloqueio global de drop de arquivos no renderer
 [ ] T182
