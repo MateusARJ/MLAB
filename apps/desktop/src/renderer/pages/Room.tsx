@@ -93,7 +93,6 @@ export const Room: React.FC<RoomProps> = ({ room, onCloseRoom }) => {
   const [selectedWindowSources, setSelectedWindowSources] = useState<CaptureSource[]>([]);
   const [activeWindowSource, setActiveWindowSource] = useState<CaptureSource | null>(null);
   const currentActiveWindowSourceRef = useRef<CaptureSource | null>(null);
-  const [isPrivacyShieldActive, setIsPrivacyShieldActive] = useState<boolean>(false);
   const [isLiveSession, setIsLiveSession] = useState<boolean>(false);
   const [saveSuccessMsg, setSaveSuccessMsg] = useState<string | null>(null);
   const [copiedMdns, setCopiedMdns] = useState<boolean>(false);
@@ -1155,7 +1154,6 @@ export const Room: React.FC<RoomProps> = ({ room, onCloseRoom }) => {
       if (!targetSrc || targetSrc.id === currentActiveWindowSourceRef.current?.id) return;
       currentActiveWindowSourceRef.current = targetSrc;
       setActiveWindowSource(targetSrc);
-      setIsPrivacyShieldActive(false);
 
       const fps = qualityProfile === '1080p_60' ? 60 : 30;
       const newStream = await selectSource(targetSrc, fps, selectedWindowSources.map((s) => s.id));
@@ -1164,13 +1162,8 @@ export const Room: React.FC<RoomProps> = ({ room, onCloseRoom }) => {
       }
     });
 
-    const unsubUnauthorized = window.electronAPI.onActiveWindowUnauthorized?.((data: { isUnauthorized: boolean }) => {
-      setIsPrivacyShieldActive(Boolean(data?.isUnauthorized));
-    });
-
     return () => {
       if (typeof unsubChanged === 'function') unsubChanged();
-      if (typeof unsubUnauthorized === 'function') unsubUnauthorized();
     };
   }, [isLiveSession, captureMode, selectedWindowSources, qualityProfile, selectSource, changeStream]);
 
@@ -1218,7 +1211,6 @@ export const Room: React.FC<RoomProps> = ({ room, onCloseRoom }) => {
     }
     setActiveWindowSource(source);
     currentActiveWindowSourceRef.current = source;
-    setIsPrivacyShieldActive(false);
 
     if (newStream) {
       if (micMuted) {
@@ -1284,7 +1276,6 @@ export const Room: React.FC<RoomProps> = ({ room, onCloseRoom }) => {
 
     setActiveWindowSource(sourceToUse);
     currentActiveWindowSourceRef.current = sourceToUse;
-    setIsPrivacyShieldActive(false);
 
     setIsLiveSession(true);
 

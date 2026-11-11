@@ -30,17 +30,17 @@ Checks:
 - [x] `tsc`: 13 → 3 erros; testes de `src/renderer/media` verdes.
 
 ### T2003 — Remover o estado do selo de privacidade da sala
-[ ] T2003
+[x] T2003
 Depends On: T2002
 Allowed Paths: `apps/desktop/src/renderer/pages/Room.tsx`, `apps/desktop/src/renderer/pages/Room.test.tsx`
 Prohibited Paths: `apps/desktop/src/main/**`, `apps/desktop/src/test/setup.ts`, `spec-kit/specs/*/contracts/**`,
 `packages/**`, `package.json`
 Checks:
-- [ ] Estado, setters e assinatura de `onActiveWindowUnauthorized` fora do `Room.tsx` (RF-2002, C-2001).
-- [ ] Teste de múltiplas janelas sem o callback `unauthorized`, mantendo a asserção de que o selo não aparece e as de
+- [x] Estado, setters e assinatura de `onActiveWindowUnauthorized` fora do `Room.tsx` (RF-2002, C-2001).
+- [x] Teste de múltiplas janelas sem o callback `unauthorized`, mantendo a asserção de que o selo não aparece e as de
   troca de janela (RF-2002).
-- [ ] `grep "Proteção de Privacidade\|privacyShield" apps/desktop/src` só acha a asserção negativa.
-- [ ] `tsc`: 3 → 2 erros; `Room.test.tsx` verde.
+- [x] `grep "Proteção de Privacidade\|privacyShield" apps/desktop/src` só acha a asserção negativa.
+- [x] `tsc`: 3 → 2 erros; `Room.test.tsx` verde.
 
 ### T2004 — Completar os mocks do publisher
 [ ] T2004
