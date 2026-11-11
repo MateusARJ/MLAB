@@ -21,12 +21,15 @@ guard de navegação aceita qualquer `file://` como página do app (`apps/deskto
 - envio sequencial de vários arquivos, com estado por arquivo (aguardando, enviando, enviado, erro);
 - seleção múltipla também no botão "Compartilhar Novo Arquivo", com a mesma fila;
 - pré-validação de 50 MB e de pastas no app, com o servidor ainda sendo a autoridade;
-- bloqueio da navegação da janela ao soltar arquivo fora da zona (renderer e guard do main).
+- bloqueio da navegação da janela ao soltar arquivo fora da zona (renderer e guard do main);
+- rolagem automática das listas de arquivos até o último arquivo compartilhado, no mesmo padrão do chat, no web app
+  do aluno e no app do professor (C-190).
 
 ### Não incluído
 
 - bloqueio de tipos de arquivo (ex.: executáveis, resposta 415) e mudança nos headers de download (issue própria);
-- mudança no backend, no contrato `003/contracts/files.md`, em `packages/types` ou no web app dos alunos;
+- mudança no backend, no contrato `003/contracts/files.md` ou em `packages/types`;
+- mudança no web app dos alunos além da rolagem automática da lista de arquivos (RF-191);
 - envio paralelo, barra de progresso em bytes, cancelamento e reenvio de um item;
 - envio do conteúdo de pastas;
 - troca automática para a aba Arquivos ao arrastar sobre outra aba;
@@ -65,6 +68,19 @@ durante a aula.
   então a janela continua na sala e nada é enviado.
 - Dado que a aba aberta não é a de Arquivos, quando o professor solta um arquivo, então nada acontece.
 
+### US-183 — Ver o último arquivo sem rolar a lista
+
+**Como** aluno (e professor), **quero** que a lista de arquivos da aula role sozinha até o último arquivo
+compartilhado, como o chat faz com as mensagens, **para** não precisar descer a lista a cada material novo.
+
+**Critérios de aceitação**
+
+- Dado que o aluno está com a lista "Arquivos da Aula" aberta (gaveta no desktop ou aba Arquivos no celular), quando
+  o professor compartilha um arquivo novo, então a lista rola até ele.
+- Dado que o aluno abre a lista de arquivos, então ela já mostra o último arquivo.
+- Dado que o professor está na aba Arquivos, quando um envio termina, então "Arquivos Compartilhados Nesta Aula" rola
+  até o arquivo enviado.
+
 ## 5. Requisitos Funcionais
 
 - RF-181: com a aba Arquivos aberta, a área da aba aceita arquivos soltos do sistema operacional.
@@ -87,6 +103,10 @@ durante a aula.
   desabilitado, como hoje.
 - RF-189: o arquivo enviado com sucesso entra em "Arquivos Compartilhados Nesta Aula", como no botão (003, US-16).
 - RF-190: soltar arquivos fora da zona, ou com outra aba aberta, não envia nada e não muda a página da janela.
+- RF-191: as listas de arquivos (web do aluno: gaveta "Arquivos da Aula" e aba Arquivos do celular; desktop do
+  professor: "Arquivos Compartilhados Nesta Aula") rolam automaticamente até o último arquivo quando a quantidade de
+  arquivos muda e quando a lista é aberta, no mesmo padrão do chat (marcador no fim da lista e `scrollIntoView` com
+  `behavior: 'smooth'`). A ordem da lista não muda: o arquivo mais novo continua no fim.
 
 ## 6. Requisitos Não Funcionais
 
@@ -96,7 +116,7 @@ durante a aula.
 - RNF-182 — segurança: limites e autorização continuam no servidor (Princípio II). A pré-validação do app só evita um
   envio inútil e não substitui o 413/403 do backend.
 - RNF-183 — compatibilidade: sem mudança de contrato HTTP/WebSocket, de `packages/types` ou do backend; o aluno
-  recebe os arquivos como hoje.
+  recebe os arquivos como hoje. No web app muda só a rolagem da lista de arquivos (RF-191).
 - RNF-184 — arquitetura: o envio HTTP fica num service do renderer, a fila num hook e a zona de soltar num componente
   de apresentação (AGENTS §6).
 - RNF-185 — dependências: nenhuma dependência nova.
@@ -121,6 +141,7 @@ durante a aula.
 | item `enviado` | 5 s depois | sai da lista de envio |
 | item `erro` | professor dispensa ou novo lote começa | sai da lista de envio |
 | qualquer | arquivo solto fora da zona ou em outra aba | nada é enviado; a janela não navega |
+| lista de arquivos aberta (aluno ou professor) | chega um arquivo novo ou a lista é aberta | a lista rola até o último arquivo |
 
 ## 8. Edge Cases
 
@@ -145,6 +166,8 @@ durante a aula.
   continuando, arquivo acima de 50 MB e pasta sem requisição, enfileiramento durante o envio.
 - Testes da sala: destaque no arraste; drop de 1 e de 3 arquivos com estados e lista da aula; botão com seleção
   múltipla.
+- Testes da rolagem: no web (gaveta e celular) e no desktop, `scrollIntoView` é chamado no marcador do fim da lista
+  quando chega um arquivo novo.
 - Smoke manual `A13b` no app empacotado.
 - Suíte do desktop e `spec:check` verdes.
 
@@ -156,4 +179,4 @@ durante a aula.
 
 ## 12. Perguntas que bloqueiam a implementação
 
-- [x] Nenhuma — as ambiguidades foram resolvidas em `clarify.md` (C-181 a C-189).
+- [x] Nenhuma — as ambiguidades foram resolvidas em `clarify.md` (C-181 a C-190).

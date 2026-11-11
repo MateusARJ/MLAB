@@ -5,7 +5,7 @@ Status: APPROVED
 
 ## Completude
 
-- [x] Cada requisito (RF-181 a RF-190, RNF-181 a RNF-185, RN-181, RN-182) tem task (ver `analyze.md` §2).
+- [x] Cada requisito (RF-181 a RF-191, RNF-181 a RNF-185, RN-181, RN-182) tem task (ver `analyze.md` §2).
 - [x] Os pontos em aberto da issue #46 estão fechados (C-181 a C-189): escopo, navegação, nome, pré-validação,
   pastas, drop durante envio, erro por item, botão/retorno, zona e versão.
 - [x] Situação atual registrada com evidência no código: envio de um arquivo só (`Room.tsx:1382-1418`), HTTP dentro
@@ -20,12 +20,15 @@ Status: APPROVED
   do guard reforça o RNF-SEC-07 da 002 sem mudar a decisão.
 - [x] O escopo retirado da issue (415/headers) é decisão explícita do responsável (C-181) e vira issue própria.
 - [x] Mensagens de erro do app iguais às do servidor (`arquivo acima do limite de 50MB`).
+- [x] A mudança no web app (RF-191, C-190) é só de apresentação: rolagem da lista com o mecanismo do chat, sem
+  contrato, backend ou ordem nova; o Scope Lock libera só `apps/web/src/pages/Room.tsx` e o teste dele.
 
 ## Viabilidade
 
 - [x] Guard testável com o `fakeContents` já usado em `navigationGuard.test.ts`.
 - [x] Service, hook, zona e `Room` testáveis com vitest + jsdom, `fetch` mockado e `DataTransfer` falso.
 - [x] Gate de `tsc` definido apesar da #51: nenhum erro novo nos arquivos tocados.
+- [x] Rolagem testável como no chat: `scrollIntoView` mockado no jsdom, verificando a chamada no marcador do fim.
 - [x] Smoke manual possível com o instalador Windows e um celular na mesma rede (A13b).
 
 ## Resultado

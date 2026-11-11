@@ -103,14 +103,33 @@ Checks:
 - [x] `scripts/smoke-report.js` lista `A13b` como `manual` (`node --check` ok; o relatório gerado mostra `A13b`
   `PENDENTE` — os arquivos gerados não foram versionados).
 
+### T187 — Rolagem automática das listas de arquivos (padrão do chat)
+[ ] T187
+Depends On: T184
+Allowed Paths: `apps/web/src/pages/Room.tsx`, `apps/web/src/pages/Room.test.tsx`,
+`apps/desktop/src/renderer/pages/Room.tsx`, `apps/desktop/src/renderer/pages/RoomFileDrop.test.tsx`
+Prohibited Paths: `apps/web/src/hooks/**`, `apps/web/src/services/**`, `apps/web/src/pages/Join.tsx`,
+`apps/desktop/src/renderer/hooks/**`, `apps/desktop/src/renderer/services/**`, `apps/desktop/src/main/**`,
+`packages/**`, `apps/backend/**`
+Checks:
+- [ ] Web, gaveta "Arquivos da Aula" (desktop): ao abrir e quando chega um arquivo novo, `scrollIntoView` é chamado
+  no marcador do fim da lista (RF-191).
+- [ ] Web, aba Arquivos do celular: idem (RF-191).
+- [ ] Desktop, "Arquivos Compartilhados Nesta Aula": após um envio, `scrollIntoView` é chamado no marcador do fim
+  (RF-191).
+- [ ] A ordem das listas não muda (mais novo no fim); o chat continua rolando como antes.
+- [ ] `npm test` verde no web e no desktop, com os testes novos falhando sem a mudança; `tsc` do desktop com os
+  mesmos 14 erros da #51 e `lint` do web sem erro novo.
+
 ### T186 — Smoke, converge, issue do escopo retirado e versão
 [ ] T186
-Depends On: T185
+Depends On: T185, T187
 Allowed Paths: `spec-kit/specs/018-arquivos-arrastar/**`, `package.json`, `package-lock.json`,
 `apps/*/package.json`, `packages/*/package.json` (só pelo `npm run bump`)
 Prohibited Paths: `apps/**/src/**`, `packages/**/src/**`
 Checks:
-- [ ] Smoke `A13b` executado e relatado pelo responsável; evidência registrada no `converge.md`.
+- [ ] Smoke `A13b` executado e relatado pelo responsável, incluindo a rolagem da lista de arquivos no aluno (T187);
+  evidência registrada no `converge.md`.
 - [ ] Issue própria para o bloqueio de executáveis (415) e os headers de download, aberta pelo template de desvio
   depois de buscar duplicata, e citada no `converge.md` e na #46 (C-181).
 - [ ] `converge.md` compara código × spec/plan/tasks e registra gaps, desvios e o nível de versão.

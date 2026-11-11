@@ -70,3 +70,18 @@ Decisões tomadas com o responsável em 2026-11-10, na análise da issue #46 sob
   Versão **MINOR** (funcionalidade nova compatível; contrato e backend sem mudança).
 - **Impacto em spec:** RF-181, RF-190; seção 2.
 - **Impacto em plan/contracts/tasks:** T186 faz `npm run bump -- minor`.
+
+## C-190 — Rolagem automática da lista de arquivos
+
+- **Contexto:** depois do smoke da 018, o responsável pediu que a lista de arquivos siga o padrão do chat: com cada
+  arquivo novo enviado pelo professor, a lista rola sozinha até o último, sem o aluno precisar descer. Hoje a gaveta
+  "Arquivos da Aula" do web (`filesList`, `maxHeight: 380px`) e a aba do celular só rolam manualmente. O arquivo novo
+  já entra no fim da lista (`useWebRTCSubscriber.ts`, `[...prev, payload]`).
+- **Opções:** (A) só no web do aluno; (B) web do aluno e lista "Arquivos Compartilhados Nesta Aula" do professor;
+  (C) inverter a ordem (mais novo no topo).
+- **Resposta aprovada (2026-11-11):** **B**, com o mesmo mecanismo do chat (marcador no fim e `scrollIntoView`
+  suave), mantendo a ordem. O pedido fala em "mesmo padrão do chat", e o chat do desktop já rola assim, então a lista
+  do professor também ganha. Sem mudança de contrato nem de backend; segue MINOR.
+- **Impacto em spec:** seção 2, US-183, RF-191, RNF-183, seções 7 e 10.
+- **Impacto em plan/contracts/tasks:** `apps/web/src/pages/Room.tsx` e `apps/web/src/pages/Room.test.tsx` entram no
+  Scope Lock; nova task T187 antes da T186. Nenhum contrato muda.

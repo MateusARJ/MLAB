@@ -3,7 +3,7 @@
 Feature: `018-arquivos-arrastar`
 Status: READY
 Spec: `./spec.md`
-Clarify: `./clarify.md` (C-181 a C-189)
+Clarify: `./clarify.md` (C-181 a C-190)
 
 ## 1. Summary
 
@@ -76,9 +76,20 @@ drop fora da zona ──▶ preventFileDropNavigation (window) ──preventDefa
    - o botão, o texto "Enviando Arquivo..." e a lista "Arquivos Compartilhados Nesta Aula" ficam como estão. A
      listagem inicial (`Room.tsx:1213-1226`) não muda.
 
+### Rolagem automática das listas de arquivos (RF-191, C-190)
+
+10. Mesmo padrão do chat nos dois apps: um `<div ref={filesEndRef} />` no fim da lista e um `useEffect` que chama
+    `filesEndRef.current?.scrollIntoView?.({ behavior: 'smooth' })` quando a quantidade de arquivos muda ou a lista é
+    aberta. A ordem não muda (o mais novo continua no fim).
+    - `apps/web/src/pages/Room.tsx`: um ref só, porque a gaveta (`!isMobile && isFilesOpen`) e a aba do celular
+      (`isMobile && mobileDrawerTab === 'files'`) nunca aparecem juntas. Dependências: `sharedFiles.length`,
+      `isFilesOpen`, `mobileDrawerTab`, `isChatOpen`, `isMobile`.
+    - `apps/desktop/src/renderer/pages/Room.tsx`: marcador no fim de "Arquivos Compartilhados Nesta Aula".
+      Dependências: `uploadedFiles.length`, `sidebarTab`, `isSidebarOpen`.
+
 ### Documentos
 
-9. `003/spec.md` (US-16): nota "arrastar arquivos para a aba Arquivos, com envio em sequência (018)". Smoke `A13b`
+11. `003/spec.md` (US-16): nota "arrastar arquivos para a aba Arquivos, com envio em sequência (018)". Smoke `A13b`
    em `docs/metrics/smoke-runbook.md` e `scripts/smoke-report.js`.
 
 ## 2. Technical Context
@@ -93,6 +104,7 @@ drop fora da zona ──▶ preventFileDropNavigation (window) ──preventDefa
 | Guard do renderer | `preventDefault` em `dragover`/`drop` com `Files` | RF-190 |
 | Tipos | `RoomFile`/`UploadItem` locais ao desktop; nada em `packages/types` | Princípio VII |
 | Testes | vitest + jsdom + testing-library; `DataTransfer` falso nos eventos; `fetch` mockado com `vi.fn` | — |
+| Rolagem da lista | marcador no fim + `scrollIntoView` suave, como o chat; ordem mantida | RF-191, C-190 |
 
 ## 3. Risks / Failure Modes
 
@@ -113,11 +125,13 @@ drop fora da zona ──▶ preventFileDropNavigation (window) ──preventDefa
 - bloqueio global de drop de arquivos no renderer;
 - service de envio, hook de fila e componente de zona de soltar;
 - integração na aba Arquivos do `Room` (zona, seleção múltipla, lista de estados);
+- rolagem automática das listas de arquivos no web do aluno e no desktop do professor (RF-191);
 - nota na 003 (US-16) e smoke `A13b`.
 
 ### OUT
 
-- backend, web app dos alunos, contrato `files.md` e `packages/types`;
+- backend, contrato `files.md` e `packages/types`;
+- web app dos alunos, exceto a rolagem automática da lista de arquivos em `pages/Room.tsx`;
 - bloqueio de tipos (415) e headers de download;
 - progresso em bytes, cancelamento, reenvio, envio paralelo, envio de pastas;
 - troca automática de aba; centralização de `API_BASE_URL`.
@@ -132,6 +146,7 @@ drop fora da zona ──▶ preventFileDropNavigation (window) ──preventDefa
 - `apps/desktop/src/renderer/components/FileDropZone.tsx` (+ `.test.tsx`)
 - `apps/desktop/src/renderer/pages/Room.tsx`, `apps/desktop/src/renderer/pages/RoomFileDrop.test.tsx`,
   `apps/desktop/src/renderer/pages/Room.test.tsx` (só se um teste existente depender do banner antigo)
+- `apps/web/src/pages/Room.tsx`, `apps/web/src/pages/Room.test.tsx` (só a rolagem da lista de arquivos, RF-191)
 - `spec-kit/specs/003-classroom-interaction/spec.md` (só nota de referência)
 - `docs/metrics/smoke-runbook.md`, `scripts/smoke-report.js`
 - `spec-kit/specs/018-arquivos-arrastar/**`
@@ -139,7 +154,7 @@ drop fora da zona ──▶ preventFileDropNavigation (window) ──preventDefa
 
 ### Prohibited Paths
 
-- `apps/backend/**`, `apps/web/**`
+- `apps/backend/**`, `apps/web/**` (exceto os dois arquivos de `apps/web/src/pages/` acima)
 - `packages/types/**`, `packages/ui/**`
 - `spec-kit/specs/003-classroom-interaction/contracts/**`
 - `apps/desktop/src/main/main.ts`, `apps/desktop/src/main/annotationOverlayWindow.ts`,
@@ -183,3 +198,4 @@ drop fora da zona ──▶ preventFileDropNavigation (window) ──preventDefa
 | 2026-11-10 | Botão com `multiple` na mesma fila; lista de estados | C-188 |
 | 2026-11-10 | Guard via parâmetro padrão, sem tocar em `main.ts`/overlay | plan §1.2 |
 | 2026-11-10 | Versão MINOR | C-189 |
+| 2026-11-11 | Rolagem automática das listas de arquivos (web e desktop), padrão do chat; task T187 | C-190 |
