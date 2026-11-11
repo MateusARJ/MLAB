@@ -124,17 +124,17 @@ Checks:
   do web sem erro; `vite build` e `electron-vite build` ok.
 
 ### T186 — Smoke, converge, issue do escopo retirado e versão
-[ ] T186
+[x] T186
 Depends On: T185, T187
 Allowed Paths: `spec-kit/specs/018-arquivos-arrastar/**`, `package.json`, `package-lock.json`,
 `apps/*/package.json`, `packages/*/package.json` (só pelo `npm run bump`)
 Prohibited Paths: `apps/**/src/**`, `packages/**/src/**`
 Checks:
-- [ ] Smoke `A13b` executado e relatado pelo responsável, incluindo a rolagem da lista de arquivos no aluno (T187);
+- [x] Smoke `A13b` executado e relatado pelo responsável, incluindo a rolagem da lista de arquivos no aluno (T187);
   evidência registrada no `converge.md`.
-- [ ] Issue própria para o bloqueio de executáveis (415) e os headers de download, aberta pelo template de desvio
+- [x] Issue própria para o bloqueio de executáveis (415) e os headers de download, aberta pelo template de desvio
   depois de buscar duplicata, e citada no `converge.md` e na #46 (C-181).
-- [ ] `converge.md` compara código × spec/plan/tasks e registra gaps, desvios e o nível de versão.
-- [ ] `npm run bump -- minor` (1.11.0 → 1.12.0) e `npm run version:check` verdes; commit
+- [x] `converge.md` compara código × spec/plan/tasks e registra gaps, desvios e o nível de versão.
+- [x] `npm run bump -- minor` (1.11.0 → 1.12.0) e `npm run version:check` verdes; commit
   `chore(release): versao 1.12.0`.
-- [ ] `npm run spec:check -- spec-kit/specs/018-arquivos-arrastar` verde.
+- [x] `npm run spec:check -- spec-kit/specs/018-arquivos-arrastar` verde.

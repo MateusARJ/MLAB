@@ -64,4 +64,4 @@ Nenhuma. Todos os paths das tasks estão em `Allowed Paths` do plan. `main.ts`, 
 ## 6. Resultado
 
 - [ ] FAIL
-- [x] PASS: próxima execução, T187 (T181 a T185 concluídas).
+- [x] PASS: T181 a T187 concluídas; converge em `converge.md`.
