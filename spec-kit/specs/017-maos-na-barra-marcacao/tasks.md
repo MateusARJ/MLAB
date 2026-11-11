@@ -2,7 +2,7 @@
 
 Feature: `017-maos-na-barra-marcacao`
 Prerequisites: spec/clarify/plan/checklist/analyze aprovados; contrato `003/contracts/desktop-ipc.md` atualizado
-Status: READY
+Status: DONE
 
 Regras:
 - task de desktop: `npm test` em `apps/desktop` verde antes do `[x]` (linha de base: 18 arquivos, 151 testes);
@@ -83,14 +83,16 @@ Checks:
 - [x] `scripts/smoke-report.js` lista `A15b` como `manual` (`node --check` ok).
 
 ### T175 — Smoke, converge e versão
-[ ] T175
+[x] T175
 Depends On: T174
 Allowed Paths: `spec-kit/specs/017-maos-na-barra-marcacao/**`, `package.json`, `package-lock.json`,
 `apps/*/package.json`, `packages/*/package.json` (só pelo `npm run bump`)
 Prohibited Paths: `apps/**/src/**`, `packages/**/src/**`
 Checks:
-- [ ] Smoke `A15b` executado no Windows, com evidência em `017/evidencias/`; no Linux, regressão da barra (009) com
-  o indicador presente, ou o motivo de não ter sido feito.
-- [ ] `converge.md` compara código × spec/plan/tasks e registra gaps, desvios (#62) e o nível de versão.
-- [ ] `npm run bump -- minor` e `npm run version:check` (C-179); commit `chore(release): versao X.Y.Z`.
-- [ ] `npm run spec:check -- spec-kit/specs/017-maos-na-barra-marcacao` verde.
+- [x] Smoke `A15b` executado (2026-11-10): o responsável relatou todos os passos verificados e a feature aprovada.
+  Como na 012, a evidência é o relato registrado no `converge.md` (sem pasta `evidencias/`). No Linux, o relato não
+  detalha a regressão da barra; o limite fica na §5 do `converge.md`.
+- [x] `converge.md` compara código × spec/plan/tasks e registra gaps, desvios (#62) e o nível de versão.
+- [x] `npm run bump -- minor` (1.10.1 → 1.11.0) e `npm run version:check` verdes (C-179); commit
+  `chore(release): versao 1.11.0`.
+- [x] `npm run spec:check -- spec-kit/specs/017-maos-na-barra-marcacao` verde.
