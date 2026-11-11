@@ -89,18 +89,19 @@ Checks:
   (`Room.tsx:96`, antigo `:94`, só deslocado); `electron-vite build` ok.
 
 ### T185 — Nota na 003 e item de smoke A13b
-[ ] T185
+[x] T185
 Depends On: T181, T184
 Allowed Paths: `spec-kit/specs/003-classroom-interaction/spec.md`, `docs/metrics/smoke-runbook.md`,
 `scripts/smoke-report.js`
 Prohibited Paths: `apps/**`, `packages/**`, `spec-kit/specs/003-classroom-interaction/contracts/**`
 Checks:
-- [ ] US-16 da 003 ganha a nota "arrastar arquivos para a aba Arquivos, com envio em sequência (018)"; nada é
+- [x] US-16 da 003 ganha a nota "arrastar arquivos para a aba Arquivos, com envio em sequência (018)"; nada é
   reescrito.
-- [ ] Roteiro `A13b` no runbook, no app **empacotado**: arrastar 1 e depois 5 arquivos; 1 arquivo > 50 MB; 1 pasta;
+- [x] Roteiro `A13b` no runbook, no app **empacotado**: arrastar 1 e depois 5 arquivos; 1 arquivo > 50 MB; 1 pasta;
   soltar um PDF fora da zona e com outra aba aberta (a janela não navega); seleção múltipla pelo botão; o aluno no
   celular vê e baixa os arquivos; overlay de marcação continua abrindo (guard).
-- [ ] `scripts/smoke-report.js` lista `A13b` como `manual` (`node --check` ok).
+- [x] `scripts/smoke-report.js` lista `A13b` como `manual` (`node --check` ok; o relatório gerado mostra `A13b`
+  `PENDENTE` — os arquivos gerados não foram versionados).
 
 ### T186 — Smoke, converge, issue do escopo retirado e versão
 [ ] T186
