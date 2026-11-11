@@ -2,7 +2,7 @@
 
 Feature: `020-lint-tipos-desktop`
 Prerequisites: spec/clarify/plan/checklist/analyze aprovados
-Status: READY
+Status: DONE
 
 Regras:
 - `npx tsc --noEmit -p .` em `apps/desktop` antes e depois de cada task: a contagem de erros só cai;
@@ -62,12 +62,12 @@ Checks:
 - [x] Gatilhos do workflow inalterados (C-2004).
 
 ### T2006 — Converge e versão
-[ ] T2006
+[x] T2006
 Depends On: T2005
 Allowed Paths: `spec-kit/specs/020-lint-tipos-desktop/**`, `package.json`, `package-lock.json`,
 `apps/*/package.json`, `packages/*/package.json`
 Prohibited Paths: `apps/**/src/**`, `packages/**/src/**`, `.github/**`
 Checks:
-- [ ] `converge.md` com evidências, desvios e impacto de versão (PATCH, C-2006).
-- [ ] `npm run bump -- patch` (1.12.1) e `npm run version:check`; commit `chore(release): versao 1.12.1`.
-- [ ] `npm run spec:check` com PASS.
+- [x] `converge.md` com evidências, desvios e impacto de versão (PATCH, C-2006).
+- [x] `npm run bump -- patch` (1.12.1) e `npm run version:check`; commit `chore(release): versao 1.12.1`.
+- [x] `npm run spec:check` com PASS.
