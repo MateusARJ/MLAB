@@ -28,17 +28,20 @@ Checks:
   erros da #51, nenhum em `navigationGuard.ts`. O comportamento no app empacotado fica para o smoke A13b.
 
 ### T182 — Bloqueio global de drop de arquivos no renderer
-[ ] T182
+[x] T182
 Allowed Paths: `apps/desktop/src/renderer/utils/preventFileDropNavigation.ts`,
 `apps/desktop/src/renderer/utils/preventFileDropNavigation.test.ts`, `apps/desktop/src/renderer/main.tsx`
 Prohibited Paths: `apps/desktop/src/main/**`, `apps/desktop/src/renderer/pages/**`, `packages/**`,
 `apps/backend/**`, `apps/web/**`
 Checks:
-- [ ] `dragover` e `drop` com `types` contendo `Files` ficam com `defaultPrevented` (RF-190).
-- [ ] Eventos sem `Files` (texto/link) não são alterados.
-- [ ] A função retorna um cancelamento que remove os listeners.
-- [ ] `main.tsx` instala o guard uma vez, antes do `render`.
-- [ ] `npm test` verde; `tsc` sem erro novo.
+- [x] `dragover` e `drop` com `types` contendo `Files` ficam com `defaultPrevented` (RF-190); no `dragover`,
+  `dropEffect = 'none'`.
+- [x] Eventos sem `Files` (texto/link) não são alterados.
+- [x] A função retorna um cancelamento que remove os listeners.
+- [x] `main.tsx` instala o guard uma vez, antes do `render` (vale também para a janela do overlay, que usa o mesmo
+  entry).
+- [x] `npm test` verde (19 arquivos, 174 testes; 4 novos); `tsc` com os mesmos 14 erros da #51, nenhum nos arquivos
+  tocados; `electron-vite build` ok.
 
 ### T183 — Service de envio e fila sequencial
 [ ] T183
