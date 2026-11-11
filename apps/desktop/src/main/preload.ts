@@ -133,6 +133,16 @@ export interface ElectronAPI {
    * Inscreve um callback para receber comandos de atalhos globais do SO (Alt+Shift+...).
    */
   onAnnotationShortcutCommand: (cb: (command: AnnotationShortcutCommand) => void) => () => void
+
+  /**
+   * Informa ao main a quantidade de mãos levantadas da sala (só o número), para a barra de marcação (017, RF-179).
+   */
+  setAnnotationRaisedHands: (count: number) => Promise<void>
+
+  /**
+   * Inscreve o overlay para receber a quantidade de mãos levantadas (017, RF-171).
+   */
+  onAnnotationRaisedHands: (cb: (count: number) => void) => () => void
 }
 
 const api: ElectronAPI = {
@@ -184,6 +194,18 @@ const api: ElectronAPI = {
     ipcRenderer.on('annotation-overlay:shortcut', listener)
     return () => {
       ipcRenderer.removeListener('annotation-overlay:shortcut', listener)
+    }
+  },
+  setAnnotationRaisedHands: (count) => ipcRenderer.invoke('annotation-overlay:raised-hands', count),
+  onAnnotationRaisedHands: (cb) => {
+    const listener = (_event: unknown, count: unknown) => {
+      if (typeof count === 'number' && typeof cb === 'function') {
+        cb(count)
+      }
+    }
+    ipcRenderer.on('annotation-overlay:raised-hands', listener)
+    return () => {
+      ipcRenderer.removeListener('annotation-overlay:raised-hands', listener)
     }
   },
   onActiveWindowChanged: (cb) => {

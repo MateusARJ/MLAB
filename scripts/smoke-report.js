@@ -42,6 +42,7 @@ const MATRIX = [
   ['A13', 'Upload pelo professor; listagem e download pelo aluno', ['backend', 'e2e-desktop', 'e2e-mobile', 'manual:A13_celular']],
   ['A14', 'Chat: palavrão mascarado, privado, fixar 3, histórico', ['backend', 'e2e-desktop']],
   ['A15', 'Levantar/abaixar mão; fila ordenada', ['backend', 'e2e-desktop', 'manual:A15_celular']],
+  ['A15b', 'Mãos levantadas na barra de marcação fora do MLab (017)', ['manual']],
   ['A16', 'Acesso via `mlab.local` e IP', ['manual']],
   ['A16b', 'Dois professores na mesma rede: `mlab.local` e `mlab-2.local`', ['manual']],
   ['A17', 'Acesso via ngrok', ['manual']],

@@ -77,6 +77,8 @@ export class AnnotationOverlayManager {
   private lastCursorState: CursorState | null = null;
   private doubleCtrlDetector: DoubleCtrlDetector | null = null;
   private lastSpotlightToggleTime = 0;
+  /** Quantidade de mãos levantadas enviada pela janela do MLab (017, RF-179); reenviada quando o overlay carrega. */
+  private lastRaisedHands = 0;
 
   public start(mainWin: BrowserWindow, preloadPath: string): boolean {
     this.mainWin = mainWin;
@@ -174,6 +176,9 @@ export class AnnotationOverlayManager {
           if (this.lastCursorState && !win.webContents.isDestroyed()) {
             win.webContents.send('cursor-state', this.lastCursorState);
           }
+          if (!win.webContents.isDestroyed()) {
+            win.webContents.send('annotation-overlay:raised-hands', this.lastRaisedHands);
+          }
         }
       });
 
@@ -182,6 +187,7 @@ export class AnnotationOverlayManager {
           if (this.lastState) {
             win.webContents.send('annotation-overlay:state', this.lastState);
           }
+          win.webContents.send('annotation-overlay:raised-hands', this.lastRaisedHands);
           const initialMlabFocused =
             this.lastCursorState?.mlabFocused ??
             Boolean(this.mainWin && !this.mainWin.isDestroyed() && this.mainWin.isFocused() && !this.mainWin.isMinimized());
@@ -231,6 +237,21 @@ export class AnnotationOverlayManager {
       } catch {}
     }
     return null;
+  }
+
+  /**
+   * Recebe da janela do MLab a quantidade de mãos levantadas e repassa só ao overlay (017, RF-179, RNF-172).
+   * O overlay não altera a contagem, e valores que não são inteiros ≥ 0 são descartados. Aceita antes do `start()`:
+   * o valor fica guardado e vai ao overlay quando ele carregar.
+   */
+  public setRaisedHands(sender: WebContents, value: unknown): void {
+    if (this.isOverlayWebContents(sender)) return;
+    if (typeof value !== 'number' || !Number.isInteger(value) || value < 0) return;
+    if (value === this.lastRaisedHands) return;
+    this.lastRaisedHands = value;
+    if (this.overlayWin && !this.overlayWin.isDestroyed() && !this.overlayWin.webContents.isDestroyed()) {
+      this.overlayWin.webContents.send('annotation-overlay:raised-hands', value);
+    }
   }
 
   public syncState(sender: WebContents, state: AnnotationSessionState): void {
@@ -554,6 +575,7 @@ export class AnnotationOverlayManager {
       this.doubleCtrlDetector = null;
     }
     this.lastState = null;
+    this.lastRaisedHands = 0;
     this.lastSpotlightToggleTime = 0;
     this.lastIgnoreMouse = null;
     this.stopToolbarHitTest();
