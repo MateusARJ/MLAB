@@ -54,9 +54,16 @@ def main() -> int:
         if "NEEDS CLARIFICATION" in text:
             return fail(f"há 'NEEDS CLARIFICATION' em documento fechado: {path.name}")
 
-    # Cada bloco de tarefa (cabeçalho "### Txxx") deve declarar Allowed/Prohibited Paths.
-    # Os blocos vão de um cabeçalho "### Txxx" até o próximo cabeçalho de nível 2 ou 3.
-    for match in re.finditer(r"(?ms)^###\s+(T\d{3}[a-z]?)\b(.*?)(?=^##\s|^###\s|\Z)", tasks):
+    # Cabeçalho de tarefa: "### T" + 3 ou mais dígitos + letra minúscula opcional (T101, T101a, T1101).
+    # Um "### T<dígito>" fora desse padrão falha, para nenhuma tarefa escapar do gate em silêncio.
+    for match in re.finditer(r"(?m)^###\s+(T\d\S*)", tasks):
+        token = match.group(1)
+        if not re.match(r"T\d{3,}[a-z]?\b", token):
+            return fail(f"cabeçalho de tarefa fora do padrão T<3+ dígitos>[letra]: {token}")
+
+    # Cada bloco de tarefa deve declarar Allowed/Prohibited Paths.
+    # Os blocos vão de um cabeçalho de tarefa até o próximo cabeçalho de nível 2 ou 3.
+    for match in re.finditer(r"(?ms)^###\s+(T\d{3,}[a-z]?)\b(.*?)(?=^##\s|^###\s|\Z)", tasks):
         tid, block = match.group(1), match.group(2)
         if "Allowed Paths:" not in block or "Prohibited Paths:" not in block:
             return fail(f"tarefa {tid} sem Allowed Paths/Prohibited Paths")
