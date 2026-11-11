@@ -406,6 +406,11 @@ ipcMain.handle('annotation-overlay:set-ignore-mouse', (_event, ignore: boolean) 
   annotationOverlayManager.setIgnoreMouseEvents(Boolean(ignore))
 })
 
+// 017/RF-179: a janela do MLab informa a quantidade de mãos levantadas; o manager descarta o overlay e valores inválidos.
+ipcMain.handle('annotation-overlay:raised-hands', (event, value: unknown) => {
+  annotationOverlayManager.setRaisedHands(event.sender, value)
+})
+
 // 009/RF-902: só o renderer do overlay informa o retângulo da barra; o manager valida os valores.
 ipcMain.handle('annotation-overlay:toolbar-rect', (event, rect: unknown) => {
   if (!annotationOverlayManager.isOverlayWebContents(event.sender)) return

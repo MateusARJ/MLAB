@@ -11,23 +11,24 @@ Regras:
 - um commit atômico por task, com `Ref: T17x` e `Refs #45`.
 
 ### T171 — Canal IPC da quantidade de mãos levantadas
-[ ] T171
+[x] T171
 Allowed Paths: `apps/desktop/src/main/annotationOverlayWindow.ts`,
 `apps/desktop/src/main/annotationOverlayWindow.test.ts`, `apps/desktop/src/main/main.ts` (só o handler novo),
 `apps/desktop/src/main/preload.ts` (só as duas funções novas), `apps/desktop/src/test/setup.ts`
 Prohibited Paths: `apps/desktop/src/renderer/**`, `apps/desktop/src/main/toolbarHitTest.ts`,
 `apps/desktop/src/main/x11InputShape.ts`, `packages/**`, `apps/backend/**`, `apps/web/**`
 Checks:
-- [ ] `setRaisedHands(sender, value)` envia `annotation-overlay:raised-hands` ao overlay quando o valor muda, e não
+- [x] `setRaisedHands(sender, value)` envia `annotation-overlay:raised-hands` ao overlay quando o valor muda, e não
   reenvia o mesmo valor (RF-176, RNF-171).
-- [ ] Descarta valor vindo do webContents do overlay e valores inválidos (`-1`, `1.5`, `'3'`, `NaN`, `null`),
+- [x] Descarta valor vindo do webContents do overlay e valores inválidos (`-1`, `1.5`, `'3'`, `NaN`, `null`),
   mantendo o último válido (RNF-172).
-- [ ] Valor recebido antes do `start()` é entregue quando o overlay carrega; o overlay recriado recebe o último valor
+- [x] Valor recebido antes do `start()` é entregue quando o overlay carrega; o overlay recriado recebe o último valor
   no `ready-to-show`/`did-finish-load` (spec §7).
-- [ ] `stop()` volta a contagem para 0.
-- [ ] `main.ts` registra o handler; `preload.ts` expõe `setAnnotationRaisedHands` e `onAnnotationRaisedHands` (com
+- [x] `stop()` volta a contagem para 0.
+- [x] `main.ts` registra o handler; `preload.ts` expõe `setAnnotationRaisedHands` e `onAnnotationRaisedHands` (com
   cancelamento) conforme `desktop-ipc.md`; `setup.ts` mocka as duas.
-- [ ] `npm test` verde; nenhum erro novo de `tsc` em `main/`.
+- [x] `npm test` verde (18 arquivos, 155 testes; 4 novos); `tsc` com os mesmos 14 erros da #51, nenhum novo em
+  `main/` (o de `main.ts:9`, `systemPreferences`, já existia).
 
 ### T172 — Janela do MLab envia a quantidade
 [ ] T172

@@ -13,11 +13,18 @@ const h = vi.hoisted(() => {
     public ignoreCalls: Array<[boolean, unknown?]> = [];
     public destroyed = false;
     private handlers: Record<string, () => void> = {};
+    /** Mensagens enviadas ao renderer do overlay e handlers do webContents (017). */
+    public sent: Array<[string, unknown]> = [];
+    public wcHandlers: Record<string, () => void> = {};
     public webContents = {
       id: 77,
       isDestroyed: () => false,
-      send: () => {},
-      on: () => {},
+      send: (channel: string, payload: unknown) => {
+        this.sent.push([channel, payload]);
+      },
+      on: (ev: string, cb: () => void) => {
+        this.wcHandlers[ev] = cb;
+      },
     };
     constructor(public opts: any) {
       state.windows.push(this);
@@ -364,6 +371,68 @@ describe('AnnotationOverlayManager — atalhos recusados (009/RF-903)', () => {
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
     const { mgr } = startManager();
     expect(warn.mock.calls.filter((c) => String(c[0]).includes('atalho recusado'))).toEqual([]);
+    mgr.stop();
+  });
+});
+
+describe('AnnotationOverlayManager — mãos levantadas na barra (017/RF-179, RNF-172)', () => {
+  const RAISED = 'annotation-overlay:raised-hands';
+  // Janela do MLab com o necessário para o did-finish-load do overlay.
+  const mlabWin = {
+    isDestroyed: () => false,
+    isFocused: () => false,
+    isMinimized: () => false,
+    webContents: { id: 1, isDestroyed: () => false, send: () => {} },
+  } as any;
+
+  function start(mgr = new AnnotationOverlayManager()) {
+    mgr.start(mlabWin, 'preload.js');
+    const win = h.state.windows[h.state.windows.length - 1];
+    return { mgr, win };
+  }
+  const raisedSent = (win: any) => win.sent.filter(([ch]: [string]) => ch === RAISED).map(([, v]: [string, unknown]) => v);
+
+  it('envia ao overlay só quando a quantidade muda', () => {
+    const { mgr, win } = start();
+    mgr.setRaisedHands(mlabWin.webContents, 2);
+    mgr.setRaisedHands(mlabWin.webContents, 2);
+    mgr.setRaisedHands(mlabWin.webContents, 0);
+    expect(raisedSent(win)).toEqual([2, 0]);
+    mgr.stop();
+  });
+
+  it('descarta o valor vindo do overlay e valores inválidos, mantendo o último válido', () => {
+    const { mgr, win } = start();
+    mgr.setRaisedHands(mlabWin.webContents, 3);
+    mgr.setRaisedHands(win.webContents, 5);
+    for (const invalid of [-1, 1.5, '3', Number.NaN, null, undefined, Infinity]) {
+      mgr.setRaisedHands(mlabWin.webContents, invalid);
+    }
+    expect(raisedSent(win)).toEqual([3]);
+    win.wcHandlers['did-finish-load']();
+    expect(raisedSent(win)).toEqual([3, 3]);
+    mgr.stop();
+  });
+
+  it('valor recebido antes do start() vai ao overlay quando ele carrega e ao ser exibido', () => {
+    const mgr = new AnnotationOverlayManager();
+    mgr.setRaisedHands(mlabWin.webContents, 4);
+    const { win } = start(mgr);
+    expect(raisedSent(win)).toEqual([]);
+    win.wcHandlers['did-finish-load']();
+    (win as any).handlers['ready-to-show']();
+    expect(raisedSent(win)).toEqual([4, 4]);
+    mgr.stop();
+  });
+
+  it('stop() volta a contagem para 0 e o overlay recriado recebe 0', () => {
+    const mgr = new AnnotationOverlayManager();
+    start(mgr);
+    mgr.setRaisedHands(mlabWin.webContents, 3);
+    mgr.stop();
+    const { win } = start(mgr);
+    win.wcHandlers['did-finish-load']();
+    expect(raisedSent(win)).toEqual([0]);
     mgr.stop();
   });
 });
