@@ -964,7 +964,76 @@ describe('Room Component (Desktop)', () => {
       });
     }
   });
+
+  it('envia à barra de marcação só a quantidade de mãos levantadas da fila (017, RF-176, RF-179)', async () => {
+    const setRaisedHands = window.electronAPI.setAnnotationRaisedHands as ReturnType<typeof vi.fn>;
+    const syncAnnotationState = window.electronAPI.syncAnnotationState as ReturnType<typeof vi.fn>;
+    setRaisedHands.mockClear();
+
+    const aluno = (id: string, hand: boolean) => ({
+      participant_id: id,
+      name: `Aluno ${id}`,
+      role: 'aluno',
+      student_id: `MAT-${id}`,
+      hand_raised: hand,
+      hand_raised_at: hand ? '2026-11-10T12:00:00Z' : undefined,
+    });
+    // O professor não entra na contagem, mesmo com hand_raised.
+    const professor = { participant_id: 'prof', name: 'Professor', role: 'professor', hand_raised: true };
+    let participants: any[] = [professor, aluno('a1', true), aluno('a2', true), aluno('a3', false)];
+
+    const spy = vi.spyOn(publisherModule, 'useWebRTCPublisher').mockImplementation(() => ({
+      isPublishing: true,
+      connectionState: 'connected',
+      error: null,
+      messages: [],
+      participants,
+      lastHandRaised: null,
+      dismissHandToast: vi.fn(),
+      lowerStudentHand: vi.fn(),
+      sendChatMessage: vi.fn(),
+      pinChatMessage: vi.fn(),
+      sendStreamPause: vi.fn(),
+      startPublishing: vi.fn(),
+      changeStream: vi.fn(),
+      stopPublishing: vi.fn(),
+      endSession: vi.fn(),
+    }));
+
+    try {
+      const { rerender } = render(<Room room={dummyRoom} onCloseRoom={vi.fn()} />);
+      await waitFor(() => {
+        expect(screen.getByText('Tela Inteira 1')).toBeInTheDocument();
+      });
+      // Fora da sessão ao vivo nada é enviado.
+      expect(setRaisedHands).not.toHaveBeenCalled();
+
+      fireEvent.click(screen.getByRole('button', { name: /Avançar e Iniciar Transmissão/i }));
+      await waitFor(() => {
+        expect(setRaisedHands).toHaveBeenLastCalledWith(2);
+      });
+      const syncCallsAtStart = syncAnnotationState.mock.calls.length;
+
+      // Aluno abaixa a mão (ou o professor abaixa pela fila).
+      participants = [professor, aluno('a1', false), aluno('a2', true), aluno('a3', false)];
+      rerender(<Room room={dummyRoom} onCloseRoom={vi.fn()} />);
+      await waitFor(() => {
+        expect(setRaisedHands).toHaveBeenLastCalledWith(1);
+      });
+
+      // Aluno com a mão levantada sai da sala (participants-update).
+      participants = [professor, aluno('a1', false), aluno('a3', false)];
+      rerender(<Room room={dummyRoom} onCloseRoom={vi.fn()} />);
+      await waitFor(() => {
+        expect(setRaisedHands).toHaveBeenLastCalledWith(0);
+      });
+
+      // Só números: nenhum nome, matrícula ou participant_id sai da janela do MLab.
+      expect(setRaisedHands.mock.calls).toEqual([[2], [1], [0]]);
+      // A contagem não passa pelo estado de marcação (RNF-171).
+      expect(syncAnnotationState.mock.calls.length).toBe(syncCallsAtStart);
+    } finally {
+      spy.mockRestore();
+    }
+  });
 });
-
-
-

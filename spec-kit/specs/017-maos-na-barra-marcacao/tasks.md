@@ -31,19 +31,20 @@ Checks:
   `main/` (o de `main.ts:9`, `systemPreferences`, já existia).
 
 ### T172 — Janela do MLab envia a quantidade
-[ ] T172
+[x] T172
 Depends On: T171
 Allowed Paths: `apps/desktop/src/renderer/pages/Room.tsx`, `apps/desktop/src/renderer/pages/Room.test.tsx`
 Prohibited Paths: `apps/desktop/src/renderer/hooks/useWebRTCPublisher.ts`, `apps/desktop/src/renderer/media/**`,
 `apps/desktop/src/renderer/components/**`, `apps/desktop/src/main/**`, `packages/**`, `apps/backend/**`,
 `apps/web/**`
 Checks:
-- [ ] Em sessão ao vivo, `setAnnotationRaisedHands` é chamado com a mesma quantidade da fila "Mãos Levantadas":
-  levantar, abaixar e saída do aluno (via `participants-update`) mudam o valor (RF-176).
-- [ ] Só um número é enviado; nenhum nome, matrícula ou `participant_id` (RF-179).
-- [ ] Fora de sessão ao vivo, nada é enviado; o fluxo de `syncAnnotationState` não muda (RNF-171).
-- [ ] Badges e fila dentro do MLab continuam iguais; testes existentes do `Room` verdes (RF-180).
-- [ ] `npm test` verde; nenhum erro novo de `tsc` em `Room.tsx`.
+- [x] Em sessão ao vivo, `setAnnotationRaisedHands` é chamado com a mesma quantidade da fila "Mãos Levantadas":
+  levantar, abaixar e saída do aluno (via `participants-update`) mudam o valor (RF-176). O professor não conta.
+- [x] Só um número é enviado; nenhum nome, matrícula ou `participant_id` (RF-179).
+- [x] Fora de sessão ao vivo, nada é enviado; o fluxo de `syncAnnotationState` não muda (RNF-171).
+- [x] Badges e fila dentro do MLab continuam iguais; testes existentes do `Room` verdes (RF-180).
+- [x] `npm test` verde (18 arquivos, 156 testes); o teste novo falha sem a mudança no `Room.tsx`. `tsc` com os mesmos
+  14 erros da #51 (`Room.tsx:94`, `Room.test.tsx:828` e `:901` já existiam), nenhum novo.
 
 ### T173 — Indicador e borda de destaque na barra
 [ ] T173

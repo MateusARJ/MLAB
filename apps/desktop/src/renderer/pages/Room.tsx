@@ -1425,6 +1425,14 @@ export const Room: React.FC<RoomProps> = ({ room, onCloseRoom }) => {
       const timeB = new Date(b.hand_raised_at || b.handRaisedAt || 0).getTime();
       return timeA - timeB;
     });
+  const raisedHandsCount = raisedHandsStudents.length;
+
+  // 017/RF-176, RF-179: leva à barra de marcação (fora do MLab) só a quantidade de mãos levantadas da fila.
+  useEffect(() => {
+    if (!isLiveSession) return;
+    window.electronAPI?.setAnnotationRaisedHands?.(raisedHandsCount)?.catch(() => {});
+  }, [isLiveSession, raisedHandsCount]);
+
   const professorName = typeof window !== 'undefined' ? sessionStorage.getItem('professor_name') : null;
 
   return (
