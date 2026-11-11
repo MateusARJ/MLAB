@@ -53,6 +53,9 @@ contratos, testes e tarefas rastreáveis.
 - O aluno pode abaixar a própria mão; o professor pode abaixar a mão de qualquer aluno informando `participant_id`.
 - Toda mudança gera `hand-updated` e `participants-update` para a sala, com `hand_raised_at` em UTC (RFC 3339).
 - O professor vê a fila ordenada por horário de levantamento (`#1`, `#2`, ...) e um aviso quando a barra lateral está fechada.
+  - **Nota (017-maos-na-barra-marcacao):** fora da janela do MLab, a barra de marcação flutuante mostra a quantidade
+    de mãos levantadas (ícone com número, até `9+`) e uma borda de destaque; a fila continua só dentro do MLab
+    (RF-171 a RF-180 da 017).
 
 ### US-12 — Fixar mensagens
 
@@ -128,6 +131,9 @@ contratos, testes e tarefas rastreáveis.
 - Atalhos globais: `Alt+H` (recolher), `Alt+V`, `Alt+P`, `Alt+M`, `Alt+A`, `Alt+R`, `Alt+E` (ferramentas), `Alt+L` (spotlight), `Alt+Z` (zoom), com variantes `Alt+Shift+…`.
 - Duplo toque em `Ctrl` (até 600 ms entre toques, sem outra tecla combinada) alterna a lupa — **somente no Windows**; nos demais sistemas a lupa é acionada pelo botão e por `Alt+Z`.
 - A barra do overlay adapta a orientação à posição na tela.
+  - **Nota (017-maos-na-barra-marcacao):** com mão levantada, a barra mostra o indicador de mãos levantadas e a
+    borda de destaque, expandida ou recolhida. Em tela cheia, a barra e o indicador entram no vídeo dos alunos
+    (RN-171 da 017; ver #62).
 
 ### US-20 — Cursor contextual e rastreamento de janelas
 

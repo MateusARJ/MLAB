@@ -69,18 +69,18 @@ Checks:
   da #51, nenhum em `FloatingAnnotationOverlay.tsx`. Aparência real (legibilidade, RNF-174) fica para o smoke A15b.
 
 ### T174 — Nota na 003 e item de smoke A15b
-[ ] T174
+[x] T174
 Depends On: T172, T173
 Allowed Paths: `spec-kit/specs/003-classroom-interaction/spec.md`, `docs/metrics/smoke-runbook.md`,
 `scripts/smoke-report.js`
 Prohibited Paths: `apps/**`, `packages/**`, `spec-kit/specs/003-classroom-interaction/contracts/**`
 Checks:
-- [ ] US-11 e US-19 da 003 ganham nota "fora do MLab, a barra de marcação mostra a quantidade de mãos levantadas
+- [x] US-11 e US-19 da 003 ganham nota "fora do MLab, a barra de marcação mostra a quantidade de mãos levantadas
   (017)"; nada é reescrito.
-- [ ] Roteiro `A15b` no runbook: professor na janela transmitida e depois na tela cheia; aluno no celular levanta e
+- [x] Roteiro `A15b` no runbook: professor na janela transmitida e depois na tela cheia; aluno no celular levanta e
   abaixa; barra recolhida; 10+ mãos se houver alunos suficientes (ou registrar o limite); registrar se o indicador
   aparece no vídeo em tela cheia e não aparece em janela específica (RN-171).
-- [ ] `scripts/smoke-report.js` lista `A15b` como `manual`.
+- [x] `scripts/smoke-report.js` lista `A15b` como `manual` (`node --check` ok).
 
 ### T175 — Smoke, converge e versão
 [ ] T175

@@ -105,6 +105,29 @@ não ficam selecionadas ao mesmo tempo.
 **OK quando:** o cursor só aparece para o aluno dentro da janela transmitida, o print da janela do app sai preto
 com a proteção ligada, e a captura cola corretamente.
 
+## A15b — Mãos levantadas na barra de marcação (fora do MLab)
+
+Requer MLab **1.11.0 ou posterior** (feature 017) e pelo menos dois alunos (celular e outro navegador ou aba anônima).
+
+1. Transmita uma **janela** específica e clique nela, para o MLab perder o foco: a barra de marcação flutuante
+   aparece, sem ícone de mão e com a borda azul de sempre.
+2. Aluno 1 levanta a mão: a barra ganha a borda amarela e o ícone de mão com `1`. Passe o mouse no ícone: o
+   tooltip diz "Mãos levantadas: 1". Na barra não aparece nenhum texto sobre mãos.
+3. Aluno 2 levanta a mão: o número vai a `2`. Clique no ícone: nada acontece (a ferramenta e a barra não mudam).
+4. Recolha a barra (`Alt+H` ou o botão): a borda amarela e o ícone com `2` continuam, abaixo do botão redondo.
+5. Volte ao MLab e abaixe a mão do aluno 1 pela fila; saia do MLab de novo: a barra mostra `1`.
+6. Aluno 2 sai da sala (fecha a aba): a borda amarela e o ícone somem.
+7. Repita os passos 2 e 6 transmitindo a **tela cheia** e olhe o vídeo no celular de um aluno: registre se a barra,
+   a borda e o número aparecem para os alunos (esperado em tela cheia, RN-171 da 017) e confirme que **não**
+   aparecem transmitindo uma janela específica.
+8. Opcional: com 10 alunos ou mais com a mão levantada, o número mostra `9+` e o tooltip, o número real.
+9. Linux (se houver): com o ícone presente, os botões da barra continuam clicáveis e o clique fora dela atravessa
+   para a janela de baixo (regressão da 009).
+
+**OK quando:** o número acompanha a fila do MLab em todos os passos, a borda e o ícone somem com zero mãos, o
+número é legível nas barras expandida e recolhida e o clique no ícone não faz nada. O item 7 só registra o que
+acontece no vídeo; não reprova o item.
+
 ## A16 — Acesso por `mlab.local` e por IP (celular)
 
 1. No celular, abra `http://mlab.local:8080` (ou o link `mdns_link` mostrado no app).
