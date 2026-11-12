@@ -20,6 +20,12 @@ window.electronAPI = {
   }),
   copyToClipboard: vi.fn().mockResolvedValue(true),
   getHostKey: vi.fn().mockResolvedValue('chave-de-host-de-teste'),
+  getAppInfo: vi.fn().mockResolvedValue({
+    name: 'MLab',
+    version: '9.8.7',
+    description: 'Plataforma de transmissão de tela e interação para aulas ao vivo',
+    copyright: 'Copyright © 2026 MLab',
+  }),
   setActiveRoom: vi.fn().mockResolvedValue(undefined),
   setContentProtection: vi.fn().mockResolvedValue(true),
   captureWindowToClipboard: vi.fn().mockResolvedValue(true),

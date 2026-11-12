@@ -3,6 +3,7 @@ import type {
   AnnotationSessionState,
   AnnotationShortcutCommand,
   AnnotationToolbarRect,
+  AppInfo,
   CaptureSource,
   CaptureSourceType,
   CursorState,
@@ -51,6 +52,11 @@ export interface ElectronAPI {
    * de POST /auth/session ao backend local (ADR 0006).
    */
   getHostKey: () => Promise<string>
+
+  /**
+   * Retorna nome, versão, descrição e copyright do MLab para o rodapé e o diálogo "Sobre" (021).
+   */
+  getAppInfo: () => Promise<AppInfo>
 
   /**
    * Registra ou desregistra a sala ativa atual no processo principal para encerramento automático ao fechar a janela.
@@ -150,6 +156,7 @@ const api: ElectronAPI = {
   saveRecordedVideo: (buffer, defaultName, format) =>
     ipcRenderer.invoke('save-recorded-video', { buffer, defaultName, format }),
   getHostKey: () => ipcRenderer.invoke('get-host-key'),
+  getAppInfo: () => ipcRenderer.invoke('get-app-info'),
   // A escrita é feita no processo principal: `clipboard` não existe em preload com sandbox (002/S7).
   copyToClipboard: (text: string) => ipcRenderer.invoke('write-clipboard-text', text),
   setActiveRoom: (room) => ipcRenderer.invoke('set-active-room', room),

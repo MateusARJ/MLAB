@@ -9,7 +9,7 @@ Regras:
 - um commit atômico por task, com `Ref: T210x` e `Refs #52`.
 
 ### T2101 — Tipo `AppInfo` e canal IPC `get-app-info`
-[ ] T2101
+[x] T2101
 Allowed Paths: `packages/types/src/index.ts`, `apps/desktop/electron.vite.config.ts`,
 `apps/desktop/src/main/appInfo.ts`, `apps/desktop/src/main/appInfo.test.ts`, `apps/desktop/src/main/main.ts`,
 `apps/desktop/src/main/preload.ts`, `apps/desktop/src/test/setup.ts`,
@@ -17,12 +17,12 @@ Allowed Paths: `packages/types/src/index.ts`, `apps/desktop/electron.vite.config
 Prohibited Paths: `apps/desktop/src/renderer/**`, `apps/desktop/package.json`, `apps/web/**`, `apps/backend/**`,
 `packages/ui/**`, `package.json`
 Checks:
-- [ ] `AppInfo { name, version, description, copyright }` exportado de `@mlab/types` (RNF-2102).
-- [ ] `define` `__MLAB_APP_META__` no build do main, lido do `apps/desktop/package.json` (C-2105).
-- [ ] `buildAppInfo(version, meta)` monta `Copyright © <ano> MLab`, com teste vitest (RF-2104, RF-2106).
-- [ ] `ipcMain.handle('get-app-info')` e `electronAPI.getAppInfo()`, sem parâmetros (RNF-2101).
-- [ ] Mock `getAppInfo` em `src/test/setup.ts`.
-- [ ] Canal na tabela Renderer → Main de `desktop-ipc.md`, "em vigor desde 021 (T2101)" (RNF-2102).
+- [x] `AppInfo { name, version, description, copyright }` exportado de `@mlab/types` (RNF-2102).
+- [x] `define` `__MLAB_APP_META__` no build do main, lido do `apps/desktop/package.json` (C-2105).
+- [x] `buildAppInfo(version, meta)` monta `Copyright © <ano> MLab`, com teste vitest (RF-2104, RF-2106).
+- [x] `ipcMain.handle('get-app-info')` e `electronAPI.getAppInfo()`, sem parâmetros (RNF-2101).
+- [x] Mock `getAppInfo` em `src/test/setup.ts`.
+- [x] Canal na tabela Renderer → Main de `desktop-ipc.md`, "em vigor desde 021 (T2101)" (RNF-2102).
 
 ### T2102 — Hook `useAppInfo` e componente `AppInfoFooter`
 [ ] T2102
