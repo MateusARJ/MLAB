@@ -107,6 +107,8 @@ contratos, testes e tarefas rastreáveis.
   - **Nota (018-arquivos-arrastar):** o professor também pode arrastar arquivos para a aba Arquivos, com envio em
     sequência e estado por arquivo; o botão aceita vários arquivos. Endpoint, limites e contrato não mudam
     (RF-181 a RF-190 da 018).
+  - **Nota (024-lista-arquivos-celular):** no celular, a lista da aba Arquivos ocupa toda a altura da gaveta e rola
+    dentro dela; a gaveta do desktop não muda (RF-2401 a RF-2403 da 024).
 
 ### US-17 — Validação da matrícula
 

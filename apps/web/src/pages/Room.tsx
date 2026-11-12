@@ -937,7 +937,7 @@ export const Room: React.FC<RoomProps> = ({ token, roomInfo, onLeave }) => {
                 <Close size={16} />
               </button>
             </div>
-            <div style={styles.filesList}>
+            <div style={styles.filesList} data-testid="files-list">
               {sharedFiles.length === 0 ? (
                 <div style={styles.noFilesBox}>
                   <p style={styles.noFilesText}>Nenhum arquivo compartilhado pelo professor até o momento.</p>
@@ -1035,8 +1035,8 @@ export const Room: React.FC<RoomProps> = ({ token, roomInfo, onLeave }) => {
           )}
 
           {isMobile && mobileDrawerTab === 'files' ? (
-            <div style={styles.mobileFilesContent}>
-              <div style={styles.filesList}>
+            <div style={styles.mobileFilesContent} data-testid="mobile-files-content">
+              <div style={styles.mobileFilesList} data-testid="mobile-files-list">
                 {sharedFiles.length === 0 ? (
                   <div style={styles.noFilesBox}>
                     <p style={styles.noFilesText}>Nenhum arquivo compartilhado pelo professor até o momento.</p>
@@ -2136,12 +2136,22 @@ const styles: { [key: string]: React.CSSProperties } = {
     alignItems: 'center',
     gap: '6px',
   },
+  // Moldura da aba Arquivos do celular: só a lista rola (024, C-2401).
   mobileFilesContent: {
     flex: 1,
+    minHeight: 0,
     display: 'flex',
     flexDirection: 'column',
-    overflowY: 'auto',
     padding: '14px',
+  },
+  // Lista do celular sem o teto de 380px da gaveta do desktop (024, RF-2401).
+  mobileFilesList: {
+    flex: 1,
+    minHeight: 0,
+    overflowY: 'auto',
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '10px',
   },
   fullscreenMenuBtn: {
     position: 'fixed' as const,

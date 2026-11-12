@@ -559,3 +559,42 @@ describe('Room — rolagem automática da lista de arquivos (018/RF-191)', () =>
     expect(scrolledToFilesEnd()).toBeGreaterThan(before);
   });
 });
+
+describe('Room — altura da lista de arquivos (024)', () => {
+  const token = 'student-jwt-123';
+  const roomInfo = { room_id: 'room-101', ws_url: 'ws://localhost:8080/ws/rooms/room-101/signal', ice_servers: [] };
+
+  beforeEach(() => {
+    mockSubscriberState.sharedFiles = [
+      { id: 'f1', name: 'material-1.pdf', size: 1024, url: '/rooms/room-101/files/f1/download' },
+    ];
+  });
+
+  afterEach(() => {
+    mockSubscriberState.sharedFiles = [];
+    window.innerWidth = 1024;
+    fireEvent(window, new Event('resize'));
+  });
+
+  it('no celular, a lista da aba Arquivos ocupa a altura da gaveta e é o único contêiner que rola (RF-2401)', () => {
+    window.innerWidth = 400;
+    fireEvent(window, new Event('resize'));
+    render(<Room token={token} roomInfo={roomInfo} onLeave={vi.fn()} />);
+
+    fireEvent.click(screen.getByRole('button', { name: /^Arquivos/i }));
+    const list = screen.getByTestId('mobile-files-list');
+    expect(list).toHaveStyle({ flex: '1', overflowY: 'auto' });
+    expect(list.style.maxHeight).toBe('');
+    expect(list).toContainElement(screen.getByTestId('files-end'));
+    expect(screen.getByTestId('mobile-files-content').style.overflowY).toBe('');
+  });
+
+  it('no desktop, a gaveta Arquivos da Aula mantém a altura máxima de 380px (RF-2402)', () => {
+    window.innerWidth = 1024;
+    fireEvent(window, new Event('resize'));
+    render(<Room token={token} roomInfo={roomInfo} onLeave={vi.fn()} />);
+
+    fireEvent.click(screen.getAllByTitle('Arquivos da Aula')[0]);
+    expect(screen.getByTestId('files-list')).toHaveStyle({ maxHeight: '380px' });
+  });
+});
