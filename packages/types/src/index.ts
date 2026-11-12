@@ -37,6 +37,7 @@ export interface CreateRoomResponse {
   slug: string;
   link: string;
   ip_link?: string;
+  /** Link com o nome mDNS anunciado por este backend (mlab.local, mlab-2.local…); ausente sem anúncio. */
   mdns_link?: string;
   short_ip_link?: string;
   short_mdns_link?: string;
@@ -50,6 +51,7 @@ export interface RoomLinkResponse {
   room_id: string;
   link: string;
   ip_link?: string;
+  /** Nome mDNS anunciado no momento; pode mudar durante a sessão após conflito (012, RF-125). */
   mdns_link?: string;
   short_ip_link?: string;
   short_mdns_link?: string;
@@ -336,4 +338,15 @@ export interface AnnotationSessionState {
   spotlight: SpotlightState;
   collapsed: boolean;
   toolbarPos?: { x: number; y: number } | null;
+}
+
+/**
+ * Retângulo da barra de marcação (e do popover de cores) em px CSS do overlay (= DIP), relativo ao canto do overlay.
+ * Usado pelo hit-test do main no Linux (009, RF-902).
+ */
+export interface AnnotationToolbarRect {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
 }

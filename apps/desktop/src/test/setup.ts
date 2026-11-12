@@ -32,8 +32,11 @@ window.electronAPI = {
   stopAnnotationOverlay: vi.fn().mockResolvedValue(undefined),
   syncAnnotationState: vi.fn().mockResolvedValue(undefined),
   setAnnotationOverlayIgnoreMouse: vi.fn().mockResolvedValue(undefined),
+  setAnnotationToolbarRect: vi.fn().mockResolvedValue(undefined),
   onAnnotationStateSync: vi.fn().mockImplementation(() => () => {}),
   onAnnotationShortcutCommand: vi.fn().mockImplementation(() => () => {}),
+  setAnnotationRaisedHands: vi.fn().mockResolvedValue(undefined),
+  onAnnotationRaisedHands: vi.fn().mockImplementation(() => () => {}),
 };
 
 if (typeof window !== 'undefined') {

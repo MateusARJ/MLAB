@@ -15,7 +15,7 @@ Resumo da solução técnica.
 | Linguagem | Go / TypeScript |
 | Transporte | HTTP / WebSocket / WebRTC |
 | SFU | Pion ou decisão registrada em ADR |
-| Persistência | PostgreSQL / N/A |
+| Persistência | em memória (ADR 0005); outra forma exige nova ADR |
 | Testes | unit / integration / e2e |
 
 ## 3. Architecture
@@ -51,6 +51,11 @@ Liste somente dependências aprovadas.
 | Risco | Impacto | Mitigação |
 |---|---|---|
 | | | |
+
+## 9a. Impacto de versão previsto
+
+Nível previsto pelo escopo de `docs/versionamento.md` §2 (MAJOR / MINOR / PATCH / nenhum) e motivo. Mudança
+incompatível (MAJOR) exige aprovação explícita do responsável antes das tasks.
 
 ## Scope Lock
 

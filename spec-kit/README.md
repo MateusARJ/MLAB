@@ -82,8 +82,15 @@ npm run spec:check -- spec-kit/specs/001-screen-share-core   # uma feature
 
 O validador falha quando: falta artefato obrigatório, o `plan.md` não tem Scope Lock completo,
 o `analyze.md` não está em `Status: PASS`, a checklist não está `APPROVED`, existe
-`NEEDS CLARIFICATION` em documento fechado ou alguma tarefa `### Txxx` não declara
-`Allowed Paths:` e `Prohibited Paths:`.
+`NEEDS CLARIFICATION` em documento fechado, alguma tarefa não declara `Allowed Paths:` e
+`Prohibited Paths:` ou um cabeçalho de tarefa foge do padrão `### T` + 3 ou mais dígitos + letra
+minúscula opcional (`T101`, `T101a`, `T1101`).
+
+Testes do próprio validador (biblioteca padrão do Python, sem dependência):
+
+```bash
+py -m unittest discover -s spec-kit/.specify/scripts -p "test_*.py"
+```
 
 ## Decisões Arquiteturais Aprovadas
 
@@ -95,3 +102,4 @@ o `analyze.md` não está em `Status: PASS`, a checklist não está `APPROVED`, 
 | ADR 0004 | Arquitetura de segurança e testes de segurança |
 | ADR 0005 | Operação em LAN offline como modo primário (TURN opcional, estado em memória) |
 | ADR 0006 | Descontinuação do login; sessão local do professor vinculada ao host |
+| ADR 0007 | Versionamento semântico (`MAJOR.MINOR.PATCH`) a partir da 1.7.1, com incremento no PR da mudança |

@@ -147,6 +147,13 @@ export const Room: React.FC<RoomProps> = ({ token, roomInfo, onLeave }) => {
     }
   }, [messages.length, studentChatTab, isChatOpen]);
 
+  // Auto-scroll da lista de arquivos, no mesmo padrão do chat (018/RF-191): ao abrir a lista e a cada arquivo
+  // novo, mostra o último. A gaveta (desktop) e a aba do celular nunca aparecem juntas, então um ref basta.
+  const filesEndRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    filesEndRef.current?.scrollIntoView?.({ behavior: 'smooth' });
+  }, [sharedFiles.length, isFilesOpen, mobileDrawerTab, isChatOpen, isMobile]);
+
   const effectiveFullscreen = isFullscreen || isPseudoFullscreen;
 
   useEffect(() => {
@@ -957,6 +964,7 @@ export const Room: React.FC<RoomProps> = ({ token, roomInfo, onLeave }) => {
                   </div>
                 ))
               )}
+              <div ref={filesEndRef} data-testid="files-end" />
             </div>
           </div>
         )}
@@ -1053,6 +1061,7 @@ export const Room: React.FC<RoomProps> = ({ token, roomInfo, onLeave }) => {
                     </div>
                   ))
                 )}
+                <div ref={filesEndRef} data-testid="files-end" />
               </div>
             </div>
           ) : (

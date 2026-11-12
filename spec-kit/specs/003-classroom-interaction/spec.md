@@ -53,6 +53,9 @@ contratos, testes e tarefas rastreáveis.
 - O aluno pode abaixar a própria mão; o professor pode abaixar a mão de qualquer aluno informando `participant_id`.
 - Toda mudança gera `hand-updated` e `participants-update` para a sala, com `hand_raised_at` em UTC (RFC 3339).
 - O professor vê a fila ordenada por horário de levantamento (`#1`, `#2`, ...) e um aviso quando a barra lateral está fechada.
+  - **Nota (017-maos-na-barra-marcacao):** fora da janela do MLab, a barra de marcação flutuante mostra a quantidade
+    de mãos levantadas (ícone com número, até `9+`) e uma borda de destaque; a fila continua só dentro do MLab
+    (RF-171 a RF-180 da 017).
 
 ### US-12 — Fixar mensagens
 
@@ -101,6 +104,9 @@ contratos, testes e tarefas rastreáveis.
 - Cada envio gera `file-shared` para a sala; quem entra depois recebe `files-history`.
 - Alunos listam e baixam os arquivos da sala pelo navegador, inclusive no celular.
 - Os arquivos ficam em memória e não sobrevivem ao reinício do backend (ADR 0005).
+  - **Nota (018-arquivos-arrastar):** o professor também pode arrastar arquivos para a aba Arquivos, com envio em
+    sequência e estado por arquivo; o botão aceita vários arquivos. Endpoint, limites e contrato não mudam
+    (RF-181 a RF-190 da 018).
 
 ### US-17 — Validação da matrícula
 
@@ -128,6 +134,9 @@ contratos, testes e tarefas rastreáveis.
 - Atalhos globais: `Alt+H` (recolher), `Alt+V`, `Alt+P`, `Alt+M`, `Alt+A`, `Alt+R`, `Alt+E` (ferramentas), `Alt+L` (spotlight), `Alt+Z` (zoom), com variantes `Alt+Shift+…`.
 - Duplo toque em `Ctrl` (até 600 ms entre toques, sem outra tecla combinada) alterna a lupa — **somente no Windows**; nos demais sistemas a lupa é acionada pelo botão e por `Alt+Z`.
 - A barra do overlay adapta a orientação à posição na tela.
+  - **Nota (017-maos-na-barra-marcacao):** com mão levantada, a barra mostra o indicador de mãos levantadas e a
+    borda de destaque, expandida ou recolhida. Em tela cheia, a barra e o indicador entram no vídeo dos alunos
+    (RN-171 da 017; ver #62).
 
 ### US-20 — Cursor contextual e rastreamento de janelas
 
@@ -155,6 +164,9 @@ contratos, testes e tarefas rastreáveis.
 
 **Critérios de aceitação**
 - O backend anuncia `mlab.local` (e `mlab-<professor>.local`) via mDNS na porta UDP 5353; se a porta estiver ocupada, o link por IP continua funcionando.
+  - **Nota (012-mdns-nome-unico):** o nome passou a ser único por backend na rede (`mlab.local`, `mlab-2.local` …
+    `mlab-20.local`, o primeiro livre) e o alias `mlab-<professor>.local` deixou de ser anunciado (RF-121 a RF-126
+    da 012).
 - O IP anunciado é o da interface física (Ethernet/Wi-Fi), descartando adaptadores virtuais (VMware, VirtualBox, WSL, Hyper-V, Docker, ZeroTier, VPN).
 
 ## 5. Requisitos Funcionais

@@ -7,8 +7,8 @@ describe('Room Component (Desktop)', () => {
   const dummyRoom = {
     id: 'room-101',
     slug: 'charlie-delta-7342',
-    link: 'http://mlab-charlie.local:3000',
-    mdnsLink: 'http://mlab-charlie.local:3000',
+    link: 'http://mlab-2.local:3000',
+    mdnsLink: 'http://mlab-2.local:3000',
     ipLink: 'http://192.168.1.100:3000',
   };
 
@@ -172,6 +172,13 @@ describe('Room Component (Desktop)', () => {
     await waitFor(() => {
       expect(screen.getByTitle(/Link Fixo Copiado/i)).toBeInTheDocument();
     });
+  });
+
+  it('deve esconder o Link Fixo no cabeçalho quando não há nome mDNS anunciado (012, RF-127)', () => {
+    render(<Room room={{ ...dummyRoom, link: dummyRoom.ipLink, mdnsLink: undefined }} onCloseRoom={vi.fn()} />);
+
+    expect(screen.queryByRole('button', { name: /Copiar Link Fixo/i })).not.toBeInTheDocument();
+    expect(screen.getByText(dummyRoom.ipLink)).toBeInTheDocument();
   });
 
   it('deve chamar onCloseRoom ao clicar em Encerrar Transmissão', async () => {
@@ -728,21 +735,13 @@ describe('Room Component (Desktop)', () => {
     });
   });
 
-  it('deve exibir indicador de Múltiplas Janelas e alternar janelas autorizadas ou exibir proteção de privacidade', async () => {
+  it('deve exibir indicador de Múltiplas Janelas e alternar janelas autorizadas sem exibir o selo de privacidade', async () => {
     let activeWindowCallback: ((data: { sourceId: string }) => void) | null = null;
-    let unauthorizedCallback: ((data: { isUnauthorized: boolean }) => void) | null = null;
 
     (window.electronAPI.onActiveWindowChanged as any).mockImplementation((cb: any) => {
       activeWindowCallback = cb;
       return () => {
         activeWindowCallback = null;
-      };
-    });
-
-    (window.electronAPI.onActiveWindowUnauthorized as any).mockImplementation((cb: any) => {
-      unauthorizedCallback = cb;
-      return () => {
-        unauthorizedCallback = null;
       };
     });
 
@@ -782,18 +781,21 @@ describe('Room Component (Desktop)', () => {
       expect(screen.getByText(/Janelas da Aula \(2\):/i)).toBeInTheDocument();
     });
 
-    // Simula evento do SO de proteção de privacidade (app não autorizado focado pelo professor)
-    expect(unauthorizedCallback).toBeTruthy();
-    act(() => {
-      unauthorizedCallback!({ isUnauthorized: true });
-    });
-
-    // O badge visual foi removido da barra de status conforme solicitado, não devendo poluir a tela
+    // O selo de proteção de privacidade não fica na UI (020/RF-2002)
     expect(screen.queryByText(/Proteção de Privacidade Ativa/i)).not.toBeInTheDocument();
 
-    // Simula volta para o VS Code (app autorizado)
+    // Simula o foco em outra janela autorizada
     act(() => {
-      unauthorizedCallback!({ isUnauthorized: false });
+      activeWindowCallback!({ sourceId: 'window:20' });
+    });
+
+    await waitFor(() => {
+      expect(screen.getByText(/Janela Específica \(Múltiplas - 2 autorizadas\)/i)).toBeInTheDocument();
+    });
+    expect(screen.queryByText(/Proteção de Privacidade Ativa/i)).not.toBeInTheDocument();
+
+    // Simula volta para o VS Code
+    act(() => {
       activeWindowCallback!({ sourceId: 'window:10' });
     });
 
@@ -831,6 +833,7 @@ describe('Room Component (Desktop)', () => {
       pinChatMessage: vi.fn(),
       sendStreamPause: vi.fn(),
       startPublishing: vi.fn(),
+      stopPublishing: vi.fn(),
       changeStream: vi.fn(),
       endSession: vi.fn(),
     });
@@ -906,6 +909,7 @@ describe('Room Component (Desktop)', () => {
         pinChatMessage: vi.fn(),
         sendStreamPause: vi.fn(),
         startPublishing: vi.fn(),
+        stopPublishing: vi.fn(),
         changeStream: mockChangeStream,
         endSession: vi.fn(),
       };
@@ -957,7 +961,76 @@ describe('Room Component (Desktop)', () => {
       });
     }
   });
+
+  it('envia à barra de marcação só a quantidade de mãos levantadas da fila (017, RF-176, RF-179)', async () => {
+    const setRaisedHands = window.electronAPI.setAnnotationRaisedHands as ReturnType<typeof vi.fn>;
+    const syncAnnotationState = window.electronAPI.syncAnnotationState as ReturnType<typeof vi.fn>;
+    setRaisedHands.mockClear();
+
+    const aluno = (id: string, hand: boolean) => ({
+      participant_id: id,
+      name: `Aluno ${id}`,
+      role: 'aluno',
+      student_id: `MAT-${id}`,
+      hand_raised: hand,
+      hand_raised_at: hand ? '2026-11-10T12:00:00Z' : undefined,
+    });
+    // O professor não entra na contagem, mesmo com hand_raised.
+    const professor = { participant_id: 'prof', name: 'Professor', role: 'professor', hand_raised: true };
+    let participants: any[] = [professor, aluno('a1', true), aluno('a2', true), aluno('a3', false)];
+
+    const spy = vi.spyOn(publisherModule, 'useWebRTCPublisher').mockImplementation(() => ({
+      isPublishing: true,
+      connectionState: 'connected',
+      error: null,
+      messages: [],
+      participants,
+      lastHandRaised: null,
+      dismissHandToast: vi.fn(),
+      lowerStudentHand: vi.fn(),
+      sendChatMessage: vi.fn(),
+      pinChatMessage: vi.fn(),
+      sendStreamPause: vi.fn(),
+      startPublishing: vi.fn(),
+      changeStream: vi.fn(),
+      stopPublishing: vi.fn(),
+      endSession: vi.fn(),
+    }));
+
+    try {
+      const { rerender } = render(<Room room={dummyRoom} onCloseRoom={vi.fn()} />);
+      await waitFor(() => {
+        expect(screen.getByText('Tela Inteira 1')).toBeInTheDocument();
+      });
+      // Fora da sessão ao vivo nada é enviado.
+      expect(setRaisedHands).not.toHaveBeenCalled();
+
+      fireEvent.click(screen.getByRole('button', { name: /Avançar e Iniciar Transmissão/i }));
+      await waitFor(() => {
+        expect(setRaisedHands).toHaveBeenLastCalledWith(2);
+      });
+      const syncCallsAtStart = syncAnnotationState.mock.calls.length;
+
+      // Aluno abaixa a mão (ou o professor abaixa pela fila).
+      participants = [professor, aluno('a1', false), aluno('a2', true), aluno('a3', false)];
+      rerender(<Room room={dummyRoom} onCloseRoom={vi.fn()} />);
+      await waitFor(() => {
+        expect(setRaisedHands).toHaveBeenLastCalledWith(1);
+      });
+
+      // Aluno com a mão levantada sai da sala (participants-update).
+      participants = [professor, aluno('a1', false), aluno('a3', false)];
+      rerender(<Room room={dummyRoom} onCloseRoom={vi.fn()} />);
+      await waitFor(() => {
+        expect(setRaisedHands).toHaveBeenLastCalledWith(0);
+      });
+
+      // Só números: nenhum nome, matrícula ou participant_id sai da janela do MLab.
+      expect(setRaisedHands.mock.calls).toEqual([[2], [1], [0]]);
+      // A contagem não passa pelo estado de marcação (RNF-171).
+      expect(syncAnnotationState.mock.calls.length).toBe(syncCallsAtStart);
+    } finally {
+      spy.mockRestore();
+    }
+  });
 });
-
-
-

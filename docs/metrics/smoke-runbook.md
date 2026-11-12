@@ -112,13 +112,96 @@ não ficam selecionadas ao mesmo tempo.
 mancha visível onde ele foi apagado, o print da janela do app sai preto
 com a proteção ligada, e a captura cola corretamente.
 
+## A13b — Arrastar arquivos para a aba Arquivos
+
+Requer MLab **1.12.0 ou posterior** (feature 018), no **instalador Windows** (`npm run make:win`): a navegação por
+arquivo solto só acontecia no app empacotado. Um aluno no celular, na sala.
+
+Prepare na Área de Trabalho: 5 arquivos pequenos (ex.: PDF, DOCX, PNG, TXT, ZIP), um arquivo **acima de 50 MB** e uma
+pasta qualquer.
+
+1. Abra a sala, inicie a transmissão e abra **Chat & Turma → Arquivos**.
+2. Arraste **1** PDF do Explorador sobre a aba: aparece a zona tracejada "Solte para compartilhar". Tire o arquivo de
+   cima da aba sem soltar: o destaque some.
+3. Solte o PDF na aba: o item mostra "Enviando..." e depois "Enviado"; o arquivo entra em "Arquivos Compartilhados
+   Nesta Aula", o contador da aba sobe e, uns 5 s depois, o item some da lista de envio.
+4. Selecione os **5** arquivos e solte de uma vez: eles são enviados um por vez, na ordem, cada um com o próprio
+   estado; o botão mostra "Enviando Arquivo..." enquanto isso.
+5. Solte juntos o arquivo **> 50 MB**, a **pasta** e um arquivo pequeno: o grande mostra "arquivo acima do limite de
+   50MB", a pasta mostra "pastas não são suportadas" e o pequeno é enviado. Dispense os dois erros pelo `×`.
+6. Solte um PDF **fora** da aba (sobre a prévia da transmissão, o cabeçalho ou outra aba da barra lateral): nada é
+   enviado e a janela **continua na sala** (não abre o PDF).
+7. Clique em "Compartilhar Novo Arquivo" e escolha 2 arquivos com `Ctrl`: os dois são enviados pela mesma fila.
+8. Saia do MLab clicando em outra janela e confira que a barra de marcação flutuante continua aparecendo (o guard de
+   navegação novo não bloqueia o overlay).
+9. No celular, o aluno vê os arquivos em "Arquivos da aula" e baixa pelo menos um.
+
+**OK quando:** o destaque aparece só com arquivos sobre a aba, os envios seguem em ordem com estado por arquivo, os
+limites mostram as mensagens acima, soltar fora da zona não tira a janela da sala, a barra de marcação abre e o
+aluno recebe os arquivos.
+
+## A15b — Mãos levantadas na barra de marcação (fora do MLab)
+
+Requer MLab **1.11.0 ou posterior** (feature 017) e pelo menos dois alunos (celular e outro navegador ou aba anônima).
+
+1. Transmita uma **janela** específica e clique nela, para o MLab perder o foco: a barra de marcação flutuante
+   aparece, sem ícone de mão e com a borda azul de sempre.
+2. Aluno 1 levanta a mão: a barra ganha a borda amarela e o ícone de mão com `1`. Passe o mouse no ícone: o
+   tooltip diz "Mãos levantadas: 1". Na barra não aparece nenhum texto sobre mãos.
+3. Aluno 2 levanta a mão: o número vai a `2`. Clique no ícone: nada acontece (a ferramenta e a barra não mudam).
+4. Recolha a barra (`Alt+H` ou o botão): a borda amarela e o ícone com `2` continuam, abaixo do botão redondo.
+5. Volte ao MLab e abaixe a mão do aluno 1 pela fila; saia do MLab de novo: a barra mostra `1`.
+6. Aluno 2 sai da sala (fecha a aba): a borda amarela e o ícone somem.
+7. Repita os passos 2 e 6 transmitindo a **tela cheia** e olhe o vídeo no celular de um aluno: registre se a barra,
+   a borda e o número aparecem para os alunos (esperado em tela cheia, RN-171 da 017) e confirme que **não**
+   aparecem transmitindo uma janela específica.
+8. Opcional: com 10 alunos ou mais com a mão levantada, o número mostra `9+` e o tooltip, o número real.
+9. Linux (se houver): com o ícone presente, os botões da barra continuam clicáveis e o clique fora dela atravessa
+   para a janela de baixo (regressão da 009).
+
+**OK quando:** o número acompanha a fila do MLab em todos os passos, a borda e o ícone somem com zero mãos, o
+número é legível nas barras expandida e recolhida e o clique no ícone não faz nada. O item 7 só registra o que
+acontece no vídeo; não reprova o item.
+
 ## A16 — Acesso por `mlab.local` e por IP (celular)
 
 1. No celular, abra `http://mlab.local:8080` (ou o link `mdns_link` mostrado no app).
 2. Abra também pelo IP (`ip_link`).
 
-**OK quando:** os dois abrem a sala. Se `mlab.local` não resolver no celular (Android antigo não resolve mDNS),
-registre "N/E" com o modelo do celular e confirme que o IP funciona.
+**OK quando:** os dois abrem a sala num Android 12+ com Chrome (obrigatório) e num iPhone com Safari (se houver;
+senão "N/E"). Registre o modelo e a versão do sistema de cada aparelho.
+
+Fora de escopo (registre "N/E" com o motivo e confirme que o IP funciona): Firefox, que não resolve `.local`;
+Android anterior ao 12; Wi-Fi com isolamento de clientes ou filtro de mDNS na controladora (comum em rede
+corporativa/escolar).
+
+Se `mlab.local` não abrir num aparelho dentro do escopo, faça o diagnóstico antes de registrar falha:
+
+1. No PC do professor: `Resolve-DnsName mlab.local -Type A` deve devolver o IP do link `ip_link`. Se houver `dig`
+   (ex.: no WSL na mesma rede), `dig -p 5353 @224.0.0.251 mlab.local` simula a consulta do Android e deve responder.
+2. Log do backend: precisa ter `[mDNS] Servidor mDNS ativo ... (Interface: Wi-Fi|Ethernet)`. Interface virtual
+   (VMware, Hyper-V, WSL) ou aviso de porta 5353 indica problema no PC, não no celular.
+3. Firewall do Windows: o backend precisa receber UDP 5353 no perfil de rede ativo (se a rede estiver como
+   "Pública", libere o app nesse perfil).
+4. Se o IP abre e os itens 1 a 3 estão ok, a rede provavelmente bloqueia multicast entre clientes: registre como
+   fora de escopo, com o nome da rede.
+
+## A16b — Dois professores na mesma rede (`mlab.local` e `mlab-2.local`)
+
+Requer dois PCs com MLab **1.10.0 ou posterior** na mesma Wi-Fi (antes da 1.10.0 todo backend anuncia `mlab.local`;
+antes da 1.9.1 o backend nem responde à sondagem) e um celular Android 12+ com Chrome (iPhone com Safari, se houver).
+
+1. PC 1: crie uma sala. O Dashboard mostra o Link Fixo `http://mlab.local:8080`.
+2. PC 2: crie outra sala. O Dashboard mostra `http://mlab-2.local:8080`. No log do backend do PC 2:
+   `[mDNS] Nomes já em uso na rede: mlab.local=<IP do PC 1>; escolhido mlab-2.local`.
+3. No PC 2: `Resolve-DnsName mlab-2.local -Type A` devolve o IP do PC 2, e `Resolve-DnsName mlab.local -Type A`
+   devolve o do PC 1.
+4. No celular, abra os dois links: cada um abre a sala do próprio professor.
+5. Conflito: encerre as duas salas e crie-as ao mesmo tempo nos dois PCs. Em até ~10 s, um dos apps passa a mostrar
+   `mlab-2.local` com o aviso "O link fixo da sala mudou…" (o PC de IP maior cede o nome).
+
+**OK quando:** os dois professores veem links diferentes, cada link abre a própria sala no celular, e o conflito
+termina com nomes diferentes e aviso no app que trocou. Fora de escopo e diagnóstico: os mesmos do A16.
 
 ## A17 — Acesso via ngrok
 

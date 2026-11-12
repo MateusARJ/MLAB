@@ -50,7 +50,8 @@ ambiente) e ao renderer (IPC). Só quem tem a chave obtém o token de professor.
 4. **O segredo JWT é gerado aleatoriamente a cada execução do backend** quando `JWT_SECRET` não for fornecido.
    Não existe valor fixo de fallback.
 5. As claims do JWT do professor não mudam (`sub`, `role`, `email` fixo, `name`, `exp`, TTL 8h), para preservar a
-   derivação do link fixo do professor (T032).
+   derivação do link fixo do professor (T032). **Substituído pela ADR 0009 (2026-11-10):** a claim `email` deixou
+   de existir; as claims são `sub`, `role`, `name`, `iat` e `exp`.
 6. Os controles da ADR 0004 continuam valendo, exceto o hash de senha (2.1.A), que deixa de existir.
 
 ## Consequências

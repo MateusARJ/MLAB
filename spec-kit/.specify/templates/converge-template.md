@@ -44,7 +44,24 @@ Status: OPEN
 
 - 
 
-## 7. Resultado
+## 7. Desvios registrados
+
+Bugs ou erros encontrados fora do escopo da feature e abertos como issue (`AGENTS.md` §14). Escreva "Nenhum" se não
+houver.
+
+| Issue | Labels | Bloqueante? | Situação |
+|---|---|---|---|
+| #N | bug, desvio, area:* | sim / não | aberta / corrigida em #M |
+
+## 8. Impacto de versão
+
+Classificação pelo escopo de `docs/versionamento.md` §2 (ADR 0007).
+
+| Nível | Versão resultante | Justificativa |
+|---|---|---|
+| MAJOR / MINOR / PATCH / nenhum | X.Y.Z | |
+
+## 9. Resultado
 
 - [ ] OPEN — há gaps registrados acima com encaminhamento definido.
 - [ ] CONVERGED — não há divergência, código sem requisito ou teste faltante.

@@ -4,14 +4,137 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"strings"
 	"testing"
 	"time"
 
-	"github.com/screenshare/classroom/internal/auth"
+	"github.com/MateusARJ/MLAB/apps/backend/internal/auth"
 )
+
+// anuncioFalso é o nome mDNS "anunciado" nos testes do handler; vazio simula a falta de anúncio.
+var anuncioFalso = "mlab.local"
+
+// TestMain impede que o POST /rooms dos testes sonde a rede e ocupe a porta 5353: o claim e a leitura do nome usam
+// anuncioFalso. Os testes de mDNS chamam ClaimMDNSName diretamente e não são afetados.
+func TestMain(m *testing.M) {
+	mdnsClaim = func(string) (string, error) {
+		if anuncioFalso == "" {
+			return "", errors.New("sem anúncio (teste)")
+		}
+		return anuncioFalso, nil
+	}
+	mdnsHost = func() string { return anuncioFalso }
+	os.Exit(m.Run())
+}
+
+// comAnuncio troca o nome anunciado até o fim do teste.
+func comAnuncio(t *testing.T, host string) {
+	t.Helper()
+	original := anuncioFalso
+	anuncioFalso = host
+	t.Cleanup(func() { anuncioFalso = original })
+}
+
+// TestBuildRoomLinksUsaNomeAnunciado cobre RF-123 e RF-126 da feature 012.
+func TestBuildRoomLinksUsaNomeAnunciado(t *testing.T) {
+	t.Setenv("NGROK_URL", "")
+	t.Setenv("PUBLIC_URL", "")
+	t.Setenv("BASE_URL", "")
+	t.Setenv("WEB_PORT", "8080")
+
+	h := NewHandler(NewInMemoryStore())
+	room := &Room{ProfessorSlug: "silva"}
+	ip := getOutboundIP()
+	if ip == "" || ip == "127.0.0.1" {
+		ip = "localhost"
+	}
+	ipLink := "http://" + ip + ":8080"
+
+	cases := []struct {
+		name, host, wantMDNS, wantLink string
+	}{
+		{"primeiro professor", "mlab.local", "http://mlab.local:8080", "http://mlab.local:8080"},
+		{"segundo professor", "mlab-2.local", "http://mlab-2.local:8080", "http://mlab-2.local:8080"},
+		{"sem anúncio", "", "", ipLink},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			comAnuncio(t, tc.host)
+			got := h.buildRoomLinks(nil, room)
+			if got.MDNSLink != tc.wantMDNS || got.ShortMDNSLink != tc.wantMDNS {
+				t.Errorf("mdns_link = %q / short = %q, esperado %q", got.MDNSLink, got.ShortMDNSLink, tc.wantMDNS)
+			}
+			if got.Link != tc.wantLink {
+				t.Errorf("link = %q, esperado %q", got.Link, tc.wantLink)
+			}
+			if got.IPLink != ipLink {
+				t.Errorf("ip_link = %q, esperado %q", got.IPLink, ipLink)
+			}
+		})
+	}
+
+	t.Run("BASE_URL tem precedência no link", func(t *testing.T) {
+		comAnuncio(t, "mlab-2.local")
+		t.Setenv("BASE_URL", "https://aula.example.com/")
+		got := h.buildRoomLinks(nil, room)
+		if got.Link != "https://aula.example.com" || got.MDNSLink != "http://mlab-2.local:8080" {
+			t.Errorf("link = %q, mdns_link = %q", got.Link, got.MDNSLink)
+		}
+	})
+}
+
+// TestCreateRoomDevolveNomeAnunciado cobre RF-123 e RF-126: a resposta do POST /rooms usa o nome escolhido no
+// claim, e sem anúncio não traz mdns_link.
+func TestCreateRoomDevolveNomeAnunciado(t *testing.T) {
+	t.Setenv("JWT_SECRET", "test-secret-12345")
+	t.Setenv("NGROK_URL", "")
+	t.Setenv("PUBLIC_URL", "")
+	t.Setenv("BASE_URL", "")
+	if ip := getOutboundIP(); ip == "" || ip == "127.0.0.1" || ip == "localhost" {
+		t.Skip("sem IP de LAN: o claim não é chamado")
+	}
+
+	for _, host := range []string{"mlab-2.local", ""} {
+		t.Run("anúncio="+host, func(t *testing.T) {
+			comAnuncio(t, host)
+			mux := http.NewServeMux()
+			h := NewHandler(NewInMemoryStore())
+			h.RegisterRoutes(mux)
+			h.RegisterProtectedRoutes(mux, auth.Middleware)
+			token, _, err := auth.SignProfessorToken("prof-mdns", "Professor Silva")
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			req := httptest.NewRequest("POST", "/rooms", bytes.NewReader([]byte(`{"title":"Turma"}`)))
+			req.Header.Set("Authorization", "Bearer "+token)
+			rec := httptest.NewRecorder()
+			mux.ServeHTTP(rec, req)
+			if rec.Code != http.StatusCreated {
+				t.Fatalf("esperava 201, obteve %d: %s", rec.Code, rec.Body.String())
+			}
+
+			var raw map[string]any
+			_ = json.Unmarshal(rec.Body.Bytes(), &raw)
+			if host == "" {
+				if _, ok := raw["mdns_link"]; ok {
+					t.Errorf("sem anúncio, mdns_link não deveria vir: %v", raw)
+				}
+				if link, _ := raw["link"].(string); link != raw["ip_link"] {
+					t.Errorf("sem anúncio, link deveria ser o link por IP: link=%v ip_link=%v", raw["link"], raw["ip_link"])
+				}
+				return
+			}
+			if raw["mdns_link"] != "http://"+host+":"+getWebPort() {
+				t.Errorf("mdns_link = %v, esperado o nome anunciado %s", raw["mdns_link"], host)
+			}
+		})
+	}
+}
 
 func TestSlugify(t *testing.T) {
 	cases := []struct {
@@ -43,7 +166,7 @@ func TestRoomLifecycle(t *testing.T) {
 	handler.RegisterRoutes(mux)
 	handler.RegisterProtectedRoutes(mux, auth.Middleware)
 
-	profToken, _, err := auth.SignProfessorToken("prof-owner", "prof@test.com", "Professor Silva")
+	profToken, _, err := auth.SignProfessorToken("prof-owner", "Professor Silva")
 	if err != nil {
 		t.Fatalf("failed to sign professor token: %v", err)
 	}
@@ -86,8 +209,8 @@ func TestRoomLifecycle(t *testing.T) {
 	if linkResp.Link == "" {
 		t.Error("expected non-empty link in LinkResponse")
 	}
-	if linkResp.IPLink == "" || linkResp.MDNSLink == "" {
-		t.Errorf("expected non-empty ip_link and mdns_link in LinkResponse: %+v", linkResp)
+	if linkResp.IPLink == "" || linkResp.MDNSLink != "http://mlab.local:"+getWebPort() {
+		t.Errorf("expected ip_link and mdns_link with the announced name in LinkResponse: %+v", linkResp)
 	}
 	if strings.Contains(linkResp.IPLink, "/entrar") || strings.Contains(linkResp.MDNSLink, "/entrar") {
 		t.Errorf("expected short root URLs without /entrar, got ip=%q mdns=%q", linkResp.IPLink, linkResp.MDNSLink)
@@ -230,7 +353,25 @@ func TestJoinValidation(t *testing.T) {
 	}
 }
 
-func TestJoinRoomBySlug(t *testing.T) {
+// forceInternet fixa o resultado de IsInternetAvailable() até o fim do teste, sem acessar a rede: preenche o cache
+// de conectividade (válido por 5 s) e restaura os valores anteriores no Cleanup (013, RF-131).
+func forceInternet(t *testing.T, online bool) {
+	t.Helper()
+	connectivityMu.Lock()
+	prevOnline, prevCheck := cachedIsOnline, lastConnectivityCheck
+	cachedIsOnline, lastConnectivityCheck = online, time.Now()
+	connectivityMu.Unlock()
+	t.Cleanup(func() {
+		connectivityMu.Lock()
+		cachedIsOnline, lastConnectivityCheck = prevOnline, prevCheck
+		connectivityMu.Unlock()
+	})
+}
+
+// joinBySlug cria a sala "uniform-lima-4770/prof-1" no store e faz o join do aluno pelo slug composto. Devolve a
+// resposta decodificada e o corpo bruto.
+func joinBySlug(t *testing.T) (JoinResponse, string) {
+	t.Helper()
 	t.Setenv("JWT_SECRET", "test-secret-12345")
 	t.Setenv("WS_URL", "ws://localhost:8080")
 
@@ -264,10 +405,19 @@ func TestJoinRoomBySlug(t *testing.T) {
 		t.Fatalf("expected 200 OK for join via slug, got %d: %s", rec.Code, rec.Body.String())
 	}
 
+	raw := rec.Body.String()
 	var resp JoinResponse
-	if err := json.NewDecoder(rec.Body).Decode(&resp); err != nil {
+	if err := json.Unmarshal([]byte(raw), &resp); err != nil {
 		t.Fatalf("falha ao decodificar JoinResponse: %v", err)
 	}
+	return resp, raw
+}
+
+func TestJoinRoomBySlug(t *testing.T) {
+	t.Setenv("STUN_URL", "")
+	forceInternet(t, true)
+
+	resp, _ := joinBySlug(t)
 
 	if resp.Token == "" {
 		t.Error("esperava token JWT gerado para o aluno")
@@ -279,27 +429,49 @@ func TestJoinRoomBySlug(t *testing.T) {
 	if resp.WsURL != expectedWs {
 		t.Errorf("esperava WsURL %s, obteve %s", expectedWs, resp.WsURL)
 	}
-	if len(resp.IceServers) == 0 {
-		t.Error("esperava IceServers configurados")
+	if len(resp.IceServers) != 1 || len(resp.IceServers[0].URLs) != 1 ||
+		resp.IceServers[0].URLs[0] != "stun:stun.l.google.com:19302" {
+		t.Errorf("esperava o STUN padrão com internet, obteve %+v", resp.IceServers)
 	}
 }
 
-func TestSlugFromEmail(t *testing.T) {
+// TestJoinIceServers cobre os três ramos de ice_servers no join, sem acessar a rede (013, RF-132; ADR 0005).
+func TestJoinIceServers(t *testing.T) {
 	cases := []struct {
-		email    string
-		expected string
+		name     string
+		stunURL  string
+		online   bool
+		expected []string
 	}{
-		{"professor@screenshare.local", "professor"},
-		{"carlos.silva@escola.com", "carlos-silva"},
-		{"maria_oliveira@univ.edu.br", "maria-oliveira"},
-		{"prof+test@domain.com", "prof-test"},
+		{"STUN_URL configurada sem internet", "stun:192.168.0.10:3478", false, []string{"stun:192.168.0.10:3478"}},
+		{"sem STUN_URL com internet", "", true, []string{"stun:stun.l.google.com:19302"}},
+		{"sem STUN_URL sem internet (LAN offline)", "", false, nil},
 	}
 
 	for _, c := range cases {
-		got := slugFromEmail(c.email)
-		if got != c.expected {
-			t.Errorf("slugFromEmail(%q) = %q; want %q", c.email, got, c.expected)
-		}
+		t.Run(c.name, func(t *testing.T) {
+			t.Setenv("STUN_URL", c.stunURL)
+			forceInternet(t, c.online)
+
+			resp, raw := joinBySlug(t)
+
+			if c.expected == nil {
+				if len(resp.IceServers) != 0 {
+					t.Errorf("esperava ice_servers vazio sem internet, obteve %+v", resp.IceServers)
+				}
+				if !strings.Contains(raw, `"ice_servers":[]`) {
+					t.Errorf("esperava \"ice_servers\":[] no JSON, corpo: %s", raw)
+				}
+				return
+			}
+			if len(resp.IceServers) != 1 {
+				t.Fatalf("esperava 1 servidor ICE, obteve %+v", resp.IceServers)
+			}
+			got := resp.IceServers[0].URLs
+			if len(got) != len(c.expected) || got[0] != c.expected[0] {
+				t.Errorf("esperava urls %v, obteve %v", c.expected, got)
+			}
+		})
 	}
 }
 
@@ -312,8 +484,8 @@ func TestCreateRoomFixedSlug(t *testing.T) {
 	mux := http.NewServeMux()
 	handler.RegisterProtectedRoutes(mux, auth.Middleware)
 
-	// Gera token de professor com email
-	profClaims := auth.ProfessorMapClaims("prof-123", "professor@screenshare.local")
+	// Gera token de professor sem nome (o slug cai no fallback "professor")
+	profClaims := auth.ProfessorMapClaims("prof-123")
 	profToken, err := auth.SignToken(profClaims)
 	if err != nil {
 		t.Fatalf("falha ao assinar token: %v", err)
@@ -381,7 +553,7 @@ func TestCreateRoomNgrok(t *testing.T) {
 	mux := http.NewServeMux()
 	handler.RegisterProtectedRoutes(mux, auth.Middleware)
 
-	profClaims := auth.ProfessorMapClaims("prof-ngrok", "professor.silva@screenshare.local")
+	profClaims := auth.ProfessorMapClaims("prof-ngrok")
 	profToken, err := auth.SignToken(profClaims)
 	if err != nil {
 		t.Fatalf("falha ao assinar token: %v", err)

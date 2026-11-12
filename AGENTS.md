@@ -31,14 +31,13 @@ O sistema é uma plataforma de transmissão de tela para aula ao vivo, composta 
 - **Backend Go** (HTTP/WebSocket + SFU Pion): autenticação, salas, sinalização, chat em tempo real e encaminhamento de mídia via SFU.
 - Alunos consumindo a mídia em tempo real sem publicar câmera ou microfone.
 - Chat de texto em tempo real acessível a todos os participantes da sala (estilo Jitsi).
-- Operação primária em rede local offline, com estado em memória e TURN opcional (ADR 0005). Persistência (PostgreSQL) só com nova spec e nova ADR.
+- Operação primária em rede local offline, com estado em memória e TURN opcional (ADR 0005). Não há banco de dados; persistência só com nova spec e nova ADR.
 
 ### Estrutura do repositório (Monorepo Turborepo — ADR 0001)
 
 ```text
 mlab/
-├── AGENTS.md       ← este arquivo (regras canônicas)
-├── CLAUDE.md       ← importa AGENTS.md
+├── AGENTS.md       ← este arquivo (regras canônicas); lido direto pelo Claude Code
 ├── turbo.json
 ├── package.json
 ├── apps/
@@ -117,7 +116,8 @@ O agente DEVE PARAR, sem implementar, quando qualquer uma das condições ocorre
 - código exigir mudança de contrato não registrada em `contracts/`;
 - mudança arquitetural relevante não possuir ADR aprovada;
 - requisito entrar em conflito com a constitution;
-- agente precisar inventar comportamento não especificado.
+- agente precisar inventar comportamento não especificado;
+- bug bloqueante encontrado durante a tarefa (seção 14).
 
 Nunca resolva uma lacuna silenciosamente.
 
@@ -181,8 +181,9 @@ Uma tarefa nunca pode expandir o Scope Lock por conta própria.
 
 ### Persistência
 
-- PostgreSQL somente onde a spec exigir persistência.
-- Alteração de schema exige contrato e decisão registrada na feature.
+- O MLab não tem banco de dados: salas, chat, arquivos e sessões vivem em memória e somem quando o backend
+  embarcado encerra (ADR 0005).
+- Qualquer persistência exige nova spec e nova ADR antes de implementar.
 
 ## 7. Regras de WebRTC e desempenho
 
@@ -227,6 +228,8 @@ ADRs aprovadas existentes (fonte: `spec-kit/docs/adrs/`; manter esta lista sincr
 - `spec-kit/docs/adrs/0004-arquitetura-de-seguranca-e-testes-de-seguranca.md` — arquitetura e testes de segurança.
 - `spec-kit/docs/adrs/0005-operacao-lan-offline.md` — LAN offline como modo primário, TURN opcional, estado em memória.
 - `spec-kit/docs/adrs/0006-descontinuacao-do-login-e-sessao-local.md` — login removido; sessão do professor por nome com chave de host; segredo JWT aleatório por execução.
+- `spec-kit/docs/adrs/0007-versionamento-semantico.md` — versionamento semântico (`MAJOR.MINOR.PATCH`) a partir da 1.7.1, com incremento no PR da mudança.
+- `spec-kit/docs/adrs/0009-remocao-da-claim-email-do-professor.md` — remove a claim `email` fixa do JWT do professor; substitui o item 5 da ADR 0006.
 
 Fluxo:
 
@@ -248,6 +251,9 @@ Uma tarefa só pode ser marcada como concluída quando:
 - contratos foram atualizados quando necessário;
 - não há violação da constitution;
 - a tarefa foi validada antes de marcar `[x]`.
+
+Um PR que altera `apps/` ou `packages/` só está pronto com o incremento de versão da seção 13 (ou a justificativa de
+"sem incremento").
 
 ## 11. Regra de alteração dos artefatos
 
@@ -271,6 +277,9 @@ Todo commit e todo Pull Request no repositório devem seguir obrigatoriamente a 
 ### Formato
 `<tipo>(<escopo>): <descrição em português no imperativo>`
 
+Mudança incompatível (MAJOR, seção 13): `<tipo>(<escopo>)!: <descrição>`, com um parágrafo no corpo começando com
+`Quebra de compatibilidade:`.
+
 ### Exemplos válidos (isolados por feature/fix)
 - `feat(web): implementa reproducao de video no aluno`
 - `feat(backend): link fixo por professor`
@@ -282,3 +291,60 @@ Todo commit e todo Pull Request no repositório devem seguir obrigatoriamente a 
 Templates oficiais configurados no repositório:
 - Commit: `.gitmessage` e `.github/.gitmessage` (ativo via `git config commit.template .gitmessage`)
 - Pull Request: `.github/pull_request_template.md`
+
+## 13. Versionamento semântico
+
+Fonte: `docs/versionamento.md` (ADR 0007). O MLab segue `MAJOR.MINOR.PATCH` com versão única no monorepo, a partir
+da 1.7.1.
+
+- Todo PR para a `development` que altera o que é entregue (`apps/`, `packages/`) termina com **um** commit
+  `chore(release): versao X.Y.Z`, gerado por `npm run bump -- patch|minor|major`, seguido de `npm run version:check`.
+- O nível segue o escopo de `docs/versionamento.md` §2:
+  - **MAJOR**: quebra de compatibilidade (funcionalidade removida ou fluxo incompatível, contrato incompatível,
+    requisito de sistema maior, configuração ou dados incompatíveis);
+  - **MINOR**: funcionalidade nova compatível (US/RF novo, adição compatível em contrato, nova opção ou formato);
+  - **PATCH**: correção, segurança, desempenho ou refatoração sem mudança de capacidade nem de contrato;
+  - **sem incremento**: só `docs`, `test`, `ci`, `style`, `spec-kit/**` ou ferramentas que não mudam o instalador.
+- Num PR com vários commits vale o maior nível. Registre o nível e a justificativa no `converge.md` e no PR.
+- Na dúvida sobre MAJOR, pare e pergunte (seção 4). Nunca edite `"version"` à mão, nunca crie tag ou release.
+- Nenhum build (`npm run make*`) altera a versão.
+
+## 14. Desvios encontrados durante o trabalho
+
+Desvio é qualquer bug, erro, teste instável, regressão ou incoerência entre código e artefatos que o agente encontra
+**fora do escopo da tarefa em andamento** (feature, fix, docs, refatoração ou qualquer outra). Nenhum desvio fica
+registrado só na conversa.
+
+1. **Registrar como issue no repositório MLab**, pelo template `.github/ISSUE_TEMPLATE/bug-desvio.md`, com título no
+   padrão da seção 12 e as labels:
+   - tipo: `bug`, `enhancement` ou `documentation`;
+   - origem: `desvio`;
+   - área: `area:desktop`, `area:web`, `area:backend`, `area:types`, `area:ci` ou `area:spec-kit`;
+   - `bloqueante`, somente quando o item 3 se aplica.
+2. **Evitar duplicata:** antes de abrir, pesquisar (`gh issue list --search "<termo>" --state all`). Se já existir
+   issue aberta, comentar nela com a nova evidência em vez de abrir outra.
+3. **Classificar o impacto na tarefa atual:**
+   - **Não bloqueante** — a tarefa pode ser cumprida e verificada sem corrigir o desvio. O agente abre a issue, cita o
+     número no PR (campo "Desvios encontrados") e no `converge.md` (seção "Desvios registrados") e **continua** a
+     tarefa.
+   - **Bloqueante** — o desvio impede cumprir ou verificar a tarefa, invalida seus testes/checks ou obrigaria o agente
+     a inventar comportamento. O agente **para imediatamente**, sem commit parcial da tarefa, abre a issue com a label
+     `bloqueante` e responde ao usuário com: o que estava fazendo, por que parou, a evidência e o número da issue.
+4. **Não corrigir o desvio dentro da tarefa atual.** A correção segue o fluxo da seção 3 em tarefa própria, respeitando
+   o Scope Lock (seção 5).
+5. Se a issue não puder ser criada (ex.: falha do `gh`), o agente para e entrega ao usuário o texto pronto da issue.
+
+## 15. Fluxo de branch, commit e Pull Request
+
+Vale para todo trabalho que altera o repositório — feature, fix, docs, spec-kit, refatoração, CI, build ou chore.
+
+- **Branch nova por entrega**, criada a partir da `development` atualizada (`git pull` antes). Nunca commitar
+  diretamente na `development` nem na `main`.
+- **Nome da branch:** `<tipo>/<descricao-curta-em-kebab-case>`, com o mesmo `<tipo>` dos commits (seção 12):
+  `feat/`, `fix/`, `docs/`, `refactor/`, `perf/`, `test/`, `build/`, `ci/`, `chore/`, `style/`.
+- **Commits** atômicos pelo template `.gitmessage` (seção 12); referenciar a tarefa (`Ref: Txxx`) e, quando houver, a
+  issue (`Refs #N`).
+- **Um PR por branch**, para a `development`, pelo template `.github/pull_request_template.md`, preenchendo tarefa do
+  Spec-Kit, impacto de versão (seção 13) e desvios encontrados (seção 14). PR `development → main` só para release
+  (`docs/versionamento.md`).
+- **Push forçado** somente na própria branch, sem PR em revisão ou com aviso no PR, e sempre com `--force-with-lease`.

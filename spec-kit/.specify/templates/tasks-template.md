@@ -25,7 +25,10 @@ Prerequisites: `spec.md`, `plan.md`, `analyze.md` com PASS
 - nenhuma tarefa fora do Scope Lock;
 - nenhuma tarefa mistura refatoração oportunista;
 - cada tarefa deve possuir um resultado observável;
-- marcar `[x]` somente depois dos checks.
+- marcar `[x]` somente depois dos checks;
+- desvio encontrado fora do escopo vira issue (`AGENTS.md` §14), nunca edição fora dos Allowed Paths; desvio
+  bloqueante interrompe a tarefa;
+- toda tarefa é executada em branch dedicada e entregue por PR (`AGENTS.md` §15).
 
 ## Backlog
 

@@ -95,7 +95,7 @@ A arquitetura do MLab combina um aplicativo desktop para o professor, um servido
 
 - **Professor:** aplicativo desktop em Electron + React + TypeScript. O professor informa o nome (sem login), cria a sala, escolhe o monitor ou a janela, define a qualidade e transmite. O upload do professor é único: não cresce com o número de alunos.
 - **Servidor:** backend em Go com Pion WebRTC, iniciado pelo próprio aplicativo do professor. Atua como SFU (Selective Forwarding Unit), repassando os pacotes de vídeo e áudio sem decodificar nem recomprimir. Também mantém o WebSocket da sala, o histórico da aula em memória e os arquivos compartilhados.
-- **Alunos:** página web responsiva servida pelo backend na rede local. O aluno abre o link exibido no app do professor — no formato `http://<ip-do-professor>:8080/<sala>/<professor>/entrar` ou `http://mlab.local:8080/...` — e se identifica com Nome e Matrícula.
+- **Alunos:** página web responsiva servida pelo backend na rede local. O aluno abre o link exibido no app do professor — no formato `http://<ip-do-professor>:8080/<sala>/<professor>/entrar` ou `http://mlab.local:8080/...` (`mlab-2.local`, `mlab-3.local`… quando há outros professores na mesma rede) — e se identifica com Nome e Matrícula.
 
 ---
 
@@ -110,7 +110,7 @@ A arquitetura do MLab combina um aplicativo desktop para o professor, um servido
 ### Operação 100% Offline e Detecção de Rede
 - Funciona em salas sem conexão externa de internet; o estado da aula fica em memória (ADR 0005).
 - O backend descarta adaptadores virtuais (VMware, VirtualBox, WSL, Hyper-V, Docker, ZeroTier e VPNs) e identifica o IPv4 físico da interface Ethernet ou Wi-Fi da sala.
-- Anuncia `mlab.local` na rede via mDNS, como alternativa ao IP.
+- Anuncia `mlab.local` na rede via mDNS, como alternativa ao IP. Com vários professores na mesma rede, cada backend usa o primeiro nome livre (`mlab.local`, `mlab-2.local`, `mlab-3.local`…), e o app mostra o link com esse nome.
 
 ### Perfis de Qualidade Full HD 1080p (30 fps e 60 fps)
 - **1080p @ 30 fps (4,0 Mbps):** perfil padrão para programação, slides e código-fonte, com `contentHint = 'detail'` e `degradationPreference = 'maintain-resolution'`.
@@ -302,7 +302,7 @@ Variáveis opcionais do backend: `PORT`, `WEB_PORT`, `PUBLIC_URL`, `BASE_URL`, `
 
 O aplicativo do professor é empacotado com `electron-builder`. Cada comando compila o web do aluno, o backend Go para o sistema de destino e o app desktop. Os arquivos saem em `apps/desktop/dist/`.
 
-> O `npm run make*` incrementa a versão do pacote automaticamente (`premake`). Para gerar sem mudar a versão, rode os passos `build:web`, `build:backend:<so>`, `build` e `electron-builder` manualmente dentro de `apps/desktop`.
+> Os comandos `npm run make*` não alteram a versão: os instaladores saem com a versão atual do `package.json`. Para mudar de versão, siga [Versionamento](docs/versionamento.md).
 
 | Sistema | Comando (na raiz) | Saída |
 |---|---|---|
@@ -321,6 +321,10 @@ O aplicativo do professor é empacotado com `electron-builder`. Cada comando com
 cd apps/backend
 go build -ldflags="-s -w" -o ./bin/mlab-server ./cmd/server
 ```
+
+### Versões e releases
+
+O MLab segue o versionamento semântico (`MAJOR.MINOR.PATCH`), com uma versão única para todo o monorepo. Cada PR que muda o app incrementa a versão no nível certo (`npm run bump -- patch|minor|major`), e a release é publicada com a tag `vX.Y.Z`. Confira com `npm run version:check`. O escopo de cada nível e o passo a passo estão em [docs/versionamento.md](docs/versionamento.md).
 
 ---
 
@@ -426,7 +430,7 @@ mlab/
 ├── docs/                      # Requisitos detalhados, métricas, teste de carga e design system
 ├── spec-kit/                  # Constituição, specs por feature e ADRs (SDD)
 ├── scripts/                   # dev, build do backend, empacotamento, smoke e spec:check
-├── AGENTS.md                  # Regras para os agentes de IA (CLAUDE.md importa este arquivo)
+├── AGENTS.md                  # Regras para os agentes de IA (lido direto pelo Claude Code e outros agentes)
 ├── package.json               # Scripts da raiz
 └── turbo.json                 # Pipelines do Turborepo
 ```

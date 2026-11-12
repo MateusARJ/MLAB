@@ -2,6 +2,7 @@ import { contextBridge, ipcRenderer } from 'electron'
 import type {
   AnnotationSessionState,
   AnnotationShortcutCommand,
+  AnnotationToolbarRect,
   CaptureSource,
   CaptureSourceType,
   CursorState,
@@ -118,6 +119,12 @@ export interface ElectronAPI {
   setAnnotationOverlayIgnoreMouse: (ignore: boolean) => Promise<void>
 
   /**
+   * Informa ao main o retângulo da barra de marcação no overlay (ou null quando não deve capturar o mouse).
+   * No Linux o main usa esse retângulo para tirar o overlay do click-through sob o ponteiro (009, RF-901/RF-902).
+   */
+  setAnnotationToolbarRect: (rect: AnnotationToolbarRect | null) => Promise<void>
+
+  /**
    * Inscreve um callback para receber atualizações de estado da sessão de marcação e lupa.
    */
   onAnnotationStateSync: (cb: (state: AnnotationSessionState) => void) => () => void
@@ -126,6 +133,16 @@ export interface ElectronAPI {
    * Inscreve um callback para receber comandos de atalhos globais do SO (Alt+Shift+...).
    */
   onAnnotationShortcutCommand: (cb: (command: AnnotationShortcutCommand) => void) => () => void
+
+  /**
+   * Informa ao main a quantidade de mãos levantadas da sala (só o número), para a barra de marcação (017, RF-179).
+   */
+  setAnnotationRaisedHands: (count: number) => Promise<void>
+
+  /**
+   * Inscreve o overlay para receber a quantidade de mãos levantadas (017, RF-171).
+   */
+  onAnnotationRaisedHands: (cb: (count: number) => void) => () => void
 }
 
 const api: ElectronAPI = {
@@ -156,6 +173,7 @@ const api: ElectronAPI = {
   syncAnnotationState: (state) => ipcRenderer.invoke('annotation-overlay:sync-state', state),
   setAnnotationOverlayIgnoreMouse: (ignore) =>
     ipcRenderer.invoke('annotation-overlay:set-ignore-mouse', ignore),
+  setAnnotationToolbarRect: (rect) => ipcRenderer.invoke('annotation-overlay:toolbar-rect', rect),
   onAnnotationStateSync: (cb) => {
     const listener = (_event: unknown, state: AnnotationSessionState) => {
       if (state && typeof cb === 'function') {
@@ -176,6 +194,18 @@ const api: ElectronAPI = {
     ipcRenderer.on('annotation-overlay:shortcut', listener)
     return () => {
       ipcRenderer.removeListener('annotation-overlay:shortcut', listener)
+    }
+  },
+  setAnnotationRaisedHands: (count) => ipcRenderer.invoke('annotation-overlay:raised-hands', count),
+  onAnnotationRaisedHands: (cb) => {
+    const listener = (_event: unknown, count: unknown) => {
+      if (typeof count === 'number' && typeof cb === 'function') {
+        cb(count)
+      }
+    }
+    ipcRenderer.on('annotation-overlay:raised-hands', listener)
+    return () => {
+      ipcRenderer.removeListener('annotation-overlay:raised-hands', listener)
     }
   },
   onActiveWindowChanged: (cb) => {

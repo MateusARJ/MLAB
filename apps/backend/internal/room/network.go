@@ -37,7 +37,7 @@ var (
 		"en",
 	}
 
-	connectivityMu       sync.RWMutex
+	connectivityMu        sync.RWMutex
 	lastConnectivityCheck time.Time
 	cachedIsOnline        bool
 )

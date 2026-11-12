@@ -11,7 +11,10 @@ import { useLocalRecorder } from '../hooks/useLocalRecorder';
 import { useWebRTCPublisher } from '../hooks/useWebRTCPublisher';
 import { setAnnotationOverlayState } from '../media/createCursorMaskedTrack';
 import { getStoredToken } from '../services/auth';
-import { closeRoom, getRoomLink } from '../services/room';
+import { closeRoom } from '../services/room';
+import { useRoomLinks } from '../hooks/useRoomLinks';
+import { useRoomFileUploads, type UploadItem } from '../hooks/useRoomFileUploads';
+import { FileDropZone } from '../components/FileDropZone';
 import mlabLogo from '../assets/MLAB-logo.png';
 import {
   colors,
@@ -57,6 +60,7 @@ import {
   Draggable,
   ChevronLeft,
   decodeChatEntities,
+  Alert,
 } from '@mlab/ui';
 
 
@@ -89,37 +93,13 @@ export const Room: React.FC<RoomProps> = ({ room, onCloseRoom }) => {
   const [selectedWindowSources, setSelectedWindowSources] = useState<CaptureSource[]>([]);
   const [activeWindowSource, setActiveWindowSource] = useState<CaptureSource | null>(null);
   const currentActiveWindowSourceRef = useRef<CaptureSource | null>(null);
-  const [isPrivacyShieldActive, setIsPrivacyShieldActive] = useState<boolean>(false);
   const [isLiveSession, setIsLiveSession] = useState<boolean>(false);
   const [saveSuccessMsg, setSaveSuccessMsg] = useState<string | null>(null);
   const [copiedMdns, setCopiedMdns] = useState<boolean>(false);
   const [copiedIp, setCopiedIp] = useState<boolean>(false);
   const [screenshotMsg, setScreenshotMsg] = useState<string | null>(null);
-  const [links, setLinks] = useState({
-    link: room.link,
-    ipLink: room.ipLink || room.link,
-    mdnsLink: room.mdnsLink || '',
-    shortIpLink: room.shortIpLink || '',
-    shortMdnsLink: room.shortMdnsLink || '',
-  });
-
-  useEffect(() => {
-    if ((!room.mdnsLink || !room.ipLink) && room.id) {
-      getRoomLink(room.id)
-        .then((resp) => {
-          if (resp) {
-            setLinks({
-              link: resp.link || room.link,
-              ipLink: resp.ip_link || resp.link || room.link,
-              mdnsLink: resp.mdns_link || '',
-              shortIpLink: resp.short_ip_link || '',
-              shortMdnsLink: resp.short_mdns_link || '',
-            });
-          }
-        })
-        .catch(() => {});
-    }
-  }, [room.id, room.mdnsLink, room.ipLink, room.link]);
+  // Links com o nome mDNS realmente anunciado, relidos a cada 10 s; aviso quando o link fixo muda (012, RF-128)
+  const { links, notice: linkNotice, dismissNotice } = useRoomLinks(room);
 
   const handleTakeScreenshot = useCallback(async () => {
     if (window.electronAPI && typeof window.electronAPI.captureWindowToClipboard === 'function') {
@@ -153,8 +133,6 @@ export const Room: React.FC<RoomProps> = ({ room, onCloseRoom }) => {
   const [privateChatInput, setPrivateChatInput] = useState<string>('');
   const [targetStudent, setTargetStudent] = useState<{ id: string; name: string; student_id?: string } | null>(null);
   const [uploadedFiles, setUploadedFiles] = useState<any[]>([]);
-  const [isUploading, setIsUploading] = useState<boolean>(false);
-  const [uploadMsg, setUploadMsg] = useState<string | null>(null);
   const [unreadCount, setUnreadCount] = useState<number>(0);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -346,12 +324,12 @@ export const Room: React.FC<RoomProps> = ({ room, onCloseRoom }) => {
   }, []);
 
   const handleCopyMdns = useCallback(async () => {
-    const link = links.mdnsLink || links.link;
+    const link = links.mdnsLink;
     if (!link) return;
     await copyToClipboard(link);
     setCopiedMdns(true);
     setTimeout(() => setCopiedMdns(false), 2000);
-  }, [copyToClipboard, links.mdnsLink, links.link]);
+  }, [copyToClipboard, links.mdnsLink]);
 
   const handleCopyIp = useCallback(async () => {
     const link = links.ipLink || links.link;
@@ -435,6 +413,18 @@ export const Room: React.FC<RoomProps> = ({ room, onCloseRoom }) => {
   } = useLocalRecorder({ stream });
 
   const token = getStoredToken();
+
+  // Fila de envio de arquivos: botão e zona de soltar da aba Arquivos (018, RF-183 a RF-189)
+  const handleFileUploaded = useCallback((file: any) => {
+    setUploadedFiles((prev) => [...prev, file]);
+  }, []);
+  const {
+    items: uploadItems,
+    enqueue: enqueueUploads,
+    dismiss: dismissUpload,
+    isUploading,
+  } = useRoomFileUploads({ roomId: room?.id, token: token ?? '', onUploaded: handleFileUploaded });
+
   const {
     isPublishing,
     connectionState,
@@ -471,6 +461,14 @@ export const Room: React.FC<RoomProps> = ({ room, onCloseRoom }) => {
       }
     }
   }, [messages.length, sidebarTab, chatSubTab, isSidebarOpen]);
+
+  // Auto-scroll da lista "Arquivos Compartilhados Nesta Aula", no mesmo padrão do chat (018/RF-191)
+  const uploadedFilesEndRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (sidebarTab === 'files') {
+      uploadedFilesEndRef.current?.scrollIntoView?.({ behavior: 'smooth' });
+    }
+  }, [uploadedFiles.length, sidebarTab, isSidebarOpen]);
 
   useEffect(() => {
     if (!isSidebarOpen && messages.length > prevMessagesLength.current) {
@@ -1156,7 +1154,6 @@ export const Room: React.FC<RoomProps> = ({ room, onCloseRoom }) => {
       if (!targetSrc || targetSrc.id === currentActiveWindowSourceRef.current?.id) return;
       currentActiveWindowSourceRef.current = targetSrc;
       setActiveWindowSource(targetSrc);
-      setIsPrivacyShieldActive(false);
 
       const fps = qualityProfile === '1080p_60' ? 60 : 30;
       const newStream = await selectSource(targetSrc, fps, selectedWindowSources.map((s) => s.id));
@@ -1165,13 +1162,8 @@ export const Room: React.FC<RoomProps> = ({ room, onCloseRoom }) => {
       }
     });
 
-    const unsubUnauthorized = window.electronAPI.onActiveWindowUnauthorized?.((data: { isUnauthorized: boolean }) => {
-      setIsPrivacyShieldActive(Boolean(data?.isUnauthorized));
-    });
-
     return () => {
       if (typeof unsubChanged === 'function') unsubChanged();
-      if (typeof unsubUnauthorized === 'function') unsubUnauthorized();
     };
   }, [isLiveSession, captureMode, selectedWindowSources, qualityProfile, selectSource, changeStream]);
 
@@ -1219,7 +1211,6 @@ export const Room: React.FC<RoomProps> = ({ room, onCloseRoom }) => {
     }
     setActiveWindowSource(source);
     currentActiveWindowSourceRef.current = source;
-    setIsPrivacyShieldActive(false);
 
     if (newStream) {
       if (micMuted) {
@@ -1285,7 +1276,6 @@ export const Room: React.FC<RoomProps> = ({ room, onCloseRoom }) => {
 
     setActiveWindowSource(sourceToUse);
     currentActiveWindowSourceRef.current = sourceToUse;
-    setIsPrivacyShieldActive(false);
 
     setIsLiveSession(true);
 
@@ -1400,41 +1390,26 @@ export const Room: React.FC<RoomProps> = ({ room, onCloseRoom }) => {
     setPrivateChatInput('');
   };
 
-  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
-    if (!files || files.length === 0) return;
-    const file = files[0];
-    setIsUploading(true);
-    setUploadMsg(null);
+    if (files && files.length > 0) {
+      enqueueUploads(Array.from(files));
+    }
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  };
 
-    try {
-      const formData = new FormData();
-      formData.append('file', file);
-
-      const resp = await fetch(`http://localhost:8080/rooms/${room.id}/files`, {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-        body: formData,
-      });
-
-      if (!resp.ok) {
-        const errJson = await resp.json().catch(() => ({}));
-        throw new Error(errJson.error || 'Erro ao enviar arquivo');
-      }
-
-      const fileData = await resp.json();
-      setUploadedFiles((prev) => [...prev, fileData]);
-      setUploadMsg(`Arquivo "${file.name}" compartilhado com sucesso com a turma!`);
-      setTimeout(() => setUploadMsg(null), 5000);
-    } catch (err: any) {
-      setUploadMsg(`Falha no upload: ${err.message || 'Erro desconhecido'}`);
-    } finally {
-      setIsUploading(false);
-      if (fileInputRef.current) {
-        fileInputRef.current.value = '';
-      }
+  const uploadStatusLabel = (item: UploadItem): string => {
+    switch (item.status) {
+      case 'aguardando':
+        return 'Aguardando';
+      case 'enviando':
+        return 'Enviando...';
+      case 'enviado':
+        return 'Enviado';
+      default:
+        return item.error || 'Erro ao enviar arquivo';
     }
   };
 
@@ -1446,6 +1421,14 @@ export const Room: React.FC<RoomProps> = ({ room, onCloseRoom }) => {
       const timeB = new Date(b.hand_raised_at || b.handRaisedAt || 0).getTime();
       return timeA - timeB;
     });
+  const raisedHandsCount = raisedHandsStudents.length;
+
+  // 017/RF-176, RF-179: leva à barra de marcação (fora do MLab) só a quantidade de mãos levantadas da fila.
+  useEffect(() => {
+    if (!isLiveSession) return;
+    window.electronAPI?.setAnnotationRaisedHands?.(raisedHandsCount)?.catch(() => {});
+  }, [isLiveSession, raisedHandsCount]);
+
   const professorName = typeof window !== 'undefined' ? sessionStorage.getItem('professor_name') : null;
 
   return (
@@ -1457,10 +1440,11 @@ export const Room: React.FC<RoomProps> = ({ room, onCloseRoom }) => {
           <div>
             <h2 style={styles.title}>{professorName ? `MLab — Prof. ${professorName.charAt(0).toUpperCase() + professorName.slice(1)}` : `MLab — Sala: ${room.slug}`}</h2>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', marginTop: '4px' }}>
-              {/* Link Fixo */}
+              {/* Link Fixo (mDNS): só com anúncio ativo */}
+              {links.mdnsLink && (
               <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                 <span style={{ fontSize: '11px', color: colors.textMuted, fontWeight: 600, minWidth: '86px' }}>Link Fixo:</span>
-                <span style={styles.roomLinkStatic}>{links.mdnsLink || links.link}</span>
+                <span style={styles.roomLinkStatic}>{links.mdnsLink}</span>
                 <IconButton
                   type="button"
                   variant={copiedMdns ? 'success' : 'ghost'}
@@ -1472,6 +1456,7 @@ export const Room: React.FC<RoomProps> = ({ room, onCloseRoom }) => {
                   {copiedMdns ? <Checkmark size={14} /> : <Copy size={14} />}
                 </IconButton>
               </div>
+              )}
 
               {/* Link Direto IP */}
               <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
@@ -1501,6 +1486,10 @@ export const Room: React.FC<RoomProps> = ({ room, onCloseRoom }) => {
           </button>
         </div>
       </header>
+
+      {linkNotice && (
+        <Alert variant="warning" message={linkNotice} onClose={dismissNotice} style={{ margin: '8px 16px 0' }} />
+      )}
 
       {screenshotMsg && (
         <div style={styles.screenshotSuccessBanner}>
@@ -2977,12 +2966,14 @@ export const Room: React.FC<RoomProps> = ({ room, onCloseRoom }) => {
 
                 {/* Aba 3: Compartilhamento de Arquivos com os Alunos */}
                 {sidebarTab === 'files' && (
-                  <div style={styles.filesTabContent}>
+                  <FileDropZone onFiles={enqueueUploads} style={styles.filesTabContent}>
                     <div style={styles.uploadSection}>
                       <input
                         ref={fileInputRef}
                         type="file"
-                        onChange={handleFileUpload}
+                        multiple
+                        data-testid="room-file-input"
+                        onChange={handleFileInputChange}
                         style={{ display: 'none' }}
                       />
                       <button
@@ -2994,10 +2985,37 @@ export const Room: React.FC<RoomProps> = ({ room, onCloseRoom }) => {
                         {isUploading ? 'Enviando Arquivo...' : <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}><Attachment size={16} /> Compartilhar Novo Arquivo</span>}
                       </button>
 
-                      {uploadMsg && (
-                        <div style={styles.uploadFeedbackBanner}>
-                          {uploadMsg}
-                        </div>
+                      <span style={styles.dropHint}>ou arraste arquivos para esta aba</span>
+
+                      {uploadItems.length > 0 && (
+                        <ul style={styles.uploadQueueList} role="status" aria-live="polite" aria-label="Envio de arquivos">
+                          {uploadItems.map((item) => (
+                            <li
+                              key={item.id}
+                              data-testid="upload-item"
+                              data-status={item.status}
+                              style={{
+                                ...styles.uploadQueueItem,
+                                ...(item.status === 'erro' ? styles.uploadQueueItemError : {}),
+                                ...(item.status === 'enviado' ? styles.uploadQueueItemDone : {}),
+                              }}
+                            >
+                              <span style={styles.uploadQueueName} title={item.name}>{item.name}</span>
+                              <span style={styles.uploadQueueStatus}>{uploadStatusLabel(item)}</span>
+                              {item.status === 'erro' && (
+                                <button
+                                  type="button"
+                                  onClick={() => dismissUpload(item.id)}
+                                  style={styles.uploadQueueDismiss}
+                                  title="Dispensar"
+                                  aria-label={`Dispensar ${item.name}`}
+                                >
+                                  <Close size={12} />
+                                </button>
+                              )}
+                            </li>
+                          ))}
+                        </ul>
                       )}
                     </div>
 
@@ -3017,8 +3035,9 @@ export const Room: React.FC<RoomProps> = ({ room, onCloseRoom }) => {
                           </div>
                         ))
                       )}
+                      <div ref={uploadedFilesEndRef} data-testid="uploaded-files-end" />
                     </div>
-                  </div>
+                  </FileDropZone>
                 )}
               </aside>
             </div>
@@ -4480,14 +4499,65 @@ const styles: { [key: string]: React.CSSProperties } = {
     cursor: 'not-allowed',
     textAlign: 'center',
   },
-  uploadFeedbackBanner: {
-    padding: '8px 10px',
+  dropHint: {
+    fontSize: '11px',
+    color: '#64748b',
+    textAlign: 'center',
+  },
+  uploadQueueList: {
+    listStyle: 'none',
+    margin: 0,
+    padding: 0,
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '4px',
+    maxHeight: '160px',
+    overflowY: 'auto',
+  },
+  uploadQueueItem: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '8px',
+    padding: '6px 8px',
     borderRadius: '6px',
+    backgroundColor: 'rgba(56, 189, 248, 0.08)',
+    border: '1px solid #1e3a5f',
+    color: '#cbd5e1',
+    fontSize: '11px',
+  },
+  uploadQueueItemDone: {
     backgroundColor: 'rgba(34, 197, 94, 0.15)',
     border: '1px solid #22c55e',
     color: '#86efac',
-    fontSize: '11px',
-    fontWeight: '500',
+  },
+  uploadQueueItemError: {
+    backgroundColor: 'rgba(239, 68, 68, 0.12)',
+    border: '1px solid #ef4444',
+    color: '#fca5a5',
+  },
+  uploadQueueName: {
+    flex: 1,
+    minWidth: 0,
+    fontWeight: '600',
+    whiteSpace: 'nowrap',
+    overflow: 'hidden',
+    textOverflow: 'ellipsis',
+  },
+  uploadQueueStatus: {
+    flexShrink: 0,
+    maxWidth: '55%',
+    textAlign: 'right',
+  },
+  uploadQueueDismiss: {
+    flexShrink: 0,
+    display: 'inline-flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: '2px',
+    border: 'none',
+    background: 'transparent',
+    color: 'inherit',
+    cursor: 'pointer',
   },
   uploadedFilesList: {
     flex: 1,

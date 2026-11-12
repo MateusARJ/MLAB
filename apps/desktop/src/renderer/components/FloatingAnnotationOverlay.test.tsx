@@ -19,6 +19,7 @@ describe('FloatingAnnotationOverlay Component & Adaptive Orientation', () => {
       onAnnotationStateSync: vi.fn().mockReturnValue(() => {}),
       onCursorState: vi.fn().mockReturnValue(() => {}),
       onAnnotationShortcutCommand: vi.fn().mockReturnValue(() => {}),
+      setAnnotationToolbarRect: vi.fn().mockResolvedValue(undefined),
     } as any;
   });
 
@@ -233,6 +234,234 @@ describe('FloatingAnnotationOverlay Component & Adaptive Orientation', () => {
       });
       expect(spotlightBtn).toHaveStyle({ borderColor: '#facc15' });
       expect(penBtn).toHaveStyle({ borderColor: 'transparent' });
+    });
+  });
+
+  describe('Retângulo da barra para o hit-test do Linux (009/RF-902, C-903)', () => {
+    // jsdom não tem layout: simula o tamanho da barra (expandida/recolhida) e do popover de cores.
+    function mockLayout() {
+      return vi.spyOn(Element.prototype, 'getBoundingClientRect').mockImplementation(function (this: Element) {
+        const testId = this.getAttribute('data-testid');
+        const box = (left: number, top: number, width: number, height: number) =>
+          ({ left, top, width, height, right: left + width, bottom: top + height, x: left, y: top, toJSON: () => ({}) }) as DOMRect;
+        if (testId === 'external-floating-toolbar') {
+          const collapsed = this.getAttribute('data-collapsed') === 'true';
+          return collapsed ? box(100, 20, 52, 52) : box(100, 20, 440, 54);
+        }
+        if (testId === 'external-palette-popover') return box(300, 80, 175, 200);
+        return box(0, 0, 0, 0);
+      });
+    }
+
+    const lastRect = () => {
+      const calls = (window.electronAPI.setAnnotationToolbarRect as any).mock.calls;
+      return calls[calls.length - 1]?.[0];
+    };
+
+    it('envia o retângulo inicial e atualiza ao recolher e expandir', () => {
+      mockLayout();
+      render(<FloatingAnnotationOverlay />);
+      expect(lastRect()).toEqual({ x: 100, y: 20, width: 440, height: 54 });
+
+      fireEvent.click(screen.getByTestId('external-collapse-btn'));
+      expect(lastRect()).toEqual({ x: 100, y: 20, width: 52, height: 52 });
+
+      fireEvent.click(screen.getByTestId('external-collapsed-btn'));
+      expect(lastRect()).toEqual({ x: 100, y: 20, width: 440, height: 54 });
+    });
+
+    it('inclui o popover de cores aberto no retângulo', () => {
+      mockLayout();
+      render(<FloatingAnnotationOverlay />);
+      fireEvent.click(screen.getByTestId('external-tool-palette'));
+      expect(lastRect()).toEqual({ x: 100, y: 20, width: 440, height: 260 });
+
+      fireEvent.click(screen.getByTestId('external-tool-pen'));
+      expect(lastRect()).toEqual({ x: 100, y: 20, width: 440, height: 54 });
+    });
+
+    it('não reenvia o mesmo retângulo', () => {
+      mockLayout();
+      render(<FloatingAnnotationOverlay />);
+      const before = (window.electronAPI.setAnnotationToolbarRect as any).mock.calls.length;
+      act(() => {
+        window.dispatchEvent(new Event('resize'));
+      });
+      fireEvent.click(screen.getByTestId('external-tool-pen'));
+      expect((window.electronAPI.setAnnotationToolbarRect as any).mock.calls.length).toBe(before);
+    });
+
+    it('envia null com o MLab em foco e o retângulo de volta ao sair', () => {
+      let cursorStateCb: (state: any) => void = () => {};
+      window.electronAPI.onCursorState = vi.fn().mockImplementation((cb) => {
+        cursorStateCb = cb;
+        return () => {};
+      });
+      mockLayout();
+      render(<FloatingAnnotationOverlay />);
+
+      act(() => cursorStateCb({ visible: false, x: 0.5, y: 0.5, mlabFocused: true }));
+      expect(lastRect()).toBeNull();
+
+      act(() => cursorStateCb({ visible: true, x: 0.2, y: 0.2, mlabFocused: false }));
+      expect(lastRect()).toEqual({ x: 100, y: 20, width: 440, height: 54 });
+    });
+
+    it('envia null ao desmontar', () => {
+      mockLayout();
+      const { unmount } = render(<FloatingAnnotationOverlay />);
+      unmount();
+      expect(lastRect()).toBeNull();
+    });
+  });
+
+  describe('Mãos levantadas na barra (017/RF-171 a RF-178, RNF-172, RNF-173)', () => {
+    let raisedHandsCb: (count: any) => void = () => {};
+    const sendRaisedHands = (count: any) => act(() => raisedHandsCb(count));
+    const toolbar = () => screen.getByTestId('external-floating-toolbar');
+    const indicator = () => screen.queryByTestId('external-raised-hands');
+    const badgeText = () => screen.getByTestId('external-raised-hands-badge').textContent;
+
+    beforeEach(() => {
+      raisedHandsCb = () => {};
+      window.electronAPI.onAnnotationRaisedHands = vi.fn().mockImplementation((cb) => {
+        raisedHandsCb = cb;
+        return () => {};
+      });
+    });
+
+    it('sem mãos levantadas, a barra fica igual à atual: sem indicador e com a borda normal (RF-175)', () => {
+      render(<FloatingAnnotationOverlay />);
+      expect(indicator()).toBeNull();
+      expect(toolbar()).toHaveAttribute('data-raised-hands', '0');
+      expect(toolbar()).toHaveStyle({ border: '1px solid #38bdf8', boxShadow: '0 10px 28px rgba(0, 0, 0, 0.72)' });
+
+      sendRaisedHands(2);
+      sendRaisedHands(0);
+      expect(indicator()).toBeNull();
+      expect(toolbar()).toHaveStyle({ border: '1px solid #38bdf8' });
+    });
+
+    it('mostra o número até 9 e 9+ a partir de 10, com a descrição usando o número real (RF-171, RF-173, RF-174)', () => {
+      render(<FloatingAnnotationOverlay />);
+
+      sendRaisedHands(1);
+      expect(badgeText()).toBe('1');
+      expect(screen.getByRole('img', { name: 'Mãos levantadas: 1' })).toHaveAttribute('title', 'Mãos levantadas: 1');
+
+      sendRaisedHands(9);
+      expect(badgeText()).toBe('9');
+
+      sendRaisedHands(10);
+      expect(badgeText()).toBe('9+');
+      expect(screen.getByRole('img', { name: 'Mãos levantadas: 10' })).toBeInTheDocument();
+
+      sendRaisedHands(23);
+      expect(badgeText()).toBe('9+');
+      expect(indicator()).toHaveAttribute('title', 'Mãos levantadas: 23');
+      expect(toolbar()).toHaveAttribute('data-raised-hands', '23');
+
+      // Nenhum texto visível sobre mãos levantadas: só o ícone e o número.
+      expect(screen.queryByText(/m[ãa]os/i)).toBeNull();
+    });
+
+    it.each([
+      ['horizontal (topo)', { x: 600, y: 20 }, 'horizontal'],
+      ['vertical (esquerda)', { x: 20, y: 400 }, 'vertical'],
+    ])('barra expandida %s: indicador dentro da barra e borda de destaque fixa (RF-171, RF-172)', (_n, pos, orientation) => {
+      window.sessionStorage.setItem('mlab.floatingToolbarPos', JSON.stringify(pos));
+      render(<FloatingAnnotationOverlay />);
+      expect(toolbar()).toHaveAttribute('data-orientation', orientation);
+
+      sendRaisedHands(3);
+      expect(toolbar()).toContainElement(indicator());
+      expect(toolbar()).toHaveStyle({
+        border: '1px solid #facc15',
+        boxShadow: '0 0 0 2px rgba(250, 204, 21, 0.55), 0 10px 28px rgba(0, 0, 0, 0.72)',
+      });
+      expect(toolbar().style.animation).toBe('');
+      expect(indicator()!.style.animation).toBe('');
+    });
+
+    it('barra recolhida: indicador abaixo do botão e borda de destaque (RF-171, RF-172)', () => {
+      render(<FloatingAnnotationOverlay />);
+      fireEvent.click(screen.getByTestId('external-collapse-btn'));
+      sendRaisedHands(4);
+
+      expect(toolbar()).toHaveAttribute('data-collapsed', 'true');
+      expect(toolbar()).toContainElement(indicator());
+      expect(screen.getByTestId('external-collapsed-btn').nextElementSibling).toBe(indicator());
+      expect(badgeText()).toBe('4');
+      expect(toolbar()).toHaveStyle({ border: '1px solid #facc15' });
+    });
+
+    it('segue a visibilidade da barra e mostra a quantidade atual ao reaparecer (RF-178)', () => {
+      let cursorStateCb: (state: any) => void = () => {};
+      window.electronAPI.onCursorState = vi.fn().mockImplementation((cb) => {
+        cursorStateCb = cb;
+        return () => {};
+      });
+      render(<FloatingAnnotationOverlay />);
+      sendRaisedHands(2);
+
+      act(() => cursorStateCb({ visible: false, x: 0.5, y: 0.5, mlabFocused: true }));
+      expect(toolbar()).toHaveStyle({ opacity: '0' });
+      sendRaisedHands(5);
+
+      act(() => cursorStateCb({ visible: true, x: 0.2, y: 0.2, mlabFocused: false }));
+      expect(toolbar()).toHaveStyle({ opacity: '1' });
+      expect(badgeText()).toBe('5');
+    });
+
+    it('clicar no indicador não troca ferramenta, não recolhe e não sincroniza estado (RF-177)', () => {
+      render(<FloatingAnnotationOverlay />);
+      sendRaisedHands(2);
+      (window.electronAPI.syncAnnotationState as any).mockClear();
+
+      fireEvent.pointerDown(indicator()!);
+      fireEvent.mouseDown(indicator()!);
+      fireEvent.click(indicator()!);
+
+      // Trocar ferramenta ou recolher sempre sincroniza o estado; nada foi sincronizado.
+      expect(window.electronAPI.syncAnnotationState).not.toHaveBeenCalled();
+      expect(toolbar()).toHaveAttribute('data-collapsed', 'false');
+    });
+
+    it('ignora valores inválidos e mantém o último válido (RNF-172)', () => {
+      render(<FloatingAnnotationOverlay />);
+      sendRaisedHands(3);
+      for (const invalid of [-1, 1.5, '4', Number.NaN, null]) {
+        sendRaisedHands(invalid);
+      }
+      expect(badgeText()).toBe('3');
+    });
+
+    it('reenvia o retângulo da barra quando o indicador aparece e some (RNF-173)', () => {
+      // jsdom não tem layout: a barra fica 30 px maior quando contém o indicador.
+      const spy = vi.spyOn(Element.prototype, 'getBoundingClientRect').mockImplementation(function (this: Element) {
+        const box = (width: number) =>
+          ({ left: 100, top: 20, width, height: 54, right: 100 + width, bottom: 74, x: 100, y: 20, toJSON: () => ({}) }) as DOMRect;
+        if (this.getAttribute('data-testid') === 'external-floating-toolbar') {
+          return box(this.querySelector('[data-testid="external-raised-hands"]') ? 470 : 440);
+        }
+        return box(0);
+      });
+      try {
+        render(<FloatingAnnotationOverlay />);
+        const lastRect = () => {
+          const calls = (window.electronAPI.setAnnotationToolbarRect as any).mock.calls;
+          return calls[calls.length - 1]?.[0];
+        };
+        expect(lastRect()).toEqual({ x: 100, y: 20, width: 440, height: 54 });
+
+        sendRaisedHands(1);
+        expect(lastRect()).toEqual({ x: 100, y: 20, width: 470, height: 54 });
+
+        sendRaisedHands(0);
+        expect(lastRect()).toEqual({ x: 100, y: 20, width: 440, height: 54 });
+      } finally {
+        spy.mockRestore();
+      }
     });
   });
 });

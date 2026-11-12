@@ -58,5 +58,13 @@ Ler:
 - tarefa corrente
 - artefatos upstream necessários para aquela tarefa
 - arquivos-alvo reais
+- `AGENTS.md` §14 (desvios) e §15 (branch, commit e PR)
+- `.github/ISSUE_TEMPLATE/bug-desvio.md`, quando surgir um desvio
+
+## Converge / Pull Request
+
+Ler:
+- `spec.md`, `plan.md`, `tasks.md` da feature
+- `docs/versionamento.md` (escopo de MAJOR/MINOR/PATCH e incremento no PR)
 
 Nunca carregue toda a pasta `spec-kit/.specify/` sem necessidade.

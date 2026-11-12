@@ -12,9 +12,9 @@ import (
 	"sync"
 	"time"
 
+	"github.com/MateusARJ/MLAB/apps/backend/internal/auth"
+	"github.com/MateusARJ/MLAB/apps/backend/internal/room"
 	"github.com/gorilla/websocket"
-	"github.com/screenshare/classroom/internal/auth"
-	"github.com/screenshare/classroom/internal/room"
 )
 
 // Handler gerencia o ciclo de vida dos Hubs e faz upgrade HTTP → WebSocket.
@@ -216,13 +216,10 @@ func turnCredentials(participantID, secret string) (username, credential string)
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-// extractName obtém o nome do participante dos claims JWT.
+// extractName obtém o nome do participante da claim "name" do JWT, ou "Participante" sem ela (ADR 0009).
 func extractName(claims map[string]interface{}, role auth.Role) string {
 	if n, ok := claims["name"].(string); ok && n != "" {
 		return n
-	}
-	if e, ok := claims["email"].(string); ok && e != "" {
-		return e
 	}
 	return "Participante"
 }

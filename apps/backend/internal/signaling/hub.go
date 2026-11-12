@@ -10,7 +10,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/screenshare/classroom/internal/chat"
+	"github.com/MateusARJ/MLAB/apps/backend/internal/chat"
 	"golang.org/x/text/unicode/norm"
 )
 
@@ -132,12 +132,12 @@ func newHub(roomID string, sfu SFU, onClosed ...func(roomID string)) *Hub {
 		pinnedPublic:  make(map[string]bool),
 		pinnedPrivate: make(map[string]map[string]bool),
 		status:        SessionWaiting,
-		register:    make(chan *Client),
-		unregister:  make(chan *Client),
-		inbound:     make(chan *envelope, 256),
-		internal:    make(chan signal, 8),
-		fileShared:  make(chan FileSharedPayload, 16),
-		sfu:         sfu,
+		register:      make(chan *Client),
+		unregister:    make(chan *Client),
+		inbound:       make(chan *envelope, 256),
+		internal:      make(chan signal, 8),
+		fileShared:    make(chan FileSharedPayload, 16),
+		sfu:           sfu,
 	}
 	if len(onClosed) > 0 {
 		h.onClosed = onClosed[0]

@@ -12,8 +12,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/screenshare/classroom/internal/auth"
-	"github.com/screenshare/classroom/internal/room"
+	"github.com/MateusARJ/MLAB/apps/backend/internal/auth"
+	"github.com/MateusARJ/MLAB/apps/backend/internal/room"
 )
 
 // TestSignalingSecurity_ChatRateLimit valida que o limite de 5 msgs / 5s

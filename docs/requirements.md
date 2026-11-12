@@ -1,4 +1,4 @@
-#  Índice Central de Requisitos — ScreenShare Classroom
+#  Índice Central de Requisitos — MLab
 
 > **Versão:** 1.2.0
 > **Status:**  Aprovado para Desenvolvimento
@@ -49,7 +49,7 @@ docs/requirements/
 | **RF021** | Tratamento de Autoplay Policy no Web Player | Player Web | [ RF021](requirements/functionals/RF021-tratamento-de-autoplay-policy-no-web-player.md) |
 | **RF022** | Suporte aos Modos Fullscreen e Picture-in-Picture | Player Web | [ RF022](requirements/functionals/RF022-suporte-aos-modos-fullscreen-e-picture-in-picture.md) |
 | **RF023** | Credenciais Epêmeras HMAC-SHA1 para TURN | Segurança & Rede | [ RF023](requirements/functionals/RF023-credenciais-epemeras-hmac-sha1-para-turn.md) |
-| **RF024** | Verificação de Permissões do Sistema Operacional | App Desktop | [ RF024](requirements/functionals/RF024-verificacao-de-permissoes-do-sistema-operacional.md) |
+| **RF024** | Permissões de Captura e Microfone no App Desktop | App Desktop | [ RF024](requirements/functionals/RF024-verificacao-de-permissoes-do-sistema-operacional.md) |
 | **RF025** | Monitoramento de Conexão e ICE Restart | Resiliência & Mídia | [ RF025](requirements/functionals/RF025-monitoramento-de-conexao-e-ice-restart.md) |
 
 ---
@@ -85,7 +85,7 @@ docs/requirements/
 | **RN003** | Isolamento e Validação de JWT por Sala | Autorização | [ RN003](requirements/business-rules/RN003-isolamento-e-validacao-de-jwt-por-sala.md) |
 | **RN004** | Restrição de Sessão Única por Aluno | Controle de Acesso | [ RN004](requirements/business-rules/RN004-restricao-de-sessao-unica-por-aluno.md) |
 | **RN005** | Propriedade Exclusiva da Sala | Gestão de Sala | [ RN005](requirements/business-rules/RN005-propriedade-exclusiva-da-sala.md) |
-| **RN006** | Geração de Slug Legível e Único | Gestão de Sala | [ RN006](requirements/business-rules/RN006-geracao-slug-legivel-e-unico.md) |
+| **RN006** | Geração de Slug Legível e Único | Gestão de Sala | [ RN006](requirements/business-rules/RN006-geracao-de-slug-legivel-e-unico.md) |
 | **RN007** | Capacidade Máxima da Sala | Controle de Acesso | [ RN007](requirements/business-rules/RN007-capacidade-maxima-da-sala.md) |
 | **RN008** | Rejeição de Acesso a Salas Encerradas | Ciclo de Vida da Sala | [ RN008](requirements/business-rules/RN008-rejeicao-de-acesso-a-salas-encerradas.md) |
 | **RN009** | Editoria Única de Publicação de Mídia | Mídia & WebRTC | [ RN009](requirements/business-rules/RN009-editoria-unica-de-publicacao-de-midia.md) |

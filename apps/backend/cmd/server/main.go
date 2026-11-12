@@ -5,14 +5,15 @@ import (
 	"encoding/hex"
 	"fmt"
 	"log"
+	"net"
 	"net/http"
 	"os"
 	"path/filepath"
 
-	"github.com/screenshare/classroom/internal/auth"
-	"github.com/screenshare/classroom/internal/room"
-	"github.com/screenshare/classroom/internal/signaling"
-	"github.com/screenshare/classroom/internal/webrtc"
+	"github.com/MateusARJ/MLAB/apps/backend/internal/auth"
+	"github.com/MateusARJ/MLAB/apps/backend/internal/room"
+	"github.com/MateusARJ/MLAB/apps/backend/internal/signaling"
+	"github.com/MateusARJ/MLAB/apps/backend/internal/webrtc"
 )
 
 func main() {
@@ -36,6 +37,7 @@ func main() {
 		UDPPortMax: 50100,
 		NAT1To1IP:  room.GetPrimaryPhysicalIP(),
 		WebDir:     resolveWebDir(),
+		DevWebPort: resolveDevWebPort(),
 	})
 	if err != nil {
 		log.Fatalf("%v", err)
@@ -54,6 +56,9 @@ type serverConfig struct {
 	UDPPortMax uint16
 	NAT1To1IP  string
 	WebDir     string
+	// DevWebPort, quando preenchida (modo de desenvolvimento), faz a rota "/" redirecionar para o servidor
+	// do Vite nessa porta em vez de servir o build de WebDir (008-dev-entrada-unica-web).
+	DevWebPort string
 }
 
 // newServer monta store, SFU, handlers, ligações entre eles e rotas, e devolve o handler HTTP com CORS.
@@ -126,8 +131,12 @@ func newServer(cfg serverConfig) (http.Handler, error) {
 	// WebSocket: GET /ws/rooms/{id}/signal?token=<jwt>
 	sigHandler.RegisterRoutes(mux)
 
-	// Servidor SPA do Aluno (Frontend Web)
-	if cfg.WebDir != "" {
+	// Servidor SPA do Aluno (Frontend Web). No modo de desenvolvimento a página é do Vite: a 8080 redireciona
+	// para ele, para não servir o build antigo de apps/web/dist como segunda entrada (008, RF-801/RF-803).
+	if cfg.DevWebPort != "" {
+		log.Printf("Modo de desenvolvimento: páginas do web do aluno redirecionadas para a porta %s (Vite)", cfg.DevWebPort)
+		mux.Handle("/", devWebRedirectHandler(cfg.DevWebPort))
+	} else if cfg.WebDir != "" {
 		log.Printf("MLab servindo frontend web do aluno a partir de: %s", cfg.WebDir)
 		mux.Handle("/", spaHandler(cfg.WebDir))
 	} else {
@@ -198,6 +207,38 @@ func resolveWebDir() string {
 	}
 
 	return ""
+}
+
+// resolveDevWebPort devolve a porta do servidor do Vite no modo de desenvolvimento (MLAB_DEV_MONOREPO=1):
+// WEB_PORT ou 5173, a mesma regra do link da sala. Fora do modo de desenvolvimento devolve "".
+func resolveDevWebPort() string {
+	if os.Getenv("MLAB_DEV_MONOREPO") != "1" {
+		return ""
+	}
+	if p := os.Getenv("WEB_PORT"); p != "" {
+		return p
+	}
+	return "5173"
+}
+
+// devWebRedirectHandler redireciona páginas (GET/HEAD fora das rotas de API) para o mesmo caminho e query no
+// servidor do Vite, mantendo o host da requisição; outros métodos recebem 404 (008, RF-801/RF-802).
+func devWebRedirectHandler(webPort string) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodGet && r.Method != http.MethodHead {
+			http.NotFound(w, r)
+			return
+		}
+		host := r.Host
+		if h, _, err := net.SplitHostPort(r.Host); err == nil {
+			host = h
+		}
+		if host == "" {
+			host = "localhost"
+		}
+		target := "http://" + net.JoinHostPort(host, webPort) + r.URL.RequestURI()
+		http.Redirect(w, r, target, http.StatusTemporaryRedirect)
+	})
 }
 
 // spaHandler serve os arquivos estáticos da pasta webDir e faz fallback para index.html para rotas de SPA.

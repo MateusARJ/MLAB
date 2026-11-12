@@ -9,7 +9,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/screenshare/classroom/internal/auth"
+	"github.com/MateusARJ/MLAB/apps/backend/internal/auth"
 )
 
 // filesFixture monta um servidor com uma sala criada pelo professor "prof-owner" e tokens prontos.
@@ -30,7 +30,7 @@ func newFilesFixture(t *testing.T) *filesFixture {
 	handler.RegisterRoutes(mux)
 	handler.RegisterProtectedRoutes(mux, auth.Middleware)
 
-	profToken, _, err := auth.SignProfessorToken("prof-owner", "prof@test.com", "Professor Arquivos")
+	profToken, _, err := auth.SignProfessorToken("prof-owner", "Professor Arquivos")
 	if err != nil {
 		t.Fatalf("sign professor token: %v", err)
 	}
@@ -99,7 +99,7 @@ func TestFiles_ListAndDownloadRequireRoomToken(t *testing.T) {
 	listPath := "/rooms/" + f.roomID + "/files"
 
 	otherRoomStudent, _ := auth.SignToken(auth.StudentMapClaims("aluno-x", "Intruso", "2025116TADS0099", "outra-sala"))
-	otherProf, _, _ := auth.SignProfessorToken("outro-prof", "outro@test.com", "Outro")
+	otherProf, _, _ := auth.SignProfessorToken("outro-prof", "Outro")
 
 	cases := []struct {
 		name   string

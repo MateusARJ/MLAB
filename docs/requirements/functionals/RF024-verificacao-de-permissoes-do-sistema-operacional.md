@@ -1,50 +1,46 @@
-# 📋 RF024 — Verificação e Solicitação de Permissões do Sistema Operacional no Pós-Login
+# 📋 RF024 — Permissões de Captura e Microfone no App Desktop
 
 > **Categoria:** App Desktop
 > **Prioridade:** Crítica
-> **Status:** ✅ Aprovado (Atualizado para fluxo obrigatório pós-login)
+> **Status:** ✅ Aprovado (reescrito em 2026-11-06 para refletir a spec 001)
 
 ---
 
 ## 📌 Descrição
 
-O App Desktop do professor deve obrigatoriamente solicitar, verificar e validar as permissões de acesso ao **Microfone** e à **Captura e Transmissão de Tela** no Sistema Operacional (Windows/macOS) imediatamente após o login do professor, antes de permitir o acesso ao Dashboard e à Sala de Transmissão.
+O processo principal do app desktop autoriza somente as permissões necessárias à transmissão: captura de
+tela/janela e microfone. As demais solicitações de permissão são recusadas.
 
-O sistema deve disparar requisições nativas ao SO/Chromium para que o professor conceda as autorizações necessárias e só permita o avanço caso as permissões estejam ativas, prevenindo transmissões com tela preta ou ausência de áudio.
+Não existe tela intermediária de permissões nem login (ADR 0006): o professor entra pelo nome e segue para o
+Dashboard. Se a captura de tela ou o microfone não estiverem disponíveis no sistema operacional, a sala mostra um
+aviso com o botão "Verificar Novamente".
 
 ---
 
 ## 🎯 Justificativa e Impacto
 
-1. **Prevenção de Falhas Críticas de Transmissão e Gravação**:
-   - Evita que o professor acerte as configurações de uma aula e inicie a transmissão apenas para descobrir tardiamente que o SO bloqueou o microfone ou a captura de tela.
-2. **Conformidade com Políticas de Privacidade do SO**:
-   - Windows 10/11 e macOS impõem controles rigorosos de acesso a dispositivos de mídia e captura de tela que exigem consentimento explícito.
-3. **Experiência do Usuário (UX Guiada)**:
-   - Apresenta feedback visual claro em tempo real dos status de Microfone e Tela, com instruções de desbloqueio caso as configurações do SO estejam restritivas.
+1. **Prevenção de falhas de transmissão**: o professor é avisado antes de transmitir tela preta ou sem áudio.
+2. **Menor superfície de permissões**: o app só concede o que a transmissão usa.
+3. **Conformidade com o SO**: Windows, macOS e Linux exigem consentimento para mídia e captura de tela.
 
 ---
 
 ## 🛠️ Detalhes Técnicos de Implementação
 
-1. **Handlers de Sessão no Electron Main Process (`apps/desktop/src/main/main.ts`)**:
-   - `session.defaultSession.setPermissionRequestHandler`: aprova explicitamente requisições de `'media'` e `'display-capture'`.
-   - `session.defaultSession.setPermissionCheckHandler`: valida autorizações da janela.
-   - `session.defaultSession.setDisplayMediaRequestHandler`: trata requisições de captura do Chromium.
-2. **Canais IPC de Permissões**:
-   - `check-media-permissions`: consulta `systemPreferences.getMediaAccessStatus('microphone')` e status de tela.
-   - `request-media-permissions`: aciona `systemPreferences.askForMediaAccess('microphone')` e validação de desktop capturer.
-3. **Pós-Login Gate no Renderer (`Permissions.tsx`)**:
-   - Transição obrigatória pós-login: `Login` → `Permissions` → `Dashboard` → `Room`.
-   - Disparo nativo de permissão de microfone via `navigator.mediaDevices.getUserMedia({ audio: true })`.
-   - Validação de fontes de tela via `window.electronAPI.getScreenSources()`.
-   - Badges de status: `Pendente` (amarelo), `Concedido` (verde), `Negado` (vermelho).
-   - Botão de avanço habilitado somente após validação.
-   - Guia de instrução para Windows Settings em caso de bloqueio.
+1. **Handlers de sessão no processo principal (`apps/desktop/src/main/main.ts`)**:
+   - `session.defaultSession.setPermissionRequestHandler`: aprova só a lista permitida (ex.: `media`,
+     `display-capture`) e recusa o resto.
+   - `session.defaultSession.setPermissionCheckHandler`: responde às verificações de `media` e `display-capture`.
+   - `session.defaultSession.setDisplayMediaRequestHandler`: trata as requisições de captura do Chromium via
+     `desktopCapturer`.
+2. **Aviso na sala (`apps/desktop/src/renderer/pages/Room.tsx`)**: quando as fontes de captura não são detectadas,
+   mostra o alerta de permissões e permite verificar de novo.
 
 ---
 
 ## 🔗 Relação com Regras de Negócio e Outros Requisitos
 
+- **Spec:** RF-24 em `spec-kit/specs/001-screen-share-core/spec.md` (a tela `Permissions.tsx` foi removida em
+  `4f3caad`)
 - **Documento Principal:** [requirements.md](../../requirements.md)
 - **Requisitos Relacionados:** [RF010 — Captura e Controle do Microfone do Professor](RF010-captura-e-controle-do-microfone-do-professor.md), [RF026 — Captura Tela Cheia](RF026-captura-tela-cheia-display-tracking.md), [RF027 — Captura Janela Específica](RF027-captura-janela-especifica-application-isolation.md), [RF028 — Gravação Local de Aula](RF028-gravacao-local-de-aula.md).

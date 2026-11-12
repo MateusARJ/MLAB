@@ -53,7 +53,7 @@ removida antes da criação da nova (RN-06).
   "slug": "{titulo-da-sala}/{nome-do-professor}",
   "link": "http://<host>/sala/{titulo}/{professor}",
   "ip_link": "string (opcional)",
-  "mdns_link": "string (opcional, mlab.local)",
+  "mdns_link": "string (opcional; host mDNS anunciado: mlab.local, mlab-2.local ...)",
   "short_ip_link": "string (opcional)",
   "short_mdns_link": "string (opcional)",
   "status": "waiting",
@@ -62,6 +62,10 @@ removida antes da criação da nova (RN-06).
 ```
 
 - Título vazio gera o segmento `sala`; nome vazio gera `professor`.
+- `mdns_link`/`short_mdns_link` usam o nome mDNS que o backend anuncia de fato, escolhido antes da resposta: o
+  primeiro livre na rede entre `mlab.local`, `mlab-2.local` … `mlab-20.local` (012, RF-122/RF-123). Sem anúncio
+  ativo, os dois campos não vêm e `link` é o link por IP; `NGROK_URL`/`PUBLIC_URL`/`BASE_URL` têm precedência em
+  `link` (012, RF-126).
 
 **Errors:** `401 Unauthorized`, `403 Forbidden`.
 
@@ -84,6 +88,10 @@ Retorna o link único de acesso dos alunos para a sala. Exclusivo para professor
   "short_mdns_link": "string (opcional)"
 }
 ```
+
+- Mesmas regras de `link`/`mdns_link` do `POST /rooms`, com o nome anunciado no momento da leitura: ele pode mudar
+  durante a sessão quando o backend cede o nome num conflito (012, RF-125). O app desktop relê este endpoint a cada
+  10 s (012, RF-128).
 
 **Errors:** `401`, `403`, `404 Room not found`.
 

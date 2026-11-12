@@ -22,6 +22,8 @@ Feature: `003-classroom-interaction` (canais da 001 incluídos para manter um ú
 | `startAnnotationOverlay()` / `stopAnnotationOverlay()` | `annotation-overlay:start` / `annotation-overlay:stop` | 003/US-19 | Janela de overlay de anotação |
 | `syncAnnotationState(state)` | `annotation-overlay:sync-state` | 003/US-19 | Sincroniza ferramentas e traços |
 | `setAnnotationOverlayIgnoreMouse(ignore)` | `annotation-overlay:set-ignore-mouse` | 003/US-19 | Overlay transparente a cliques |
+| `setAnnotationToolbarRect(rect \| null)` | `annotation-overlay:toolbar-rect` | 009/RF-902 | Retângulo da barra (`AnnotationToolbarRect`, px CSS do overlay) para o hit-test do Linux. Aceito só do webContents do overlay; valores inválidos viram `null`. Em vigor desde 009 (T901) |
+| `setAnnotationRaisedHands(count)` | `annotation-overlay:raised-hands` | 017/RF-179 | Quantidade de mãos levantadas (inteiro ≥ 0) enviada pela janela do MLab à barra de marcação. Só o número; sem dados de participantes. Descartado quando vem do webContents do overlay ou quando não é inteiro ≥ 0. O main guarda o último valor e o reenvia quando o overlay é (re)criado; `annotation-overlay:stop` volta a 0. Em vigor desde 017 (T171) |
 | `copyToClipboard(text)` | `write-clipboard-text` | 001 / 002/S7 | Copia texto (link da sala). Escrita feita no main desde 002/S7 (T207); a API exposta não mudou |
 | `getHostKey()` | `get-host-key` | 002/S2 | Retorna `MLAB_HOST_KEY` da execução para o header da sessão do professor (ADR 0006). Em vigor desde 002/S2 (T202) |
 
@@ -34,6 +36,7 @@ Feature: `003-classroom-interaction` (canais da 001 incluídos para manter um ú
 | `onCursorState(cb)` | `cursor-state` | `CursorState` (`packages/types`) |
 | `onAnnotationStateSync(cb)` | `annotation-overlay:state` | `AnnotationSessionState` |
 | `onAnnotationShortcutCommand(cb)` | `annotation-overlay:shortcut` | `AnnotationShortcutCommand` (atalhos globais e duplo Ctrl) |
+| `onAnnotationRaisedHands(cb)` | `annotation-overlay:raised-hands` | `number` — quantidade de mãos levantadas; enviado só ao overlay (017/RF-171, desde T171) |
 
 Todas as funções `on*` retornam uma função de cancelamento da inscrição.
 
