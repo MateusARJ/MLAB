@@ -2,7 +2,7 @@
 
 Feature: `021-sobre-versao-desktop`
 Prerequisites: spec/clarify/plan/checklist/analyze aprovados
-Status: READY
+Status: DONE
 
 Regras:
 - `npm run test -w apps/desktop` e `npm run lint` verdes antes de marcar `[x]`;
@@ -78,15 +78,15 @@ Checks:
 - [x] Campo `version` intocado (RN-2101).
 
 ### T2105 — Verificação, converge e versão
-[ ] T2105
+[x] T2105
 Depends On: T2104
 Allowed Paths: `spec-kit/specs/021-sobre-versao-desktop/**`, `package.json`, `package-lock.json`,
 `apps/*/package.json`, `packages/*/package.json`
 Prohibited Paths: `apps/**/src/**`, `packages/**/src/**`, `.github/**`
 Checks:
-- [ ] Build Windows (`electron-builder --win --dir`): `VersionInfo` do `MLab.exe` com a versão e
+- [x] Build Windows (`electron-builder --win --dir`): `VersionInfo` do `MLab.exe` com a versão e
   `Copyright © 2026 Mateus de Araujo`.
-- [ ] Smoke manual em dev: rodapé e "Sobre" nas duas telas.
-- [ ] `converge.md` com evidências, desvios e impacto de versão (MINOR, C-2107).
-- [ ] `npm run bump -- minor` e `npm run version:check`; commit `chore(release): versao X.Y.Z`.
-- [ ] `npm run spec:check -- spec-kit/specs/021-sobre-versao-desktop` com PASS.
+- [ ] Smoke manual em dev: rodapé e "Sobre" nas duas telas. Pendente com o responsável (converge §2).
+- [x] `converge.md` com evidências, desvios e impacto de versão (MINOR, C-2107).
+- [x] `npm run bump -- minor` e `npm run version:check`; commit `chore(release): versao X.Y.Z`.
+- [x] `npm run spec:check -- spec-kit/specs/021-sobre-versao-desktop` com PASS.
