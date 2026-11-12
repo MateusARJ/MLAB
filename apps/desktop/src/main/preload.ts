@@ -105,7 +105,10 @@ export interface ElectronAPI {
   onCursorState: (cb: (state: CursorState) => void) => () => void
 
   /**
-   * Inicia a janela de overlay transparente externa de marcação e lupa (invisível na captura dos alunos).
+   * Inicia a janela de overlay transparente externa de marcação e lupa.
+   * Em tela cheia, a janela é capturada pelo sistema (sem proteção de conteúdo): marcações, Lupa e a barra
+   * flutuante aparecem para os alunos. Em janela específica, a janela do overlay não é capturada: o worker de
+   * vídeo desenha marcações e Lupa no quadro e a barra não aparece.
    */
   startAnnotationOverlay: () => Promise<boolean>
 

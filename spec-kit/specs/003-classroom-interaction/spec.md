@@ -130,6 +130,9 @@ contratos, testes e tarefas rastreáveis.
 
 **Critérios de aceitação**
 - Overlay de anotação sobre a tela, inclusive fora da janela do MLab, com ferramentas: cursor, caneta, marcador, seta, retângulo e borracha; seleção exclusiva de ferramenta.
+  - **Nota (#62):** em tela cheia, a janela do overlay é capturada pelo sistema: marcações, Lupa e a barra de
+    marcação aparecem no vídeo dos alunos. Em janela específica, a janela do overlay não é capturada; marcações e
+    Lupa entram no vídeo compostas pelo app (Lupa sob a regra da 007, RF-708) e a barra não aparece.
 - Lupa com níveis de zoom cíclicos e destaque (spotlight).
   - **Nota (007-mascara-cursor-janela, C-705, RF-708):** na transmissão de janela específica, a lupa só entra no
     vídeo dos alunos quando o cursor deve aparecer (janela transmitida em foco e sob o ponteiro, US-20) ou quando foi
@@ -139,7 +142,7 @@ contratos, testes e tarefas rastreáveis.
 - A barra do overlay adapta a orientação à posição na tela.
   - **Nota (017-maos-na-barra-marcacao):** com mão levantada, a barra mostra o indicador de mãos levantadas e a
     borda de destaque, expandida ou recolhida. Em tela cheia, a barra e o indicador entram no vídeo dos alunos
-    (RN-171 da 017; ver #62).
+    (RN-171 da 017; ver a nota #62 acima).
 
 ### US-20 — Cursor contextual e rastreamento de janelas
 
