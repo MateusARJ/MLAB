@@ -20,7 +20,7 @@ Checks:
 - [x] Nota "em vigor desde 022 (T2202)".
 
 ### T2202 — Backend: regra de tipos e headers
-[ ] T2202
+[x] T2202
 Depends On: T2201
 Allowed Paths: `apps/backend/internal/room/filetypes.go`, `apps/backend/internal/room/filetypes_test.go`,
 `apps/backend/internal/room/files.go`, `apps/backend/internal/room/files_test.go`
@@ -28,15 +28,15 @@ Prohibited Paths: `apps/backend/internal/room/handler.go`, `apps/backend/interna
 `apps/backend/internal/auth/**`, `apps/backend/cmd/**`, `apps/web/**`, `apps/desktop/**`, `packages/**`,
 `package.json`
 Checks:
-- [ ] `isBlockedExtension`: lista de C-2202, maiúsculas, ponto/espaço final, extensão dupla; código-fonte aceito
+- [x] `isBlockedExtension`: lista de C-2202, maiúsculas, ponto/espaço final, extensão dupla; código-fonte aceito
   (RF-2201, RN-2202).
-- [ ] `hasExecutableSignature`: `MZ`, ELF e os quatro Mach-O; PDF, PNG, ZIP, texto e vazio aceitos (RF-2202).
-- [ ] `serverContentType`: mapa de C-2203 e `application/octet-stream` (RF-2204).
-- [ ] `contentDisposition`: fallback ASCII por rune e `filename*` RFC 5987 (RF-2205).
-- [ ] `uploadFile`: 415 por extensão e por assinatura, sem guardar nem fazer broadcast; `content_type` do servidor,
+- [x] `hasExecutableSignature`: `MZ`, ELF e os quatro Mach-O; PDF, PNG, ZIP, texto e vazio aceitos (RF-2202).
+- [x] `serverContentType`: mapa de C-2203 e `application/octet-stream` (RF-2204).
+- [x] `contentDisposition`: fallback ASCII por rune e `filename*` RFC 5987 (RF-2205).
+- [x] `uploadFile`: 415 por extensão e por assinatura, sem guardar nem fazer broadcast; `content_type` do servidor,
   ignorando o do cliente (RF-2201 a RF-2204).
-- [ ] `downloadFile`: headers de RF-2205; `revisão-ação.pdf` testado.
-- [ ] `go test ./internal/room/...` verde e `gofmt -l .` vazio.
+- [x] `downloadFile`: headers de RF-2205; `revisão-ação.pdf` testado.
+- [x] `go test ./internal/room/...` verde e `gofmt -l .` vazio.
 
 ### T2203 — Desktop: pré-validação e exibição do 415
 [ ] T2203

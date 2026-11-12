@@ -6,6 +6,7 @@ import (
 	"mime/multipart"
 	"net/http"
 	"net/http/httptest"
+	"net/textproto"
 	"strings"
 	"testing"
 
@@ -197,5 +198,145 @@ func TestFiles_ReleaseRoomFiles(t *testing.T) {
 	f.handler.ReleaseRoomFiles(f.roomID)
 	if n := len(f.handler.fileStore.List(f.roomID)); n != 0 {
 		t.Fatalf("expected files released, got %d", n)
+	}
+}
+
+// uploadRaw envia um arquivo com conteúdo e Content-Type da parte escolhidos pelo teste (022).
+func (f *filesFixture) uploadRaw(t *testing.T, name, partContentType string, data []byte) *httptest.ResponseRecorder {
+	t.Helper()
+	var body bytes.Buffer
+	mw := multipart.NewWriter(&body)
+	h := make(textproto.MIMEHeader)
+	h.Set("Content-Disposition", `form-data; name="file"; filename="`+name+`"`)
+	h.Set("Content-Type", partContentType)
+	part, err := mw.CreatePart(h)
+	if err != nil {
+		t.Fatalf("create part: %v", err)
+	}
+	_, _ = part.Write(data)
+	_ = mw.Close()
+
+	req := httptest.NewRequest("POST", "/rooms/"+f.roomID+"/files", &body)
+	req.Header.Set("Content-Type", mw.FormDataContentType())
+	req.Header.Set("Authorization", "Bearer "+f.profToken)
+	rec := httptest.NewRecorder()
+	f.mux.ServeHTTP(rec, req)
+	return rec
+}
+
+func (f *filesFixture) list(t *testing.T) []RoomFile {
+	t.Helper()
+	rec := f.get("/rooms/"+f.roomID+"/files", f.profToken)
+	var files []RoomFile
+	if err := json.NewDecoder(rec.Body).Decode(&files); err != nil {
+		t.Fatalf("decode list: %v", err)
+	}
+	return files
+}
+
+func TestFiles_BlockedTypesRejectedWith415(t *testing.T) {
+	cases := []struct {
+		name string
+		data []byte
+	}{
+		{"setup.exe", []byte("qualquer conteudo")},
+		{"instalar.MSI", []byte("qualquer conteudo")},
+		{"rodar.bat", []byte("@echo off")},
+		{"script.ps1", []byte("Write-Host oi")},
+		{"atalho.lnk", []byte("L\x00\x00\x00")},
+		{"setup.exe.", []byte("qualquer conteudo")},
+		{"trabalho.pdf.exe", []byte("%PDF-1.7")},
+		{"notas.pdf", []byte("MZ\x90\x00 executavel renomeado")},
+		{"programa", []byte("\x7fELF\x02\x01")},
+		{"app.zip", []byte{0xCF, 0xFA, 0xED, 0xFE, 0x07}},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			f := newFilesFixture(t)
+			var shared []string
+			f.handler.SetFileBroadcaster(func(_, _, name string, _ int64, _ string) { shared = append(shared, name) })
+
+			rec := f.uploadRaw(t, tc.name, "application/pdf", tc.data)
+			if rec.Code != http.StatusUnsupportedMediaType {
+				t.Fatalf("expected 415, got %d: %s", rec.Code, rec.Body.String())
+			}
+			var body map[string]string
+			_ = json.NewDecoder(rec.Body).Decode(&body)
+			if body["error"] != errBlockedFileTypeMsg {
+				t.Errorf("expected error %q, got %q", errBlockedFileTypeMsg, body["error"])
+			}
+			if files := f.list(t); len(files) != 0 {
+				t.Errorf("blocked file must not be listed, got %+v", files)
+			}
+			if len(shared) != 0 {
+				t.Errorf("blocked file must not be broadcast, got %v", shared)
+			}
+		})
+	}
+}
+
+func TestFiles_AllowedTypesAcceptedWithServerContentType(t *testing.T) {
+	cases := []struct {
+		name, wantType string
+		data           []byte
+	}{
+		{"apostila.pdf", "application/pdf", []byte("%PDF-1.7")},
+		{"diagrama.png", "image/png", []byte("\x89PNG\r\n\x1a\n")},
+		{"texto.docx", "application/vnd.openxmlformats-officedocument.wordprocessingml.document", []byte("PK\x03\x04")},
+		// código-fonte é material de aula (C-2202, RN-2202)
+		{"main.js", "application/octet-stream", []byte("console.log('oi')")},
+		{"aula.py", "application/octet-stream", []byte("print('oi')")},
+		{"app.ts", "application/octet-stream", []byte("export {}")},
+		{"build.sh", "application/octet-stream", []byte("#!/bin/sh\necho oi")},
+		{"Main.java", "application/octet-stream", []byte("class Main {}")},
+		{"vazio.txt", "text/plain; charset=utf-8", nil},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			f := newFilesFixture(t)
+			// O Content-Type declarado pelo cliente é falso e deve ser ignorado (RF-2204).
+			rec := f.uploadRaw(t, tc.name, "text/html", tc.data)
+			if rec.Code != http.StatusCreated {
+				t.Fatalf("expected 201, got %d: %s", rec.Code, rec.Body.String())
+			}
+			var rf RoomFile
+			_ = json.NewDecoder(rec.Body).Decode(&rf)
+			if rf.ContentType != tc.wantType {
+				t.Errorf("upload content_type = %q, want %q", rf.ContentType, tc.wantType)
+			}
+			if files := f.list(t); len(files) != 1 || files[0].ContentType != tc.wantType {
+				t.Errorf("list content_type = %+v, want %q", files, tc.wantType)
+			}
+		})
+	}
+}
+
+func TestFiles_DownloadHeadersDefinedByServer(t *testing.T) {
+	f := newFilesFixture(t)
+	rec := f.uploadRaw(t, "revisão-ação.pdf", "text/html", []byte("%PDF-1.7 conteudo"))
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("upload: expected 201, got %d: %s", rec.Code, rec.Body.String())
+	}
+	var rf RoomFile
+	_ = json.NewDecoder(rec.Body).Decode(&rf)
+
+	dl := f.get(rf.URL, f.studentToken)
+	if dl.Code != http.StatusOK {
+		t.Fatalf("download: expected 200, got %d", dl.Code)
+	}
+	want := map[string]string{
+		"Content-Type":            "application/pdf",
+		"Content-Disposition":     `attachment; filename="revis_o-a__o.pdf"; filename*=UTF-8''revis%C3%A3o-a%C3%A7%C3%A3o.pdf`,
+		"X-Content-Type-Options":  "nosniff",
+		"Content-Security-Policy": "sandbox",
+		"Cache-Control":           "no-store",
+	}
+	for header, value := range want {
+		if got := dl.Header().Get(header); got != value {
+			t.Errorf("%s = %q, want %q", header, got, value)
+		}
+	}
+	if dl.Body.String() != "%PDF-1.7 conteudo" {
+		t.Errorf("unexpected body %q", dl.Body.String())
 	}
 }
