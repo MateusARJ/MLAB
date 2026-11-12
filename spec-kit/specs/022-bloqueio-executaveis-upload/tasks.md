@@ -2,7 +2,7 @@
 
 Feature: `022-bloqueio-executaveis-upload`
 Prerequisites: spec/clarify/plan/checklist/analyze aprovados
-Status: READY
+Status: DONE
 
 Regras:
 - `go test ./internal/room/...` e `gofmt -l` vazio em `apps/backend`; `npm run test -w apps/desktop` e
@@ -53,22 +53,22 @@ Checks:
 - [x] Suíte do desktop e `npm run lint` verdes.
 
 ### T2204 — Verificação manual
-[ ] T2204
+[x] T2204
 Depends On: T2203
 Allowed Paths: `spec-kit/specs/022-bloqueio-executaveis-upload/**`
 Prohibited Paths: `apps/**`, `packages/**`, `package.json`
 Checks:
-- [ ] Backend local: `curl` com `.exe`, `.bat` e `.exe` renomeado para `.pdf` → 415; `.py` → 201 (RF-2201, RF-2202,
+- [x] Backend local: `curl` com `.exe`, `.bat` e `.exe` renomeado para `.pdf` → 415; `.py` → 201 (RF-2201, RF-2202,
   RN-2202).
-- [ ] `curl -i` no download de `revisão-ação.pdf`: headers de RF-2205.
+- [x] `curl -i` no download de `revisão-ação.pdf`: headers de RF-2205.
 
 ### T2205 — Converge e versão
-[ ] T2205
+[x] T2205
 Depends On: T2204
 Allowed Paths: `spec-kit/specs/022-bloqueio-executaveis-upload/**`, `package.json`, `package-lock.json`,
 `apps/*/package.json`, `packages/*/package.json`
 Prohibited Paths: `apps/**/src/**`, `apps/backend/internal/**`, `packages/**/src/**`, `.github/**`
 Checks:
-- [ ] `converge.md` com evidências, desvios (#47 citada como relacionada) e impacto de versão (MINOR, C-2207).
-- [ ] `npm run bump -- minor` e `npm run version:check`; commit `chore(release): versao X.Y.Z`.
-- [ ] `npm run spec:check -- spec-kit/specs/022-bloqueio-executaveis-upload` com PASS.
+- [x] `converge.md` com evidências, desvios (#47 citada como relacionada) e impacto de versão (MINOR, C-2207).
+- [x] `npm run bump -- minor` e `npm run version:check`; commit `chore(release): versao X.Y.Z`.
+- [x] `npm run spec:check -- spec-kit/specs/022-bloqueio-executaveis-upload` com PASS.
