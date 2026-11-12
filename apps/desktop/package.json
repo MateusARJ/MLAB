@@ -1,7 +1,7 @@
 {
   "name": "@mlab/desktop",
   "version": "1.13.0",
-  "description": "MLab - App Desktop do Professor",
+  "description": "Plataforma de transmissão de tela e interação para aulas ao vivo",
   "homepage": "https://mlab.com",
   "author": {
     "name": "MLab",
@@ -60,7 +60,7 @@
     "appId": "com.mlab.classroom",
     "productName": "MLab",
     "electronVersion": "31.7.7",
-    "copyright": "Copyright © 2024 MLab",
+    "copyright": "Copyright © 2026 Mateus de Araujo",
     "publish": {
       "provider": "github",
       "owner": "MateusARJ",
@@ -131,7 +131,7 @@
       "artifactName": "${productName}-Linux-${version}.${ext}",
       "maintainer": "MLab Team <contato@mlab.com>",
       "synopsis": "MLab Classroom - Aplicativo Desktop do Professor",
-      "description": "Sistema de Transmissão e Interação de Salas de Aula MLab",
+      "description": "Plataforma de transmissão de tela e interação para aulas ao vivo",
       "desktop": {
         "Name": "MLab",
         "Type": "Application",

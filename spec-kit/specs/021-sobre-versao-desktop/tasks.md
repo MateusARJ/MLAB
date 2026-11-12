@@ -68,14 +68,14 @@ Checks:
 - [x] Testes das duas telas afirmam a versão do mock no rodapé; testes existentes continuam verdes.
 
 ### T2104 — Metadados do pacote
-[ ] T2104
+[x] T2104
 Depends On: T2103
 Allowed Paths: `apps/desktop/package.json`
 Prohibited Paths: `apps/desktop/src/**`, `apps/web/**`, `apps/backend/**`, `packages/**`, `package.json`
 Checks:
-- [ ] `description` e `build.linux.description` com o texto de C-2103 (RF-2105).
-- [ ] `build.copyright` = `Copyright © 2026 Mateus de Araujo` (RF-2106, C-2104 revista).
-- [ ] Campo `version` intocado (RN-2101).
+- [x] `description` e `build.linux.description` com o texto de C-2103 (RF-2105).
+- [x] `build.copyright` = `Copyright © 2026 Mateus de Araujo` (RF-2106, C-2104 revista).
+- [x] Campo `version` intocado (RN-2101).
 
 ### T2105 — Verificação, converge e versão
 [ ] T2105
