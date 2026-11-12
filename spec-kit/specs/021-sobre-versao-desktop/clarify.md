@@ -67,7 +67,7 @@ Decisões aprovadas pelo responsável em 2026-11-12, com o plano de implementaç
 
 - **Faixa de IDs:** `US-210x`, `RF-210x`, `RNF-210x`, `RN-210x`, `C-210x` e `T210x`. É a faixa de 4 dígitos
   (precedente da 020), porque a de 3 dígitos `T21x` fica perto da 002.
-- **Impacto de versão:** **MINOR** (1.12.2 → 1.13.0). É uma funcionalidade nova e compatível: US nova e canal IPC
+- **Impacto de versão:** **MINOR** (1.13.0 → 1.14.0, após a 022). É uma funcionalidade nova e compatível: US nova e canal IPC
   novo (`docs/versionamento.md` §2, AGENTS §13).
 
 ## Resultado

@@ -81,7 +81,7 @@ Classificação pelo escopo de `docs/versionamento.md` §2 (ADR 0007).
 
 | Nível | Versão resultante | Justificativa |
 |---|---|---|
-| MINOR | 1.13.0 | Funcionalidade nova e compatível: US-2101/US-2102 e o canal IPC `get-app-info` (adição compatível em contrato), sem remover nada (C-2107). |
+| MINOR | 1.14.0 (1.13.0 entrou com a 022, #73) | Funcionalidade nova e compatível: US-2101/US-2102 e o canal IPC `get-app-info` (adição compatível em contrato), sem remover nada (C-2107). |
 
 ## 9. Resultado
 
