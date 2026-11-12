@@ -5,7 +5,7 @@ import {
   FOLDER_NOT_SUPPORTED_MSG,
   UPLOAD_SUCCESS_TTL_MS,
 } from './useRoomFileUploads';
-import { MAX_FILE_BYTES, FILE_TOO_LARGE_MSG } from '../services/files';
+import { MAX_FILE_BYTES, FILE_TOO_LARGE_MSG, BLOCKED_TYPE_MSG } from '../services/files';
 
 function deferred<T>() {
   let resolve!: (value: T) => void;
@@ -124,6 +124,29 @@ describe('useRoomFileUploads', () => {
     expect(result.current.items[0]).toMatchObject({ name: 'fotos', status: 'erro', error: FOLDER_NOT_SUPPORTED_MSG });
     expect(result.current.items[1]).toMatchObject({ name: 'video.mp4', status: 'erro', error: FILE_TOO_LARGE_MSG });
     expect(sentNames(fetchMock)).toEqual(['ok.txt']);
+  });
+
+  it('recusa executável e instalador sem requisição e segue a fila (022, RF-2206)', async () => {
+    fetchMock.mockResolvedValue(created('aula.py'));
+    const { result } = setup();
+
+    act(() => result.current.enqueue([file('setup.exe'), file('instalar.MSI'), file('aula.py')]));
+
+    await waitFor(() => expect(result.current.items[2].status).toBe('enviado'));
+    expect(result.current.items[0]).toMatchObject({ name: 'setup.exe', status: 'erro', error: BLOCKED_TYPE_MSG });
+    expect(result.current.items[1]).toMatchObject({ name: 'instalar.MSI', status: 'erro', error: BLOCKED_TYPE_MSG });
+    expect(sentNames(fetchMock)).toEqual(['aula.py']);
+  });
+
+  it('mostra no item o 415 do servidor para executável renomeado (022, RF-2207)', async () => {
+    fetchMock.mockResolvedValueOnce(failed(415, BLOCKED_TYPE_MSG)).mockResolvedValueOnce(created('ok.txt'));
+    const { result } = setup();
+
+    act(() => result.current.enqueue([file('notas.pdf'), file('ok.txt')]));
+
+    await waitFor(() => expect(result.current.items.map((i) => i.status)).toEqual(['erro', 'enviado']));
+    expect(result.current.items[0].error).toBe(BLOCKED_TYPE_MSG);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
   });
 
   it('aceita exatamente 50 MB', async () => {

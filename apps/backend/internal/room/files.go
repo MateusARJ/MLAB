@@ -213,6 +213,17 @@ func (h *Handler) uploadFile(w http.ResponseWriter, r *http.Request) {
 	}
 	defer file.Close()
 
+	fileName := filepath.Base(header.Filename)
+	if fileName == "" || fileName == "." {
+		fileName = "arquivo"
+	}
+
+	// Executáveis e instaladores são recusados pela extensão antes de ler o conteúdo (022/RF-2201).
+	if isBlockedExtension(fileName) {
+		writeError(w, http.StatusUnsupportedMediaType, errBlockedFileTypeMsg)
+		return
+	}
+
 	data, err := io.ReadAll(io.LimitReader(file, maxFileBytes+1))
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "erro ao ler dados do arquivo")
@@ -223,20 +234,22 @@ func (h *Handler) uploadFile(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	fileName := filepath.Base(header.Filename)
-	if fileName == "" || fileName == "." {
-		fileName = "arquivo"
+	// Executável renomeado: a assinatura do conteúdo vale mais que o nome (022/RF-2202).
+	if hasExecutableSignature(data) {
+		writeError(w, http.StatusUnsupportedMediaType, errBlockedFileTypeMsg)
+		return
 	}
 
 	fileID := newID()
 	downloadURL := fmt.Sprintf("/rooms/%s/files/%s/download", roomID, fileID)
 
 	roomFile := &RoomFile{
-		ID:          fileID,
-		RoomID:      roomID,
-		Name:        fileName,
-		Size:        int64(len(data)),
-		ContentType: header.Header.Get("Content-Type"),
+		ID:     fileID,
+		RoomID: roomID,
+		Name:   fileName,
+		Size:   int64(len(data)),
+		// Definido pelo servidor; o Content-Type declarado pelo cliente é ignorado (022/RF-2204, AGENTS §8).
+		ContentType: serverContentType(fileName),
 		URL:         downloadURL,
 		UploadedAt:  time.Now().UTC(),
 		Data:        data,
@@ -297,13 +310,12 @@ func (h *Handler) downloadFile(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=%q", f.Name))
-	if f.ContentType != "" {
-		w.Header().Set("Content-Type", f.ContentType)
-	} else {
-		w.Header().Set("Content-Type", "application/octet-stream")
-	}
+	// Headers definidos pelo servidor (contracts/files.md da 003; 022/RF-2205).
+	w.Header().Set("Content-Disposition", contentDisposition(f.Name))
+	w.Header().Set("Content-Type", serverContentType(f.Name))
 	w.Header().Set("X-Content-Type-Options", "nosniff")
+	w.Header().Set("Content-Security-Policy", "sandbox")
+	w.Header().Set("Cache-Control", "no-store")
 	w.Header().Set("Content-Length", fmt.Sprintf("%d", f.Size))
 	w.WriteHeader(http.StatusOK)
 	_, _ = w.Write(f.Data)
