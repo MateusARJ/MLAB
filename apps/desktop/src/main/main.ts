@@ -6,7 +6,6 @@ import {
   nativeImage,
   dialog,
   session,
-  systemPreferences,
   clipboard,
   shell
 } from 'electron'

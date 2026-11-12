@@ -75,6 +75,9 @@ jobs:
       - name: Compilar pacotes compartilhados (@mlab/types)
         run: npm run build
 
+      - name: Verificar tipos e go vet (lint)
+        run: npm run lint
+
       - name: Executar testes automatizados
         run: npm run test
 

@@ -735,21 +735,13 @@ describe('Room Component (Desktop)', () => {
     });
   });
 
-  it('deve exibir indicador de Múltiplas Janelas e alternar janelas autorizadas ou exibir proteção de privacidade', async () => {
+  it('deve exibir indicador de Múltiplas Janelas e alternar janelas autorizadas sem exibir o selo de privacidade', async () => {
     let activeWindowCallback: ((data: { sourceId: string }) => void) | null = null;
-    let unauthorizedCallback: ((data: { isUnauthorized: boolean }) => void) | null = null;
 
     (window.electronAPI.onActiveWindowChanged as any).mockImplementation((cb: any) => {
       activeWindowCallback = cb;
       return () => {
         activeWindowCallback = null;
-      };
-    });
-
-    (window.electronAPI.onActiveWindowUnauthorized as any).mockImplementation((cb: any) => {
-      unauthorizedCallback = cb;
-      return () => {
-        unauthorizedCallback = null;
       };
     });
 
@@ -789,18 +781,21 @@ describe('Room Component (Desktop)', () => {
       expect(screen.getByText(/Janelas da Aula \(2\):/i)).toBeInTheDocument();
     });
 
-    // Simula evento do SO de proteção de privacidade (app não autorizado focado pelo professor)
-    expect(unauthorizedCallback).toBeTruthy();
-    act(() => {
-      unauthorizedCallback!({ isUnauthorized: true });
-    });
-
-    // O badge visual foi removido da barra de status conforme solicitado, não devendo poluir a tela
+    // O selo de proteção de privacidade não fica na UI (020/RF-2002)
     expect(screen.queryByText(/Proteção de Privacidade Ativa/i)).not.toBeInTheDocument();
 
-    // Simula volta para o VS Code (app autorizado)
+    // Simula o foco em outra janela autorizada
     act(() => {
-      unauthorizedCallback!({ isUnauthorized: false });
+      activeWindowCallback!({ sourceId: 'window:20' });
+    });
+
+    await waitFor(() => {
+      expect(screen.getByText(/Janela Específica \(Múltiplas - 2 autorizadas\)/i)).toBeInTheDocument();
+    });
+    expect(screen.queryByText(/Proteção de Privacidade Ativa/i)).not.toBeInTheDocument();
+
+    // Simula volta para o VS Code
+    act(() => {
       activeWindowCallback!({ sourceId: 'window:10' });
     });
 
@@ -838,6 +833,7 @@ describe('Room Component (Desktop)', () => {
       pinChatMessage: vi.fn(),
       sendStreamPause: vi.fn(),
       startPublishing: vi.fn(),
+      stopPublishing: vi.fn(),
       changeStream: vi.fn(),
       endSession: vi.fn(),
     });
@@ -913,6 +909,7 @@ describe('Room Component (Desktop)', () => {
         pinChatMessage: vi.fn(),
         sendStreamPause: vi.fn(),
         startPublishing: vi.fn(),
+        stopPublishing: vi.fn(),
         changeStream: mockChangeStream,
         endSession: vi.fn(),
       };
