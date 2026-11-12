@@ -62,6 +62,16 @@ Clarify: `./clarify.md` (CLOSED — C-701, C-702, C-703)
    - a placa continua sendo atualizada nesse período (90 ms), para a detecção seguir valendo;
    - o custo (cópia + comparação + entrega) entra na proteção de FPS como os quadros com máscara;
    - formatos não mapeáveis (caminho do canvas) não têm detecção e seguem como hoje.
+4c. **Lupa no modo janela (RF-708; C-705, T710, issue #70)** — na política pura (`cursorMaskPolicy.ts`):
+   - `shouldDrawSpotlight(cursor, annotations)`: lupa ligada e, no modo `window`, `cursor.visible` com `cursor.rect`
+     não nulo, ou `spotlight.activeInViewer`; nos outros modos, sem mudança;
+   - `decideFramePath` passa a receber o `CursorState` do quadro e devolve também `drawSpotlight`; `drawAnnotations`
+     considera os traços e a lupa só quando ela vai ser desenhada, então a lupa escondida sem traços leva ao repasse
+     (RF-702);
+   - o worker passa `path.drawSpotlight` a `renderAnnotationsAndSpotlight`, que só desenha a lupa com ele `true`; os
+     traços seguem iguais;
+   - o overlay do professor e o visualizador da sala não mudam: o professor continua vendo a lupa localmente;
+   - roteiro do A12 ganha o passo da lupa com outra janela em foco.
 5. **Tela cheia (RF-705)** — nenhuma mudança de código. Emenda do US-20 / RF-310 em
    `spec-kit/specs/003-classroom-interaction/spec.md` e roteiro do A12 em `docs/metrics/smoke-runbook.md`.
 6. **Medição (RNF-701)** — no app empacotado, janela específica em 1080p. No aluno (Chrome),
@@ -84,6 +94,7 @@ Clarify: `./clarify.md` (CLOSED — C-701, C-702, C-703)
 | Quadro composto com máscara | em memória, no formato do quadro capturado, quando mapeável; canvas só para formatos não mapeáveis e para desenhar anotações | RF-701, RF-704, T708 |
 | Conteúdo em movimento | anel de 12 px, tolerância 2 níveis, limiar 3%, cursor mostrado até 500 ms após a última mudança; só no caminho em memória | RF-707, C-704 |
 | Log | `[CursorMask]` no renderer | RNF-703 |
+| Lupa no modo janela | desenhada só com `visible && rect` ou `activeInViewer`; traços inalterados | RF-708, C-705 |
 | Tela cheia | sem mudança de código | RF-705, C-702 |
 
 ## 3. Risks / Failure Modes
@@ -100,6 +111,7 @@ Clarify: `./clarify.md` (CLOSED — C-701, C-702, C-703)
 | Conteúdo em movimento sob o cursor | quadrado com conteúdo antigo acompanhando o cursor | cursor mostrado enquanto o anel em volta muda (RF-707, T709) |
 | Detecção falsa (cursor desenhado fora da área, cursor de texto piscando no anel) | cursor aparece por 500 ms sobre conteúdo parado | limiar de 3% do anel; tolerância por amostra |
 | Suspensão e retomada alternando | cursor aparece e some periodicamente | espera crescente até 60 s |
+| Lupa some ou volta 1–2 quadros depois da troca de foco | lupa visível por instantes ao sair da janela transmitida | mesmo atraso do IPC do cursor; aceito, como na ocultação do cursor (RF-708) |
 | Mudança no caminho das anotações por `displayWidth` | quadro anotado com outra resolução | é correção: hoje a resolução pode divergir do repasse; coberto pela medição com anotação ativa |
 
 ## Scope Lock
@@ -108,6 +120,7 @@ Clarify: `./clarify.md` (CLOSED — C-701, C-702, C-703)
 
 - política de caminho por quadro e proteção de FPS no renderer do desktop;
 - máscara do cursor no worker de vídeo do modo janela específica;
+- regra de desenho da lupa/destaque no worker do modo janela específica (RF-708);
 - log das mensagens do worker em `createCursorMaskedTrack.ts`;
 - emenda do US-20 / RF-310 da 003 para a tela cheia, roteiro do A12 e registro da medição.
 
@@ -171,3 +184,4 @@ Clarify: `./clarify.md` (CLOSED — C-701, C-702, C-703)
 | 2026-11-02 | Rastro de 150 ms e placa mantida no repasse após o teste do professor | C-703 |
 | 2026-11-02 | Máscara composta em memória no formato capturado; proteção de FPS mede também a entrega ao gerador | T708 |
 | 2026-11-03 | Cursor mostrado quando o conteúdo em volta dele está mudando | C-704, T709 |
+| 2026-11-11 | Lupa no modo janela segue a regra do cursor ou o visualizador do MLab; traços inalterados | C-705, T710 |

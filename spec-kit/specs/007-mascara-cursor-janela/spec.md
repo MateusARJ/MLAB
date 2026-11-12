@@ -2,7 +2,7 @@
 
 Status: READY-FOR-PLAN
 Feature ID: `007-mascara-cursor-janela`
-Origem: issue #28; revisão do PR #26 (`cursorMask.worker.ts:369`, "Preserve cursor masking in the passthrough path").
+Origem: issue #28; issue #70 (lupa no modo janela, C-705); revisão do PR #26 (`cursorMask.worker.ts:369`, "Preserve cursor masking in the passthrough path").
 
 ## 1. Objetivo
 
@@ -25,14 +25,16 @@ ajustar o requisito da 003: o cursor não é ocultado sobre a área do MLab ness
 - proteção de FPS: a ocultação é suspensa quando custa mais que o orçamento por quadro, e é retentada depois;
 - resolução do quadro composto igual à do quadro capturado;
 - emenda do US-20 / RF-310 da 003 para o modo tela cheia;
-- roteiro do smoke A12 e medição A/B registrada em `docs/metrics/`.
+- roteiro do smoke A12 e medição A/B registrada em `docs/metrics/`;
+- lupa/destaque no modo janela específica seguindo a mesma regra do cursor (C-705, issue #70).
 
 ### Não incluído
 
 - ocultação no modo tela cheia (estudo futuro: troca dinâmica de faixa com `replaceTrack`, C-702);
 - mudanças na regra de visibilidade (`cursorPresence.ts`, `cursorVisibility.ts`), no contrato `CursorState`, na SFU,
   no SDP, no REMB ou na `degradationPreference`;
-- reconstrução de conteúdo em movimento (vídeo) sob o cursor: nesse caso o cursor é mostrado (C-704).
+- reconstrução de conteúdo em movimento (vídeo) sob o cursor: nesse caso o cursor é mostrado (C-704);
+- mudança nos traços (caneta, marcador, seta, retângulo) no modo janela: continuam no vídeo como hoje (C-705).
 
 ## 3. Atores
 
@@ -50,6 +52,14 @@ aula.
 ### US-702 — Transmissão sem perda de fluidez
 **Como** professor, **quero** que a ocultação do cursor não reduza o FPS nem a resolução da transmissão, **para** a
 aula continuar fluida.
+
+### US-703 — Lupa fora da janela transmitida não aparece (C-705, issue #70)
+**Como** professor transmitindo uma janela, **quero** que a lupa e o destaque usados fora da janela transmitida não
+apareçam para os alunos, **para** a transmissão mostrar só o que faz parte da aula.
+- Com outra janela (ou o MLab) em foco e a lupa ligada, os alunos não veem a lupa sobre a janela transmitida.
+- Com a janela transmitida em foco e sob o ponteiro, a lupa aparece para os alunos e acompanha o ponteiro.
+- Com a lupa posicionada no visualizador do MLab, ela aparece para os alunos como hoje.
+- Os traços já desenhados continuam no vídeo, com ou sem foco na janela transmitida.
 
 ## 5. Requisitos
 
@@ -71,6 +81,10 @@ aula continuar fluida.
   quadro segue sem a máscara e o cursor aparece; a máscara volta 500 ms depois da última mudança detectada. Sobre
   conteúdo parado, a ocultação continua como em RF-701 e RF-706 (C-704).
 - RF-705: no modo tela cheia, o cursor não é ocultado; a captura segue direto ao WebRTC (C-702).
+- RF-708: no modo janela específica, a lupa/destaque só é desenhada no quadro quando o cursor deve aparecer
+  (`CursorState.visible` é `true` e `CursorState.rect` não é nulo) ou quando foi posicionada no visualizador do MLab
+  (`spotlight.activeInViewer`). Fora disso o quadro segue sem a lupa; sem outra anotação, pelo repasse (RF-702). Os
+  traços não mudam: seguem a regra atual de anotações. A suspensão da proteção de FPS não afeta essa regra (C-705).
 - RNF-701: com o cursor visível, FPS e resolução recebidos pelo aluno iguais à linha de base (`development` antes da
   feature); com o cursor oculto, FPS recebido ≥ 95% do alvo, resolução inalterada e nenhum keyframe extra a cada
   alternância entre caminhos.
@@ -80,7 +94,8 @@ aula continuar fluida.
 
 ## 6. Regras de Negócio
 
-- RN-701: a regra de quando o cursor deve aparecer é a da 003 (`isCursorVisibleWindowMode`), sem alteração.
+- RN-701: a regra de quando o cursor deve aparecer é a da 003 (`isCursorVisibleWindowMode`), sem alteração. No modo
+  janela, a lupa usa a mesma regra (RF-708).
 - RN-702: entre FPS e ocultação, o FPS tem prioridade (C-701).
 
 ## 7. Critérios de Sucesso

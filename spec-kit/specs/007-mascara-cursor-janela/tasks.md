@@ -98,9 +98,24 @@ Checks:
 - [x] Teste manual do professor: sobre vídeo o cursor aparece sem quadrado; sobre conteúdo parado continua oculto —
   confirmado pelo responsável em 2026-11-03.
 
+### T710 — Lupa no modo janela segue a regra do cursor (C-705, issue #70)
+[ ] T710
+Depends On: T709
+Allowed Paths: `apps/desktop/src/renderer/media/cursorMaskPolicy.ts`, `apps/desktop/src/renderer/media/cursorMaskPolicy.test.ts`, `apps/desktop/src/renderer/media/cursorMask.worker.ts`, `spec-kit/specs/003-classroom-interaction/spec.md`, `docs/metrics/smoke-runbook.md`
+Prohibited Paths: `apps/desktop/src/main/**`, `apps/desktop/src/shared/**`, `apps/desktop/src/renderer/hooks/**`, `apps/desktop/src/renderer/pages/**`, `apps/desktop/src/renderer/components/**`, `apps/backend/**`, `apps/web/**`, `packages/**`
+Checks:
+- [ ] `shouldDrawSpotlight`: no modo janela, lupa só com `visible && rect` ou `activeInViewer`; tela cheia sem
+  mudança; testes de foco fora, ponteiro fora da fonte, cursor visível, visualizador e lupa desligada (RF-708).
+- [ ] `decideFramePath` recebe o `CursorState` e devolve `drawSpotlight`; lupa escondida sem traços → repasse
+  (`compose: false`); com traços, só os traços; testes existentes atualizados.
+- [ ] Worker desenha a lupa só com `path.drawSpotlight`; traços inalterados.
+- [ ] US-19 da 003 com nota apontando a 007 (C-705); A12 do runbook com o passo da lupa com outra janela em foco.
+- [ ] Teste manual do professor: com outra janela em foco e a lupa ligada, o aluno não vê a lupa; de volta à janela
+  transmitida, a lupa aparece e acompanha o ponteiro.
+
 ### T705 — Medição A/B e smoke A12 (manual)
 [ ] T705
-Depends On: T703, T704, T707, T708, T709
+Depends On: T703, T704, T707, T708, T709, T710
 Allowed Paths: `docs/metrics/cursor-mask-2026-11.md`, `spec-kit/specs/007-mascara-cursor-janela/**`
 Prohibited Paths: `apps/**`, `packages/**`
 Checks:
@@ -112,8 +127,9 @@ Checks:
 
 ### T706 — Converge
 [ ] T706
-Depends On: T701, T702, T703, T704, T705, T707, T708, T709
+Depends On: T701, T702, T703, T704, T705, T707, T708, T709, T710
 Allowed Paths: `spec-kit/specs/007-mascara-cursor-janela/**`
 Prohibited Paths: `apps/**`, `packages/**`
 Checks:
 - [ ] `converge.md` da 007 com o resultado da medição e o trabalho restante (opção B da tela cheia).
+- [ ] Impacto de versão (`docs/versionamento.md` §2) e desvios registrados (#70 resolvido pela T710).

@@ -52,6 +52,21 @@ Decisões tomadas com o dono do produto em 2026-11-02.
   com a placa de fundo; a máscara volta 500 ms depois da última mudança, para o cursor não piscar. Substitui a
   aceitação de C-703 para o cursor parado sobre vídeo.
 
+## C-705 — Lupa no modo janela com o professor em outra janela (issue #70, 2026-11-11)
+
+- **Contexto:** relatado no teste manual do PR #69. No modo janela, o worker desenha a lupa em todo quadro sem
+  consultar `CursorState.visible`: com o professor em outra janela, a lupa aparece sobre a janela transmitida, no
+  último ponto conhecido ou acompanhando o ponteiro quando a outra janela cobre a área transmitida. A US-19 da 003 não
+  define esse caso.
+- **Alternativas consideradas:** lupa só com o cursor visível (posicionar pelo visualizador do MLab deixaria de
+  aparecer no modo janela); lupa sempre que o ponteiro está sobre a área da janela, mesmo coberta ou sem foco
+  (corrige só o ponteiro longe da janela); ocultar também os traços fora da janela (o vídeo piscaria a cada troca de
+  foco).
+- **Resposta aprovada (dono do produto, 2026-11-11):** no modo janela, a lupa/destaque entra no vídeo só quando o
+  cursor deve aparecer (mesma regra da US-20: janela transmitida em foco e sob o ponteiro) ou quando foi posicionada
+  no visualizador do MLab (`activeInViewer`). Os traços continuam como hoje. Registrado na 007, porque a regra é a
+  mesma do cursor e o worker já está no Scope Lock.
+
 ## Resultado
 
-CLOSED — C-701, C-702, C-703 e C-704 respondidas; nenhuma ambiguidade em aberto.
+CLOSED — C-701, C-702, C-703, C-704 e C-705 respondidas; nenhuma ambiguidade em aberto.

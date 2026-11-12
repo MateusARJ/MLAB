@@ -23,6 +23,7 @@ Nenhuma outra contradição: a regra de visibilidade (RN-701) e o contrato `Curs
 | RF-704 | T702, T705, T708 |
 | RF-705 | T704 |
 | RF-707 | T709 |
+| RF-708 | T710 |
 | RF-706 | T707, T708 |
 | RNF-701 | T705 |
 | RNF-702 | T703 (testes de `createCursorMaskedTrack` mantidos) |
@@ -78,7 +79,24 @@ congelado na placa enquanto o cursor passa. C-704 decide mostrar o cursor nesse 
 - Non-Goals: acrescentado "reconstrução de conteúdo em movimento sob o cursor"; nenhum conflito.
 - Cobertura: RF-707 pela T709; T705 e T706 passam a depender da T709.
 
+## 5d. Revalidação após a lupa no modo janela (issue #70, 2026-11-11)
+
+Relatado no teste manual do PR #69: com o professor em outra janela e a lupa ligada, os alunos veem a lupa sobre a
+janela transmitida. Verificado no código: o worker desenha a lupa sem consultar `CursorState.visible`. A US-19 da
+003 não definia o caso; C-705 decide seguir a regra do cursor da US-20, mais o visualizador do MLab.
+
+- Requisitos: RF-708 e US-703 novos; RN-701 estendida à lupa. Nenhum requisito existente muda: RF-702 já prevê o
+  repasse quando não há o que desenhar; os traços seguem a regra atual de anotações.
+- Contradição com a 003: nenhuma; a US-19 era omissa. A T710 registra uma nota na US-19 apontando a 007, como a T704
+  fez na US-20.
+- Contratos: nenhum. `CursorState` e `AnnotationOverlayState` já chegam ao worker; `activeInViewer` já existe no
+  tipo `SpotlightState`. `FramePath` é interno ao `renderer/media`.
+- Scope Lock: a T710 usa paths já no Allowed Paths do plan (`cursorMaskPolicy.ts`, teste, worker, spec da 003,
+  runbook); overlay, páginas e processo principal continuam proibidos. Nenhuma dependência nova.
+- Non-Goals: acrescentada a manutenção dos traços como estão; nenhum conflito.
+- Cobertura: RF-708 pela T710 (unitário + teste manual); T705 e T706 passam a depender da T710.
+
 ## 6. Resultado
 
 - [ ] FAIL
-- [x] PASS — próxima execução: T709 (a T707 aguarda só o teste manual do professor).
+- [x] PASS — próxima execução: T710; depois T705 (medição A/B e smoke A12) e T706 (converge).
