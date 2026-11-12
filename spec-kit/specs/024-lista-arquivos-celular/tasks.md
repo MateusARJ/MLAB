@@ -9,18 +9,18 @@ Regras:
 - um commit atômico por task, com `Ref: T240x` e `Refs #65`.
 
 ### T2401 — Web: lista do celular ocupa a altura da gaveta
-[ ] T2401
+[x] T2401
 Allowed Paths: `apps/web/src/pages/Room.tsx`, `apps/web/src/pages/Room.test.tsx`,
 `spec-kit/specs/003-classroom-interaction/spec.md`
 Prohibited Paths: `apps/web/src/hooks/**`, `apps/web/src/services/**`, `apps/web/src/components/**`,
 `apps/web/index.html`, `apps/web/public/**`, `apps/backend/**`, `apps/desktop/**`, `packages/**`, `package.json`
 Checks:
-- [ ] Celular: a lista da aba Arquivos (`mobile-files-list`) não tem `max-height: 380px`, tem `flex: 1` e
+- [x] Celular: a lista da aba Arquivos (`mobile-files-list`) não tem `max-height: 380px`, tem `flex: 1` e
   `overflow-y: auto`; a moldura não tem `overflow-y: auto` (RF-2401).
-- [ ] Desktop: a lista da gaveta (`files-list`) mantém `max-height: 380px` (RF-2402).
-- [ ] Os testes de rolagem automática da 018 continuam verdes (RF-2403).
-- [ ] Nota de referência à 024 na US-16 da 003.
-- [ ] `npm run test -w apps/web` e `npm run lint` verdes.
+- [x] Desktop: a lista da gaveta (`files-list`) mantém `max-height: 380px` (RF-2402).
+- [x] Os testes de rolagem automática da 018 continuam verdes (RF-2403).
+- [x] Nota de referência à 024 na US-16 da 003.
+- [x] `npm run test -w apps/web` e `npm run lint` verdes.
 
 ### T2402 — Verificação manual no celular
 [ ] T2402
