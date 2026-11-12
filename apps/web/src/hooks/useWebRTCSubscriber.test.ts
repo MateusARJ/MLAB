@@ -278,6 +278,132 @@ describe('useWebRTCSubscriber Hook', () => {
     }
   });
 
+  describe('fila de sinalização e negociação obsoleta (023)', () => {
+    beforeEach(() => {
+      class FakeInit {
+        constructor(init: any) {
+          Object.assign(this, init);
+        }
+      }
+      vi.stubGlobal('RTCSessionDescription', FakeInit);
+      vi.stubGlobal('RTCIceCandidate', FakeInit);
+    });
+
+    afterEach(() => {
+      vi.unstubAllGlobals();
+    });
+
+    const offerMsg = (sdp: string) => ({ data: JSON.stringify({ type: 'offer', payload: { sdp } }) });
+    const sentTypes = () => mockWsInstance.send.mock.calls.map((c: any[]) => JSON.parse(c[0]).type);
+
+    function deferred() {
+      let resolve!: () => void;
+      let reject!: (err: Error) => void;
+      const promise = new Promise<void>((res, rej) => {
+        resolve = res;
+        reject = rej;
+      });
+      return { promise, resolve, reject };
+    }
+
+    it('deve tratar stream-started só depois da answer da offer em andamento e responder a oferta seguinte com a PC nova (RF-2305)', async () => {
+      renderHook(() => useWebRTCSubscriber(dummyToken, dummyRoomInfo));
+      await act(async () => {
+        mockWsInstance.onopen();
+      });
+      const pc1 = mockPcInstances[mockPcInstances.length - 1];
+      const remote = deferred();
+      pc1.setRemoteDescription = vi.fn(() => remote.promise);
+      const pcCount = mockPcInstances.length;
+      mockWsInstance.send.mockClear();
+
+      let pending!: Promise<void>;
+      await act(async () => {
+        mockWsInstance.onmessage(offerMsg('oferta-video'));
+        pending = mockWsInstance.onmessage({
+          data: JSON.stringify({ type: 'stream-started', payload: { publisher_id: 'prof-01' } }),
+        });
+        await Promise.resolve();
+      });
+
+      // A offer ainda aguarda o setRemoteDescription: o stream-started não pode ter fechado a PC.
+      expect(mockPcInstances.length).toBe(pcCount);
+      expect(pc1.close).not.toHaveBeenCalled();
+      expect(sentTypes()).toEqual([]);
+
+      await act(async () => {
+        remote.resolve();
+        await pending;
+      });
+
+      expect(sentTypes()).toEqual(['answer', 'subscribe-request']);
+      expect(pc1.close).toHaveBeenCalled();
+      const pc2 = mockPcInstances[mockPcInstances.length - 1];
+      expect(pc2).not.toBe(pc1);
+
+      await act(async () => {
+        await mockWsInstance.onmessage(offerMsg('oferta-video-audio'));
+      });
+
+      expect(pc1.setRemoteDescription).toHaveBeenCalledTimes(1);
+      expect(pc2.setRemoteDescription).toHaveBeenCalledWith(expect.objectContaining({ sdp: 'oferta-video-audio' }));
+      expect(sentTypes()).toEqual(['answer', 'subscribe-request', 'answer']);
+    });
+
+    it('não deve enviar answer de uma offer cuja PC foi descartada enquanto aguardava (RF-2306)', async () => {
+      const { unmount } = renderHook(() => useWebRTCSubscriber(dummyToken, dummyRoomInfo));
+      await act(async () => {
+        mockWsInstance.onopen();
+      });
+      const pc1 = mockPcInstances[mockPcInstances.length - 1];
+      const remote = deferred();
+      pc1.setRemoteDescription = vi.fn(() => remote.promise);
+      const ws = mockWsInstance;
+
+      let pending!: Promise<void>;
+      await act(async () => {
+        pending = ws.onmessage(offerMsg('oferta-video'));
+        await Promise.resolve();
+      });
+      unmount();
+      ws.send.mockClear();
+
+      remote.resolve();
+      await pending;
+
+      expect(pc1.createAnswer).not.toHaveBeenCalled();
+      expect(ws.send).not.toHaveBeenCalled();
+    });
+
+    it('não deve repetir o candidato ICE numa PC descartada (RF-2306)', async () => {
+      const { unmount } = renderHook(() => useWebRTCSubscriber(dummyToken, dummyRoomInfo));
+      await act(async () => {
+        mockWsInstance.onopen();
+      });
+      const pc1 = mockPcInstances[mockPcInstances.length - 1];
+      const ice = deferred();
+      pc1.addIceCandidate = vi.fn(() => ice.promise);
+      const ws = mockWsInstance;
+
+      let pending!: Promise<void>;
+      await act(async () => {
+        pending = ws.onmessage({
+          data: JSON.stringify({
+            type: 'ice-candidate',
+            payload: { candidate: JSON.stringify({ candidate: 'candidate:1 1 udp 1 10.0.0.2 5000 typ host' }) },
+          }),
+        });
+        await Promise.resolve();
+      });
+      unmount();
+
+      ice.reject(new Error('PC fechada'));
+      await pending;
+
+      expect(pc1.addIceCandidate).toHaveBeenCalledTimes(1);
+    });
+  });
+
   it('deve liberar o chat só com o WebSocket aberto e bloquear ao cair (005/RF-506)', async () => {
     vi.useFakeTimers();
     try {

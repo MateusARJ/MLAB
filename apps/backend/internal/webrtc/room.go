@@ -2,6 +2,7 @@ package webrtc
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"log"
@@ -13,6 +14,17 @@ import (
 	"github.com/pion/rtcp"
 	"github.com/pion/webrtc/v3"
 )
+
+// ErrMediaNotReady indica que a track de vídeo do professor ainda não existe na SFU. O aluno volta a assinar
+// quando receber stream-started (023/RF-2302).
+var ErrMediaNotReady = errors.New("midia do professor ainda nao esta pronta")
+
+var videoMLineRe = regexp.MustCompile(`(m=video [^\r\n]+)\r\n`)
+
+// withVideoBandwidth insere as linhas de banda b=AS/b=TIAS logo após a linha m=video da oferta.
+func withVideoBandwidth(sdp string) string {
+	return videoMLineRe.ReplaceAllString(sdp, "$1\r\nb=AS:6000\r\nb=TIAS:6000000\r\n")
+}
 
 // Room gerencia as PeerConnections do publisher (professor) e subscribers (alunos) de uma sala.
 type Room struct {
@@ -30,6 +42,11 @@ type Room struct {
 
 	subscribers map[string]*webrtc.PeerConnection
 
+	// trackGen muda sempre que uma track local é criada. subscriberGen guarda a geração usada na oferta de cada
+	// aluno, para que uma oferta pendente só seja reaproveitada com o mesmo conjunto de tracks (023/RF-2303).
+	trackGen      uint64
+	subscriberGen map[string]uint64
+
 	onTrackReady func(roomID string)
 	lastPLI      time.Time
 	pendingPLI   bool
@@ -38,11 +55,12 @@ type Room struct {
 
 func newRoom(id string, api *webrtc.API, onTrackReady func(roomID string)) *Room {
 	r := &Room{
-		id:           id,
-		api:          api,
-		subscribers:  make(map[string]*webrtc.PeerConnection),
-		onTrackReady: onTrackReady,
-		closeCh:      make(chan struct{}),
+		id:            id,
+		api:           api,
+		subscribers:   make(map[string]*webrtc.PeerConnection),
+		subscriberGen: make(map[string]uint64),
+		onTrackReady:  onTrackReady,
+		closeCh:       make(chan struct{}),
 	}
 	r.startLivenessKeyFrameTicker()
 	return r
@@ -69,52 +87,25 @@ func (r *Room) handlePublisherOffer(publisherID, sdp string) (string, error) {
 	pc.OnTrack(func(remoteTrack *webrtc.TrackRemote, receiver *webrtc.RTPReceiver) {
 		log.Printf("[SFU] Nova track recebida do professor (%s): Kind=%s, MimeType=%s, SSRC=%d", publisherID, remoteTrack.Kind().String(), remoteTrack.Codec().MimeType, remoteTrack.SSRC())
 
-		trackID := "video"
-		if remoteTrack.Kind() == webrtc.RTPCodecTypeAudio {
-			trackID = "audio"
+		localTrack, notifyReady, err := r.ensureLocalTrack(remoteTrack.Kind(), remoteTrack.Codec().RTPCodecCapability)
+		if err != nil {
+			log.Printf("[SFU] Erro ao criar TrackLocalStaticRTP (%s): %v", remoteTrack.Kind().String(), err)
+			return
+		}
+		if localTrack == nil {
+			return
 		}
 
-		r.mu.Lock()
-		var localTrack *webrtc.TrackLocalStaticRTP
 		if remoteTrack.Kind() == webrtc.RTPCodecTypeVideo {
-			if r.videoTrack == nil {
-				var err error
-				r.videoTrack, err = webrtc.NewTrackLocalStaticRTP(
-					remoteTrack.Codec().RTPCodecCapability,
-					trackID,
-					"mlab-stream",
-				)
-				if err != nil {
-					log.Printf("[SFU] Erro ao criar TrackLocalStaticRTP de vídeo: %v", err)
-					r.mu.Unlock()
-					return
-				}
-			}
-			localTrack = r.videoTrack
+			r.mu.Lock()
 			r.publisherVideoSSRC = uint32(remoteTrack.SSRC())
-		} else if remoteTrack.Kind() == webrtc.RTPCodecTypeAudio {
-			if r.audioTrack == nil {
-				var err error
-				r.audioTrack, err = webrtc.NewTrackLocalStaticRTP(
-					remoteTrack.Codec().RTPCodecCapability,
-					trackID,
-					"mlab-stream",
-				)
-				if err != nil {
-					log.Printf("[SFU] Erro ao criar TrackLocalStaticRTP de áudio: %v", err)
-					r.mu.Unlock()
-					return
-				}
-			}
-			localTrack = r.audioTrack
-		}
-		r.mu.Unlock()
-
-		// Se for track de vídeo, notifica que a mídia está pronta no SFU
-		if remoteTrack.Kind() == webrtc.RTPCodecTypeVideo {
+			r.mu.Unlock()
 			r.requestKeyFrame()
 			time.AfterFunc(300*time.Millisecond, r.requestKeyFrame)
+		}
 
+		// Notifica que a mídia está pronta na SFU: no vídeo, e de novo no áudio que chega depois dele (023/RF-2304)
+		if notifyReady {
 			r.mu.RLock()
 			readyCb := r.onTrackReady
 			r.mu.RUnlock()
@@ -173,17 +164,60 @@ func (r *Room) handlePublisherOffer(publisherID, sdp string) (string, error) {
 	return pc.LocalDescription().SDP, nil
 }
 
+// ensureLocalTrack devolve a track local do tipo pedido, criando-a na primeira vez (e mudando trackGen). notifyReady
+// indica se a sala deve sinalizar prontidão: sempre no vídeo; no áudio, só quando ele é criado depois do vídeo, para
+// que quem assinou no intervalo receba uma oferta nova com áudio (023/RF-2304). Outros tipos devolvem nil.
+func (r *Room) ensureLocalTrack(kind webrtc.RTPCodecType, codec webrtc.RTPCodecCapability) (localTrack *webrtc.TrackLocalStaticRTP, notifyReady bool, err error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	switch kind {
+	case webrtc.RTPCodecTypeVideo:
+		if r.videoTrack == nil {
+			track, err := webrtc.NewTrackLocalStaticRTP(codec, "video", "mlab-stream")
+			if err != nil {
+				return nil, false, err
+			}
+			r.videoTrack = track
+			r.trackGen++
+		}
+		return r.videoTrack, true, nil
+	case webrtc.RTPCodecTypeAudio:
+		if r.audioTrack == nil {
+			track, err := webrtc.NewTrackLocalStaticRTP(codec, "audio", "mlab-stream")
+			if err != nil {
+				return nil, false, err
+			}
+			r.audioTrack = track
+			r.trackGen++
+			return r.audioTrack, r.videoTrack != nil, nil
+		}
+		return r.audioTrack, false, nil
+	}
+	return nil, false, nil
+}
+
 func (r *Room) createSubscriberOffer(subscriberID, publisherID string) (string, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
-	// Se já existe um PeerConnection com oferta pendente com SDP local válido, reutiliza a oferta existente
+	// Sem a track de vídeo do professor não há o que assinar: a oferta sairia vazia e o aluno ficaria com tela
+	// preta. O hub responde "waiting" e o stream-started dispara a nova assinatura (023/RF-2302).
+	if r.videoTrack == nil {
+		return "", ErrMediaNotReady
+	}
+
+	// Oferta pendente só é reaproveitada (subscribe-request duplicado) se foi criada com as mesmas tracks de agora;
+	// senão a PeerConnection antiga é descartada e uma oferta nova sai com as tracks atuais (023/RF-2303).
 	if existingPC, exists := r.subscribers[subscriberID]; exists {
-		if existingPC.SignalingState() == webrtc.SignalingStateHaveLocalOffer && existingPC.LocalDescription() != nil {
-			return existingPC.LocalDescription().SDP, nil
+		if existingPC.SignalingState() == webrtc.SignalingStateHaveLocalOffer &&
+			existingPC.LocalDescription() != nil &&
+			r.subscriberGen[subscriberID] == r.trackGen {
+			return withVideoBandwidth(existingPC.LocalDescription().SDP), nil
 		}
 		_ = existingPC.Close()
 		delete(r.subscribers, subscriberID)
+		delete(r.subscriberGen, subscriberID)
 	}
 
 	pc, err := r.api.NewPeerConnection(webrtc.Configuration{})
@@ -192,6 +226,7 @@ func (r *Room) createSubscriberOffer(subscriberID, publisherID string) (string, 
 	}
 
 	r.subscribers[subscriberID] = pc
+	r.subscriberGen[subscriberID] = r.trackGen
 
 	// Escuta mudanças de estado do subscriber para disparar Keyframe (PLI) no momento exato em que a rede estabiliza
 	pc.OnConnectionStateChange(func(state webrtc.PeerConnectionState) {
@@ -211,37 +246,29 @@ func (r *Room) createSubscriberOffer(subscriberID, publisherID string) (string, 
 	// Dispara solicitação imediata de Keyframe (RTCP PLI) e REMB para o novo aluno decodificar o vídeo em 4 Mbps
 	r.requestKeyFrameLocked()
 
-	// Adiciona as tracks ativas do professor (video e audio independentes)
-	if r.videoTrack != nil {
-		sender, err := pc.AddTrack(r.videoTrack)
-		if err != nil {
-			log.Printf("[SFU] Erro ao adicionar videoTrack para %s: %v", subscriberID, err)
-		} else {
-			go func() {
-				rtcpBuf := make([]byte, 1500)
-				for {
-					n, _, rtcpErr := sender.Read(rtcpBuf)
-					if rtcpErr != nil {
-						return
-					}
-					packets, err := rtcp.Unmarshal(rtcpBuf[:n])
-					if err != nil {
-						continue
-					}
-					for _, pkt := range packets {
-						switch pkt.(type) {
-						case *rtcp.PictureLossIndication, *rtcp.FullIntraRequest:
-							r.RequestKeyFrame()
-						}
+	// Adiciona as tracks ativas do professor (video e audio independentes); o vídeo sempre existe aqui
+	if sender, err := pc.AddTrack(r.videoTrack); err != nil {
+		log.Printf("[SFU] Erro ao adicionar videoTrack para %s: %v", subscriberID, err)
+	} else {
+		go func() {
+			rtcpBuf := make([]byte, 1500)
+			for {
+				n, _, rtcpErr := sender.Read(rtcpBuf)
+				if rtcpErr != nil {
+					return
+				}
+				packets, err := rtcp.Unmarshal(rtcpBuf[:n])
+				if err != nil {
+					continue
+				}
+				for _, pkt := range packets {
+					switch pkt.(type) {
+					case *rtcp.PictureLossIndication, *rtcp.FullIntraRequest:
+						r.RequestKeyFrame()
 					}
 				}
-			}()
-		}
-	} else {
-		// Garante que o SDP contenha sempre a seção m=video e credenciais ICE válidas mesmo se a mídia ainda estiver inicializando
-		_, _ = pc.AddTransceiverFromKind(webrtc.RTPCodecTypeVideo, webrtc.RTPTransceiverInit{
-			Direction: webrtc.RTPTransceiverDirectionSendonly,
-		})
+			}
+		}()
 	}
 
 	if r.audioTrack != nil {
@@ -271,11 +298,7 @@ func (r *Room) createSubscriberOffer(subscriberID, publisherID string) (string, 
 	}
 	<-gatherComplete
 
-	subSDP := pc.LocalDescription().SDP
-	re := regexp.MustCompile(`(m=video [^\r\n]+)\r\n`)
-	subSDP = re.ReplaceAllString(subSDP, "$1\r\nb=AS:6000\r\nb=TIAS:6000000\r\n")
-
-	return subSDP, nil
+	return withVideoBandwidth(pc.LocalDescription().SDP), nil
 }
 
 func (r *Room) handleSubscriberAnswer(subscriberID, sdp string) error {
@@ -432,6 +455,7 @@ func (r *Room) close() {
 	for id, pc := range r.subscribers {
 		_ = pc.Close()
 		delete(r.subscribers, id)
+		delete(r.subscriberGen, id)
 	}
 
 	r.videoTrack = nil

@@ -192,9 +192,13 @@ export function useWebRTCSubscriber(token: string, roomInfo: { room_id: string; 
       setupPeerConnectionAndSubscribe(ws);
     };
 
-    ws.onmessage = async (evt) => {
+    // Uma fila por WebSocket: as mensagens de sinalização são tratadas uma de cada vez, na ordem de chegada, para um
+    // stream-started não fechar a PeerConnection no meio da negociação de uma offer (023/RF-2305).
+    let messageQueue: Promise<void> = Promise.resolve();
+
+    const handleMessage = async (data: string) => {
       try {
-        const msg = JSON.parse(evt.data);
+        const msg = JSON.parse(data);
         if (msg.type === 'chat-message') {
           setMessages((prev) => [...prev, msg.payload]);
         } else if (msg.type === 'chat-message-pinned') {
@@ -298,12 +302,16 @@ export function useWebRTCSubscriber(token: string, roomInfo: { room_id: string; 
               console.warn('Ignorando offer fora de estado estável:', currentPc.signalingState);
               return;
             }
+            // A PC pode ser trocada ou fechada fora da fila (desmontagem, reconexão) enquanto a negociação
+            // aguarda: nesse caso o resultado é descartado e nenhuma answer sai (023/RF-2306).
+            const isStale = () => pcRef.current !== currentPc || currentPc.signalingState === 'closed';
             await currentPc.setRemoteDescription(
               new RTCSessionDescription({
                 type: 'offer',
                 sdp: msg.payload.sdp,
               })
             );
+            if (isStale()) return;
             // Garante que todos os receptores WebRTC (vídeo e áudio) operem em ultra-baixa latência (zero playout delay)
             currentPc.getReceivers().forEach((receiver) => {
               try {
@@ -314,7 +322,9 @@ export function useWebRTCSubscriber(token: string, roomInfo: { room_id: string; 
               } catch {}
             });
             const answer = await currentPc.createAnswer();
+            if (isStale()) return;
             await currentPc.setLocalDescription(answer);
+            if (isStale()) return;
             if (ws.readyState === WebSocket.OPEN) {
               ws.send(
                 JSON.stringify({
@@ -331,6 +341,8 @@ export function useWebRTCSubscriber(token: string, roomInfo: { room_id: string; 
               const candInit = JSON.parse(msg.payload.candidate);
               await currentPc.addIceCandidate(new RTCIceCandidate(candInit));
             } catch {
+              // Não insiste numa PC já substituída ou fechada (023/RF-2306)
+              if (pcRef.current !== currentPc || currentPc.signalingState === 'closed') return;
               await currentPc.addIceCandidate(new RTCIceCandidate({ candidate: msg.payload.candidate }));
             }
           }
@@ -352,6 +364,11 @@ export function useWebRTCSubscriber(token: string, roomInfo: { room_id: string; 
       } catch (err) {
         console.error('Erro ao processar mensagem WS:', err);
       }
+    };
+
+    ws.onmessage = (evt) => {
+      messageQueue = messageQueue.then(() => handleMessage(evt.data));
+      return messageQueue;
     };
 
     ws.onclose = (evt) => {

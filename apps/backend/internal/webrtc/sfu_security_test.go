@@ -2,6 +2,8 @@ package webrtc
 
 import (
 	"testing"
+
+	"github.com/pion/webrtc/v3"
 )
 
 // TestSFU_Security_RoomIsolation valida que requisições de media/offers para salas inexistentes ou nao autorizadas sao rejeitadas.
@@ -47,6 +49,15 @@ func TestSFU_Security_DuplicateSubscriberEviction(t *testing.T) {
 	dummySDP := "v=0\r\no=- 1457497746401030806 2 IN IP4 127.0.0.1\r\ns=-\r\nt=0 0\r\na=group:BUNDLE 0\r\nm=video 9 UDP/TLS/RTP/SAVPF 96\r\nc=IN IP4 0.0.0.0\r\na=rtcp:9 IN IP4 0.0.0.0\r\na=rtcp-mux\r\na=sendonly\r\na=mid:0\r\na=rtpmap:96 VP8/90000\r\n"
 
 	_, _ = sfu.HandlePublisherOffer(roomID, publisherID, dummySDP)
+
+	// A SFU só oferta com a track de vídeo do professor (023/RF-2302): simula a criada pelo OnTrack
+	room, ok := sfu.getRoom(roomID)
+	if !ok {
+		t.Fatal("sala deveria existir após a offer do professor")
+	}
+	if _, _, err := room.ensureLocalTrack(webrtc.RTPCodecTypeVideo, webrtc.RTPCodecCapability{MimeType: webrtc.MimeTypeVP8, ClockRate: 90000}); err != nil {
+		t.Fatalf("Erro ao criar track de vídeo: %v", err)
+	}
 
 	subscriberID := "student-duplicate-01"
 
