@@ -28,7 +28,7 @@ Status: CONVERGED
 
 | Requisito | O que falta | Evidência |
 |---|---|---|
-| RNF-2001 | Smoke manual do professor: transmitir com a lupa em zoom > 1 e com traços no modo janela, e focar uma janela não autorizada | O worker não tem teste unitário de quadro (`VideoFrame`/`OffscreenCanvas` não rodam no jsdom). O risco é baixo porque a mudança só remove código que nada chamava e troca a forma de obter o contexto. |
+| RNF-2001 | Smoke manual do professor: conferir lupa em zoom > 1 e traços no modo janela, e que nenhum selo aparece | Smoke de 2026-11-11: a lupa chega ao vídeo, inclusive quando o professor está em outra janela. Esse vazamento já existia antes (desvio #70, seção 7). O worker não tem teste unitário de quadro porque `VideoFrame`/`OffscreenCanvas` não rodam no jsdom. |
 
 ## 3. Divergências (código ≠ spec/plan/contrato)
 
@@ -54,7 +54,7 @@ Status: CONVERGED
 
 | Issue | Labels | Bloqueante? | Situação |
 |---|---|---|---|
-| — | — | — | nenhum |
+| #70 | `bug`, `desvio`, `area:desktop` | Não | aberta — no smoke manual, a lupa ligada pelo professor numa janela não transmitida aparece no vídeo do modo janela. É comportamento antigo (igual na `development` @ `1514dc1`): o worker nunca consulta o foco nem `state.visible`, e a 020 não muda isso |
 
 ## 8. Impacto de versão
 
