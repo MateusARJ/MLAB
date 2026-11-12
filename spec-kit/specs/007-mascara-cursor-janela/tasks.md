@@ -104,12 +104,13 @@ Depends On: T709
 Allowed Paths: `apps/desktop/src/renderer/media/cursorMaskPolicy.ts`, `apps/desktop/src/renderer/media/cursorMaskPolicy.test.ts`, `apps/desktop/src/renderer/media/cursorMask.worker.ts`, `spec-kit/specs/003-classroom-interaction/spec.md`, `docs/metrics/smoke-runbook.md`
 Prohibited Paths: `apps/desktop/src/main/**`, `apps/desktop/src/shared/**`, `apps/desktop/src/renderer/hooks/**`, `apps/desktop/src/renderer/pages/**`, `apps/desktop/src/renderer/components/**`, `apps/backend/**`, `apps/web/**`, `packages/**`
 Checks:
-- [ ] `shouldDrawSpotlight`: no modo janela, lupa só com `visible && rect` ou `activeInViewer`; tela cheia sem
+- [x] `shouldDrawSpotlight`: no modo janela, lupa só com `visible && rect` ou `activeInViewer`; tela cheia sem
   mudança; testes de foco fora, ponteiro fora da fonte, cursor visível, visualizador e lupa desligada (RF-708).
-- [ ] `decideFramePath` recebe o `CursorState` e devolve `drawSpotlight`; lupa escondida sem traços → repasse
+- [x] `decideFramePath` recebe o `CursorState` e devolve `drawSpotlight`; lupa escondida sem traços → repasse
   (`compose: false`); com traços, só os traços; testes existentes atualizados.
-- [ ] Worker desenha a lupa só com `path.drawSpotlight`; traços inalterados.
-- [ ] US-19 da 003 com nota apontando a 007 (C-705); A12 do runbook com o passo da lupa com outra janela em foco.
+- [x] Worker desenha a lupa só com `path.drawSpotlight`; traços inalterados (`2a2e1dc`; `turbo run build test lint
+  --force` verde em 2026-11-11, desktop com 244 testes).
+- [x] US-19 da 003 com nota apontando a 007 (C-705); A12 do runbook com o passo da lupa com outra janela em foco.
 - [ ] Teste manual do professor: com outra janela em foco e a lupa ligada, o aluno não vê a lupa; de volta à janela
   transmitida, a lupa aparece e acompanha o ponteiro.
 

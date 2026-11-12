@@ -131,6 +131,9 @@ contratos, testes e tarefas rastreáveis.
 **Critérios de aceitação**
 - Overlay de anotação sobre a tela, inclusive fora da janela do MLab, com ferramentas: cursor, caneta, marcador, seta, retângulo e borracha; seleção exclusiva de ferramenta.
 - Lupa com níveis de zoom cíclicos e destaque (spotlight).
+  - **Nota (007-mascara-cursor-janela, C-705, RF-708):** na transmissão de janela específica, a lupa só entra no
+    vídeo dos alunos quando o cursor deve aparecer (janela transmitida em foco e sob o ponteiro, US-20) ou quando foi
+    posicionada no visualizador do MLab. Os traços continuam no vídeo como antes (ver #70).
 - Atalhos globais: `Alt+H` (recolher), `Alt+V`, `Alt+P`, `Alt+M`, `Alt+A`, `Alt+R`, `Alt+E` (ferramentas), `Alt+L` (spotlight), `Alt+Z` (zoom), com variantes `Alt+Shift+…`.
 - Duplo toque em `Ctrl` (até 600 ms entre toques, sem outra tecla combinada) alterna a lupa — **somente no Windows**; nos demais sistemas a lupa é acionada pelo botão e por `Alt+Z`.
 - A barra do overlay adapta a orientação à posição na tela.

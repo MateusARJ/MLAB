@@ -105,11 +105,14 @@ não ficam selecionadas ao mesmo tempo.
    - Clique no MLab (a janela transmitida perde o foco) e passe o cursor sobre a janela transmitida: o cursor não
      deve aparecer.
    - Em tela cheia o cursor aparece também sobre a área do MLab: comportamento esperado (007, C-702).
+   - Ligue a lupa (`Alt+Z`) com a janela transmitida em foco: ela aparece para o aluno e acompanha o ponteiro. Foque
+     outra janela (ou o MLab) com a lupa ligada, com o ponteiro longe e depois sobre a área da janela transmitida: a
+     lupa **não** deve aparecer para o aluno; um traço já desenhado continua visível (007, RF-708, #70).
 2. Ligue a proteção de conteúdo; tente tirar print da janela do app com Win+Shift+S.
 3. Use "capturar para a área de transferência" e cole no Paint.
 
-**OK quando:** o cursor só aparece para o aluno quando a janela transmitida está em foco e sob o ponteiro, sem
-mancha visível onde ele foi apagado, o print da janela do app sai preto
+**OK quando:** o cursor e a lupa só aparecem para o aluno quando a janela transmitida está em foco e sob o ponteiro,
+sem mancha visível onde o cursor foi apagado, o print da janela do app sai preto
 com a proteção ligada, e a captura cola corretamente.
 
 ## A13b — Arrastar arquivos para a aba Arquivos
