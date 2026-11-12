@@ -92,9 +92,12 @@ métricas do app, se houver.
 
 1. Abra o overlay de marcações fora do app e desenhe sobre outra janela.
 2. Ative a lupa pelo botão e depois com duplo Ctrl.
+3. Transmita em tela cheia e saia da janela do MLab para a barra flutuante aparecer; depois repita transmitindo uma
+   janela específica.
 
 **OK quando:** as marcações aparecem para o aluno, a lupa liga e desliga pelos dois caminhos e as ferramentas
-não ficam selecionadas ao mesmo tempo.
+não ficam selecionadas ao mesmo tempo. Em tela cheia a barra flutuante aparece no vídeo do aluno; em janela
+específica a barra não aparece e as marcações continuam visíveis (003, US-19, nota #62).
 
 ## A12 — Cursor contextual, proteção de conteúdo e captura para a área de transferência
 
