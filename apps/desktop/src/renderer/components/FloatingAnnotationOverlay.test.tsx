@@ -1,9 +1,11 @@
 // @vitest-environment jsdom
 import { render, screen, fireEvent, act } from '@testing-library/react';
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import {
   FloatingAnnotationOverlay,
   computeToolbarDockZone,
+  computeExpandedToolbarPos,
+  clampToolbarPos,
 } from './FloatingAnnotationOverlay';
 
 describe('FloatingAnnotationOverlay Component & Adaptive Orientation', () => {
@@ -462,6 +464,279 @@ describe('FloatingAnnotationOverlay Component & Adaptive Orientation', () => {
       } finally {
         spy.mockRestore();
       }
+    });
+  });
+
+  describe('Barra nos cantos da tela (026/RF-2601 a RF-2606)', () => {
+    const MARGIN = 6;
+    const H_SIZE = { w: 440, h: 54 };
+    const V_SIZE = { w: 54, h: 440 };
+    const BUBBLE = { w: 52, h: 52 };
+
+    const setViewport = (w: number, h: number) => {
+      Object.defineProperty(window, 'innerWidth', { configurable: true, writable: true, value: w });
+      Object.defineProperty(window, 'innerHeight', { configurable: true, writable: true, value: h });
+    };
+
+    afterEach(() => {
+      setViewport(1024, 768);
+      vi.restoreAllMocks();
+    });
+
+    describe('computeExpandedToolbarPos e clampToolbarPos', () => {
+      const viewports: Array<[number, number]> = [
+        [1920, 1080],
+        [1366, 768],
+      ];
+
+      it.each(viewports)('bolinha nos cantos e bordas de %ix%i: barra inteira na tela (RF-2603, RF-2604)', (vw, vh) => {
+        const maxX = vw - BUBBLE.w - MARGIN;
+        const maxY = vh - BUBBLE.h - MARGIN;
+        const midX = Math.round(vw / 2);
+        const midY = Math.round(vh / 2);
+        const bubbles = [
+          { x: MARGIN, y: MARGIN },
+          { x: maxX, y: MARGIN },
+          { x: MARGIN, y: maxY },
+          { x: maxX, y: maxY },
+          { x: midX, y: MARGIN },
+          { x: midX, y: maxY },
+          { x: MARGIN, y: midY },
+          { x: maxX, y: midY },
+        ];
+        for (const bubble of bubbles) {
+          const zone = computeToolbarDockZone(bubble, vw, vh);
+          const size = zone === 'top' || zone === 'bottom' ? H_SIZE : V_SIZE;
+          const pos = computeExpandedToolbarPos(bubble, BUBBLE, size, zone, vw, vh);
+          expect(pos.x).toBeGreaterThanOrEqual(MARGIN);
+          expect(pos.y).toBeGreaterThanOrEqual(MARGIN);
+          expect(pos.x + size.w).toBeLessThanOrEqual(vw - MARGIN);
+          expect(pos.y + size.h).toBeLessThanOrEqual(vh - MARGIN);
+        }
+      });
+
+      it('canto inferior direito: a barra termina rente à bolinha (US-2601)', () => {
+        const bubble = { x: 1862, y: 1022 };
+        expect(computeToolbarDockZone(bubble, 1920, 1080)).toBe('bottom');
+        expect(computeExpandedToolbarPos(bubble, BUBBLE, H_SIZE, 'bottom', 1920, 1080)).toEqual({ x: 1474, y: 1020 });
+      });
+
+      it('ancora pelo lado da bolinha: topo à esquerda, direita por baixo, esquerda por cima (RF-2603)', () => {
+        expect(computeExpandedToolbarPos({ x: 300, y: 20 }, BUBBLE, H_SIZE, 'top', 1920, 1080)).toEqual({ x: 300, y: 20 });
+        expect(computeExpandedToolbarPos({ x: 1500, y: 20 }, BUBBLE, H_SIZE, 'top', 1920, 1080)).toEqual({
+          x: 1500 + 52 - 440,
+          y: 20,
+        });
+        expect(computeExpandedToolbarPos({ x: 1862, y: 700 }, BUBBLE, V_SIZE, 'right', 1920, 1080)).toEqual({
+          x: 1862 + 52 - 54,
+          y: 700 + 52 - 440,
+        });
+        expect(computeExpandedToolbarPos({ x: 20, y: 300 }, BUBBLE, V_SIZE, 'left', 1920, 1080)).toEqual({ x: 20, y: 300 });
+      });
+
+      it('clampToolbarPos limita à margem e fica na margem quando a barra não cabe', () => {
+        expect(clampToolbarPos({ x: 1900, y: 1070 }, H_SIZE, 1920, 1080)).toEqual({ x: 1474, y: 1020 });
+        expect(clampToolbarPos({ x: -50, y: -50 }, H_SIZE, 1920, 1080)).toEqual({ x: 6, y: 6 });
+        expect(clampToolbarPos({ x: 100, y: 100 }, V_SIZE, 1920, 400)).toEqual({ x: 100, y: 6 });
+      });
+    });
+
+    describe('componente', () => {
+      let stateSyncCb: (state: any) => void = () => {};
+      let shortcutCb: (cmd: any) => void = () => {};
+      let raisedHandsCb: (count: number) => void = () => {};
+
+      // jsdom não tem layout: a barra mede 52×52 recolhida e 460×54 / 54×480 aberta (diferente do tamanho de
+      // referência, para provar que a âncora usa o tamanho medido); o indicador de mãos soma 30px na horizontal.
+      const mockToolbarLayout = () =>
+        vi.spyOn(Element.prototype, 'getBoundingClientRect').mockImplementation(function (this: Element) {
+          const box = (left: number, top: number, width: number, height: number) =>
+            ({ left, top, width, height, right: left + width, bottom: top + height, x: left, y: top, toJSON: () => ({}) }) as DOMRect;
+          const el = this as HTMLElement;
+          if (el.getAttribute('data-testid') !== 'external-floating-toolbar') return box(0, 0, 0, 0);
+          const left = parseFloat(el.style.left) || 0;
+          const top = parseFloat(el.style.top) || 0;
+          if (el.getAttribute('data-collapsed') === 'true') return box(left, top, 52, 52);
+          const extra = el.querySelector('[data-testid="external-raised-hands"]') ? 30 : 0;
+          return el.getAttribute('data-orientation') === 'horizontal'
+            ? box(left, top, 460 + extra, 54)
+            : box(left, top, 54, 480);
+        });
+
+      const toolbar = () => screen.getByTestId('external-floating-toolbar');
+      const posOf = () => ({ x: parseFloat(toolbar().style.left), y: parseFloat(toolbar().style.top) });
+      const lastSynced = () => {
+        const calls = (window.electronAPI.syncAnnotationState as any).mock.calls;
+        return calls[calls.length - 1]?.[0];
+      };
+
+      // Arraste como no app: pointerdown no elemento, mousemove/mouseup na janela.
+      const drag = (el: HTMLElement, from: { x: number; y: number }, to: { x: number; y: number }) => {
+        act(() => {
+          el.dispatchEvent(
+            new MouseEvent('pointerdown', { bubbles: true, cancelable: true, button: 0, buttons: 0, clientX: from.x, clientY: from.y })
+          );
+        });
+        act(() => {
+          window.dispatchEvent(new MouseEvent('mousemove', { clientX: to.x, clientY: to.y, buttons: 0 }));
+        });
+        act(() => {
+          window.dispatchEvent(new MouseEvent('mouseup'));
+        });
+      };
+
+      /** Arrasta a bolinha até `target` (canto superior esquerdo) e descarta o clique que sucede o arraste. */
+      const dragBubbleTo = (target: { x: number; y: number }) => {
+        const start = posOf();
+        drag(screen.getByTestId('external-collapsed-btn'), { x: start.x + 10, y: start.y + 10 }, { x: target.x + 10, y: target.y + 10 });
+        fireEvent.click(screen.getByTestId('external-collapsed-btn'));
+      };
+
+      const minimize = () => fireEvent.click(screen.getByTestId('external-collapse-btn'));
+      const expand = () => fireEvent.click(screen.getByTestId('external-collapsed-btn'));
+
+      const expectInsideViewport = (vw: number, vh: number) => {
+        const r = toolbar().getBoundingClientRect();
+        expect(r.left).toBeGreaterThanOrEqual(MARGIN);
+        expect(r.top).toBeGreaterThanOrEqual(MARGIN);
+        expect(r.right).toBeLessThanOrEqual(vw - MARGIN);
+        expect(r.bottom).toBeLessThanOrEqual(vh - MARGIN);
+      };
+
+      beforeEach(() => {
+        window.electronAPI.onAnnotationStateSync = vi.fn().mockImplementation((cb) => {
+          stateSyncCb = cb;
+          return () => {};
+        });
+        window.electronAPI.onAnnotationShortcutCommand = vi.fn().mockImplementation((cb) => {
+          shortcutCb = cb;
+          return () => {};
+        });
+        window.electronAPI.onAnnotationRaisedHands = vi.fn().mockImplementation((cb) => {
+          raisedHandsCb = cb;
+          return () => {};
+        });
+      });
+
+      it('bolinha no canto inferior direito expande inteira na tela, rente ao canto (US-2601, RNF-2601, RNF-2602)', () => {
+        setViewport(1920, 1080);
+        mockToolbarLayout();
+        render(<FloatingAnnotationOverlay />);
+        minimize();
+        dragBubbleTo({ x: 1900, y: 1070 });
+        expect(posOf()).toEqual({ x: 1862, y: 1022 });
+
+        expand();
+        expect(toolbar()).toHaveAttribute('data-collapsed', 'false');
+        expect(toolbar()).toHaveAttribute('data-dock-zone', 'bottom');
+        expect(toolbar()).toHaveAttribute('data-orientation', 'horizontal');
+        // Âncora pelo tamanho medido (460): borda direita e inferior rentes às da bolinha.
+        expect(posOf()).toEqual({ x: 1862 + 52 - 460, y: 1022 + 52 - 54 });
+        expectInsideViewport(1920, 1080);
+        // O main recebe a posição visível e o hit-test do Linux o retângulo novo.
+        expect(lastSynced()).toEqual(expect.objectContaining({ collapsed: false, toolbarPos: { x: 1454, y: 1020 } }));
+        const rectCalls = (window.electronAPI.setAnnotationToolbarRect as any).mock.calls;
+        expect(rectCalls[rectCalls.length - 1][0]).toEqual({ x: 1454, y: 1020, width: 460, height: 54 });
+
+        // Popover de cores abre para dentro da tela (para cima, na base).
+        fireEvent.click(screen.getByTestId('external-tool-palette'));
+        expect(screen.getByTestId('external-palette-popover')).toHaveStyle({ bottom: '54px' });
+      });
+
+      it('mão levantada aumenta a barra e ela é limitada de novo à tela (RF-2604)', () => {
+        setViewport(1920, 1080);
+        mockToolbarLayout();
+        render(<FloatingAnnotationOverlay />);
+        minimize();
+        dragBubbleTo({ x: 1900, y: 1070 });
+        expand();
+        act(() => raisedHandsCb(2));
+        expect(posOf()).toEqual({ x: 1920 - 490 - MARGIN, y: 1020 });
+        expect(toolbar()).toHaveAttribute('data-orientation', 'horizontal');
+        expectInsideViewport(1920, 1080);
+      });
+
+      it('minimizar devolve a bolinha ao ponto, reexpandir volta à barra aberta e mover a bolinha ancora nela (US-2602)', () => {
+        setViewport(1920, 1080);
+        mockToolbarLayout();
+        render(<FloatingAnnotationOverlay />);
+        minimize();
+        dragBubbleTo({ x: 1900, y: 1070 });
+        expand();
+        expect(posOf()).toEqual({ x: 1454, y: 1020 });
+
+        // Arrasta a barra aberta para B (lateral esquerda: vira vertical).
+        drag(screen.getByTestId('external-drag-handle'), { x: 1460, y: 1030 }, { x: 806, y: 510 });
+        expect(posOf()).toEqual({ x: 800, y: 500 });
+        expect(toolbar()).toHaveAttribute('data-orientation', 'vertical');
+
+        // RF-2605/RF-2606: a bolinha volta para A, não para B.
+        minimize();
+        expect(posOf()).toEqual({ x: 1862, y: 1022 });
+        expect(lastSynced()).toEqual(expect.objectContaining({ collapsed: true, toolbarPos: { x: 1862, y: 1022 } }));
+
+        // RF-2602: sem mover a bolinha, a barra reabre em B com a orientação que tinha.
+        expand();
+        expect(posOf()).toEqual({ x: 800, y: 500 });
+        expect(toolbar()).toHaveAttribute('data-orientation', 'vertical');
+
+        // RF-2606: movida a bolinha, a próxima expansão ancora nela.
+        minimize();
+        dragBubbleTo({ x: 300, y: 20 });
+        expand();
+        expect(toolbar()).toHaveAttribute('data-dock-zone', 'top');
+        expect(posOf()).toEqual({ x: 300, y: 20 });
+      });
+
+      it('minimizar e expandir pela sincronização do MLab e pelo atalho usam as posições certas (RF-2605)', () => {
+        setViewport(1920, 1080);
+        mockToolbarLayout();
+        render(<FloatingAnnotationOverlay />);
+        minimize();
+        dragBubbleTo({ x: 1900, y: 1070 });
+        expand();
+        const expanded = posOf();
+        expect(expanded).toEqual({ x: 1454, y: 1020 });
+
+        // O main repassa o toolbarPos anterior (o da barra aberta); a bolinha volta ao ponto dela mesmo assim.
+        act(() => stateSyncCb({ ...lastSynced(), collapsed: true, toolbarPos: expanded }));
+        expect(toolbar()).toHaveAttribute('data-collapsed', 'true');
+        expect(posOf()).toEqual({ x: 1862, y: 1022 });
+        expect(lastSynced()).toEqual(expect.objectContaining({ collapsed: true, toolbarPos: { x: 1862, y: 1022 } }));
+
+        // O eco do main com a mesma posição não muda nada.
+        act(() => stateSyncCb({ ...lastSynced() }));
+        expect(posOf()).toEqual({ x: 1862, y: 1022 });
+
+        act(() => shortcutCb('toggle-collapse'));
+        expect(toolbar()).toHaveAttribute('data-collapsed', 'false');
+        expect(posOf()).toEqual(expanded);
+
+        act(() => shortcutCb('toggle-collapse'));
+        expect(toolbar()).toHaveAttribute('data-collapsed', 'true');
+        expect(posOf()).toEqual({ x: 1862, y: 1022 });
+      });
+
+      it('barra vertical na direita ancorada por baixo continua vertical em 1366×768 (RF-2604, C-2603)', () => {
+        setViewport(1366, 768);
+        mockToolbarLayout();
+        render(<FloatingAnnotationOverlay />);
+        minimize();
+        dragBubbleTo({ x: 1308, y: 540 });
+        expect(posOf()).toEqual({ x: 1308, y: 540 });
+
+        expand();
+        expect(toolbar()).toHaveAttribute('data-dock-zone', 'right');
+        expect(toolbar()).toHaveAttribute('data-orientation', 'vertical');
+        // O canto superior (y = 112) está na faixa do topo, mas a orientação fixada na expansão se mantém.
+        expect(posOf()).toEqual({ x: 1308 + 52 - 54, y: 540 + 52 - 480 });
+        expect(computeToolbarDockZone(posOf(), 1366, 768)).toBe('top');
+        expectInsideViewport(1366, 768);
+
+        // Popover de cores abre para a esquerda, para dentro da tela.
+        fireEvent.click(screen.getByTestId('external-tool-palette'));
+        expect(screen.getByTestId('external-palette-popover')).toHaveStyle({ right: '54px' });
+      });
     });
   });
 });

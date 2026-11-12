@@ -23,18 +23,18 @@ Checks:
 - [x] `toolbarPos` enviado ao main é sempre a posição visível (RNF-2601); testes existentes verdes.
 
 ### T2602 — Testes da barra nos cantos
-[ ] T2602
+[x] T2602
 Depends On: T2601
 Allowed Paths: `apps/desktop/src/renderer/components/FloatingAnnotationOverlay.test.tsx`
 Prohibited Paths: `apps/desktop/src/renderer/components/FloatingAnnotationOverlay.tsx`, `apps/desktop/src/main/**`,
 `apps/desktop/src/renderer/pages/**`, `packages/**`, `apps/web/**`, `apps/backend/**`, `package.json`
 Checks:
-- [ ] Unitários: bolinha nos quatro cantos e bordas, em 1920×1080 e 1366×768, expande dentro da tela e com a orientação
+- [x] Unitários: bolinha nos quatro cantos e bordas, em 1920×1080 e 1366×768, expande dentro da tela e com a orientação
   da zona da bolinha (RF-2603, RF-2604).
-- [ ] Componente: canto inferior direito expande dentro; arrastar barra aberta e minimizar devolve a bolinha; reexpandir
+- [x] Componente: canto inferior direito expande dentro; arrastar barra aberta e minimizar devolve a bolinha; reexpandir
   sem mover volta à barra aberta; mover a bolinha e reexpandir ancora; minimizar por sync e por atalho restaura;
   popover dentro da tela; barra vertical ancorada pela base continua vertical (RF-2601 a RF-2606).
-- [ ] `npm run test -w apps/desktop` e `npm run lint` verdes.
+- [x] `npm run test -w apps/desktop` e `npm run lint` verdes.
 
 ### T2603 — Verificação manual no Windows
 [ ] T2603
