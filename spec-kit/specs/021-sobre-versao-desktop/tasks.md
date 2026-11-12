@@ -25,7 +25,7 @@ Checks:
 - [x] Canal na tabela Renderer → Main de `desktop-ipc.md`, "em vigor desde 021 (T2101)" (RNF-2102).
 
 ### T2102 — Hook `useAppInfo` e componente `AppInfoFooter`
-[ ] T2102
+[x] T2102
 Depends On: T2101
 Allowed Paths: `apps/desktop/src/renderer/hooks/useAppInfo.ts`, `apps/desktop/src/renderer/hooks/useAppInfo.test.ts`,
 `apps/desktop/src/renderer/components/AppInfoFooter.tsx`,
@@ -33,11 +33,11 @@ Allowed Paths: `apps/desktop/src/renderer/hooks/useAppInfo.ts`, `apps/desktop/sr
 Prohibited Paths: `apps/desktop/src/main/**`, `apps/desktop/src/renderer/pages/**`,
 `apps/desktop/src/renderer/services/**`, `apps/desktop/package.json`, `packages/**`, `package.json`
 Checks:
-- [ ] Hook devolve o `AppInfo` e vira `null` quando o IPC falha (RF-2107).
-- [ ] Rodapé "MLab vX.Y.Z" com o botão "Sobre" (RF-2101, RF-2102).
-- [ ] Diálogo com nome, versão, descrição e copyright; fecha por "Fechar" e por Esc (RF-2102, RF-2103).
-- [ ] `role="dialog"`, `aria-modal`, `aria-labelledby` (RNF-2104).
-- [ ] Sem `AppInfo`, nada é renderizado (RF-2107).
+- [x] Hook devolve o `AppInfo` e vira `null` quando o IPC falha (RF-2107).
+- [x] Rodapé "MLab vX.Y.Z" com o botão "Sobre" (RF-2101, RF-2102).
+- [x] Diálogo com nome, versão, descrição e copyright; fecha por "Fechar" e por Esc (RF-2102, RF-2103).
+- [x] `role="dialog"`, `aria-modal`, `aria-labelledby` (RNF-2104).
+- [x] Sem `AppInfo`, nada é renderizado (RF-2107).
 
 ### T2103 — Rodapé nas telas de identificação e dashboard
 [ ] T2103
