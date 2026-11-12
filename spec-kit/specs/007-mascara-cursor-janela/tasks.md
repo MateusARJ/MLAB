@@ -99,7 +99,7 @@ Checks:
   confirmado pelo responsável em 2026-11-03.
 
 ### T710 — Lupa no modo janela segue a regra do cursor (C-705, issue #70)
-[ ] T710
+[x] T710
 Depends On: T709
 Allowed Paths: `apps/desktop/src/renderer/media/cursorMaskPolicy.ts`, `apps/desktop/src/renderer/media/cursorMaskPolicy.test.ts`, `apps/desktop/src/renderer/media/cursorMask.worker.ts`, `spec-kit/specs/003-classroom-interaction/spec.md`, `docs/metrics/smoke-runbook.md`
 Prohibited Paths: `apps/desktop/src/main/**`, `apps/desktop/src/shared/**`, `apps/desktop/src/renderer/hooks/**`, `apps/desktop/src/renderer/pages/**`, `apps/desktop/src/renderer/components/**`, `apps/backend/**`, `apps/web/**`, `packages/**`
@@ -111,8 +111,8 @@ Checks:
 - [x] Worker desenha a lupa só com `path.drawSpotlight`; traços inalterados (`2a2e1dc`; `turbo run build test lint
   --force` verde em 2026-11-11, desktop com 244 testes).
 - [x] US-19 da 003 com nota apontando a 007 (C-705); A12 do runbook com o passo da lupa com outra janela em foco.
-- [ ] Teste manual do professor: com outra janela em foco e a lupa ligada, o aluno não vê a lupa; de volta à janela
-  transmitida, a lupa aparece e acompanha o ponteiro.
+- [x] Teste manual do professor: com outra janela em foco e a lupa ligada, o aluno não vê a lupa; de volta à janela
+  transmitida, a lupa aparece e acompanha o ponteiro — confirmado pelo responsável em 2026-11-11.
 
 ### T705 — Medição A/B e smoke A12 (manual)
 [ ] T705

@@ -99,4 +99,4 @@ janela transmitida. Verificado no código: o worker desenha a lupa sem consultar
 ## 6. Resultado
 
 - [ ] FAIL
-- [x] PASS — próxima execução: T710; depois T705 (medição A/B e smoke A12) e T706 (converge).
+- [x] PASS — próxima execução: T705 (medição A/B e smoke A12); depois T706 (converge). A T710 foi concluída.
