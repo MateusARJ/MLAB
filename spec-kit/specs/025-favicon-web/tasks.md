@@ -21,16 +21,16 @@ Checks:
 - [x] Prévia conferida em 16, 32 e 180px sobre fundo branco e escuro.
 
 ### T2502 — Links no index.html e teste
-[ ] T2502
+[x] T2502
 Depends On: T2501
 Allowed Paths: `apps/web/index.html`, `apps/web/src/favicon.test.ts`
 Prohibited Paths: `apps/web/public/**`, `apps/web/src/pages/**`, `apps/web/src/components/**`, `apps/desktop/**`,
 `apps/backend/**`, `packages/**`, `package.json`
 Checks:
-- [ ] `index.html` declara o PNG 32×32, o SVG e o `apple-touch-icon`; não referencia mais `MLAB-logo.png` como ícone
+- [x] `index.html` declara o PNG 32×32, o SVG e o `apple-touch-icon`; não referencia mais `MLAB-logo.png` como ícone
   (RF-2504).
-- [ ] `favicon.test.ts` cobre links, existência dos arquivos, SVG sem texto e tamanhos dos PNGs (§11).
-- [ ] `npm run test -w apps/web`, `npm run lint` e `npm run build -w apps/web` verdes; os três ícones estão em `dist/`.
+- [x] `favicon.test.ts` cobre links, existência dos arquivos, SVG sem texto e tamanhos dos PNGs (§11).
+- [x] `npm run test -w apps/web`, `npm run lint` e `npm run build -w apps/web` verdes; os três ícones estão em `dist/`.
 
 ### T2503 — Verificação manual nos navegadores
 [ ] T2503
