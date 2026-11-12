@@ -145,6 +145,9 @@ contratos, testes e tarefas rastreáveis.
   - **Nota (017-maos-na-barra-marcacao):** com mão levantada, a barra mostra o indicador de mãos levantadas e a
     borda de destaque, expandida ou recolhida. Em tela cheia, a barra e o indicador entram no vídeo dos alunos
     (RN-171 da 017; ver a nota #62 acima).
+  - **Nota (026-barra-flutuante-cantos, #78):** a barra recolhida (bolinha) e a barra aberta guardam posições
+    independentes na sessão; ao expandir, a barra abre ancorada à bolinha e inteira na tela, e ao recolher a bolinha
+    volta ao ponto dela.
 
 ### US-20 — Cursor contextual e rastreamento de janelas
 

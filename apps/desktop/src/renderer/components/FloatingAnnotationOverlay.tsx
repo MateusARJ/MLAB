@@ -54,6 +54,113 @@ export function computeToolbarDockZone(
   return pos.x >= vw / 2 ? 'right' : 'left';
 }
 
+/** 026/RF-2604: margem mínima entre a barra e a borda da tela (a mesma do arraste). */
+export const TOOLBAR_EDGE_MARGIN = 6;
+
+type ToolbarPoint = { x: number; y: number };
+type ToolbarSize = { w: number; h: number };
+
+/** Tamanhos usados quando a barra ainda não pôde ser medida (ex.: jsdom). */
+const COLLAPSED_FALLBACK_SIZE: ToolbarSize = { w: 52, h: 52 };
+
+function expandedFallbackSize(zone: ToolbarDockZone): ToolbarSize {
+  return zone === 'top' || zone === 'bottom' ? { w: 440, h: 54 } : { w: 54, h: 440 };
+}
+
+/** 026/RF-2604: mantém o retângulo inteiro na tela; se ele não couber, fica na margem superior/esquerda. */
+export function clampToolbarPos(
+  pos: ToolbarPoint,
+  size: ToolbarSize,
+  viewportW: number,
+  viewportH: number,
+  margin: number = TOOLBAR_EDGE_MARGIN
+): ToolbarPoint {
+  const vw = viewportW > 0 ? viewportW : 1920;
+  const vh = viewportH > 0 ? viewportH : 1080;
+  return {
+    x: Math.max(margin, Math.min(Math.max(margin, vw - size.w - margin), Math.round(pos.x))),
+    y: Math.max(margin, Math.min(Math.max(margin, vh - size.h - margin), Math.round(pos.y))),
+  };
+}
+
+/**
+ * 026/RF-2603: posição da barra aberta ancorada à bolinha, crescendo para dentro da tela.
+ * Horizontal (topo/base): alinha à direita da bolinha se o centro dela está na metade direita; na base, alinha por baixo.
+ * Vertical (esquerda/direita): na direita alinha à direita da bolinha; alinha por baixo se o centro está na metade de baixo.
+ */
+export function computeExpandedToolbarPos(
+  bubblePos: ToolbarPoint,
+  bubbleSize: ToolbarSize,
+  barSize: ToolbarSize,
+  zone: ToolbarDockZone,
+  viewportW: number,
+  viewportH: number
+): ToolbarPoint {
+  const vw = viewportW > 0 ? viewportW : 1920;
+  const vh = viewportH > 0 ? viewportH : 1080;
+  const centerX = bubblePos.x + bubbleSize.w / 2;
+  const centerY = bubblePos.y + bubbleSize.h / 2;
+  const alignRight = zone === 'top' || zone === 'bottom' ? centerX >= vw / 2 : zone === 'right';
+  const alignBottom = zone === 'top' || zone === 'bottom' ? zone === 'bottom' : centerY >= vh / 2;
+  const raw = {
+    x: alignRight ? bubblePos.x + bubbleSize.w - barSize.w : bubblePos.x,
+    y: alignBottom ? bubblePos.y + bubbleSize.h - barSize.h : bubblePos.y,
+  };
+  return clampToolbarPos(raw, barSize, vw, vh);
+}
+
+function isFinitePoint(value: unknown): value is ToolbarPoint {
+  const v = value as ToolbarPoint | null;
+  return (
+    !!v &&
+    typeof v.x === 'number' &&
+    typeof v.y === 'number' &&
+    Number.isFinite(v.x) &&
+    Number.isFinite(v.y)
+  );
+}
+
+const STORAGE_BUBBLE_POS_KEY = 'mlab.floatingToolbarBubblePos';
+const STORAGE_EXPANDED_KEY = 'mlab.floatingToolbarExpanded';
+const DOCK_ZONES: ToolbarDockZone[] = ['top', 'bottom', 'left', 'right'];
+
+type ExpandedToolbarLayout = { x: number; y: number; zone: ToolbarDockZone };
+
+function readSessionJson(key: string): unknown {
+  try {
+    if (typeof window !== 'undefined' && window.sessionStorage) {
+      const raw = window.sessionStorage.getItem(key);
+      return raw ? JSON.parse(raw) : null;
+    }
+  } catch {}
+  return null;
+}
+
+function writeSessionJson(key: string, value: unknown): void {
+  try {
+    if (typeof window !== 'undefined' && window.sessionStorage) {
+      if (value === null) {
+        window.sessionStorage.removeItem(key);
+      } else {
+        window.sessionStorage.setItem(key, JSON.stringify(value));
+      }
+    }
+  } catch {}
+}
+
+function loadBubblePos(fallback: ToolbarPoint): ToolbarPoint {
+  const parsed = readSessionJson(STORAGE_BUBBLE_POS_KEY);
+  return isFinitePoint(parsed) ? { x: parsed.x, y: parsed.y } : fallback;
+}
+
+function loadExpandedLayout(): ExpandedToolbarLayout | null {
+  const parsed = readSessionJson(STORAGE_EXPANDED_KEY) as ExpandedToolbarLayout | null;
+  if (isFinitePoint(parsed) && DOCK_ZONES.includes(parsed.zone)) {
+    return { x: parsed.x, y: parsed.y, zone: parsed.zone };
+  }
+  return null;
+}
+
 function loadInitialToolbarPos(): { x: number; y: number } {
   try {
     if (typeof window !== 'undefined' && window.sessionStorage) {
@@ -122,6 +229,29 @@ export const FloatingAnnotationOverlay: React.FC = () => {
   const toolbarPosRef = useRef<{ x: number; y: number }>(toolbarPos);
   toolbarPosRef.current = toolbarPos;
 
+  // 026/RF-2601: a bolinha e a barra aberta guardam posições independentes (só na sessão). `toolbarPos` continua
+  // sendo a posição visível atual, a que vai ao main (RNF-2601).
+  const [initialLayout] = useState(() => ({
+    bubble: loadBubblePos(toolbarPos),
+    expanded: loadExpandedLayout(),
+  }));
+  const bubblePosRef = useRef<ToolbarPoint>(initialLayout.bubble);
+  const expandedLayoutRef = useRef<ExpandedToolbarLayout | null>(initialLayout.expanded);
+  // 026/C-2603: orientação da barra aberta fixada na expansão; só muda no arraste ou com posição nova vinda do sync.
+  const [expandedZone, setExpandedZone] = useState<ToolbarDockZone | null>(() =>
+    initialLayout.expanded &&
+    initialLayout.expanded.x === toolbarPos.x &&
+    initialLayout.expanded.y === toolbarPos.y
+      ? initialLayout.expanded.zone
+      : null
+  );
+  const expandedZoneRef = useRef<ToolbarDockZone | null>(expandedZone);
+  expandedZoneRef.current = expandedZone;
+  // 026/RF-2603: âncora a refazer com o tamanho real da barra aberta, medido depois de renderizar.
+  const pendingAnchorRef = useRef<{ bubble: ToolbarPoint; bubbleSize: ToolbarSize; zone: ToolbarDockZone } | null>(
+    null
+  );
+
   const mlabFocusedRef = useRef<boolean>(mlabFocused);
   mlabFocusedRef.current = mlabFocused;
 
@@ -180,6 +310,80 @@ export const FloatingAnnotationOverlay: React.FC = () => {
       window.electronAPI.syncAnnotationState(withPos).catch(() => {});
     }
   }, []);
+
+  const setVisibleToolbarPos = useCallback((pos: ToolbarPoint) => {
+    toolbarPosRef.current = pos;
+    setToolbarPos(pos);
+    saveToolbarPos(pos);
+  }, []);
+
+  const saveBubblePos = useCallback((pos: ToolbarPoint) => {
+    bubblePosRef.current = pos;
+    writeSessionJson(STORAGE_BUBBLE_POS_KEY, pos);
+  }, []);
+
+  const saveExpandedLayout = useCallback((layout: ExpandedToolbarLayout | null) => {
+    expandedLayoutRef.current = layout;
+    writeSessionJson(STORAGE_EXPANDED_KEY, layout);
+  }, []);
+
+  const setFixedExpandedZone = useCallback((zone: ToolbarDockZone | null) => {
+    expandedZoneRef.current = zone;
+    setExpandedZone(zone);
+  }, []);
+
+  const measureToolbar = useCallback((): ToolbarSize | null => {
+    const el = toolbarRef.current;
+    if (!el) return null;
+    const r = el.getBoundingClientRect();
+    return r.width > 0 && r.height > 0 ? { w: Math.ceil(r.width), h: Math.ceil(r.height) } : null;
+  }, []);
+
+  /**
+   * 026: ponto único de troca entre bolinha e barra aberta (botão, clique na bolinha, atalho, tecla `h` e sync).
+   * Minimizar guarda a barra aberta e devolve a bolinha ao ponto dela (RF-2605); expandir reabre a barra na posição
+   * salva (RF-2602) ou ancorada à bolinha (RF-2603). Deve ser chamada com `stateRef.current` ainda no estado anterior.
+   */
+  const applyCollapsedTransition = useCallback(
+    (base: AnnotationSessionState, nextCollapsed: boolean): AnnotationSessionState => {
+      const wasCollapsed = stateRef.current.collapsed;
+      if (wasCollapsed === nextCollapsed) {
+        return { ...base, collapsed: nextCollapsed, toolbarPos: toolbarPosRef.current };
+      }
+      const vw = window.innerWidth > 0 ? window.innerWidth : 1920;
+      const vh = window.innerHeight > 0 ? window.innerHeight : 1080;
+
+      if (nextCollapsed) {
+        const zone = expandedZoneRef.current ?? computeToolbarDockZone(toolbarPosRef.current, vw, vh);
+        saveExpandedLayout({ x: toolbarPosRef.current.x, y: toolbarPosRef.current.y, zone });
+        pendingAnchorRef.current = null;
+        const bubble = clampToolbarPos(bubblePosRef.current, COLLAPSED_FALLBACK_SIZE, vw, vh);
+        saveBubblePos(bubble);
+        setVisibleToolbarPos(bubble);
+        return { ...base, collapsed: true, toolbarPos: bubble };
+      }
+
+      const bubble = bubblePosRef.current;
+      const bubbleSize = measureToolbar() ?? COLLAPSED_FALLBACK_SIZE;
+      const saved = expandedLayoutRef.current;
+      let zone: ToolbarDockZone;
+      let pos: ToolbarPoint;
+      if (saved) {
+        zone = saved.zone;
+        pos = clampToolbarPos(saved, expandedFallbackSize(zone), vw, vh);
+        pendingAnchorRef.current = null;
+      } else {
+        zone = computeToolbarDockZone(bubble, vw, vh);
+        pos = computeExpandedToolbarPos(bubble, bubbleSize, expandedFallbackSize(zone), zone, vw, vh);
+        pendingAnchorRef.current = { bubble, bubbleSize, zone };
+      }
+      setFixedExpandedZone(zone);
+      saveExpandedLayout({ x: pos.x, y: pos.y, zone });
+      setVisibleToolbarPos(pos);
+      return { ...base, collapsed: false, toolbarPos: pos };
+    },
+    [measureToolbar, saveBubblePos, saveExpandedLayout, setFixedExpandedZone, setVisibleToolbarPos]
+  );
 
   const updateIgnoreMouse = useCallback((tool: AnnotationTool, insideMlab?: boolean) => {
     if (!window.electronAPI || typeof window.electronAPI.setAnnotationOverlayIgnoreMouse !== 'function') {
@@ -284,10 +488,7 @@ export const FloatingAnnotationOverlay: React.FC = () => {
       } else if (action === 'toggle-collapse') {
         setShowPalettePopover(false);
         const cur = stateRef.current;
-        pushStateToMain({
-          ...cur,
-          collapsed: !cur.collapsed,
-        });
+        pushStateToMain(applyCollapsedTransition(cur, !cur.collapsed));
       } else if (action === 'undo') {
         const cur = stateRef.current;
         if (cur.strokes.length > 0) {
@@ -323,7 +524,7 @@ export const FloatingAnnotationOverlay: React.FC = () => {
         unsub();
       } catch {}
     };
-  }, [handleSelectTool, handleToggleSpotlight, pushStateToMain]);
+  }, [handleSelectTool, handleToggleSpotlight, pushStateToMain, applyCollapsedTransition]);
 
   // Recebe sincronização de estado vinda da janela principal (Room.tsx)
   useEffect(() => {
@@ -333,17 +534,35 @@ export const FloatingAnnotationOverlay: React.FC = () => {
         ...incoming,
         collapsed: Boolean(incoming.collapsed),
       };
+      // 026/RF-2605: a troca de `collapsed` vinda do MLab passa pela mesma transição; o `toolbarPos` recebido é o
+      // anterior, repassado pelo main, e é substituído pela posição calculada aqui.
+      if (normalized.collapsed !== stateRef.current.collapsed && !isDraggingToolbarRef.current) {
+        setShowPalettePopover(false);
+        const next = applyCollapsedTransition(normalized, normalized.collapsed);
+        pushStateToMain(next);
+        updateIgnoreMouse(next.activeTool);
+        return;
+      }
       stateRef.current = normalized;
       setSessionState(normalized);
+      const pos = incoming.toolbarPos;
+      // O eco do main traz a posição atual: só uma posição diferente é aplicada (C-2603).
       if (
         !isDraggingToolbarRef.current &&
-        incoming.toolbarPos &&
-        typeof incoming.toolbarPos.x === 'number' &&
-        typeof incoming.toolbarPos.y === 'number'
+        isFinitePoint(pos) &&
+        (pos.x !== toolbarPosRef.current.x || pos.y !== toolbarPosRef.current.y)
       ) {
-        toolbarPosRef.current = incoming.toolbarPos;
-        setToolbarPos(incoming.toolbarPos);
-        saveToolbarPos(incoming.toolbarPos);
+        const nextPos = { x: pos.x, y: pos.y };
+        setVisibleToolbarPos(nextPos);
+        if (normalized.collapsed) {
+          saveBubblePos(nextPos);
+        } else {
+          const vw = window.innerWidth > 0 ? window.innerWidth : 1920;
+          const vh = window.innerHeight > 0 ? window.innerHeight : 1080;
+          const zone = computeToolbarDockZone(nextPos, vw, vh);
+          setFixedExpandedZone(zone);
+          saveExpandedLayout({ ...nextPos, zone });
+        }
       }
       updateIgnoreMouse(normalized.activeTool);
     });
@@ -352,7 +571,15 @@ export const FloatingAnnotationOverlay: React.FC = () => {
         unsub();
       } catch {}
     };
-  }, [updateIgnoreMouse]);
+  }, [
+    updateIgnoreMouse,
+    applyCollapsedTransition,
+    pushStateToMain,
+    setVisibleToolbarPos,
+    saveBubblePos,
+    saveExpandedLayout,
+    setFixedExpandedZone,
+  ]);
 
   // 017/RF-171, RF-176: quantidade de mãos levantadas (só o número), vinda da janela do MLab pelo main.
   // Valores que não são inteiros ≥ 0 são ignorados e o indicador mantém o último válido (RNF-172).
@@ -539,10 +766,7 @@ export const FloatingAnnotationOverlay: React.FC = () => {
       } else if (key === 'h') {
         e.preventDefault();
         setShowPalettePopover(false);
-        pushStateToMain({
-          ...cur,
-          collapsed: !cur.collapsed,
-        });
+        pushStateToMain(applyCollapsedTransition(cur, !cur.collapsed));
       }
     };
 
@@ -564,7 +788,7 @@ export const FloatingAnnotationOverlay: React.FC = () => {
       window.removeEventListener('keydown', handleKeyDown);
       window.removeEventListener('keyup', handleKeyUp);
     };
-  }, [handleSelectTool, handleToggleSpotlight, pushStateToMain, updateIgnoreMouse]);
+  }, [handleSelectTool, handleToggleSpotlight, pushStateToMain, updateIgnoreMouse, applyCollapsedTransition]);
 
   // Renderiza as marcações e a Lupa no canvas transparente (capturado diretamente pelo WGC em modo Tela Cheia)
   const renderOverlayCanvas = useCallback(() => {
@@ -754,6 +978,18 @@ export const FloatingAnnotationOverlay: React.FC = () => {
       window.removeEventListener('pointercancel', handleWindowUp);
 
       saveToolbarPos(toolbarPosRef.current);
+      // 026/RF-2606: o arraste só muda a posição do modo atual. Mover a bolinha faz a próxima expansão ancorar nela.
+      if (stateRef.current.collapsed) {
+        saveBubblePos(toolbarPosRef.current);
+        if (dragStartOffsetRef.current.moved) {
+          saveExpandedLayout(null);
+        }
+      } else if (dragStartOffsetRef.current.moved) {
+        const zone =
+          expandedZoneRef.current ??
+          computeToolbarDockZone(toolbarPosRef.current, window.innerWidth, window.innerHeight);
+        saveExpandedLayout({ ...toolbarPosRef.current, zone });
+      }
       pushStateToMain({
         ...stateRef.current,
         toolbarPos: toolbarPosRef.current,
@@ -804,6 +1040,10 @@ export const FloatingAnnotationOverlay: React.FC = () => {
       const nextPos = { x: nextX, y: nextY };
       toolbarPosRef.current = nextPos;
       setToolbarPos(nextPos);
+      if (!isCol && dragStartOffsetRef.current.moved) {
+        // C-2603: arrastar a barra aberta recalcula a orientação pela posição, como antes da 026.
+        setFixedExpandedZone(computeToolbarDockZone(nextPos, vw, vh));
+      }
     };
 
     const handleWindowUp = () => {
@@ -834,11 +1074,7 @@ export const FloatingAnnotationOverlay: React.FC = () => {
     const cur = stateRef.current;
     dragStartOffsetRef.current.moved = false;
     setShowPalettePopover(false);
-    pushStateToMain({
-      ...cur,
-      collapsed: true,
-      toolbarPos: toolbarPosRef.current,
-    });
+    pushStateToMain(applyCollapsedTransition(cur, true));
   };
 
   // Chamado ao clicar no ícone redondo compacto quando a barra está minimizada
@@ -851,11 +1087,7 @@ export const FloatingAnnotationOverlay: React.FC = () => {
     }
     dragStartOffsetRef.current.moved = false;
     setShowPalettePopover(false);
-    pushStateToMain({
-      ...cur,
-      collapsed: false,
-      toolbarPos: toolbarPosRef.current,
-    });
+    pushStateToMain(applyCollapsedTransition(cur, false));
   };
 
   const getNormalizedPoint = (e: React.MouseEvent<HTMLCanvasElement>): AnnotationPoint => {
@@ -959,7 +1191,9 @@ export const FloatingAnnotationOverlay: React.FC = () => {
   const vw = typeof window !== 'undefined' && window.innerWidth > 0 ? window.innerWidth : 1920;
   const vh = typeof window !== 'undefined' && window.innerHeight > 0 ? window.innerHeight : 1080;
 
-  const dockZone = computeToolbarDockZone(toolbarPos, vw, vh);
+  // 026/C-2603: a barra aberta usa a orientação fixada na expansão; a bolinha segue a posição, como antes.
+  const dockZone =
+    !sessionState.collapsed && expandedZone ? expandedZone : computeToolbarDockZone(toolbarPos, vw, vh);
   const isHorizontal = dockZone === 'top' || dockZone === 'bottom';
   const orientation = isHorizontal ? 'horizontal' : 'vertical';
 
@@ -1051,6 +1285,43 @@ export const FloatingAnnotationOverlay: React.FC = () => {
     raisedHands,
     vw,
     vh,
+  ]);
+
+  // 026/RF-2603, RF-2604: com o tamanho real medido, refaz a âncora da expansão ou limita a barra à tela (ex.: quando o
+  // indicador de mãos aumenta a barra). Só atualiza quando a posição muda, e a orientação fixada não é recalculada.
+  useLayoutEffect(() => {
+    if (isDraggingToolbarRef.current) return;
+    const pending = pendingAnchorRef.current;
+    if (!collapsed) {
+      pendingAnchorRef.current = null;
+    }
+    const size = measureToolbar();
+    if (!size) return;
+    const cur = toolbarPosRef.current;
+    const next =
+      !collapsed && pending
+        ? computeExpandedToolbarPos(pending.bubble, pending.bubbleSize, size, pending.zone, vw, vh)
+        : clampToolbarPos(cur, size, vw, vh);
+    if (next.x === cur.x && next.y === cur.y) return;
+    setVisibleToolbarPos(next);
+    if (collapsed) {
+      saveBubblePos(next);
+    } else {
+      saveExpandedLayout({ ...next, zone: expandedZoneRef.current ?? computeToolbarDockZone(next, vw, vh) });
+    }
+    pushStateToMain({ ...stateRef.current, toolbarPos: next });
+  }, [
+    collapsed,
+    toolbarPos,
+    raisedHands,
+    expandedZone,
+    vw,
+    vh,
+    measureToolbar,
+    setVisibleToolbarPos,
+    saveBubblePos,
+    saveExpandedLayout,
+    pushStateToMain,
   ]);
 
   useEffect(() => {

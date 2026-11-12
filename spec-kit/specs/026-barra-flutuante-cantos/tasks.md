@@ -9,18 +9,18 @@ Regras:
 - um commit atômico por task, com `Ref: T260x` e `Refs #78`.
 
 ### T2601 — Posições separadas, âncora e limite à tela
-[ ] T2601
+[x] T2601
 Allowed Paths: `apps/desktop/src/renderer/components/FloatingAnnotationOverlay.tsx`,
 `spec-kit/specs/003-classroom-interaction/spec.md` (só a nota da 026)
 Prohibited Paths: `apps/desktop/src/main/**`, `apps/desktop/src/preload/**`, `apps/desktop/src/renderer/pages/**`,
 `packages/**`, `apps/web/**`, `apps/backend/**`, `package.json`
 Checks:
-- [ ] `clampToolbarPos` e `computeExpandedToolbarPos` exportadas com as regras da RF-2603/RF-2604.
-- [ ] Posições da bolinha e da barra aberta separadas em `sessionStorage` (RF-2601).
-- [ ] Transição única para botão, bolinha, `toggle-collapse`, tecla `h` e sincronização (RF-2602, RF-2605).
-- [ ] Arrastar a bolinha invalida a posição salva da barra aberta; arrastar a barra aberta só muda a dela (RF-2606).
-- [ ] Orientação da barra aberta fixada na expansão; ajuste pelo tamanho medido sem trocar a orientação (RF-2604).
-- [ ] `toolbarPos` enviado ao main é sempre a posição visível (RNF-2601); testes existentes verdes.
+- [x] `clampToolbarPos` e `computeExpandedToolbarPos` exportadas com as regras da RF-2603/RF-2604.
+- [x] Posições da bolinha e da barra aberta separadas em `sessionStorage` (RF-2601).
+- [x] Transição única para botão, bolinha, `toggle-collapse`, tecla `h` e sincronização (RF-2602, RF-2605).
+- [x] Arrastar a bolinha invalida a posição salva da barra aberta; arrastar a barra aberta só muda a dela (RF-2606).
+- [x] Orientação da barra aberta fixada na expansão; ajuste pelo tamanho medido sem trocar a orientação (RF-2604).
+- [x] `toolbarPos` enviado ao main é sempre a posição visível (RNF-2601); testes existentes verdes.
 
 ### T2602 — Testes da barra nos cantos
 [ ] T2602
