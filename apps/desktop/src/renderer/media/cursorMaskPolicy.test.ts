@@ -4,6 +4,7 @@ import {
   CursorTrail,
   decideFramePath,
   FrameBudgetGuard,
+  shouldDrawSpotlight,
   shouldMaskCursor,
   unionRect,
 } from './cursorMaskPolicy';
@@ -33,16 +34,17 @@ const STROKE = { id: 's1', tool: 'pen', color: '#f00', size: 4, points: [{ x: 0.
 describe('cursorMaskPolicy', () => {
   it('repassa sem composição quando o cursor está visível e não há anotação (RF-702)', () => {
     const cursor: CursorState = { visible: true, rect: RECT };
-    expect(decideFramePath(maskOf(cursor), annotations(), false)).toEqual({
+    expect(decideFramePath(maskOf(cursor), annotations(), false, cursor)).toEqual({
       compose: false,
       maskCursor: false,
       drawAnnotations: false,
+      drawSpotlight: false,
     });
   });
 
   it('repassa sem composição quando o cursor está oculto mas fora da fonte (rect nulo)', () => {
     const cursor: CursorState = { visible: false, rect: null };
-    expect(decideFramePath(maskOf(cursor), annotations(), false).compose).toBe(false);
+    expect(decideFramePath(maskOf(cursor), annotations(), false, cursor).compose).toBe(false);
   });
 
   it('não mascara retângulo sem área', () => {
@@ -51,40 +53,43 @@ describe('cursorMaskPolicy', () => {
 
   it('compõe e mascara quando o cursor está oculto dentro da fonte (RF-701)', () => {
     const cursor: CursorState = { visible: false, rect: RECT };
-    expect(decideFramePath(maskOf(cursor), annotations(), false)).toEqual({
+    expect(decideFramePath(maskOf(cursor), annotations(), false, cursor)).toEqual({
       compose: true,
       maskCursor: true,
       drawAnnotations: false,
+      drawSpotlight: false,
     });
   });
 
   it('não mascara quando a máscara está suspensa pela proteção de FPS (RF-703)', () => {
     const cursor: CursorState = { visible: false, rect: RECT };
-    expect(decideFramePath(maskOf(cursor), annotations(), true).compose).toBe(false);
+    expect(decideFramePath(maskOf(cursor), annotations(), true, cursor).compose).toBe(false);
   });
 
   it('suspensão da máscara não afeta as anotações (C-701)', () => {
     const cursor: CursorState = { visible: false, rect: RECT };
-    expect(decideFramePath(maskOf(cursor), annotations({ strokes: [STROKE] }), true)).toEqual({
+    expect(decideFramePath(maskOf(cursor), annotations({ strokes: [STROKE] }), true, cursor)).toEqual({
       compose: true,
       maskCursor: false,
       drawAnnotations: true,
+      drawSpotlight: false,
     });
   });
 
   it('desenha anotações no worker no modo janela', () => {
     const cursor: CursorState = { visible: true, rect: RECT };
-    expect(decideFramePath(maskOf(cursor), annotations({ strokes: [STROKE] }), false)).toEqual({
+    expect(decideFramePath(maskOf(cursor), annotations({ strokes: [STROKE] }), false, cursor)).toEqual({
       compose: true,
       maskCursor: false,
       drawAnnotations: true,
+      drawSpotlight: false,
     });
   });
 
   it('não desenha anotações no worker quando a tela cheia já as captura nativamente', () => {
     const cursor: CursorState = { visible: true, rect: RECT };
     const ann = annotations({ strokes: [STROKE], captureMode: 'screen', externalOverlayActive: true });
-    expect(decideFramePath(maskOf(cursor), ann, false).drawAnnotations).toBe(false);
+    expect(decideFramePath(maskOf(cursor), ann, false, cursor).drawAnnotations).toBe(false);
   });
 
   it('desenha a Lupa com ampliação no worker mesmo na tela cheia com overlay', () => {
@@ -94,7 +99,95 @@ describe('cursorMaskPolicy', () => {
       externalOverlayActive: true,
       spotlight: { enabled: true, x: 0.5, y: 0.5, radius: 0.14, zoom: 2, activeInViewer: false },
     });
-    expect(decideFramePath(maskOf(cursor), ann, false).drawAnnotations).toBe(true);
+    expect(decideFramePath(maskOf(cursor), ann, false, cursor).drawAnnotations).toBe(true);
+  });
+});
+
+describe('Lupa no modo janela (RF-708, C-705)', () => {
+  const lupa = (overrides: Partial<AnnotationOverlayState['spotlight']> = {}) => ({
+    enabled: true,
+    x: 0.5,
+    y: 0.5,
+    radius: 0.14,
+    zoom: 1 as const,
+    activeInViewer: false,
+    ...overrides,
+  });
+
+  it('desenha a Lupa com a janela transmitida em foco e sob o ponteiro', () => {
+    const cursor: CursorState = { visible: true, rect: RECT };
+    expect(shouldDrawSpotlight(cursor, annotations({ spotlight: lupa() }))).toBe(true);
+    expect(decideFramePath(maskOf(cursor), annotations({ spotlight: lupa() }), false, cursor)).toEqual({
+      compose: true,
+      maskCursor: false,
+      drawAnnotations: true,
+      drawSpotlight: true,
+    });
+  });
+
+  it('não desenha a Lupa com outra janela em foco cobrindo a transmitida sob o ponteiro (issue #70)', () => {
+    const cursor: CursorState = { visible: false, rect: RECT };
+    expect(shouldDrawSpotlight(cursor, annotations({ spotlight: lupa({ zoom: 2 }) }))).toBe(false);
+    expect(decideFramePath(maskOf(cursor), annotations({ spotlight: lupa() }), false, cursor)).toEqual({
+      compose: true,
+      maskCursor: true,
+      drawAnnotations: false,
+      drawSpotlight: false,
+    });
+  });
+
+  it('repassa sem composição quando o ponteiro está fora da janela transmitida e só a Lupa está ligada', () => {
+    const cursor: CursorState = { visible: false, rect: null };
+    expect(decideFramePath(maskOf(cursor), annotations({ spotlight: lupa() }), false, cursor)).toEqual({
+      compose: false,
+      maskCursor: false,
+      drawAnnotations: false,
+      drawSpotlight: false,
+    });
+  });
+
+  it('não desenha a Lupa com o cursor marcado visível mas fora da fonte', () => {
+    const cursor: CursorState = { visible: true, rect: null };
+    expect(shouldDrawSpotlight(cursor, annotations({ spotlight: lupa() }))).toBe(false);
+  });
+
+  it('desenha a Lupa posicionada no visualizador do MLab, mesmo com o cursor oculto', () => {
+    const cursor: CursorState = { visible: false, rect: null };
+    const ann = annotations({ spotlight: lupa({ activeInViewer: true }) });
+    expect(shouldDrawSpotlight(cursor, ann)).toBe(true);
+    expect(decideFramePath(maskOf(cursor), ann, false, cursor).drawSpotlight).toBe(true);
+  });
+
+  it('mantém os traços no vídeo e tira só a Lupa com o professor em outra janela', () => {
+    const cursor: CursorState = { visible: false, rect: null };
+    const ann = annotations({ strokes: [STROKE], spotlight: lupa() });
+    expect(decideFramePath(maskOf(cursor), ann, false, cursor)).toEqual({
+      compose: true,
+      maskCursor: false,
+      drawAnnotations: true,
+      drawSpotlight: false,
+    });
+  });
+
+  it('a suspensão da máscara não muda a regra da Lupa', () => {
+    const cursor: CursorState = { visible: false, rect: RECT };
+    expect(decideFramePath(maskOf(cursor), annotations({ spotlight: lupa() }), true, cursor).drawSpotlight).toBe(
+      false
+    );
+  });
+
+  it('Lupa desligada nunca é desenhada', () => {
+    const cursor: CursorState = { visible: true, rect: RECT };
+    expect(shouldDrawSpotlight(cursor, annotations({ spotlight: lupa({ enabled: false, activeInViewer: true }) }))).toBe(
+      false
+    );
+  });
+
+  it('fora do modo janela a regra não muda: Lupa ligada é desenhada mesmo com o cursor oculto', () => {
+    const cursor: CursorState = { visible: false, rect: null };
+    const ann = annotations({ captureMode: 'screen', externalOverlayActive: false, spotlight: lupa() });
+    expect(shouldDrawSpotlight(cursor, ann)).toBe(true);
+    expect(decideFramePath(maskOf(cursor), ann, false, cursor).drawSpotlight).toBe(true);
   });
 });
 

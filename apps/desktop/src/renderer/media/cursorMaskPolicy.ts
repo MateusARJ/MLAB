@@ -5,15 +5,13 @@ import type { AnnotationOverlayState, CursorState } from '@mlab/types';
  * - `compose: false` → repasse sem cópia do quadro capturado, sem gerar quadro novo.
  * - `maskCursor` → apagar a área do cursor no quadro composto.
  * - `drawAnnotations` → desenhar marcações/Lupa no quadro composto.
+ * - `drawSpotlight` → entre as anotações, desenhar a Lupa (RF-708: no modo janela, segue a regra do cursor).
  */
 export interface FramePath {
   compose: boolean;
   maskCursor: boolean;
   drawAnnotations: boolean;
-}
-
-export function hasAnyAnnotation(ann: AnnotationOverlayState): boolean {
-  return ann.strokes.length > 0 || ann.activeStroke !== null || ann.spotlight.enabled === true;
+  drawSpotlight: boolean;
 }
 
 /**
@@ -110,14 +108,34 @@ export class CursorTrail {
   }
 }
 
+/**
+ * A Lupa entra no quadro (007, RF-708, C-705)? No modo janela, só quando o cursor deve aparecer (janela transmitida em
+ * foco e sob o ponteiro, mesma regra da US-20) ou quando foi posicionada no visualizador do MLab. Nos demais modos, a
+ * regra não muda: Lupa ligada, Lupa desenhada.
+ */
+export function shouldDrawSpotlight(cursor: CursorState, ann: AnnotationOverlayState): boolean {
+  if (!ann.spotlight.enabled) return false;
+  if (ann.captureMode !== 'window') return true;
+  if (ann.spotlight.activeInViewer === true) return true;
+  return cursor.visible && cursor.rect !== null;
+}
+
 export function decideFramePath(
   maskRect: NormRect | null,
   ann: AnnotationOverlayState,
-  maskSuspended: boolean
+  maskSuspended: boolean,
+  cursor: CursorState
 ): FramePath {
   const maskCursor = !maskSuspended && hasArea(maskRect);
-  const drawAnnotations = hasAnyAnnotation(ann) && !isCapturedNativelyByScreen(ann);
-  return { compose: maskCursor || drawAnnotations, maskCursor, drawAnnotations };
+  const hasStrokes = ann.strokes.length > 0 || ann.activeStroke !== null;
+  const spotlight = shouldDrawSpotlight(cursor, ann);
+  const drawAnnotations = (hasStrokes || spotlight) && !isCapturedNativelyByScreen(ann);
+  return {
+    compose: maskCursor || drawAnnotations,
+    maskCursor,
+    drawAnnotations,
+    drawSpotlight: drawAnnotations && spotlight,
+  };
 }
 
 export interface FrameBudgetOptions {

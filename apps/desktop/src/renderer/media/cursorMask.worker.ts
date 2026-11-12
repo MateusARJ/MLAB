@@ -471,7 +471,8 @@ async function runPipeline(
     ctx: OffscreenCanvasRenderingContext2D,
     canvas: OffscreenCanvas,
     ann: AnnotationOverlayState,
-    cursorRect: { x: number; y: number; w: number; h: number } | null
+    cursorRect: { x: number; y: number; w: number; h: number } | null,
+    drawSpotlight: boolean
   ) => {
     for (let i = 0; i < ann.strokes.length; i++) {
       drawStrokeOnCanvas(ctx, ann.strokes[i], width, height);
@@ -480,7 +481,8 @@ async function runPipeline(
       drawStrokeOnCanvas(ctx, ann.activeStroke, width, height);
     }
 
-    if (ann.spotlight.enabled) {
+    // No modo janela, a Lupa só entra com o cursor visível ou posicionada no visualizador (RF-708, C-705).
+    if (drawSpotlight) {
       let normX = ann.spotlight.x;
       let normY = ann.spotlight.y;
       if (!ann.spotlight.activeInViewer && cursorRect) {
@@ -549,7 +551,7 @@ async function runPipeline(
       const now = performance.now();
       const maskRect = cursorTrail.maskRect(now);
       const preserveRect = cursorTrail.anyRect(now);
-      const path = decideFramePath(maskRect, ann, budgetGuard.isSuspended);
+      const path = decideFramePath(maskRect, ann, budgetGuard.isSuspended, state);
 
       // Resolução de exibição (sem o preenchimento do buffer codificado, ex.: 1088 linhas em NV12):
       // mantém a mesma resolução do repasse e evita reconfigurar o encoder a cada alternância (RF-704).
@@ -626,7 +628,7 @@ async function runPipeline(
             // Anotações sobre o quadro já mascarado; o canvas só entra quando há o que desenhar.
             try {
               annCtx.drawImage(masked, 0, 0, width, height);
-              renderAnnotationsAndSpotlight(annCtx, annCanvas, ann, state.rect);
+              renderAnnotationsAndSpotlight(annCtx, annCanvas, ann, state.rect, path.drawSpotlight);
               out = new VideoFrame(annCanvas, {
                 timestamp: frame.timestamp,
                 duration: frame.duration ?? undefined,
@@ -671,7 +673,7 @@ async function runPipeline(
           maskCursorRegion(frame, maskRect, preserveRect, t0);
         }
         if (path.drawAnnotations) {
-          renderAnnotationsAndSpotlight(ctx, canvas, ann, state.rect);
+          renderAnnotationsAndSpotlight(ctx, canvas, ann, state.rect, path.drawSpotlight);
         }
 
         const cleanFrame = new VideoFrame(canvas, {
