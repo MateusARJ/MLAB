@@ -10,14 +10,14 @@ Regras:
 - um commit atômico por task, com `Ref: T220x` e `Refs #64`.
 
 ### T2201 — Contrato de arquivos
-[ ] T2201
+[x] T2201
 Allowed Paths: `spec-kit/specs/003-classroom-interaction/contracts/files.md`
 Prohibited Paths: `apps/**`, `packages/**`, `package.json`
 Checks:
-- [ ] POST: erro `415` com a mensagem de C-2204; `content_type` definido pelo servidor (RF-2201, RF-2202, RF-2204).
-- [ ] Download: `Content-Type` do servidor, `Content-Disposition` com `filename`/`filename*`, `nosniff`, CSP `sandbox`,
+- [x] POST: erro `415` com a mensagem de C-2204; `content_type` definido pelo servidor (RF-2201, RF-2202, RF-2204).
+- [x] Download: `Content-Type` do servidor, `Content-Disposition` com `filename`/`filename*`, `nosniff`, CSP `sandbox`,
   `Cache-Control: no-store` (RF-2205).
-- [ ] Nota "em vigor desde 022 (T2202)".
+- [x] Nota "em vigor desde 022 (T2202)".
 
 ### T2202 — Backend: regra de tipos e headers
 [ ] T2202
