@@ -9,16 +9,16 @@ Regras:
 - um commit atômico por task, com `Ref: T250x` e `Refs #68`.
 
 ### T2501 — Favicon SVG e fallbacks PNG
-[ ] T2501
+[x] T2501
 Allowed Paths: `apps/web/public/favicon.svg`, `apps/web/public/favicon-32.png`, `apps/web/public/apple-touch-icon.png`
 Prohibited Paths: `apps/web/public/MLAB-logo.png`, `apps/web/src/**`, `apps/web/index.html`, `apps/desktop/**`,
 `apps/backend/**`, `packages/**`, `package.json`
 Checks:
-- [ ] `favicon.svg` com `viewBox="0 0 32 32"`, fundo arredondado `#0f172a`, só o símbolo, sem `<text>`/`<image>`,
+- [x] `favicon.svg` com `viewBox="0 0 32 32"`, fundo arredondado `#0f172a`, só o símbolo, sem `<text>`/`<image>`,
   < 2 KB (RF-2501, RF-2502, RNF-2502).
-- [ ] `favicon-32.png` 32×32 e `apple-touch-icon.png` 180×180 opaco, gerados do SVG fora do repositório (RF-2503,
+- [x] `favicon-32.png` 32×32 e `apple-touch-icon.png` 180×180 opaco, gerados do SVG fora do repositório (RF-2503,
   RNF-2501).
-- [ ] Prévia conferida em 16, 32 e 180px sobre fundo branco e escuro.
+- [x] Prévia conferida em 16, 32 e 180px sobre fundo branco e escuro.
 
 ### T2502 — Links no index.html e teste
 [ ] T2502

@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
+  <defs>
+    <linearGradient id="tela" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#2b8cff"/>
+      <stop offset="1" stop-color="#0b47c9"/>
+    </linearGradient>
+  </defs>
+  <rect width="32" height="32" rx="7" fill="#0f172a"/>
+  <rect x="4" y="10" width="20" height="14" rx="2" fill="#f8fafc"/>
+  <rect x="6" y="12" width="16" height="10" rx="1" fill="url(#tela)"/>
+  <rect x="2.5" y="24.5" width="23" height="3" rx="1.5" fill="#f8fafc"/>
+  <path d="M12 13.5v7.2l1.9-1.8 1.4 2.8 1.6-.8-1.4-2.7 2.6-.3z" fill="#f8fafc"/>
+  <g fill="none" stroke="#3b82f6" stroke-width="2.2" stroke-linecap="round">
+    <path d="M24.5 4a5.5 5.5 0 0 1 5.5 5.5"/>
+    <path d="M24.5 7.6a1.9 1.9 0 0 1 1.9 1.9"/>
+  </g>
+</svg>
