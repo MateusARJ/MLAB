@@ -1,5 +1,22 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { uploadRoomFile, UPLOAD_ERROR_MSG, MAX_FILE_BYTES } from './files';
+import { uploadRoomFile, UPLOAD_ERROR_MSG, MAX_FILE_BYTES, BLOCKED_TYPE_MSG, isBlockedFileName } from './files';
+
+describe('isBlockedFileName (022, RF-2206)', () => {
+  it.each([
+    'setup.exe', 'instalador.msi', 'rodar.bat', 'rodar.cmd', 'script.ps1', 'macro.vbs', 'atalho.lnk', 'chaves.reg',
+    'lib.dll', 'app.AppImage', 'pacote.deb', 'app.apk', 'imagem.dmg', 'instalador.pkg',
+    'SETUP.EXE', 'setup.exe.', 'setup.exe ', 'trabalho.pdf.exe',
+  ])('bloqueia %s', (name) => {
+    expect(isBlockedFileName(name)).toBe(true);
+  });
+
+  it.each([
+    'main.js', 'app.ts', 'aula.py', 'build.sh', 'Main.java', 'lib.jar', 'prog.c', 'pagina.html',
+    'slides.pdf', 'foto.PNG', 'pacote.zip', 'Makefile', 'exe', 'meu.exe.pdf',
+  ])('permite %s (código-fonte e documentos, RN-2202)', (name) => {
+    expect(isBlockedFileName(name)).toBe(false);
+  });
+});
 
 describe('uploadRoomFile', () => {
   const fetchMock = vi.fn();
@@ -53,6 +70,15 @@ describe('uploadRoomFile', () => {
       json: () => Promise.resolve({ error: 'você não é o dono desta sala' }),
     });
     await expect(uploadRoomFile('room-101', file, 't')).rejects.toThrow('você não é o dono desta sala');
+  });
+
+  it('propaga a mensagem do servidor no 415 de tipo bloqueado (RF-2207)', async () => {
+    fetchMock.mockResolvedValueOnce({
+      ok: false,
+      status: 415,
+      json: () => Promise.resolve({ error: BLOCKED_TYPE_MSG }),
+    });
+    await expect(uploadRoomFile('room-101', new File(['MZ'], 'notas.pdf'), 't')).rejects.toThrow(BLOCKED_TYPE_MSG);
   });
 
   it('usa a mensagem padrão sem JSON de erro ou em falha de rede', async () => {

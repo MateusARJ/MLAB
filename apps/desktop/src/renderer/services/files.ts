@@ -10,6 +10,34 @@ export const MAX_FILE_BYTES = 50 * 1024 * 1024;
 /** Mesma mensagem do servidor para arquivo acima do limite (413). */
 export const FILE_TOO_LARGE_MSG = 'arquivo acima do limite de 50MB';
 
+/**
+ * Mesma mensagem do servidor para tipo bloqueado (415; 022/C-2204). Fonte no backend:
+ * `errBlockedFileTypeMsg` em `apps/backend/internal/room/filetypes.go`.
+ */
+export const BLOCKED_TYPE_MSG = 'tipo de arquivo bloqueado: executáveis e instaladores não podem ser compartilhados';
+
+/**
+ * Executáveis e instaladores bloqueados (022/C-2202). Mesma lista de `blockedExtensions` em
+ * `apps/backend/internal/room/filetypes.go` (RN-2201). Código-fonte (.js, .ts, .py, .sh, .jar...) é permitido.
+ * O servidor é a autoridade: esta lista só antecipa a mensagem (RNF-2201).
+ */
+export const BLOCKED_EXTENSIONS: readonly string[] = [
+  '.exe', '.msi', '.msp', '.bat', '.cmd', '.com', '.scr', '.pif', '.cpl', '.ps1', '.psm1', '.vbs', '.vbe',
+  '.jse', '.wsf', '.wsh', '.hta', '.lnk', '.reg', '.dll', '.appimage', '.deb', '.rpm', '.apk', '.dmg', '.pkg',
+];
+
+/**
+ * Informa se o nome tem extensão bloqueada, com a mesma normalização do servidor: última extensão, sem diferenciar
+ * maiúsculas e ignorando pontos e espaços no fim (`setup.EXE.` → `.exe`). RF-2206.
+ */
+export function isBlockedFileName(name: string): boolean {
+  const trimmed = name.replace(/[. ]+$/, '');
+  const dot = trimmed.lastIndexOf('.');
+  if (dot < 0) return false;
+  const ext = trimmed.slice(dot).toLowerCase();
+  return BLOCKED_EXTENSIONS.includes(ext);
+}
+
 /** Mensagem quando o servidor não informa o erro ou a requisição falha. */
 export const UPLOAD_ERROR_MSG = 'Erro ao enviar arquivo';
 

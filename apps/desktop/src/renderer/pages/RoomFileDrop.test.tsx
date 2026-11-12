@@ -157,6 +157,24 @@ describe('Room — arrastar arquivos para a aba Arquivos (018)', () => {
     expect(screen.queryByText('limite de arquivos da sala atingido')).not.toBeInTheDocument();
   });
 
+  it('recusa executável sem enviar e mostra a mensagem do 415 do servidor (022, RF-2206, RF-2207)', async () => {
+    const blocked = 'tipo de arquivo bloqueado: executáveis e instaladores não podem ser compartilhados';
+    uploadResponses.push(() =>
+      Promise.resolve({ ok: false, status: 415, json: () => Promise.resolve({ error: blocked }) })
+    );
+    const zone = await openFilesTab();
+
+    fireEvent.drop(zone, {
+      dataTransfer: dropData([new File(['MZ'], 'setup.exe'), new File(['MZ'], 'notas.pdf')]),
+    });
+
+    const statuses = () => screen.getAllByTestId('upload-item').map((li) => li.getAttribute('data-status'));
+    await waitFor(() => expect(statuses()).toEqual(['erro', 'erro']));
+    expect(screen.getAllByText(blocked)).toHaveLength(2);
+    expect(uploadPosts()).toHaveLength(1);
+    expect(within(sharedList()).queryByText('notas.pdf')).not.toBeInTheDocument();
+  });
+
   it('o botão aceita vários arquivos e usa a mesma fila (RF-188)', async () => {
     uploadResponses.push(
       () => Promise.resolve(created('x.pdf')),

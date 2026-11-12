@@ -39,7 +39,7 @@ Checks:
 - [x] `go test ./internal/room/...` verde e `gofmt -l .` vazio.
 
 ### T2203 — Desktop: pré-validação e exibição do 415
-[ ] T2203
+[x] T2203
 Depends On: T2202
 Allowed Paths: `apps/desktop/src/renderer/services/files.ts`, `apps/desktop/src/renderer/services/files.test.ts`,
 `apps/desktop/src/renderer/hooks/useRoomFileUploads.ts`, `apps/desktop/src/renderer/hooks/useRoomFileUploads.test.ts`,
@@ -47,10 +47,10 @@ Allowed Paths: `apps/desktop/src/renderer/services/files.ts`, `apps/desktop/src/
 Prohibited Paths: `apps/desktop/src/renderer/pages/Room.tsx`, `apps/desktop/src/main/**`, `apps/backend/**`,
 `apps/web/**`, `packages/**`, `package.json`
 Checks:
-- [ ] `BLOCKED_EXTENSIONS`, `BLOCKED_TYPE_MSG` e `isBlockedFileName` iguais ao servidor (RN-2201).
-- [ ] `enqueue`: extensão bloqueada vira item `erro` sem requisição, e a fila segue (RF-2206).
-- [ ] 415 do servidor propagado e exibido no item (RF-2207).
-- [ ] Suíte do desktop e `npm run lint` verdes.
+- [x] `BLOCKED_EXTENSIONS`, `BLOCKED_TYPE_MSG` e `isBlockedFileName` iguais ao servidor (RN-2201).
+- [x] `enqueue`: extensão bloqueada vira item `erro` sem requisição, e a fila segue (RF-2206).
+- [x] 415 do servidor propagado e exibido no item (RF-2207).
+- [x] Suíte do desktop e `npm run lint` verdes.
 
 ### T2204 — Verificação manual
 [ ] T2204

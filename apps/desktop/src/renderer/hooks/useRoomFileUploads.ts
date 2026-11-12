@@ -1,5 +1,13 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { uploadRoomFile, MAX_FILE_BYTES, FILE_TOO_LARGE_MSG, UPLOAD_ERROR_MSG, type RoomFile } from '../services/files';
+import {
+  uploadRoomFile,
+  isBlockedFileName,
+  MAX_FILE_BYTES,
+  FILE_TOO_LARGE_MSG,
+  BLOCKED_TYPE_MSG,
+  UPLOAD_ERROR_MSG,
+  type RoomFile,
+} from '../services/files';
 
 /** Estado de um item da fila de envio (018, RF-184). */
 export type UploadStatus = 'aguardando' | 'enviando' | 'enviado' | 'erro';
@@ -117,6 +125,10 @@ export function useRoomFileUploads({ roomId, token, onUploaded }: UseRoomFileUpl
         const id = `upload-${++nextIdRef.current}`;
         if (isFolder(entry)) {
           return { id, name: entry.name, size: 0, status: 'erro', error: FOLDER_NOT_SUPPORTED_MSG };
+        }
+        // Executável ou instalador: recusado sem envio, com a mensagem do servidor (022, RF-2206).
+        if (isBlockedFileName(entry.name)) {
+          return { id, name: entry.name, size: entry.size, status: 'erro', error: BLOCKED_TYPE_MSG };
         }
         if (entry.size > MAX_FILE_BYTES) {
           return { id, name: entry.name, size: entry.size, status: 'erro', error: FILE_TOO_LARGE_MSG };
