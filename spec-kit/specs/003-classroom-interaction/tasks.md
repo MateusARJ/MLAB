@@ -81,6 +81,9 @@ Allowed Paths: `apps/desktop/src/main/**`, `apps/desktop/src/renderer/media/**`,
 Prohibited Paths: `apps/backend/**`, `apps/web/**`
 Checks:
 - [x] Evidência: `60043f8`, `9db5a84`, `cae96ca`, `10312a1`; `cursorVisibility.test.ts`; `nativeWindowTracker.test.ts`; `createCursorMaskedTrack.test.ts`.
+- Nota (2026-11-02): o `29c54d0` removeu a ocultação do cursor do worker (regressão, issue #28). Restaurada no modo
+  janela específica pela `007-mascara-cursor-janela` (T701–T703); tela cheia sem ocultação por emenda (C-702).
+  Revalidação: smoke A12 (007/T705).
 
 ### T311 — Proteção de conteúdo e captura para a área de transferência (RF-311)
 [x] T311

@@ -131,6 +131,9 @@ contratos, testes e tarefas rastreáveis.
 **Critérios de aceitação**
 - Overlay de anotação sobre a tela, inclusive fora da janela do MLab, com ferramentas: cursor, caneta, marcador, seta, retângulo e borracha; seleção exclusiva de ferramenta.
 - Lupa com níveis de zoom cíclicos e destaque (spotlight).
+  - **Nota (007-mascara-cursor-janela, C-705, RF-708):** na transmissão de janela específica, a lupa só entra no
+    vídeo dos alunos quando o cursor deve aparecer (janela transmitida em foco e sob o ponteiro, US-20) ou quando foi
+    posicionada no visualizador do MLab. Os traços continuam no vídeo como antes (ver #70).
 - Atalhos globais: `Alt+H` (recolher), `Alt+V`, `Alt+P`, `Alt+M`, `Alt+A`, `Alt+R`, `Alt+E` (ferramentas), `Alt+L` (spotlight), `Alt+Z` (zoom), com variantes `Alt+Shift+…`.
 - Duplo toque em `Ctrl` (até 600 ms entre toques, sem outra tecla combinada) alterna a lupa — **somente no Windows**; nos demais sistemas a lupa é acionada pelo botão e por `Alt+Z`.
 - A barra do overlay adapta a orientação à posição na tela.
@@ -143,8 +146,10 @@ contratos, testes e tarefas rastreáveis.
 **Como** professor, **quero** que o cursor só apareça quando faz sentido, **para** a transmissão não mostrar o ponteiro sobre o próprio MLab.
 
 **Critérios de aceitação**
-- Tela cheia: o cursor some da transmissão quando o ponteiro está sobre a área visível da janela do MLab.
-- Janela específica: o cursor só aparece quando a janela transmitida está em foco e diretamente sob o ponteiro.
+- Tela cheia: a captura vai direto ao WebRTC e o cursor **não** é ocultado sobre a área do MLab (emenda de
+  2026-11-02, `007-mascara-cursor-janela`, C-702; a troca dinâmica de faixa fica como estudo futuro).
+- Janela específica: o cursor só aparece quando a janela transmitida está em foco e diretamente sob o ponteiro. A
+  ocultação é suspensa temporariamente quando ameaça o FPS (`007-mascara-cursor-janela`, C-701).
 - O rastreamento nativo identifica a janela ativa e sinaliza quando a janela transmitida fica encoberta; em ambientes sem suporte, degrada sem erro.
 - A ocultação vale também para a gravação local.
 
@@ -178,7 +183,8 @@ contratos, testes e tarefas rastreáveis.
 - RF-307: validação do formato da matrícula (US-17).
 - RF-308: transmissão opcional do áudio interno (US-18).
 - RF-309: overlay de anotação, lupa, spotlight e atalhos (US-19).
-- RF-310: cursor contextual e rastreamento nativo de janelas (US-20).
+- RF-310: cursor contextual e rastreamento nativo de janelas (US-20); ocultação só no modo janela específica
+  (emenda 007, C-702).
 - RF-311: proteção de conteúdo e captura para área de transferência (US-21).
 - RF-312: anúncio mDNS e seleção do IP físico (US-22).
 
