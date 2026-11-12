@@ -1,6 +1,6 @@
 # Spec: Ocultação do Cursor na Transmissão de Janela Específica
 
-Status: READY-FOR-PLAN
+Status: READY
 Feature ID: `007-mascara-cursor-janela`
 Origem: issue #28; issue #70 (lupa no modo janela, C-705); revisão do PR #26 (`cursorMask.worker.ts:369`, "Preserve cursor masking in the passthrough path").
 

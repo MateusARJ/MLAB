@@ -2,7 +2,7 @@
 
 Feature: `007-mascara-cursor-janela`
 Prerequisites: spec/clarify/plan/checklist/analyze aprovados
-Status: READY-FOR-IMPLEMENTATION
+Status: DONE
 
 Regra de cada task de código: `npx turbo run build test --force` verde antes do `[x]`.
 
@@ -131,10 +131,10 @@ Checks:
 - [x] Smoke A12 OK, com cursor oculto sem mancha (responsável, 2026-11-12).
 
 ### T706 — Converge
-[ ] T706
+[x] T706
 Depends On: T701, T702, T703, T704, T705, T707, T708, T709, T710
 Allowed Paths: `spec-kit/specs/007-mascara-cursor-janela/**`
 Prohibited Paths: `apps/**`, `packages/**`
 Checks:
-- [ ] `converge.md` da 007 com o resultado da medição e o trabalho restante (opção B da tela cheia).
-- [ ] Impacto de versão (`docs/versionamento.md` §2) e desvios registrados (#70 resolvido pela T710).
+- [x] `converge.md` da 007 com o resultado da medição e o trabalho restante (opção B da tela cheia).
+- [x] Impacto de versão (`docs/versionamento.md` §2) e desvios registrados (#70 resolvido pela T710).

@@ -173,7 +173,7 @@ Clarify: `./clarify.md` (CLOSED — C-701, C-702, C-703)
 - [x] Princípio V — nenhum contrato alterado (`CursorState` e IPC iguais).
 - [x] Princípio VI — Scope Lock e paths por task.
 - [x] Princípio VII — reaproveita o algoritmo e os canvases já presentes no worker.
-- [ ] Princípio VIII — converge ao final (T706).
+- [x] Princípio VIII — converge ao final (T706, `converge.md`: CONVERGED).
 
 ## 5. Decision Log
 
