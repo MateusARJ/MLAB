@@ -24,7 +24,7 @@ window.electronAPI = {
     name: 'MLab',
     version: '9.8.7',
     description: 'Plataforma de transmissão de tela e interação para aulas ao vivo',
-    copyright: 'Copyright © 2026 MLab',
+    copyright: 'Copyright © 2026 Mateus de Araujo',
   }),
   setActiveRoom: vi.fn().mockResolvedValue(undefined),
   setContentProtection: vi.fn().mockResolvedValue(true),

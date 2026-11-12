@@ -26,7 +26,7 @@ Feature: `003-classroom-interaction` (canais da 001 incluídos para manter um ú
 | `setAnnotationRaisedHands(count)` | `annotation-overlay:raised-hands` | 017/RF-179 | Quantidade de mãos levantadas (inteiro ≥ 0) enviada pela janela do MLab à barra de marcação. Só o número; sem dados de participantes. Descartado quando vem do webContents do overlay ou quando não é inteiro ≥ 0. O main guarda o último valor e o reenvia quando o overlay é (re)criado; `annotation-overlay:stop` volta a 0. Em vigor desde 017 (T171) |
 | `copyToClipboard(text)` | `write-clipboard-text` | 001 / 002/S7 | Copia texto (link da sala). Escrita feita no main desde 002/S7 (T207); a API exposta não mudou |
 | `getHostKey()` | `get-host-key` | 002/S2 | Retorna `MLAB_HOST_KEY` da execução para o header da sessão do professor (ADR 0006). Em vigor desde 002/S2 (T202) |
-| `getAppInfo()` | `get-app-info` | 021/RF-2101 | Sem parâmetros. Retorna `AppInfo` (`packages/types`): `name`, `version` (`app.getVersion()`), `description` e `copyright` (`Copyright © <ano do build> MLab`), para o rodapé e o diálogo "Sobre". Sem dado sensível. Em vigor desde 021 (T2101) |
+| `getAppInfo()` | `get-app-info` | 021/RF-2101 | Sem parâmetros. Retorna `AppInfo` (`packages/types`): `name`, `version` (`app.getVersion()`), `description` e `copyright` (lido de `build.copyright` do `apps/desktop/package.json`, o mesmo texto do executável), para o rodapé e o diálogo "Sobre". Sem dado sensível. Em vigor desde 021 (T2101) |
 
 ## Main → Renderer (`webContents.send` / `ipcRenderer.on`)
 

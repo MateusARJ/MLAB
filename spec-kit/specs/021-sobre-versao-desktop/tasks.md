@@ -41,7 +41,7 @@ Checks:
 - [x] Sem `AppInfo`, nada é renderizado (RF-2107).
 
 ### T2101a — Copyright lido do `build.copyright`
-[ ] T2101a
+[x] T2101a
 Depends On: T2102
 Allowed Paths: `apps/desktop/electron.vite.config.ts`, `apps/desktop/src/main/appMeta.ts`,
 `apps/desktop/src/main/appMeta.test.ts`, `apps/desktop/src/main/appInfo.ts`, `apps/desktop/src/main/appInfo.test.ts`,
@@ -49,11 +49,11 @@ Allowed Paths: `apps/desktop/electron.vite.config.ts`, `apps/desktop/src/main/ap
 Prohibited Paths: `apps/desktop/src/renderer/**`, `apps/desktop/package.json`, `apps/web/**`, `apps/backend/**`,
 `packages/**`, `package.json`
 Checks:
-- [ ] `readAppMeta(pkg)` lê `build.productName`, `description` e `build.copyright` e falha no build se faltar algum
+- [x] `readAppMeta(pkg)` lê `build.productName`, `description` e `build.copyright` e falha no build se faltar algum
   (C-2104 revista, C-2105).
-- [ ] `buildAppInfo` usa o copyright do metadado, sem montar ano (RF-2106).
-- [ ] Testes vitest de `appMeta` e `appInfo`; mock do `setup.ts` com o texto novo.
-- [ ] Contrato `desktop-ipc.md` cita `build.copyright` como fonte do copyright.
+- [x] `buildAppInfo` usa o copyright do metadado, sem montar ano (RF-2106).
+- [x] Testes vitest de `appMeta` e `appInfo`; mock do `setup.ts` com o texto novo.
+- [x] Contrato `desktop-ipc.md` cita `build.copyright` como fonte do copyright.
 
 ### T2103 — Rodapé nas telas de identificação e dashboard
 [ ] T2103
