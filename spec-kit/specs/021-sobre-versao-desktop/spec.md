@@ -17,7 +17,8 @@ Verificado em 2026-11-12 na `development` @ `3010573` (versão 1.12.2):
 - nenhum uso de `app.getVersion()` em `apps/desktop/src`, e nenhuma tela "Sobre";
 - `apps/desktop/package.json` tem duas descrições diferentes: `description` ("MLab - App Desktop do Professor") e
   `build.linux.description` ("Sistema de Transmissão e Interação de Salas de Aula MLab");
-- `build.copyright` é `Copyright © 2024 MLab`, com o ano fixo, e vai para o `LegalCopyright` do `MLab.exe`.
+- `build.copyright` é `Copyright © 2024 MLab`, com ano e titular errados (o MLab é lançado em 2026, por Mateus de
+  Araujo), e vai para o `LegalCopyright` do `MLab.exe`.
 
 ## 3. Escopo
 
@@ -26,7 +27,7 @@ Verificado em 2026-11-12 na `development` @ `3010573` (versão 1.12.2):
 - versão no rodapé das telas de identificação e de criação de sala (dashboard) do app desktop;
 - diálogo "Sobre" aberto a partir desse rodapé, com nome, versão, descrição e direitos autorais;
 - canal IPC para o renderer obter essas informações;
-- descrição única do produto e direitos autorais sem ano fixo nos metadados do pacote.
+- descrição única do produto e direitos autorais corretos (ano de lançamento e titular) nos metadados do pacote.
 
 ### Não incluído
 
@@ -68,8 +69,9 @@ Como professor, quero abrir um diálogo "Sobre", para ver o nome, a versão, a d
   única do monorepo. Nenhuma versão é escrita à mão no código.
 - RF-2105: o pacote declara uma única descrição do produto, usada no app, no `description` e no
   `build.linux.description`.
-- RF-2106: os direitos autorais não têm ano fixo. O app e os metadados do executável mostram
-  `Copyright © <ano do build> MLab`.
+- RF-2106: os direitos autorais indicam o ano de lançamento do MLab (2026) e o titular, Mateus de Araujo:
+  `Copyright © 2026 Mateus de Araujo`. O texto vive só no `build.copyright` do `package.json` do desktop, e o app e
+  os metadados do executável o leem dali.
 - RF-2107: se as informações não puderem ser obtidas, o rodapé e o diálogo não aparecem, e o resto da tela funciona
   normalmente.
 
@@ -111,7 +113,7 @@ Como professor, quero abrir um diálogo "Sobre", para ver o nome, a versão, a d
 ## 11. Critérios de Sucesso
 
 - Testes do desktop cobrem o rodapé com a versão, a abertura e o fechamento do diálogo, e a falha do IPC.
-- Build Windows: `MLab.exe` → Propriedades → Detalhes mostra a versão X.Y.Z e o direito autoral com o ano do build.
+- Build Windows: `MLab.exe` → Propriedades → Detalhes mostra a versão X.Y.Z e `Copyright © 2026 Mateus de Araujo`.
 - Smoke manual: rodapé e "Sobre" nas duas telas, com a versão igual à do `package.json` raiz.
 
 ## 12. Perguntas que bloqueiam a implementação

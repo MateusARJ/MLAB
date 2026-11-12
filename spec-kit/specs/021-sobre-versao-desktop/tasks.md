@@ -19,7 +19,8 @@ Prohibited Paths: `apps/desktop/src/renderer/**`, `apps/desktop/package.json`, `
 Checks:
 - [x] `AppInfo { name, version, description, copyright }` exportado de `@mlab/types` (RNF-2102).
 - [x] `define` `__MLAB_APP_META__` no build do main, lido do `apps/desktop/package.json` (C-2105).
-- [x] `buildAppInfo(version, meta)` monta `Copyright © <ano> MLab`, com teste vitest (RF-2104, RF-2106).
+- [x] `buildAppInfo(version, meta)` monta `Copyright © <ano> MLab`, com teste vitest (RF-2104, RF-2106). Substituído
+  pela T2101a depois da revisão da C-2104.
 - [x] `ipcMain.handle('get-app-info')` e `electronAPI.getAppInfo()`, sem parâmetros (RNF-2101).
 - [x] Mock `getAppInfo` em `src/test/setup.ts`.
 - [x] Canal na tabela Renderer → Main de `desktop-ipc.md`, "em vigor desde 021 (T2101)" (RNF-2102).
@@ -39,9 +40,24 @@ Checks:
 - [x] `role="dialog"`, `aria-modal`, `aria-labelledby` (RNF-2104).
 - [x] Sem `AppInfo`, nada é renderizado (RF-2107).
 
+### T2101a — Copyright lido do `build.copyright`
+[ ] T2101a
+Depends On: T2102
+Allowed Paths: `apps/desktop/electron.vite.config.ts`, `apps/desktop/src/main/appMeta.ts`,
+`apps/desktop/src/main/appMeta.test.ts`, `apps/desktop/src/main/appInfo.ts`, `apps/desktop/src/main/appInfo.test.ts`,
+`apps/desktop/src/test/setup.ts`, `spec-kit/specs/003-classroom-interaction/contracts/desktop-ipc.md`
+Prohibited Paths: `apps/desktop/src/renderer/**`, `apps/desktop/package.json`, `apps/web/**`, `apps/backend/**`,
+`packages/**`, `package.json`
+Checks:
+- [ ] `readAppMeta(pkg)` lê `build.productName`, `description` e `build.copyright` e falha no build se faltar algum
+  (C-2104 revista, C-2105).
+- [ ] `buildAppInfo` usa o copyright do metadado, sem montar ano (RF-2106).
+- [ ] Testes vitest de `appMeta` e `appInfo`; mock do `setup.ts` com o texto novo.
+- [ ] Contrato `desktop-ipc.md` cita `build.copyright` como fonte do copyright.
+
 ### T2103 — Rodapé nas telas de identificação e dashboard
 [ ] T2103
-Depends On: T2102
+Depends On: T2101a
 Allowed Paths: `apps/desktop/src/renderer/pages/ProfessorEntry.tsx`,
 `apps/desktop/src/renderer/pages/ProfessorEntry.test.tsx`, `apps/desktop/src/renderer/pages/Dashboard.tsx`,
 `apps/desktop/src/renderer/pages/Dashboard.test.tsx`
@@ -58,7 +74,7 @@ Allowed Paths: `apps/desktop/package.json`
 Prohibited Paths: `apps/desktop/src/**`, `apps/web/**`, `apps/backend/**`, `packages/**`, `package.json`
 Checks:
 - [ ] `description` e `build.linux.description` com o texto de C-2103 (RF-2105).
-- [ ] `build.copyright` removido (RF-2106, C-2104).
+- [ ] `build.copyright` = `Copyright © 2026 Mateus de Araujo` (RF-2106, C-2104 revista).
 - [ ] Campo `version` intocado (RN-2101).
 
 ### T2105 — Verificação, converge e versão
@@ -69,7 +85,7 @@ Allowed Paths: `spec-kit/specs/021-sobre-versao-desktop/**`, `package.json`, `pa
 Prohibited Paths: `apps/**/src/**`, `packages/**/src/**`, `.github/**`
 Checks:
 - [ ] Build Windows (`electron-builder --win --dir`): `VersionInfo` do `MLab.exe` com a versão e
-  `Copyright © <ano> MLab`.
+  `Copyright © 2026 Mateus de Araujo`.
 - [ ] Smoke manual em dev: rodapé e "Sobre" nas duas telas.
 - [ ] `converge.md` com evidências, desvios e impacto de versão (MINOR, C-2107).
 - [ ] `npm run bump -- minor` e `npm run version:check`; commit `chore(release): versao X.Y.Z`.

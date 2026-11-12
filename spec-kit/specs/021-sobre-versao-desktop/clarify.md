@@ -36,10 +36,14 @@ Decisões aprovadas pelo responsável em 2026-11-12, com o plano de implementaç
   - `LegalCopyright` vem de `build.copyright`. Sem esse campo, vira `Copyright © <ano corrente> <author.name>`
     (`app-builder-lib/out/appInfo.js`).
   - `FileDescription` é sempre o `productName` (`winPackager.js`).
-- **Resposta aprovada:**
-  - Remover o `build.copyright` para o ano sair do build.
-  - O app monta o mesmo texto, `Copyright © <ano do build> MLab`, com o ano injetado no build do main
-    (`electron.vite.config.ts`).
+- **Resposta aprovada** (revista em 2026-11-12 pelo responsável, durante a T2102: o MLab é aberto e lançado em 2026,
+  e o titular é Mateus de Araujo):
+  - `build.copyright` passa a ser `Copyright © 2026 Mateus de Araujo`. O ano é o de lançamento, um fato fixo, e
+    não o ano do build.
+  - O app lê esse mesmo campo no build do main (`define` em `electron.vite.config.ts`), sem repetir o texto no código.
+  - O `author.name` (campo "Empresa" do executável) continua "MLab".
+  - A primeira resposta (remover o `build.copyright` e usar o ano do build) foi descartada. Ela já tinha virado
+    código na T2101, que a T2101a ajusta.
   - Limitação aceita: `FileDescription` continua "MLab". Mudar o `productName` mudaria o nome do executável, dos
     atalhos e dos instaladores, e fica fora desta feature.
 - **Impacto em spec:** RF-2106.
@@ -49,7 +53,7 @@ Decisões aprovadas pelo responsável em 2026-11-12, com o plano de implementaç
 - **Resposta aprovada:**
   - A versão vem de `app.getVersion()` no main. É a versão do `apps/desktop/package.json`, que o `npm run bump` mantém
     igual à da raiz.
-  - Nome, descrição e ano vêm do `apps/desktop/package.json`, lidos no build do main (`define` do electron-vite).
+  - Nome, descrição e copyright vêm do `apps/desktop/package.json`, lidos no build do main (`define` do electron-vite).
     Assim não há texto duplicado no código.
   - O renderer recebe tudo por um canal IPC sem parâmetros, `get-app-info`, com o tipo `AppInfo` em `packages/types`
     (regra do contrato `desktop-ipc.md`).

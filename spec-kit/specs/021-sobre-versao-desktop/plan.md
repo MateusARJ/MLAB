@@ -21,20 +21,20 @@ renderer: useAppInfo() → <AppInfoFooter/> (rodapé + diálogo "Sobre")
 
 1. `packages/types`: novo `AppInfo { name, version, description, copyright }`.
 2. `electron.vite.config.ts`: lê `apps/desktop/package.json` no build e injeta `__MLAB_APP_META__` no main, com
-   `{ name: build.productName, description, copyrightHolder: author.name, buildYear }`.
-3. `src/main/appInfo.ts`: função pura `buildAppInfo(version, meta): AppInfo`, que monta
-   `Copyright © <buildYear> <copyrightHolder>`, no mesmo formato do electron-builder.
+   `{ name: build.productName, description, copyright: build.copyright }`.
+3. `src/main/appInfo.ts`: função pura `buildAppInfo(version, meta): AppInfo`, que junta a versão do app em execução
+   aos metadados do build.
 4. `main.ts`: handler `get-app-info`. `preload.ts`: `getAppInfo()`.
 5. `hooks/useAppInfo.ts`: pede as informações uma vez e devolve `AppInfo | null`. Uma falha vira `null` (RF-2107).
 6. `components/AppInfoFooter.tsx`: rodapé "MLab vX.Y.Z · Sobre" e diálogo acessível (Esc e "Fechar").
-7. `package.json` do desktop: descrição única e sem `build.copyright`.
+7. `package.json` do desktop: descrição única e `build.copyright` = `Copyright © 2026 Mateus de Araujo`.
 
 ## 2. Technical Context
 
 | Item | Decisão | Ref |
 |---|---|---|
 | Versão | `app.getVersion()` no main | RF-2104, C-2105 |
-| Nome, descrição, ano | `define` do electron-vite a partir do `package.json` do desktop; lido com `fs` no config, sem `resolveJsonModule` | RF-2105, RF-2106, C-2105 |
+| Nome, descrição, copyright | `define` do electron-vite a partir do `package.json` do desktop (`build.productName`, `description`, `build.copyright`); lido com `fs` no config, sem `resolveJsonModule` | RF-2105, RF-2106, C-2104, C-2105 |
 | Canal | `get-app-info`, Renderer → Main, sem parâmetros | RNF-2101, RNF-2102 |
 | Tipo | `AppInfo` em `packages/types` | RNF-2102 |
 | UI | componente único reutilizado nas duas telas; estilo inline com tokens de `@mlab/ui`, como nas páginas | RF-2101, RF-2102 |
@@ -49,8 +49,8 @@ renderer: useAppInfo() → <AppInfoFooter/> (rodapé + diálogo "Sobre")
 | `define` ausente no vitest | `ReferenceError` nos testes | `buildAppInfo` recebe `meta` por parâmetro; só o `main.ts` lê o global |
 | `getByText('MLab')` exato em `ProfessorEntry.test.tsx` | teste quebra se o rodapé tiver um nó só "MLab" | rodapé usa o texto único "MLab vX.Y.Z"; o "MLab" do diálogo só existe com o diálogo aberto |
 | IPC indisponível (preload antigo, erro) | tela quebrada | hook captura o erro e o rodapé não renderiza (RF-2107) |
-| Ano do app ≠ ano do executável | informação divergente | os dois saem do mesmo `npm run make` (ano do build) |
-| Remover `build.copyright` muda o texto do `.deb`/`.dmg` | metadado diferente | o padrão do electron-builder vale para os três SOs, com o mesmo formato |
+| Copyright do app ≠ copyright do executável | informação divergente | os dois leem o mesmo `build.copyright` |
+| `build.copyright` ausente ou vazio no futuro | "Sobre" sem copyright | `buildAppInfo` exige o campo no tipo; teste do config do metadado na T2101a |
 
 ## Scope Lock
 
@@ -82,6 +82,8 @@ renderer: useAppInfo() → <AppInfoFooter/> (rodapé + diálogo "Sobre")
 - `apps/desktop/package.json` (`description`, `build.copyright`, `build.linux.description`)
 - `spec-kit/specs/003-classroom-interaction/contracts/desktop-ipc.md`
 - `spec-kit/specs/021-sobre-versao-desktop/**`
+- `apps/desktop/src/main/appMeta.ts`, `apps/desktop/src/main/appMeta.test.ts` (T2101a: leitura do metadado do
+  `package.json`, compartilhada pelo config e testável)
 - só na T2105, via `npm run bump`: `package.json`, `package-lock.json`, `apps/*/package.json`, `packages/*/package.json`
 
 ### Prohibited Paths
@@ -121,7 +123,8 @@ renderer: useAppInfo() → <AppInfoFooter/> (rodapé + diálogo "Sobre")
 | 2026-11-12 | Rodapé + diálogo "Sobre" em identificação e dashboard | C-2101 |
 | 2026-11-12 | Nome, versão, descrição e copyright | C-2102 |
 | 2026-11-12 | Descrição única | C-2103 |
-| 2026-11-12 | Copyright pelo ano do build; `FileDescription` continua "MLab" | C-2104 |
+| 2026-11-12 | Copyright pelo ano do build; `FileDescription` continua "MLab" | C-2104 (substituída) |
+| 2026-11-12 | Copyright fixo `Copyright © 2026 Mateus de Araujo` no `build.copyright`, lido pelo app; ajuste na T2101a | C-2104 (revista) |
 | 2026-11-12 | Canal `get-app-info` + `define` do metadado | C-2105 |
 | 2026-11-12 | Web fora | C-2106 |
 | 2026-11-12 | IDs `210x`; versão MINOR | C-2107 |
