@@ -16,6 +16,10 @@ Nenhuma.
   - versão PATCH.
 - RF-2302 depende de o hub responder `waiting` a erro de `CreateSubscriberOffer`. Conferido em
   `apps/backend/internal/signaling/hub.go` (`onSubscribeRequest`), que fica fora do escopo e não precisa mudar.
+- RF-2305 e RF-2306 não se sobrepõem. Com a fila, o `stream-started` nunca interrompe uma `offer` em andamento: a
+  answer dela sai e só depois a PC é trocada. O descarte de RF-2306 cobre a troca de PC fora da fila (desmontagem,
+  reconexão do WebSocket). O §11 da spec e os checks da T2302 foram revistos com esse entendimento antes da
+  implementação.
 - A faixa `230x` não colide: a busca por `RF-230`, `C-230` e `T230` em `spec-kit/` e `docs/` só acha esta feature.
   O `RF023` de `docs/requirements.md` é outro formato de ID (sem hífen).
 

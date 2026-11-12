@@ -121,8 +121,9 @@ F5.
 - Testes Go: assinatura antes da track → `ErrMediaNotReady`; oferta pendente criada antes de uma track nova não é
   reaproveitada, e a nova tem `m=video`, `m=audio` e `b=AS:6000`; assinatura duplicada sem track nova → mesma oferta,
   com `b=AS`; áudio depois do vídeo → `onTrackReady` de novo.
-- Teste do hook: `stream-started` chegando enquanto uma `offer` está em `setRemoteDescription` não gera answer da PC
-  antiga; mensagens processadas em ordem.
+- Teste do hook: `stream-started` que chega enquanto uma `offer` está em `setRemoteDescription` só é processado
+  depois de a answer dessa oferta sair; em seguida, a PC nova assina e responde à oferta seguinte (RF-2305). Uma PC
+  substituída fora da fila (desmontagem do componente) não envia answer (RF-2306).
 - Manual na LAN: aluno que entra antes do professor vê vídeo e ouve áudio sem F5 em 10 repetições seguidas; com a
   transmissão já ativa, a entrada continua imediata.
 

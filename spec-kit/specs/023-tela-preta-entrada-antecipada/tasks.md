@@ -32,9 +32,9 @@ Allowed Paths: `apps/web/src/hooks/useWebRTCSubscriber.ts`, `apps/web/src/hooks/
 Prohibited Paths: `apps/web/src/pages/**`, `apps/web/src/components/**`, `apps/backend/**`, `apps/desktop/**`,
 `packages/**`, `package.json`
 Checks:
-- [ ] Mensagens processadas uma de cada vez, na ordem de chegada (RF-2305).
-- [ ] `stream-started` durante o `setRemoteDescription` de uma `offer`: a PC antiga não envia answer; a PC nova envia
-  `subscribe-request` e responde à oferta seguinte (RF-2306).
+- [ ] `stream-started` durante o `setRemoteDescription` de uma `offer`: só é processado depois da answer dessa
+  oferta; a PC nova envia `subscribe-request` e responde à oferta seguinte (RF-2305).
+- [ ] `offer` em andamento quando o hook é desmontado: nenhuma answer é enviada (RF-2306).
 - [ ] Candidato ICE não é aplicado a PC substituída (RF-2306).
 - [ ] Testes existentes do hook verdes; `npm run test -w apps/web` e `npm run lint` verdes.
 
