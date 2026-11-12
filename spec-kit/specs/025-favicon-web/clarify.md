@@ -23,8 +23,9 @@ Decisões aprovadas pelo responsável em 2026-11-12, junto com o plano de corre�
 ## C-2503 — Geração dos PNGs
 
 - **Resposta aprovada:** os PNGs são gerados uma vez a partir do SVG, por um script descartável fora do repositório,
-  com o Chromium do `@playwright/test` que já é dependência de desenvolvimento do `apps/web`. Nenhuma dependência nova
-  e nenhum script versionado.
+  com o `@playwright/test` que já é dependência de desenvolvimento do `apps/web` controlando o Chrome instalado na
+  máquina (o Chromium do Playwright não estava baixado). Nenhuma dependência nova, nenhum download e nenhum script
+  versionado.
 - **Impacto em spec:** RF-2503, RNF-2501.
 
 ## C-2504 — Faixa de IDs, ADR e impacto de versão

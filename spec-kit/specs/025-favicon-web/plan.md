@@ -8,8 +8,8 @@ Clarify: `./clarify.md` (C-2501 a C-2504)
 ## 1. Summary
 
 ```text
-apps/web/public/favicon.svg ──(script descartável, Chromium do Playwright)──► favicon-32.png
-                                                                           └► apple-touch-icon.png
+apps/web/public/favicon.svg ──(script descartável, Playwright + Chrome) ──► favicon-32.png
+                                                                        └► apple-touch-icon.png
 apps/web/index.html:
   <link rel="icon" href="/favicon-32.png" type="image/png" sizes="32x32" />
   <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
@@ -29,7 +29,7 @@ apps/web/index.html:
 |---|---|---|
 | Formato | SVG inline, sem `<text>`, sem `<image>`, < 2 KB | RF-2501, RNF-2502 |
 | Contraste | fundo escuro próprio, sem media query | RF-2502 |
-| PNG | `page.screenshot` no Chromium do Playwright, script no scratchpad | RF-2503, C-2503 |
+| PNG | `locator.screenshot` com o Playwright controlando o Chrome instalado, script no scratchpad | RF-2503, C-2503 |
 | Teste | vitest com `fs` e `path` relativos ao `apps/web` | §11 |
 | Versão | PATCH via `npm run bump -- patch` | C-2504 |
 

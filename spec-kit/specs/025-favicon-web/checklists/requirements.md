@@ -20,7 +20,7 @@ Status: APPROVED
 
 ## Viabilidade
 
-- [x] O Chromium do Playwright está instalado na máquina de desenvolvimento.
+- [x] O Playwright do `apps/web` controla o Chrome instalado na máquina de desenvolvimento.
 - [x] O Vite copia `public/` para `dist/` sem configuração extra.
 
 ## Resultado
