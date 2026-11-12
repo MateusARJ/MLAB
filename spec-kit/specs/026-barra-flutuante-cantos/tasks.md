@@ -2,7 +2,7 @@
 
 Feature: `026-barra-flutuante-cantos`
 Prerequisites: spec/clarify/plan/checklist/analyze aprovados
-Status: IN PROGRESS
+Status: DONE
 
 Regras:
 - `npm run test -w apps/desktop` e `npm run lint` verdes antes de marcar `[x]`;
@@ -37,21 +37,21 @@ Checks:
 - [x] `npm run test -w apps/desktop` e `npm run lint` verdes.
 
 ### T2603 — Verificação manual no Windows
-[ ] T2603
+[x] T2603
 Depends On: T2602
 Allowed Paths: `spec-kit/specs/026-barra-flutuante-cantos/**`
 Prohibited Paths: `apps/**`, `packages/**`, `package.json`
 Checks:
-- [ ] Bolinha nos quatro cantos: expandir mostra a barra inteira; minimizar volta ao ponto (US-2601, US-2602).
-- [ ] Arrastar a barra aberta, minimizar e reexpandir; `Alt+H`; com e sem mão levantada; popover de cores aberto.
+- [x] Bolinha nos quatro cantos: expandir mostra a barra inteira; minimizar volta ao ponto (US-2601, US-2602).
+- [x] Arrastar a barra aberta, minimizar e reexpandir; `Alt+H`; com e sem mão levantada; popover de cores aberto.
 
 ### T2604 — Converge e versão
-[ ] T2604
+[x] T2604
 Depends On: T2603
 Allowed Paths: `spec-kit/specs/026-barra-flutuante-cantos/**`, `package.json`, `package-lock.json`,
 `apps/*/package.json`, `packages/*/package.json`
 Prohibited Paths: `apps/**/src/**`, `packages/**/src/**`, `.github/**`
 Checks:
-- [ ] `converge.md` com evidências, desvios e impacto de versão (PATCH, C-2604).
-- [ ] `npm run bump -- patch` e `npm run version:check`; commit `chore(release): versao X.Y.Z`.
-- [ ] `npm run spec:check -- spec-kit/specs/026-barra-flutuante-cantos` com PASS.
+- [x] `converge.md` com evidências, desvios e impacto de versão (PATCH, C-2604).
+- [x] `npm run bump -- patch` e `npm run version:check`; commit `chore(release): versao X.Y.Z`.
+- [x] `npm run spec:check -- spec-kit/specs/026-barra-flutuante-cantos` com PASS.
