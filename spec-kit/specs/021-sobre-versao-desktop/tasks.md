@@ -56,7 +56,7 @@ Checks:
 - [x] Contrato `desktop-ipc.md` cita `build.copyright` como fonte do copyright.
 
 ### T2103 — Rodapé nas telas de identificação e dashboard
-[ ] T2103
+[x] T2103
 Depends On: T2101a
 Allowed Paths: `apps/desktop/src/renderer/pages/ProfessorEntry.tsx`,
 `apps/desktop/src/renderer/pages/ProfessorEntry.test.tsx`, `apps/desktop/src/renderer/pages/Dashboard.tsx`,
@@ -64,8 +64,8 @@ Allowed Paths: `apps/desktop/src/renderer/pages/ProfessorEntry.tsx`,
 Prohibited Paths: `apps/desktop/src/renderer/pages/Room.tsx`, `apps/desktop/src/main/**`,
 `apps/desktop/src/renderer/services/**`, `apps/desktop/package.json`, `packages/**`, `package.json`
 Checks:
-- [ ] `AppInfoFooter` abaixo do card da identificação e ao fim do dashboard (RF-2101).
-- [ ] Testes das duas telas afirmam a versão do mock no rodapé; testes existentes continuam verdes.
+- [x] `AppInfoFooter` abaixo do card da identificação e ao fim do dashboard (RF-2101).
+- [x] Testes das duas telas afirmam a versão do mock no rodapé; testes existentes continuam verdes.
 
 ### T2104 — Metadados do pacote
 [ ] T2104

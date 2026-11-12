@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { startProfessorSession } from '../services/auth';
 import mlabLogo from '../assets/MLAB-logo.png';
 import { Button, TextInput, Alert, colors, radii, typography } from '@mlab/ui';
+import { AppInfoFooter } from '../components/AppInfoFooter';
 
 interface ProfessorEntryProps {
   onSuccess: () => void;
@@ -72,6 +73,7 @@ export const ProfessorEntry: React.FC<ProfessorEntryProps> = ({ onSuccess }) => 
           </Button>
         </form>
       </div>
+      <AppInfoFooter />
     </div>
   );
 };
@@ -80,6 +82,7 @@ const styles: { [key: string]: React.CSSProperties } = {
   container: {
     minHeight: '100vh',
     display: 'flex',
+    flexDirection: 'column',
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: colors.bgBase,
