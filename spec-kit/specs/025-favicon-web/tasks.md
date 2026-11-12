@@ -2,7 +2,7 @@
 
 Feature: `025-favicon-web`
 Prerequisites: spec/clarify/plan/checklist/analyze aprovados
-Status: READY
+Status: DONE
 
 Regras:
 - `npm run test -w apps/web` e `npm run lint` verdes antes de marcar `[x]`;
@@ -33,21 +33,21 @@ Checks:
 - [x] `npm run test -w apps/web`, `npm run lint` e `npm run build -w apps/web` verdes; os três ícones estão em `dist/`.
 
 ### T2503 — Verificação manual nos navegadores
-[ ] T2503
+[x] T2503
 Depends On: T2502
 Allowed Paths: `spec-kit/specs/025-favicon-web/**`
 Prohibited Paths: `apps/**`, `packages/**`, `package.json`
 Checks:
-- [ ] Chrome, Firefox e Edge, tema claro e escuro: ícone nítido e com contraste na aba (RF-2501, RF-2502).
-- [ ] Logo das páginas de entrada e da sala sem mudança (RF-2504).
+- [x] Chrome, Firefox e Edge, tema claro e escuro: ícone nítido e com contraste na aba (RF-2501, RF-2502).
+- [x] Logo das páginas de entrada e da sala sem mudança (RF-2504).
 
 ### T2504 — Converge e versão
-[ ] T2504
+[x] T2504
 Depends On: T2503
 Allowed Paths: `spec-kit/specs/025-favicon-web/**`, `package.json`, `package-lock.json`, `apps/*/package.json`,
 `packages/*/package.json`
 Prohibited Paths: `apps/**/src/**`, `apps/web/public/**`, `apps/web/index.html`, `packages/**/src/**`, `.github/**`
 Checks:
-- [ ] `converge.md` com evidências, desvios e impacto de versão (PATCH, C-2504).
-- [ ] `npm run bump -- patch` e `npm run version:check`; commit `chore(release): versao X.Y.Z`.
-- [ ] `npm run spec:check -- spec-kit/specs/025-favicon-web` com PASS.
+- [x] `converge.md` com evidências, desvios e impacto de versão (PATCH, C-2504).
+- [x] `npm run bump -- patch` e `npm run version:check`; commit `chore(release): versao X.Y.Z`.
+- [x] `npm run spec:check -- spec-kit/specs/025-favicon-web` com PASS.
