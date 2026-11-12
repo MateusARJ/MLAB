@@ -2,7 +2,7 @@
 
 Feature: `024-lista-arquivos-celular`
 Prerequisites: spec/clarify/plan/checklist/analyze aprovados
-Status: READY
+Status: DONE
 
 Regras:
 - `npm run test -w apps/web` e `npm run lint` verdes antes de marcar `[x]`;
@@ -23,22 +23,22 @@ Checks:
 - [x] `npm run test -w apps/web` e `npm run lint` verdes.
 
 ### T2402 — Verificação manual no celular
-[ ] T2402
+[x] T2402
 Depends On: T2401
 Allowed Paths: `spec-kit/specs/024-lista-arquivos-celular/**`
 Prohibited Paths: `apps/**`, `packages/**`, `package.json`
 Checks:
-- [ ] Celular real (ou emulação 375×812 e 412×915) com 10+ arquivos: a lista vai até o fim da gaveta e rola (RF-2401).
-- [ ] Arquivo novo com a aba aberta: a lista rola até ele (RF-2403).
-- [ ] Desktop 1280px: gaveta "Arquivos da Aula" igual à anterior (RF-2402).
+- [x] Celular real (ou emulação 375×812 e 412×915) com 10+ arquivos: a lista vai até o fim da gaveta e rola (RF-2401).
+- [x] Arquivo novo com a aba aberta: a lista rola até ele (RF-2403).
+- [x] Desktop 1280px: gaveta "Arquivos da Aula" igual à anterior (RF-2402).
 
 ### T2403 — Converge e versão
-[ ] T2403
+[x] T2403
 Depends On: T2402
 Allowed Paths: `spec-kit/specs/024-lista-arquivos-celular/**`, `package.json`, `package-lock.json`,
 `apps/*/package.json`, `packages/*/package.json`
 Prohibited Paths: `apps/**/src/**`, `apps/backend/internal/**`, `packages/**/src/**`, `.github/**`
 Checks:
-- [ ] `converge.md` com evidências, desvios e impacto de versão (PATCH, C-2403).
-- [ ] `npm run bump -- patch` e `npm run version:check`; commit `chore(release): versao X.Y.Z`.
-- [ ] `npm run spec:check -- spec-kit/specs/024-lista-arquivos-celular` com PASS.
+- [x] `converge.md` com evidências, desvios e impacto de versão (PATCH, C-2403).
+- [x] `npm run bump -- patch` e `npm run version:check`; commit `chore(release): versao X.Y.Z`.
+- [x] `npm run spec:check -- spec-kit/specs/024-lista-arquivos-celular` com PASS.
