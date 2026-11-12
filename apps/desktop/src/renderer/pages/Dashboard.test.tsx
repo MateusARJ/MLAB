@@ -170,4 +170,11 @@ describe('Dashboard Component', () => {
       mdnsLink: 'http://mlab-2.local:8080',
     }));
   });
+
+  it('mostra a versão do MLab no rodapé, com acesso ao Sobre (021, RF-2101)', async () => {
+    render(<Dashboard onEnterRoom={vi.fn()} onLogout={vi.fn()} />);
+
+    expect(await screen.findByText('MLab v9.8.7')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Sobre' })).toBeInTheDocument();
+  });
 });

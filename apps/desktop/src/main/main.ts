@@ -18,6 +18,10 @@ import { CursorPresenceTracker, type CursorTrackingTarget } from './cursorPresen
 import { AnnotationOverlayManager } from './annotationOverlayWindow'
 import { resolveHostKey } from './hostKey'
 import { hardenWebContents } from './navigationGuard'
+import { buildAppInfo, type AppMeta } from './appInfo'
+
+// Injetado pelo electron-vite no build do main (electron.vite.config.ts, 021/C-2105).
+declare const __MLAB_APP_META__: AppMeta
 
 // Chave de host desta execução (ADR 0006). Resolvida antes de iniciar o backend embarcado,
 // que a herda via process.env; o renderer a obtém pelo IPC 'get-host-key'.
@@ -329,6 +333,10 @@ ipcMain.handle('write-clipboard-text', (_event, text: unknown) => {
 // ── IPC: chave de host para a sessão do professor (ADR 0006) ──────────────────
 // Usada apenas no header X-MLab-Host-Key de POST /auth/session ao backend local.
 ipcMain.handle('get-host-key', () => hostKey)
+
+// ── IPC: informações do MLab para o rodapé e o "Sobre" (021, RF-2101/RF-2102) ─
+// A versão vem do app em execução; nome, descrição e ano vêm do package.json no build (__MLAB_APP_META__).
+ipcMain.handle('get-app-info', () => buildAppInfo(app.getVersion(), __MLAB_APP_META__))
 
 // ── Gerenciamento da sala ativa para encerramento gracioso ao fechar o app ────
 

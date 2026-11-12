@@ -16,6 +16,7 @@ import {
   colors,
   typography,
 } from '@mlab/ui';
+import { AppInfoFooter } from '../components/AppInfoFooter';
 
 interface DashboardProps {
   onEnterRoom: (roomData: {
@@ -294,6 +295,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ onEnterRoom, onLogout }) =
           )}
         </Card>
       </main>
+      <AppInfoFooter />
     </div>
   );
 };

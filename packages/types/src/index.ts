@@ -350,3 +350,20 @@ export interface AnnotationToolbarRect {
   width: number;
   height: number;
 }
+
+// ── App Info (021) ───────────────────────────────────────────────────────────
+
+/**
+ * Informações do MLab exibidas no rodapé e no diálogo "Sobre" do app desktop (021, RF-2101/RF-2102).
+ * Enviadas pelo main ao renderer pelo canal IPC `get-app-info`.
+ */
+export interface AppInfo {
+  /** Nome do produto (`build.productName`). */
+  name: string;
+  /** Versão `MAJOR.MINOR.PATCH` do app em execução (`app.getVersion()`). */
+  version: string;
+  /** Descrição única do produto (`description` do `package.json` do desktop). */
+  description: string;
+  /** `Copyright © <ano do build> <titular>`. */
+  copyright: string;
+}
