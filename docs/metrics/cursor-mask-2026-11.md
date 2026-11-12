@@ -1,6 +1,7 @@
 # Medição: Ocultação do Cursor na Janela Específica (007)
 
-Status: **PENDENTE** (T705, manual). Rodada preliminar de 2026-11-11 inconclusiva, com indício de queda de FPS
+Status: **CONCLUÍDA COM RESSALVAS** (T705, 2026-11-12). Rodada 2 com a 007 aprovada pelo responsável, sem linha
+de base na mesma rodada e fora de 1080p (seções 3 a 5). A rodada preliminar de 2026-11-11 ficou inconclusiva
 (seção 6).
 Feature: `spec-kit/specs/007-mascara-cursor-janela` — RNF-701, RF-703, RF-704.
 
@@ -8,13 +9,13 @@ Feature: `spec-kit/specs/007-mascara-cursor-janela` — RNF-701, RF-703, RF-704.
 
 | Item | Valor |
 |---|---|
-| Data | |
-| Máquina do professor (CPU/GPU/SO) | |
-| Versão do app (empacotado) | |
-| `chrome://gpu` no app — "Canvas" | (Hardware accelerated / Software only) |
-| Navegador do aluno | Chrome |
-| Fonte transmitida | janela específica, 1920×1080 |
-| FPS alvo configurado | |
+| Data | 2026-11-12 (rodada 2) |
+| Máquina do professor (CPU/GPU/SO) | notebook do responsável, Windows (não detalhado) |
+| Versão do app (empacotado) | branch `fix/mascara-cursor-janela` (1.12.1 + 007), instalador |
+| `chrome://gpu` no app — "Canvas" | não registrado (ressalva) |
+| Navegador do aluno | Chrome 157 no Android 10 (celular na mesma rede, `mlab.local`), decodificador de hardware (MediaCodec) |
+| Fonte transmitida | janela específica, 1366×768 (planejado: 1920×1080; ressalva) |
+| FPS alvo configurado | não registrado; máximo observado 58 fps |
 
 ## 2. Procedimento
 
@@ -34,30 +35,46 @@ Feature: `spec-kit/specs/007-mascara-cursor-janela` — RNF-701, RF-703, RF-704.
 
 ## 3. Resultados
 
-| Cenário | Versão | FPS médio | Resolução | Δ keyFramesDecoded | Δ freezeCount | Cursor oculto? |
-|---|---|---|---|---|---|---|
-| V | base | | | | | n/a |
-| V | 007 | | | | | n/a |
-| O | base | | | | | (esperado: não) |
-| O | 007 | | | | | |
-| T | base | | | | | |
-| T | 007 | | | | | |
-| A | base | | | | | n/a |
-| A | 007 | | | | | n/a |
+Rodada 2 (2026-11-12): app com a 007, aluno no celular, cenários V, O, T e A feitos na mesma sessão. O dump do
+`chrome://webrtc-internals` guarda só os últimos 48 s (16:42:39 a 16:43:26 UTC), que cobrem os cenários sem
+separá-los; por isso os números abaixo valem para a janela inteira.
 
-Log `[CursorMask]` durante O/T: 
+| Métrica (`inbound-rtp` de vídeo, aluno) | 007, rodada 2 |
+|---|---|
+| FPS médio / mediana | 43,3 / 46 |
+| FPS p10 / máximo | 26 / 58 |
+| Segundos abaixo de 20 fps | 0 de 48 |
+| Δ `freezeCount` na janela / duração total da sessão | 2 / 1,07 s |
+| Resolução | 1366×768 constante |
+| Δ `keyFramesDecoded` | 4 em 48 s, exatamente a cada 10 s: nenhum keyframe extra nas alternâncias |
+| Perda de pacotes / RTT máximo | 0 / 65 ms (Wi-Fi) |
+| Bitrate médio | 2,10 Mbps |
+| Cursor oculto em O | sim, sem mancha (responsável) |
+| Smoke A12 | OK (responsável) |
+
+Comparação de referência (não é A/B na mesma rodada): na rodada 1, a base teve média de 40,2 fps e mediana 44 com o
+aluno no mesmo notebook.
+
+Log `[CursorMask]` durante O/T: não registrado (ressalva).
 
 ## 4. Critérios (RNF-701)
 
-- [ ] V: FPS e resolução da 007 iguais à base.
-- [ ] O: FPS ≥ 95% do alvo; resolução igual à de V.
-- [ ] T: Δ keyFramesDecoded da 007 sem aumento em relação à base (nenhum keyframe por alternância).
-- [ ] A: resolução igual à de V (RF-704).
-- [ ] Cursor oculto em O, sem mancha visível.
+- [ ] V: FPS e resolução da 007 iguais à base — **não medido na mesma rodada**; aceito pelo responsável com base na
+  fluidez percebida e na mediana de 46 fps (acima da mediana de 44 da base na rodada 1, em condições piores).
+- [ ] O: FPS ≥ 95% do alvo — **alvo não registrado**; aceito pelo responsável (nenhum segundo abaixo de 20 fps, p10 de
+  26 fps). Resolução igual à de V: sim (1366×768 constante).
+- [x] T: nenhum keyframe por alternância (keyframes só no ritmo de 10 s).
+- [x] A: resolução igual à de V (RF-704).
+- [x] Cursor oculto em O, sem mancha visível (responsável).
 
 ## 5. Conclusão
 
-PENDENTE.
+Concluída com ressalvas, aceitas pelo responsável em 2026-11-12. A 007 mantém resolução e ritmo de keyframes
+(RF-704, RNF-701) e, com o aluno em outro aparelho, transmite sem queda perceptível (mediana de 46 fps, nenhum segundo
+abaixo de 20 fps). A queda da rodada 1 provavelmente veio do aluno decodificando no mesmo notebook; não foi isolada.
+
+Ressalvas (sem medição): comparação A/B na mesma rodada, 1080p, FPS alvo, `chrome://gpu` e log `[CursorMask]`.
+Ficam como trabalho restante no `converge.md` da 007.
 
 ## 6. Rodada preliminar (2026-11-11) — inconclusiva
 

@@ -115,16 +115,20 @@ Checks:
   transmitida, a lupa aparece e acompanha o ponteiro — confirmado pelo responsável em 2026-11-11.
 
 ### T705 — Medição A/B e smoke A12 (manual)
-[ ] T705
+[x] T705
 Depends On: T703, T704, T707, T708, T709, T710
 Allowed Paths: `docs/metrics/cursor-mask-2026-11.md`, `spec-kit/specs/007-mascara-cursor-janela/**`
 Prohibited Paths: `apps/**`, `packages/**`
+Concluída com ressalvas aceitas pelo responsável em 2026-11-12 (`docs/metrics/cursor-mask-2026-11.md`, seções 3–5).
 Checks:
-- [ ] App empacotado, janela específica em 1080p; linha de base na `development` sem a feature.
-- [ ] Aluno no Chrome (`chrome://webrtc-internals`): `framesPerSecond`, `frameWidth`/`frameHeight`,
-  `keyFramesDecoded`, `freezeCount` nos cenários cursor visível, cursor oculto e anotação ativa (RNF-701).
-- [ ] `chrome://gpu` do app registrado; log `[CursorMask]` conferido.
-- [ ] Smoke A12 OK.
+- [x] App empacotado — com ressalva: janela em 1366×768, não 1080p; linha de base só na rodada 1 (aluno no mesmo
+  notebook), não na rodada 2.
+- [x] Aluno no Chrome (`chrome://webrtc-internals`, Android, rodada 2): `framesPerSecond` (média 43,3, mediana 46,
+  nenhum segundo abaixo de 20), resolução constante, keyframes só a cada 10 s, 2 travamentos em 48 s, nos cenários
+  V, O, T e A feitos na mesma sessão (RNF-701).
+- [ ] `chrome://gpu` do app registrado; log `[CursorMask]` conferido — não feito; ressalva aceita pelo responsável e
+  levada ao `converge.md`.
+- [x] Smoke A12 OK, com cursor oculto sem mancha (responsável, 2026-11-12).
 
 ### T706 — Converge
 [ ] T706
