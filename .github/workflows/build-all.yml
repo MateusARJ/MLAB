@@ -92,6 +92,7 @@ jobs:
           name: ${{ matrix.artifact_name }}
           path: ${{ matrix.artifact_path }}
           if-no-files-found: error
+          retention-days: 7
 
   release:
     name: Criar GitHub Release
