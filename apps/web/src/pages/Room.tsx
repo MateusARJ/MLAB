@@ -107,6 +107,9 @@ export const Room: React.FC<RoomProps> = ({ token, roomInfo, onLeave }) => {
     if (connectionStatus === 'duplicate') {
       // RN-04: outra sessão do mesmo aluno assumiu o lugar desta (005/C-502).
       onLeave('Sua sessão foi aberta em outra aba ou dispositivo.');
+    } else if (connectionStatus === 'student-id-in-use') {
+      // RN-04 (ADR 0010): outro aluno já está conectado com esta matrícula (027/RF-2706).
+      onLeave('Esta matrícula já está conectada nesta transmissão.');
     } else if (connectionStatus === 'closed') {
       onLeave('A transmissão foi encerrada pelo professor. Por favor, insira suas credenciais novamente.');
     }

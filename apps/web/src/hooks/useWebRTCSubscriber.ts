@@ -20,7 +20,14 @@ export function useWebRTCSubscriber(token: string, roomInfo: { room_id: string; 
   const [stream, setStream] = useState<MediaStream | null>(null);
   const [autoplayBlocked, setAutoplayBlocked] = useState(false);
   const [connectionStatus, setConnectionStatus] = useState<
-    'connecting' | 'connected' | 'reconnecting' | 'closed' | 'duplicate' | 'publishing' | 'waiting'
+    | 'connecting'
+    | 'connected'
+    | 'reconnecting'
+    | 'closed'
+    | 'duplicate'
+    | 'student-id-in-use'
+    | 'publishing'
+    | 'waiting'
   >('connecting');
   const [isStreamPaused, setIsStreamPaused] = useState<boolean>(false);
   const [sharedFiles, setSharedFiles] = useState<any[]>([]);
@@ -380,6 +387,15 @@ export function useWebRTCSubscriber(token: string, roomInfo: { room_id: string; 
         isClosedRef.current = true;
         connectionStatusRef.current = 'duplicate';
         setConnectionStatus('duplicate');
+        return;
+      }
+
+      // Outro aluno com a mesma matrícula já está na sala (RN-04, ADR 0010 — 4002 Student ID In Use):
+      // a conexão foi recusada e não reconecta (027/RF-2706).
+      if (evt.code === 4002) {
+        isClosedRef.current = true;
+        connectionStatusRef.current = 'student-id-in-use';
+        setConnectionStatus('student-id-in-use');
         return;
       }
 
