@@ -17,7 +17,7 @@
   <img src="https://img.shields.io/badge/Vite-Fast-646CFF?style=flat&logo=vite&logoColor=white" alt="Vite" />
   <img src="https://img.shields.io/badge/Carbon_Design-IBM-0f62fe?style=flat&logo=ibm&logoColor=white" alt="IBM Carbon" />
   <img src="https://img.shields.io/badge/Methodology-SDD_%26_AI-7c3aed?style=flat" alt="SDD" />
-  <img src="https://img.shields.io/badge/License-MIT-green.svg" alt="License" />
+  <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-green.svg" alt="License" /></a>
   <a href="https://github.com/MateusARJ/MLAB/releases/latest"><img src="https://img.shields.io/github/v/release/MateusARJ/MLAB?label=vers%C3%A3o&color=0f62fe" alt="Versão" /></a>
 </p>
 
@@ -672,7 +672,7 @@ mlab/
 
 ## Licença e Menções a Terceiros
 
-O código-fonte do **MLab** é distribuído sob os termos da **Licença MIT**.
+O código-fonte do **MLab** é distribuído sob os termos da **[Licença MIT](LICENSE)**, © 2026 Mateus de Araujo.
 
 ### Atribuições e Licenças de Bibliotecas de Terceiros
 O MLab é construído sobre tecnologias de código aberto. Agradecemos e reconhecemos os autores e mantenedores dos seguintes projetos:
