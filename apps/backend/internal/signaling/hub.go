@@ -8,6 +8,7 @@ import (
 	"html"
 	"log"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/MateusARJ/MLAB/apps/backend/internal/chat"
@@ -115,6 +116,12 @@ type Hub struct {
 	publisherTimer *time.Timer
 	sfu            SFU // nil até T011
 
+	// connectedStudents mapeia a matrícula normalizada (studentKey) ao participant_id do aluno
+	// registrado (RN-04, ADR 0010). Só a goroutine run() escreve; o join lê por
+	// HasConnectedStudent, de outra goroutine, por isso o mutex próprio (027/RNF-2702).
+	studentsMu        sync.RWMutex
+	connectedStudents map[string]string
+
 	// onClosed é chamado (na goroutine do hub) quando a sala é encerrada pelo WebSocket
 	// (end-session ou timeout de reconexão), para liberar recursos fora do hub, como arquivos.
 	onClosed func(roomID string)
@@ -138,6 +145,8 @@ func newHub(roomID string, sfu SFU, onClosed ...func(roomID string)) *Hub {
 		internal:      make(chan signal, 8),
 		fileShared:    make(chan FileSharedPayload, 16),
 		sfu:           sfu,
+
+		connectedStudents: make(map[string]string),
 	}
 	if len(onClosed) > 0 {
 		h.onClosed = onClosed[0]
@@ -178,21 +187,59 @@ func (h *Hub) run() {
 
 // ── Registro / Desregistro ────────────────────────────────────────────────────
 
+// normalizeStudentID é a chave da regra de sessão única: ignora espaços nas pontas e
+// maiúsculas (005/C-501). A matrícula só aceita letras ASCII, então equivale a EqualFold.
+func normalizeStudentID(studentID string) string {
+	return strings.ToUpper(strings.TrimSpace(studentID))
+}
+
+// studentKey devolve a chave da matrícula de um aluno, ou "" para professor e aluno sem matrícula.
+func studentKey(c *Client) string {
+	if c.role != RoleAluno {
+		return ""
+	}
+	return normalizeStudentID(c.studentID)
+}
+
+// HasConnectedStudent informa se há aluno registrado na sala com a matrícula informada
+// (RN-04, ADR 0010). Seguro para chamar de qualquer goroutine (027/RNF-2702).
+func (h *Hub) HasConnectedStudent(studentID string) bool {
+	key := normalizeStudentID(studentID)
+	if key == "" {
+		return false
+	}
+	h.studentsMu.RLock()
+	defer h.studentsMu.RUnlock()
+	_, ok := h.connectedStudents[key]
+	return ok
+}
+
 func (h *Hub) onRegister(c *Client) {
-	// Sessão única (RN-04): uma conexão anterior do mesmo participante, ou de outro aluno com a
-	// mesma matrícula, é encerrada com 4001 Duplicate Session. A limpeza do registro antigo
-	// acontece no onUnregister da conexão derrubada.
+	// Sessão única (RN-04, ADR 0010): se outro aluno com a mesma matrícula já está conectado,
+	// a conexão nova é recusada com 4002 e não entra na sala; a conexão existente não muda
+	// (027/RF-2703). O unregister da conexão recusada é ignorado, pois ela não está em clients.
+	key := studentKey(c)
+	if key != "" {
+		h.studentsMu.RLock()
+		ownerID, inUse := h.connectedStudents[key]
+		h.studentsMu.RUnlock()
+		if inUse && ownerID != c.participantID {
+			log.Printf("hub[%s]: matrícula já conectada por %s; recusando a conexão de %s", h.roomID, ownerID, c.participantID)
+			c.closeWithCode(CloseStudentIDInUse, closeStudentIDInUseReason)
+			return
+		}
+	}
+
+	// Uma conexão anterior do mesmo participante (mesmo token) é encerrada com 4001 Duplicate
+	// Session (027/RF-2704). A limpeza do registro antigo acontece no onUnregister dela.
 	if oldClient, exists := h.clients[c.participantID]; exists && oldClient != c {
 		log.Printf("hub[%s]: substituindo conexão anterior do participante %s (%s)", h.roomID, c.role, c.participantID)
 		oldClient.closeWithCode(CloseDuplicateSession, closeDuplicateSessionReason)
 	}
-	if c.role == RoleAluno && c.studentID != "" {
-		for id, other := range h.clients {
-			if id != c.participantID && other.role == RoleAluno && strings.EqualFold(other.studentID, c.studentID) {
-				log.Printf("hub[%s]: matrícula já conectada; encerrando sessão anterior %s", h.roomID, id)
-				other.closeWithCode(CloseDuplicateSession, closeDuplicateSessionReason)
-			}
-		}
+	if key != "" {
+		h.studentsMu.Lock()
+		h.connectedStudents[key] = c.participantID
+		h.studentsMu.Unlock()
 	}
 
 	// Se o professor está se conectando ou reconectando, cancela timer de timeout se ativo
@@ -269,6 +316,15 @@ func (h *Hub) onUnregister(c *Client) {
 	delete(h.clients, c.participantID)
 	delete(h.chatLimits, c.participantID)
 	c.close()
+
+	// Libera a matrícula do aluno que saiu (027/RF-2705).
+	if key := studentKey(c); key != "" {
+		h.studentsMu.Lock()
+		if h.connectedStudents[key] == c.participantID {
+			delete(h.connectedStudents, key)
+		}
+		h.studentsMu.Unlock()
+	}
 
 	h.broadcastExcept(c.participantID, TypeParticipantLeft, ParticipantLeftPayload{
 		ParticipantID: c.participantID,
@@ -566,6 +622,9 @@ func (h *Hub) onPublisherTimeout() {
 		c.close()
 	}
 	h.clients = make(map[string]*Client)
+	h.studentsMu.Lock()
+	h.connectedStudents = make(map[string]string)
+	h.studentsMu.Unlock()
 	if h.sfu != nil {
 		_ = h.sfu.RoomClosed(h.roomID)
 	}
@@ -582,6 +641,9 @@ func (h *Hub) onRoomClose() {
 		c.close()
 	}
 	h.clients = make(map[string]*Client)
+	h.studentsMu.Lock()
+	h.connectedStudents = make(map[string]string)
+	h.studentsMu.Unlock()
 	if h.sfu != nil {
 		_ = h.sfu.RoomClosed(h.roomID)
 	}

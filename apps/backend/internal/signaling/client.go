@@ -19,9 +19,14 @@ const (
 	pingPeriod = (pongWait * 9) / 10 // deve ser menor que pongWait
 
 	// CloseDuplicateSession é o close code enviado à conexão substituída por uma nova
-	// sessão do mesmo aluno (RN-04 — 001-screen-share-core).
+	// conexão do mesmo participante, com o mesmo token (RN-04 — 001-screen-share-core).
 	CloseDuplicateSession       = 4001
 	closeDuplicateSessionReason = "Duplicate Session"
+
+	// CloseStudentIDInUse é o close code enviado à conexão recusada porque outro aluno com a
+	// mesma matrícula já está conectado na sala (RN-04, ADR 0010 — 027/RF-2703).
+	CloseStudentIDInUse       = 4002
+	closeStudentIDInUseReason = "Student ID In Use"
 )
 
 // Client representa um participante conectado via WebSocket.
