@@ -101,6 +101,9 @@ func newServer(cfg serverConfig) (http.Handler, error) {
 		}
 	})
 
+	// O join recusa a matrícula já conectada no hub da sala (RN-04, ADR 0010 — 027/T2703)
+	roomHandler.SetStudentConnectedChecker(sigHandler.HasConnectedStudent)
+
 	// Libera os arquivos da sala quando o hub a encerra pelo WebSocket (end-session ou timeout)
 	sigHandler.SetRoomClosedListener(roomHandler.ReleaseRoomFiles)
 
