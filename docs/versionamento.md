@@ -139,9 +139,8 @@ Pré-requisitos: tudo o que vai sair na release está mergeado na `development`,
 3. **Conferir** na página de [Releases](https://github.com/MateusARJ/MLAB/releases) os arquivos
    `MLab-Setup-X.Y.Z.exe`, `MLab-Mac-X.Y.Z.dmg`/`.zip` e `MLab-Linux-X.Y.Z.AppImage`/`.deb`/`.tar.gz`.
 
-> **A tag publicada não aponta para o código.** O job de release recria a tag num commit sem código-fonte (só um
-> `README.md` de downloads) e a envia com `--force`, para a release não oferecer o código. Para achar o código de uma
-> versão, use o commit `chore(release): versao X.Y.Z` na `main`.
+> **A release traz o código-fonte.** A tag aponta para o commit da `main` que gerou a versão, e o GitHub anexa
+> automaticamente `Source code (zip)` e `Source code (tar.gz)` ao lado dos instaladores.
 
 ## 6. Builds locais e de teste
 
