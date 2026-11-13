@@ -18,6 +18,15 @@
   <img src="https://img.shields.io/badge/Carbon_Design-IBM-0f62fe?style=flat&logo=ibm&logoColor=white" alt="IBM Carbon" />
   <img src="https://img.shields.io/badge/Methodology-SDD_%26_AI-7c3aed?style=flat" alt="SDD" />
   <img src="https://img.shields.io/badge/License-MIT-green.svg" alt="License" />
+  <a href="https://github.com/MateusARJ/MLAB/releases/latest"><img src="https://img.shields.io/github/v/release/MateusARJ/MLAB?label=vers%C3%A3o&color=0f62fe" alt="Versão" /></a>
+</p>
+
+<p align="center">
+  <a href="https://github.com/MateusARJ/MLAB/releases/latest"><strong>Baixar o MLab</strong></a> ·
+  <a href="#instalação-para-uso-professor">Instalação</a> ·
+  <a href="#primeira-aula-passo-a-passo">Primeira aula</a> ·
+  <a href="#solução-de-problemas">Solução de problemas</a> ·
+  <a href="#como-contribuir">Como contribuir</a>
 </p>
 
 ---
@@ -30,11 +39,18 @@
 - [Funcionalidades](#funcionalidades)
 - [Requisitos do Sistema](#requisitos-do-sistema)
 - [Instalação para Uso (Professor)](#instalação-para-uso-professor)
+- [Primeira Aula, Passo a Passo](#primeira-aula-passo-a-passo)
+- [Atalhos do Professor](#atalhos-do-professor)
 - [Ambiente de Desenvolvimento](#ambiente-de-desenvolvimento) — [Windows](#windows) · [macOS](#macos) · [Linux](#linux)
 - [Gerando os Instaladores](#gerando-os-instaladores)
+- [Versionamento e Releases](#versionamento-e-releases)
 - [Rede e Firewall](#rede-e-firewall)
+- [Segurança](#segurança)
+- [Solução de Problemas](#solução-de-problemas)
 - [Testes Automatizados](#testes-automatizados)
 - [Desenvolvimento com IA e SDD](#desenvolvimento-com-ia-e-sdd)
+- [Features e Decisões de Arquitetura](#features-e-decisões-de-arquitetura)
+- [Como Contribuir](#como-contribuir)
 - [Estrutura do Repositório](#estrutura-do-repositório)
 - [Licença e Menções a Terceiros](#licença-e-menções-a-terceiros)
 
@@ -101,26 +117,43 @@ A arquitetura do MLab combina um aplicativo desktop para o professor, um servido
 
 ## Funcionalidades
 
+Resumo do que o MLab entrega hoje. Cada item vem de uma feature do Spec Kit; a lista completa, com o número de cada
+uma, está em [Features e Decisões de Arquitetura](#features-e-decisões-de-arquitetura).
+
+| Para o professor (app desktop) | Para o aluno (navegador) |
+|---|---|
+| Transmissão da tela inteira ou de uma janela em 1080p (30/60 fps) | Assiste sem instalar nada, no computador ou no celular |
+| Barra flutuante de marcação: caneta, marcador, seta, retângulo, borracha, lupa e destaque | Entrada com Nome e Matrícula, sem cadastro |
+| Fila de mãos levantadas, também visível na barra de marcação | Levantar e abaixar a mão |
+| Chat público, chat privado e mensagens fixadas | Chat com histórico de quem entrou atrasado |
+| Arquivos da aula por botão ou arrastando para a janela | Download dos arquivos pela própria página |
+| Gravação local em WebM ou MP4 | Tela cheia e Picture-in-Picture |
+| Áudio do microfone e do computador | Vídeo e áudio aparecem sozinhos, mesmo entrando antes do professor |
+
+### Transmissão de Tela
+- **Perfis Full HD:** **1080p @ 30 fps (4,0 Mbps)**, padrão para programação, slides e código-fonte (`contentHint = 'detail'` e `degradationPreference = 'maintain-resolution'`); e **1080p @ 60 fps (6,0 Mbps)** para animações, jogos, 3D e vídeos.
+- **Troca de fonte sem quedas (`replaceTrack`):** o professor alterna entre "Tela Inteira" e "Janela Específica" durante a aula, e os alunos não precisam recarregar a página.
+- **Sem tela preta:** quem entra recebe um keyframe logo de início, com cooldown no SFU e limite de pedidos de keyframe por aluno.
+- **Aluno que chega antes do professor:** se a sala ainda está em espera, o vídeo e o áudio aparecem sozinhos quando a transmissão começa, sem apertar F5.
+- **Upload único:** o professor envia uma só transmissão ao SFU, que repassa os pacotes a cada aluno sem recomprimir. O consumo de upload do professor não cresce com a turma. A meta é 40+ alunos por sala (limite padrão de 50).
+
+### Cursor e Janela do MLab Fora da Transmissão
+- A janela do próprio MLab usa proteção de conteúdo e não aparece no vídeo. O professor também pode copiar uma captura da janela transmitida para a área de transferência.
+- **Janela específica:** o cursor só aparece quando a janela transmitida está em foco e sob o ponteiro. Sobre conteúdo em movimento ele continua visível, e o rastro de movimentos rápidos é limpo. Se a ocultação ameaçar o FPS, ela é suspensa por alguns instantes.
+- A lupa só entra no vídeo quando está sobre a janela transmitida.
+
+### Barra Flutuante de Marcação
+- Overlay de anotação sobre qualquer janela, inclusive fora do MLab, com as ferramentas **cursor, caneta, marcador, seta, retângulo e borracha**, além de **lupa** com níveis de zoom e **destaque** (spotlight).
+- Em tela cheia, as marcações e a lupa entram no vídeo, e a barra não aparece para os alunos.
+- **Bolinha nos cantos:** recolhida, a barra vira uma bolinha que pode ficar em qualquer canto ou borda. Ao expandir, a barra cresce para dentro da tela e fica inteira, com o popover de cores. Ao minimizar, a bolinha volta ao ponto onde estava.
+- **Mãos levantadas na barra:** quando um aluno levanta a mão, a barra (aberta ou recolhida) mostra uma borda de destaque e o número de mãos, sem texto. O professor percebe mesmo com outro programa em primeiro plano.
+- Atalhos de teclado em [Atalhos do Professor](#atalhos-do-professor). No Linux (X11), a barra usa uma região de entrada própria para receber cliques sobre o overlay. Esse suporte ainda não foi validado num Ubuntu real (veja [Limitações conhecidas](#limitações-conhecidas)).
+
 ### Levantar a Mão com Fila de Chamada
 - O aluno clica em **Levantar Mão** no player de vídeo ou na barra lateral de tela cheia.
 - O professor vê a seção **Mãos Levantadas** na aba de Alunos, em ordem de chamada (`#1`, `#2`, `#3`).
 - O professor pode responder em chat privado ou clicar em **Abaixar Mão**; o aluno também pode abaixar a própria mão.
-- Com a barra lateral fechada, um aviso flutuante informa o professor, com atalho para abrir a turma.
-
-### Operação 100% Offline e Detecção de Rede
-- Funciona em salas sem conexão externa de internet; o estado da aula fica em memória (ADR 0005).
-- O backend descarta adaptadores virtuais (VMware, VirtualBox, WSL, Hyper-V, Docker, ZeroTier e VPNs) e identifica o IPv4 físico da interface Ethernet ou Wi-Fi da sala.
-- Anuncia `mlab.local` na rede via mDNS, como alternativa ao IP. Com vários professores na mesma rede, cada backend usa o primeiro nome livre (`mlab.local`, `mlab-2.local`, `mlab-3.local`…), e o app mostra o link com esse nome.
-
-### Perfis de Qualidade Full HD 1080p (30 fps e 60 fps)
-- **1080p @ 30 fps (4,0 Mbps):** perfil padrão para programação, slides e código-fonte, com `contentHint = 'detail'` e `degradationPreference = 'maintain-resolution'`.
-- **1080p @ 60 fps (6,0 Mbps):** para animações, jogos, renderização 3D e vídeos.
-
-### Troca de Fonte sem Quedas (`replaceTrack`)
-- O professor alterna entre "Tela Inteira" e "Janela Específica" durante a aula, sem que os alunos precisem recarregar a página.
-
-### Controle de Keyframes (sem tela preta)
-- Novos alunos recebem um keyframe logo ao entrar, com janela de cooldown no SFU e limite de frequência por aluno para pedidos de keyframe.
+- Com a barra lateral fechada, um aviso flutuante informa o professor e leva até a turma. No celular do aluno, o aviso se ajusta à largura da tela.
 
 ### Entrada Identificada com Validação de Matrícula
 - O aluno informa Nome Completo e Matrícula antes de entrar.
@@ -134,7 +167,10 @@ A arquitetura do MLab combina um aplicativo desktop para o professor, um servido
 - Limite de envio: o aluno é avisado quando manda mensagens rápido demais; o chat fica desabilitado até a conexão com a sala abrir.
 
 ### Compartilhamento de Arquivos na Rede Local
-- O professor envia arquivos para a aula; os alunos baixam direto pela página, sem pen-drive ou internet.
+- O professor envia arquivos pelo botão ou **arrastando para a aba Arquivos**. Vários arquivos entram numa fila e sobem um por vez; se um falhar, os outros continuam. Se o arquivo for solto fora da zona de envio, o app não sai da sala.
+- Limite de **50 MB** por arquivo. **Executáveis e instaladores** (`.exe`, `.msi`, `.bat` e outros) são recusados pela extensão e pela assinatura binária, mesmo se forem renomeados. Código-fonte (`.py`, `.js`, `.java`…) e arquivos compactados são aceitos.
+- Os alunos baixam pela página, sem pen-drive nem internet. O download sempre vem como anexo, com o nome original (inclusive acentos) e o tipo definido pelo servidor.
+- No celular, a lista de arquivos ocupa toda a altura da gaveta.
 
 ### Gravação Local em 1080p
 - O professor salva a aula no próprio disco em WebM ou MP4, com a duração corrigida no arquivo para permitir avançar e voltar em qualquer player.
@@ -142,6 +178,16 @@ A arquitetura do MLab combina um aplicativo desktop para o professor, um servido
 ### Áudio do Professor
 - Microfone com filtros contra microfonia e cancelamento de eco, e captura do áudio interno do computador.
 - No aluno, se o navegador bloquear o som inicial, um banner permite ativá-lo com um clique.
+
+### Operação 100% Offline e Link Fixo
+- Funciona em salas sem conexão externa de internet. O estado da aula (salas, chat, arquivos) fica em memória e some quando o app fecha; não há banco de dados (ADR 0005).
+- O backend descarta adaptadores virtuais (VMware, VirtualBox, WSL, Hyper-V, Docker, ZeroTier e VPNs) e usa o IPv4 físico da interface Ethernet ou Wi-Fi da sala.
+- **Link `.local` por mDNS**, como alternativa ao IP: o primeiro professor da rede fica com `mlab.local`, o segundo com `mlab-2.local`, e assim por diante até `mlab-20.local`. O app sempre mostra o nome que o seu backend anuncia. O link também abre no celular (Android 12+ com Chrome e iOS com Safari). Se o mDNS não estiver disponível, o link por IP continua valendo.
+
+### App do Professor
+- Entrada só com o nome, sem login nem senha (ADR 0006).
+- O rodapé das telas iniciais mostra a versão instalada, e a ação **Sobre** abre o nome, a versão, a descrição e os direitos autorais do MLab.
+- A página dos alunos tem favicon próprio do MLab.
 
 ---
 
@@ -188,6 +234,45 @@ Os instaladores ficam na página de [Releases](https://github.com/MateusARJ/MLAB
   ```
 - **Outras distribuições (.tar.gz):** extraia o arquivo e execute o binário `mlab` (ou `MLab`) da pasta.
 - **Wayland:** a captura de tela usa o portal do sistema (`xdg-desktop-portal` + PipeWire), que mostra a janela de escolha da tela. Se a captura falhar, verifique se esses pacotes estão instalados ou entre numa sessão Xorg.
+
+### Código-fonte da versão
+Cada release traz, além dos instaladores, o **`Source code (zip)`** e o **`Source code (tar.gz)`** do commit que gerou a versão.
+
+---
+
+## Primeira Aula, Passo a Passo
+
+1. **Conecte o computador à rede da sala** (cabo ou Wi-Fi), a mesma rede que os alunos vão usar.
+2. **Abra o MLab** e informe o seu nome. Não há cadastro nem senha.
+3. **Crie a sala.** O app mostra o link dos alunos em dois formatos:
+   - por nome: `http://mlab.local:8080/...` (ou `mlab-2.local`, `mlab-3.local`… se houver outro professor na rede);
+   - por IP: `http://<ip-do-professor>:8080/...`, que funciona em qualquer rede.
+4. **Passe o link aos alunos**, copiando, projetando ou escrevendo no quadro. Eles abrem no navegador e informam Nome e Matrícula. Quem entrar antes de você começar vê a sala em espera, e a transmissão aparece sozinha quando ela começa.
+5. **Escolha o que transmitir** (tela inteira ou uma janela), a qualidade (30 ou 60 fps) e o áudio (microfone e/ou som do computador), e inicie a transmissão.
+6. **Durante a aula:** use a barra flutuante para marcar a tela, acompanhe as mãos levantadas e o chat, compartilhe arquivos arrastando-os para a aba Arquivos e, se quiser, grave a aula no seu disco.
+7. **Ao encerrar**, pare a transmissão e feche o app. O chat, a lista de alunos e os arquivos da aula ficam só na memória e somem quando o MLab fecha. Salve antes o que quiser guardar, como a gravação.
+
+---
+
+## Atalhos do Professor
+
+Os atalhos funcionam com a barra de marcação ativa, mesmo com outro programa em primeiro plano. Todos têm uma variante
+com `Alt+Shift+` (por exemplo `Alt+Shift+P`), para o caso de `Alt+<letra>` estar ocupado no sistema.
+
+| Atalho | Ação |
+|---|---|
+| `Alt+H` | Recolher ou expandir a barra (bolinha) |
+| `Alt+V` | Cursor (clicar nas janelas abaixo da marcação) |
+| `Alt+P` | Caneta |
+| `Alt+M` | Marcador |
+| `Alt+A` | Seta |
+| `Alt+R` | Retângulo |
+| `Alt+E` | Borracha |
+| `Alt+L` | Destaque (spotlight) |
+| `Alt+Z` | Lupa: troca o nível de zoom |
+| `Alt+Shift+U` / `Alt+Shift+Y` | Desfazer / refazer |
+| `Alt+Shift+X` | Limpar as marcações |
+| `Ctrl` duas vezes (até 600 ms) | Liga ou desliga a lupa (somente Windows) |
 
 ---
 
@@ -322,9 +407,31 @@ cd apps/backend
 go build -ldflags="-s -w" -o ./bin/mlab-server ./cmd/server
 ```
 
-### Versões e releases
+---
 
-O MLab segue o versionamento semântico (`MAJOR.MINOR.PATCH`), com uma versão única para todo o monorepo. Cada PR que muda o app incrementa a versão no nível certo (`npm run bump -- patch|minor|major`), e a release é publicada com a tag `vX.Y.Z`. Confira com `npm run version:check`. O escopo de cada nível e o passo a passo estão em [docs/versionamento.md](docs/versionamento.md).
+## Versionamento e Releases
+
+O MLab segue o **versionamento semântico** (`MAJOR.MINOR.PATCH`), com **uma versão única** para todo o monorepo, a
+partir da 1.7.1 ([ADR 0007](spec-kit/docs/adrs/0007-versionamento-semantico.md)). O guia completo está em
+[docs/versionamento.md](docs/versionamento.md).
+
+| Nível | Quando usar | Exemplo |
+|---|---|---|
+| **MAJOR** | Quebra de compatibilidade: funcionalidade removida, contrato incompatível, requisito de sistema maior | `1.14.4 → 2.0.0` |
+| **MINOR** | Funcionalidade nova compatível (US/RF novo, adição compatível em contrato) | `1.13.0 → 1.14.0` |
+| **PATCH** | Correção, segurança, desempenho ou refatoração sem mudar capacidade nem contrato | `1.14.3 → 1.14.4` |
+| sem incremento | Só documentação, testes, CI, estilo ou Spec Kit | — |
+
+```bash
+npm run version:check            # mostra a versão atual e confere se todos os pacotes estão alinhados
+npm run bump -- patch            # ou minor | major: último commit do PR, "chore(release): versao X.Y.Z"
+```
+
+**Fluxo de release:**
+
+1. Cada PR para a `development` que muda o app termina com o commit de versão.
+2. Para publicar, abre-se um PR `development → main`. O CI gera os instaladores de Windows, macOS e Linux, e o merge é feito com merge commit, sem squash.
+3. O responsável cria a tag `vX.Y.Z` na `main`. O workflow publica a release com os instaladores, o código-fonte e as notas automáticas.
 
 ---
 
@@ -340,6 +447,49 @@ O MLab segue o versionamento semântico (`MAJOR.MINOR.PATCH`), com uma versão �
 - **macOS:** permita conexões de entrada quando o sistema perguntar (Firewall em **Ajustes do Sistema → Rede**).
 - **Linux:** com `ufw`: `sudo ufw allow 8080/tcp && sudo ufw allow 50000:50100/udp && sudo ufw allow 5353/udp`. Com `firewalld`: `sudo firewall-cmd --add-port=8080/tcp --add-port=50000-50100/udp --add-port=5353/udp --permanent && sudo firewall-cmd --reload`.
 - Redes com isolamento de clientes (comum em Wi-Fi de visitantes) impedem que os alunos alcancem o professor; use a rede interna da sala.
+- **mDNS (`.local`):** usa a porta UDP 5353. Se ela estiver bloqueada ou ocupada por outro programa, o link `.local` não aparece no app, mas o link por IP continua funcionando.
+
+---
+
+## Segurança
+
+Baseada na [ADR 0004](spec-kit/docs/adrs/0004-arquitetura-de-seguranca-e-testes-de-seguranca.md) e na feature
+`002-security-hardening`:
+
+- **Sem login nem senhas guardadas** ([ADR 0006](spec-kit/docs/adrs/0006-descontinuacao-do-login-e-sessao-local.md)): o professor entra pelo nome, e o app embarcado prova ao backend que é o dono da sessão com uma **chave de host** aleatória por execução.
+- **Papéis distintos:** professor e aluno têm tokens com capacidades diferentes, e toda autorização é validada no servidor. O aluno não publica mídia nem modera a sala.
+- **Tokens JWT** assinados com um segredo aleatório gerado a cada execução, sem dados pessoais além do necessário ([ADR 0009](spec-kit/docs/adrs/0009-remocao-da-claim-email-do-professor.md)).
+- **WebSocket** com verificação de origem, limite de envio no chat e limite de pedidos de keyframe por aluno.
+- **Arquivos:** limite de 50 MB, bloqueio de executáveis por extensão e assinatura, download sempre como anexo com `X-Content-Type-Options: nosniff`.
+- **Electron endurecido:** renderer em sandbox, sem acesso direto ao Node.js (tudo via `contextBridge`) e com bloqueio de navegação para fora do app.
+
+Encontrou uma vulnerabilidade? Abra uma issue sem detalhes de exploração e peça um canal privado ao mantenedor.
+
+---
+
+## Solução de Problemas
+
+| Sintoma | O que fazer |
+|---|---|
+| O aluno não abre o link | Confirme que ele está na **mesma rede** do professor e que a rede não isola clientes. Libere a porta TCP `8080` no firewall ([Rede e Firewall](#rede-e-firewall)). |
+| O link `mlab.local` não abre (mas o IP abre) | O mDNS pode estar bloqueado na rede ou no aparelho. Use o link por IP. No celular, prefira Chrome (Android 12+) ou Safari (iOS). |
+| O aluno entra, mas o vídeo fica preto | Libere as portas UDP `50000–50100`. Peça ao aluno para recarregar uma vez; o SFU envia um keyframe novo a quem entra. |
+| O aluno não ouve o áudio | O navegador bloqueou o som automático. O aluno clica em **Clique para Ativar Som** no aviso do topo. |
+| "Sessão aberta em outra aba" | A mesma matrícula entrou em outra aba ou dispositivo. Só a sessão mais recente fica ativa. |
+| Aviso de mensagens rápidas demais no chat | Limite de envio do chat. Espere alguns segundos. |
+| Arquivo recusado no envio | Ele passa de 50 MB ou é executável/instalador. Compacte em `.zip` se for material didático. |
+| macOS: tela preta ou captura vazia | Permita o MLab em **Gravação de Tela e Áudio do Sistema** e reabra o app. |
+| macOS: "o app está danificado" | `xattr -cr /Applications/MLab.app` |
+| Linux: captura falha no Wayland | Instale `xdg-desktop-portal` e PipeWire, ou entre numa sessão Xorg. |
+| Windows: SmartScreen bloqueia o instalador | **Mais informações → Executar assim mesmo** (o instalador não é assinado). |
+
+### Limitações conhecidas
+
+- **Barra de marcação no Linux:** recolher, receber cliques e atalhos dependem de X11 e ainda não foram validados num Ubuntu real ([#30](https://github.com/MateusARJ/MLAB/issues/30), [#32](https://github.com/MateusARJ/MLAB/issues/32)).
+- **Downloads em HTTP:** alguns navegadores avisam que o download é inseguro, porque a página da LAN é servida em `http` ([#47](https://github.com/MateusARJ/MLAB/issues/47)). Basta confirmar o download.
+- **Lupa por duplo `Ctrl`:** só no Windows. Nos outros sistemas, use o botão ou `Alt+Z`.
+- **Estado em memória:** nada da aula é guardado depois que o app fecha (por decisão, ADR 0005).
+- **Instaladores sem assinatura:** Windows e macOS mostram avisos na primeira execução.
 
 ---
 
@@ -368,7 +518,25 @@ npm run smoke
 
 # Validação dos artefatos do Spec Kit
 npm run spec:check
+
+# Lint e checagem de tipos de todo o monorepo
+npm run lint
+
+# Versão alinhada em todos os pacotes e no package-lock
+npm run version:check
 ```
+
+| Camada | Ferramenta | O que cobre |
+|---|---|---|
+| Backend | `go test` | Unidade, segurança (auth, salas, sinalização, SFU), mDNS e teste de carga real do SFU com 40 e 50 alunos |
+| Smoke de backend | `go test` com servidor real | Itens de servidor da matriz de regressão (`004-smoke-regression`) |
+| Web do aluno | Vitest + Testing Library | Hooks, páginas e componentes |
+| E2E do aluno | Playwright | Entrada, sessão única, chat, mãos e arquivos com professor simulado |
+| Desktop | Vitest | Processo principal (overlay, atalhos, hit-test, guarda de navegação) e renderer |
+
+A estratégia está na [ADR 0003](spec-kit/docs/adrs/0003-estrategia-de-testes-automatizados.md). As medições ficam em
+[`docs/metrics/`](docs/metrics/). O CI (`.github/workflows/build-all.yml`) roda os testes e gera os instaladores nos três
+sistemas em todo PR para a `main`.
 
 ---
 
@@ -403,6 +571,70 @@ Decisões arquiteturais ficam em ADRs (`spec-kit/docs/adrs/`), e `npm run spec:c
 
 ---
 
+## Features e Decisões de Arquitetura
+
+Cada feature tem a sua pasta em [`spec-kit/specs/`](spec-kit/specs/), com `spec.md`, `clarify.md`, `plan.md`,
+`tasks.md`, `analyze.md` e `converge.md`.
+
+| # | Feature | O que entrega |
+|---|---|---|
+| 001 | [screen-share-core](spec-kit/specs/001-screen-share-core/) | Transmissão de tela professor → SFU → alunos |
+| 002 | [security-hardening](spec-kit/specs/002-security-hardening/) | Fim do login, chave de host, proteção de arquivos e origens, teste de carga real |
+| 003 | [classroom-interaction](spec-kit/specs/003-classroom-interaction/) | Mãos, chat, arquivos, matrícula, áudio, anotações, cursor e link `.local` |
+| 004 | [smoke-regression](spec-kit/specs/004-smoke-regression/) | Matriz de smoke: backend com servidor real e E2E do aluno |
+| 005 | [correcoes-smoke](spec-kit/specs/005-correcoes-smoke/) | Sessão única (4001), aviso de limite do chat e remoção de legado |
+| 006 | [banner-mao-levantada](spec-kit/specs/006-banner-mao-levantada/) | Aviso de mão levantada responsivo no celular |
+| 007 | [mascara-cursor-janela](spec-kit/specs/007-mascara-cursor-janela/) | Cursor e lupa ocultos fora da janela transmitida |
+| 008 | [dev-entrada-unica-web](spec-kit/specs/008-dev-entrada-unica-web/) | Modo dev: a porta 8080 redireciona as páginas para o Vite |
+| 009 | [marcacao-linux](spec-kit/specs/009-marcacao-linux/) | Barra de marcação no Linux (X11) |
+| 010 | [mdns-celular](spec-kit/specs/010-mdns-celular/) | Link `mlab.local` abrindo no celular |
+| 012 | [mdns-nome-unico](spec-kit/specs/012-mdns-nome-unico/) | Nome `.local` único por professor na mesma rede |
+| 013 | [teste-ice-offline](spec-kit/specs/013-teste-ice-offline/) | Teste de entrada independente da rede |
+| 014 | [gofmt-backend](spec-kit/specs/014-gofmt-backend/) | Backend formatado com `gofmt` |
+| 015 | [remove-claim-email](spec-kit/specs/015-remove-claim-email/) | Remoção da claim `email` do JWT do professor |
+| 016 | [modulo-go-mlab](spec-kit/specs/016-modulo-go-mlab/) | Nome do módulo Go do backend |
+| 017 | [maos-na-barra-marcacao](spec-kit/specs/017-maos-na-barra-marcacao/) | Mãos levantadas na barra de marcação |
+| 018 | [arquivos-arrastar](spec-kit/specs/018-arquivos-arrastar/) | Arrastar arquivos para a aba Arquivos |
+| 019 | [validador-ids-tarefa](spec-kit/specs/019-validador-ids-tarefa/) | `spec:check` aceita IDs de tarefa com 3+ dígitos |
+| 020 | [lint-tipos-desktop](spec-kit/specs/020-lint-tipos-desktop/) | Lint de tipos do desktop sem erros |
+| 021 | [sobre-versao-desktop](spec-kit/specs/021-sobre-versao-desktop/) | Versão no rodapé e diálogo "Sobre" |
+| 022 | [bloqueio-executaveis-upload](spec-kit/specs/022-bloqueio-executaveis-upload/) | Bloqueio de executáveis e headers de download |
+| 023 | [tela-preta-entrada-antecipada](spec-kit/specs/023-tela-preta-entrada-antecipada/) | Aluno que entra antes vê a transmissão sem F5 |
+| 024 | [lista-arquivos-celular](spec-kit/specs/024-lista-arquivos-celular/) | Lista de arquivos na altura da gaveta no celular |
+| 025 | [favicon-web](spec-kit/specs/025-favicon-web/) | Favicon próprio do web dos alunos |
+| 026 | [barra-flutuante-cantos](spec-kit/specs/026-barra-flutuante-cantos/) | Barra flutuante inteira nos cantos da tela |
+
+O número 011 não foi usado.
+
+**ADRs aprovadas** ([`spec-kit/docs/adrs/`](spec-kit/docs/adrs/)):
+
+| ADR | Decisão |
+|---|---|
+| [0001](spec-kit/docs/adrs/0001-monorepo-turborepo.md) | Monorepo com Turborepo |
+| [0002](spec-kit/docs/adrs/0002-desktop-app-framework.md) | Electron no app do professor |
+| [0003](spec-kit/docs/adrs/0003-estrategia-de-testes-automatizados.md) | Estratégia de testes automatizados |
+| [0004](spec-kit/docs/adrs/0004-arquitetura-de-seguranca-e-testes-de-seguranca.md) | Arquitetura e testes de segurança |
+| [0005](spec-kit/docs/adrs/0005-operacao-lan-offline.md) | LAN offline como modo primário, TURN opcional, estado em memória |
+| [0006](spec-kit/docs/adrs/0006-descontinuacao-do-login-e-sessao-local.md) | Fim do login: sessão por nome com chave de host |
+| [0007](spec-kit/docs/adrs/0007-versionamento-semantico.md) | Versionamento semântico a partir da 1.7.1 |
+| [0009](spec-kit/docs/adrs/0009-remocao-da-claim-email-do-professor.md) | Remoção da claim `email` do JWT do professor |
+
+---
+
+## Como Contribuir
+
+As regras completas estão no [`AGENTS.md`](AGENTS.md) e valem para pessoas e agentes de IA.
+
+1. **Comece pela spec.** Nenhuma mudança de comportamento entra sem um `tasks.md` aprovado (fluxo SDD acima). Se a ideia é nova, abra uma issue e crie a feature em `spec-kit/specs/`.
+2. **Branch a partir da `development`** atualizada, com o nome `<tipo>/<descricao-em-kebab-case>` (ex.: `fix/lista-arquivos-celular`). Nunca commite direto na `development` nem na `main`.
+3. **Commits atômicos**, um por entrega, no formato `tipo(escopo): descrição em português` (tipos em inglês: `feat`, `fix`, `docs`, `refactor`, `test`, `ci`, `chore`…), com `Ref: Txxx` da tarefa. O template fica em `.gitmessage` (`git config commit.template .gitmessage`).
+4. **Versão:** se o PR muda `apps/` ou `packages/`, o último commit é o `npm run bump -- patch|minor|major` (veja [Versionamento e Releases](#versionamento-e-releases)).
+5. **Antes do PR**, rode `npm run spec:check`, `npm run lint`, `npm test` e `npm run version:check`.
+6. **Pull Request para a `development`**, preenchendo o [template](.github/pull_request_template.md): tarefa do Spec Kit, impacto de versão e desvios encontrados.
+7. **Achou um bug fora do escopo?** Não corrija no mesmo PR. Abra uma issue com o template [Bug ou desvio](.github/ISSUE_TEMPLATE/bug-desvio.md), que segue o tratamento de desvios do `AGENTS.md` (§14).
+
+---
+
 ## Estrutura do Repositório
 
 ```text
@@ -413,13 +645,14 @@ mlab/
 │   │   └── internal/
 │   │       ├── auth/          # Sessão do professor (chave de host) e JWT
 │   │       ├── chat/          # Máscara de palavrões
-│   │       ├── room/          # Salas, links, arquivos, origens e detecção de IP da LAN
-│   │       ├── signaling/     # Hub WebSocket: chat, mãos levantadas, sessão única, keyframes
-│   │       └── webrtc/        # SFU Pion e controle de keyframes
+│   │       ├── room/          # Salas, links, arquivos (tipos bloqueados), origens, mDNS e IP da LAN
+│   │       ├── signaling/     # Hub WebSocket: chat, mãos levantadas, sessão única, limite de keyframes
+│   │       └── webrtc/        # SFU Pion, controle de keyframes e teste de carga
 │   ├── desktop/               # App Electron + React (professor)
-│   │   ├── src/main/          # Processo principal, captura nativa e backend embarcado
-│   │   ├── src/preload/       # contextBridge seguro
-│   │   └── src/renderer/      # Interface React (Carbon), gravação e controles
+│   │   ├── src/main/          # Processo principal: backend embarcado, overlay de marcação, atalhos,
+│   │   │                      # rastreio do cursor, guarda de navegação e preload (contextBridge)
+│   │   ├── src/renderer/      # Interface React (Carbon): sala, barra flutuante, arquivos, gravação
+│   │   └── src/renderer/media/ # Máscara do cursor (worker) e política de repasse dos quadros
 │   └── web/                   # Web do aluno (React + Vite)
 │       ├── e2e/               # Testes E2E (Playwright) com professor simulado
 │       ├── src/hooks/         # Assinante WebRTC, reconexão e chat
