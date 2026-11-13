@@ -110,6 +110,15 @@ Credenciais TURN são temporárias e geradas pelo backend; nunca hardcoded.
 - `stream-pause` e `end-session` são exclusivos do professor.
 - Qualquer tentativa de operação não autorizada resulta em mensagem `error` e pode encerrar a conexão.
 
+## Close codes
+
+Fechamentos sem código próprio usam frame vazio. Códigos definidos (RN-04, ADR 0010):
+
+| Código | Motivo | Quando | Cliente |
+|---|---|---|---|
+| `4001` | `Duplicate Session` | o mesmo participante (mesmo token) abriu uma conexão nova; a anterior é fechada | não reconecta; volta à tela de entrada |
+| `4002` | `Student ID In Use` | outro aluno com a mesma matrícula já está conectado; a conexão nova é recusada e não entra na sala | não reconecta; volta à tela de entrada com "Esta matrícula já está conectada nesta transmissão." |
+
 ## Compatibility
 
 Qualquer alteração breaking (novo campo obrigatório, remoção de campo, mudança de tipo) exige atualização deste contrato, de `packages/types` e das tasks downstream.
