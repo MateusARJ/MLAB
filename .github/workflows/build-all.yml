@@ -125,46 +125,11 @@ jobs:
             echo "title=MLab v$PKG_VER" >> $GITHUB_OUTPUT
           fi
 
-      - name: Preparar Tag Limpa (Ocultar Código-Fonte da Release)
-        run: |
-          TAG="${{ steps.release_vars.outputs.tag }}"
-          
-          # Salva os artefatos compilados fora da árvore git
-          mkdir -p /tmp/mlab-dist-release
-          cp -r dist-release/* /tmp/mlab-dist-release/
-          
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          
-          # Cria um commit órfão limpo sem arquivos de código
-          git checkout --orphan release-clean-tree
-          git rm -rf .
-          
-          cat << 'EOF' > README.md
-          # MLab - Downloads Oficiais da Versão
-
-          Esta release disponibiliza exclusivamente os instaladores executáveis compilados do MLab.
-          Por favor, baixe o instalador correspondente ao seu sistema operacional na seção Assets desta Release abaixo:
-          - Windows: instalador executável (.exe)
-          - Linux: pacote (.AppImage ou .deb)
-          - macOS: pacote (.dmg ou .zip)
-          EOF
-
-          git add README.md
-          git commit -m "release: ${TAG} (distribuicao oficial de binarios)"
-          
-          # Aponta a tag para este commit limpo (zero codigo-fonte)
-          git tag -a "${TAG}" -m "Release ${TAG}" -f
-          git push origin "${TAG}" --force
-          
-          # Restaura os artefatos para upload nos assets
-          mkdir -p dist-release
-          cp -r /tmp/mlab-dist-release/* dist-release/
-
       - name: Publicar Release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ steps.release_vars.outputs.tag }}
+          target_commitish: ${{ github.sha }}
           name: ${{ steps.release_vars.outputs.title }}
           draft: false
           prerelease: false
