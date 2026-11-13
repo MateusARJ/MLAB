@@ -35,7 +35,7 @@ Decidimos implementar uma arquitetura de segurança em camadas acompanhada por u
 - **Isolamento de Redes UDP:** O SFU Pion opera em faixa estrita de portas UDP (`50000–50100`) para regras de firewall enxutas.
 
 #### C. Proteção de Sessão e Abuso
-- **Sessão Única por Aluno:** A tentativa de conexão de uma segunda sessão WebSocket com a mesma Matrícula e `room_id` desconecta sumariamente a sessão anterior com o código `4001 Duplicate Session`.
+- **Sessão Única por Aluno:** A tentativa de conexão de uma segunda sessão WebSocket com a mesma Matrícula e `room_id` desconecta sumariamente a sessão anterior com o código `4001 Duplicate Session`. **Substituído pela ADR 0010 (2026-11-13):** enquanto a matrícula estiver conectada, a nova entrada é recusada (`409` no `join`, close `4002 Student ID In Use` na corrida) e a sessão anterior permanece; a reconexão do mesmo participante (mesmo token) segue encerrando a conexão antiga dele com `4001`.
 - **Rate Limiting no Chat:** Limite server-side de 5 mensagens/5s e 30 mensagens/minuto por participante com retorno `CHAT_RATE_LIMITED`.
 - **Prevenção XSS:** Sanitização e escape estrito de HTML no servidor e no frontend antes do envio e renderização do chat.
 - **Descarte de Payloads Nulos:** Mensagens vazias ou contendo apenas espaços em branco são descartadas antes da sinalização.
@@ -57,7 +57,7 @@ Adicionamos testes de segurança obrigatórios automatizados para validar cada c
    - Testar aluno tentando enviar `publish-request` no WebSocket (deve retornar erro WS `FORBIDDEN`).
 
 3. **Testes de Sessão Única e Rate Limit (`signaling_security_test.go`):**
-   - Testar conexão simultânea do mesmo aluno em duas abas/clientes (deve fechar a primeira conexão com código `4001`).
+   - Testar conexão simultânea do mesmo aluno em duas abas/clientes (deve fechar a primeira conexão com código `4001`). **Substituído pela ADR 0010:** a segunda sessão com a mesma matrícula e outro participante é recusada com `4002` e a primeira continua aberta; o `4001` vale só para o mesmo participante (mesmo token).
    - Testar envio de 6 mensagens de chat em menos de 5 segundos (a 6ª mensagem deve receber `CHAT_RATE_LIMITED`).
 
 4. **Testes de Sanitização XSS (`chat_security_test.go`):**
