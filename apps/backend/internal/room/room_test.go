@@ -664,3 +664,49 @@ func TestJoinMatriculaConectada(t *testing.T) {
 		t.Fatalf("matrícula desconectada: esperado 200, obtido %d: %s", rec.Code, rec.Body.String())
 	}
 }
+
+// TestJoinSalaEncerrada cobre RF-2901 a RF-2903 (029, RN-08 da 001): sala encerrada recusa o join com 409, antes da
+// matrícula conectada, sem registrar participante; sala inexistente segue com 404.
+func TestJoinSalaEncerrada(t *testing.T) {
+	t.Setenv("JWT_SECRET", "test-secret-12345")
+
+	store := NewInMemoryStore()
+	handler := NewHandler(store)
+	mux := http.NewServeMux()
+	handler.RegisterRoutes(mux)
+
+	// A matrícula consta como conectada: o 409 tem de ser o de sala encerrada (RF-2902).
+	handler.SetStudentConnectedChecker(func(string, string) bool { return true })
+
+	sala := &Room{ID: "sala-029", Slug: "sala-029", Status: StatusClosed, MaxParticipants: 50, CreatedAt: time.Now().UTC()}
+	if err := store.CreateRoom(context.Background(), sala); err != nil {
+		t.Fatalf("falha ao criar sala: %v", err)
+	}
+
+	join := func(roomID string) *httptest.ResponseRecorder {
+		body := []byte(`{"name": "Aluno", "student_id": "2025116TADS0001"}`)
+		rec := httptest.NewRecorder()
+		mux.ServeHTTP(rec, httptest.NewRequest("POST", "/rooms/"+roomID+"/join", bytes.NewReader(body)))
+		return rec
+	}
+
+	rec := join("sala-029")
+	if rec.Code != http.StatusConflict {
+		t.Fatalf("sala encerrada: esperado 409, obtido %d: %s", rec.Code, rec.Body.String())
+	}
+	var body map[string]string
+	_ = json.Unmarshal(rec.Body.Bytes(), &body)
+	if body["error"] != "esta transmissão já foi encerrada e o link não está mais disponível" {
+		t.Errorf("mensagem do 409 inesperada: %q", body["error"])
+	}
+	if _, ok := body["token"]; ok {
+		t.Error("o 409 não deveria emitir token")
+	}
+	if n, _ := store.CountParticipants(context.Background(), "sala-029"); n != 0 {
+		t.Errorf("o 409 não deveria registrar participante (count %d)", n)
+	}
+
+	if rec := join("sala-inexistente"); rec.Code != http.StatusNotFound {
+		t.Fatalf("sala inexistente: esperado 404, obtido %d: %s", rec.Code, rec.Body.String())
+	}
+}

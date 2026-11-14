@@ -34,7 +34,7 @@ Status: OPEN
 | RF-25 ICE restart | `useWebRTCSubscriber.ts` |
 | RF-28 / RNF-18 / RN-19 gravação local .webm/.mp4 | `hooks/useLocalRecorder.ts`, IPC `save-recorded-video` |
 | RN-03 / RN-04 isolamento por sala e sessão única (`4001`) | `signaling/handler.go`, `hub.go`; `signaling_security_test.go` |
-| RN-07 / RN-08 capacidade (429) e sala encerrada (409) | `room/handler.go`; `room_test.go` |
+| RN-07 / RN-08 capacidade (429) e sala encerrada (409) | `room/handler.go`; `room_test.go` (`TestJoinSalaEncerrada`, 029) |
 | RN-12 / RN-20 troca de fonte sem desconectar | `replaceTrack` em `useWebRTCPublisher.ts` |
 | RN-15 / RN-16 / RN-17 / RNF-17 rate limit e sanitização | `hub.go`, `chat/service.go`; `chat_security_test.go` |
 | RNF-14 portas UDP 50000–50100 | `internal/webrtc/sfu.go` |
