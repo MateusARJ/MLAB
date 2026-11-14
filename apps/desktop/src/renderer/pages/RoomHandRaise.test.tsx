@@ -65,22 +65,22 @@ describe('Room Component - Feature Levantar a Mão (Desktop)', () => {
     render(<Room room={dummyRoom} onCloseRoom={vi.fn()} />);
 
     // Inicia transmissão para liberar os controles ao vivo
-    const advanceBtn = screen.getByRole('button', { name: /Avançar e Iniciar Transmissão/i });
+    const advanceBtn = screen.getByRole('button', { name: /Começar transmissão/i });
     await waitFor(() => {
       expect(advanceBtn).toBeEnabled();
     });
     fireEvent.click(advanceBtn);
 
     await waitFor(() => {
-      expect(screen.getByRole('button', { name: /Chat & Turma/i })).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: /^Painel/i })).toBeInTheDocument();
     });
 
     // Abre a sidebar retrátil
-    const chatTurmaBtn = screen.getByRole('button', { name: /Chat & Turma/i });
+    const chatTurmaBtn = screen.getByRole('button', { name: /^Painel/i });
     fireEvent.click(chatTurmaBtn);
 
     // Navega para a aba Alunos
-    const studentsTabBtn = screen.getByRole('button', { name: /Alunos/i });
+    const studentsTabBtn = screen.getByRole('button', { name: /Turma/i });
     fireEvent.click(studentsTabBtn);
 
     // Deve exibir a seção de Mãos Levantadas com contagem (2)
@@ -128,7 +128,7 @@ describe('Room Component - Feature Levantar a Mão (Desktop)', () => {
     render(<Room room={dummyRoom} onCloseRoom={vi.fn()} />);
 
     // Inicia transmissão
-    const advanceBtn = screen.getByRole('button', { name: /Avançar e Iniciar Transmissão/i });
+    const advanceBtn = screen.getByRole('button', { name: /Começar transmissão/i });
     await waitFor(() => {
       expect(advanceBtn).toBeEnabled();
     });
@@ -305,18 +305,18 @@ describe('Room Component - Feature Levantar a Mão (Desktop)', () => {
 
     render(<Room room={dummyRoom} onCloseRoom={vi.fn()} />);
 
-    const advanceBtn = screen.getByRole('button', { name: /Avançar e Iniciar Transmissão/i });
+    const advanceBtn = screen.getByRole('button', { name: /Começar transmissão/i });
     await waitFor(() => {
       expect(advanceBtn).toBeEnabled();
     });
     fireEvent.click(advanceBtn);
 
     await waitFor(() => {
-      expect(screen.getByRole('button', { name: /Chat & Turma/i })).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: /^Painel/i })).toBeInTheDocument();
     });
 
     // Abre a sidebar de Chat
-    fireEvent.click(screen.getByRole('button', { name: /Chat & Turma/i }));
+    fireEvent.click(screen.getByRole('button', { name: /^Painel/i }));
 
     // Deve exibir o banner de Mensagens Fixadas (3/3)
     expect(screen.getByTestId('pinned-public-section')).toBeInTheDocument();
@@ -339,7 +339,7 @@ describe('Room Component - Feature Levantar a Mão (Desktop)', () => {
     expect(mockPinChatMessage).toHaveBeenCalledWith('msg-1', false, false);
 
     // No chat privado, o limite é independente por conversa e o botão de fixar deve estar disponível
-    fireEvent.click(screen.getByRole('button', { name: /Dúvidas Privadas/i }));
+    fireEvent.click(screen.getByRole('button', { name: /Dúvidas/i }));
     expect(screen.getByText('Dúvida privada sobre <script>')).toBeInTheDocument();
     const privPinBtn = screen.getByTestId('pin-msg-btn-msg-priv-1');
     expect(privPinBtn).not.toBeDisabled();

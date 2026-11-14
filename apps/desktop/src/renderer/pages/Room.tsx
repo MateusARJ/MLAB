@@ -15,11 +15,9 @@ import { closeRoom } from '../services/room';
 import { useRoomLinks } from '../hooks/useRoomLinks';
 import { useRoomFileUploads, type UploadItem } from '../hooks/useRoomFileUploads';
 import { FileDropZone } from '../components/FileDropZone';
-import mlabLogo from '../assets/MLAB-logo.png';
 import {
   colors,
   radii,
-  typography,
   IconButton,
   Screen,
   Application,
@@ -27,10 +25,10 @@ import {
   Microphone,
   MicrophoneOff,
   Recording,
-  Chat,
+  Exit,
   Locked,
   UserMultiple,
-  Folder,
+  Download,
   Attachment,
   Copy,
   Checkmark,
@@ -61,6 +59,11 @@ import {
   ChevronLeft,
   decodeChatEntities,
   Alert,
+  BrandMark,
+  ThemeToggle,
+  Pause,
+  PanelRightClose,
+  PanelRightOpen,
 } from '@mlab/ui';
 
 
@@ -1436,53 +1439,79 @@ export const Room: React.FC<RoomProps> = ({ room, onCloseRoom }) => {
       {/* Cabeçalho */}
       <header style={styles.header}>
         <div style={styles.headerTitleBox}>
-          <img src={mlabLogo} alt="MLab Logo" style={styles.logoImg} />
-          <div>
-            <h2 style={styles.title}>{professorName ? `MLab — Prof. ${professorName.charAt(0).toUpperCase() + professorName.slice(1)}` : `MLab — Sala: ${room.slug}`}</h2>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', marginTop: '4px' }}>
-              {/* Link Fixo (mDNS): só com anúncio ativo */}
-              {links.mdnsLink && (
-              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                <span style={{ fontSize: '11px', color: colors.textMuted, fontWeight: 600, minWidth: '86px' }}>Link Fixo:</span>
-                <span style={styles.roomLinkStatic}>{links.mdnsLink}</span>
-                <IconButton
-                  type="button"
-                  variant={copiedMdns ? 'success' : 'ghost'}
-                  size="sm"
-                  onClick={handleCopyMdns}
-                  title={copiedMdns ? 'Link Fixo Copiado' : 'Copiar Link Fixo'}
-                  aria-label="Copiar Link Fixo"
-                >
-                  {copiedMdns ? <Checkmark size={14} /> : <Copy size={14} />}
-                </IconButton>
-              </div>
+          <BrandMark size={32} title="MLab" />
+          <h2 style={styles.title}>{professorName ? `Prof. ${professorName.charAt(0).toUpperCase() + professorName.slice(1)}` : `Sala: ${room.slug}`}</h2>
+          {isLiveSession && (
+            <>
+              <span className={`ml-status ${videoPaused ? 'ml-status--wait' : 'ml-status--live'}`} role="status">
+                {videoPaused ? 'Pausada' : 'No ar'}
+              </span>
+              {wantRecord && recordingStatus === 'recording' && (
+                <span className="ml-status ml-status--rec">
+                  Gravando <span style={styles.mono}>{formattedDuration} (.webm)</span>
+                </span>
               )}
+              {wantRecord && recordingStatus === 'paused' && (
+                <span className="ml-status ml-status--wait">
+                  Gravação pausada <span style={styles.mono}>{formattedDuration}</span>
+                </span>
+              )}
+              {wantRecord && recordingStatus === 'stopped' && (
+                <span className="ml-status ml-status--plain">Gravação finalizada</span>
+              )}
+              <span className="ml-status ml-status--plain">
+                <UserMultiple size={14} /> {studentsOnly.length} {studentsOnly.length === 1 ? 'aluno' : 'alunos'}
+              </span>
+              <span className="ml-status ml-status--plain" style={styles.mono}>
+                {qualityProfile === '1080p_60' ? '1080p @ 60fps' : '1080p @ 30fps'}
+              </span>
+            </>
+          )}
+        </div>
+        <div style={styles.headerLinks}>
+          {/* Link direto (mDNS): só com anúncio ativo */}
+          {links.mdnsLink && (
+          <div style={styles.headerLinkItem}>
+            <span style={styles.headerLinkLabel}>Link direto</span>
+            <span style={styles.roomLinkStatic}>{links.mdnsLink}</span>
+            <IconButton
+              type="button"
+              variant={copiedMdns ? 'success' : 'ghost'}
+              size="sm"
+              onClick={handleCopyMdns}
+              title={copiedMdns ? 'Link Fixo Copiado' : 'Copiar Link Fixo'}
+              aria-label="Copiar Link Fixo"
+            >
+              {copiedMdns ? <Checkmark size={16} /> : <Copy size={16} />}
+            </IconButton>
+          </div>
+          )}
 
-              {/* Link Direto IP */}
-              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                <span style={{ fontSize: '11px', color: colors.textMuted, fontWeight: 600, minWidth: '86px' }}>Link IP Direto:</span>
-                <span style={styles.roomLinkStatic}>{links.ipLink || links.link}</span>
-                <IconButton
-                  type="button"
-                  variant={copiedIp ? 'success' : 'ghost'}
-                  size="sm"
-                  onClick={handleCopyIp}
-                  title={copiedIp ? 'Link IP Copiado' : 'Copiar Link Direto IP'}
-                  aria-label="Copiar Link Direto IP"
-                >
-                  {copiedIp ? <Checkmark size={14} /> : <Copy size={14} />}
-                </IconButton>
-              </div>
-            </div>
+          {/* Link pelo IP */}
+          <div style={styles.headerLinkItem}>
+            <span style={styles.headerLinkLabel}>Link pelo IP</span>
+            <span style={styles.roomLinkStatic}>{links.ipLink || links.link}</span>
+            <IconButton
+              type="button"
+              variant={copiedIp ? 'success' : 'ghost'}
+              size="sm"
+              onClick={handleCopyIp}
+              title={copiedIp ? 'Link IP Copiado' : 'Copiar Link Direto IP'}
+              aria-label="Copiar Link Direto IP"
+            >
+              {copiedIp ? <Checkmark size={16} /> : <Copy size={16} />}
+            </IconButton>
           </div>
         </div>
         <div style={styles.headerActions}>
+          <ThemeToggle />
+          <span style={styles.headerSep} />
           <button
             onClick={handleEndSession}
-            style={isSaving ? styles.closeBtnDisabled : styles.closeBtn}
+            className="ml-btn ml-btn--danger-quiet"
             disabled={isSaving}
           >
-            {isSaving ? 'Salvando Gravação...' : 'Encerrar Transmissão'}
+            <Exit size={18} /> {isSaving ? 'Salvando Gravação...' : 'Encerrar transmissão'}
           </button>
         </div>
       </header>
@@ -1533,168 +1562,112 @@ export const Room: React.FC<RoomProps> = ({ room, onCloseRoom }) => {
         {!isLiveSession ? (
           /* ── ETAPA DE SETUP GUIADO (PRÉ-TRANSMISSÃO) ── */
           <div style={styles.setupCard}>
-            <h3 style={styles.setupHeader}>Configurações de Transmissão e Gravação</h3>
-            <p style={styles.setupSub}>Configure as opções da sua aula antes de iniciar a transmissão ao vivo para os alunos.</p>
-
-            {/* 1. Escolha de Gravação Local */}
-            <div style={styles.sectionBox}>
-              <h4 style={styles.sectionTitle}>1. Deseja gravar esta aula no seu computador?</h4>
-              <div style={styles.buttonGroup}>
-                <button
-                  type="button"
-                  onClick={() => setWantRecord(true)}
-                  style={wantRecord ? styles.choiceBtnActive : styles.choiceBtn}
-                >
-                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}><Recording size={16} /> Sim, Gravar Aula</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setWantRecord(false)}
-                  style={!wantRecord ? styles.choiceBtnActive : styles.choiceBtn}
-                >
-                  Apenas Transmitir (Sem Gravação)
-                </button>
-              </div>
-
-              {wantRecord && (
-                <div style={styles.formatSelectBox}>
-                  <label style={styles.formatLabel}>Formato do arquivo de vídeo:</label>
-                  <div style={styles.buttonGroup}>
-                    <button
-                      type="button"
-                      style={styles.subChoiceBtnActive}
-                    >
-                      .webm (Alta Fidelidade em 1080p)
-                    </button>
-                  </div>
-                </div>
-              )}
+            <div>
+              <h1 style={styles.setupHeader}>Preparar aula</h1>
+              <p style={styles.setupSub}>Tudo nesta página pode ser mudado depois, com a aula em andamento.</p>
             </div>
 
-            {/* 2. Modo de Transmissão de Tela */}
-            <div style={styles.sectionBox}>
+            {/* O que transmitir */}
+            <section style={styles.sectionBox} aria-labelledby="prep-fonte">
               <div style={styles.sectionHeaderRow}>
-                <h4 style={styles.sectionTitle}>2. Escolha o modo de captura de tela</h4>
-                <button
-                  type="button"
-                  onClick={refreshSources}
-                  style={styles.refreshSourcesBtn}
-                  title="Atualizar lista de janelas e telas abertas"
-                >
-                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}><Renew size={14} /> Atualizar Janelas</span>
-                </button>
-              </div>
-              <div style={styles.modeTabs}>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setCaptureMode('screen');
-                    const primary = sources.find((s) => s.type === 'screen') || sources[0] || null;
-                    setTentativeSource(primary);
-                  }}
-                  style={captureMode === 'screen' ? styles.modeTabActive : styles.modeTab}
-                >
-                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}><Screen size={16} /> Tela Cheia (Acompanha o SO e Navegação)</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setCaptureMode('window');
-                    setTentativeSource(null);
-                    const windowSources = sources.filter(
-                      (s) => s.type === 'window' || s.id.startsWith('window')
-                    );
-                    if (windowSources.length > 0) {
-                      setSelectedWindowSources([windowSources[0]]);
-                    } else {
-                      setSelectedWindowSources([]);
-                    }
-                  }}
-                  style={captureMode === 'window' ? styles.modeTabActive : styles.modeTab}
-                >
-                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}><Application size={16} /> Janela / Aba Específica (Múltiplas Selecionáveis)</span>
-                </button>
+                <div>
+                  <h2 id="prep-fonte" style={styles.sectionTitle}>O que transmitir</h2>
+                  <p style={styles.sectionDesc}>Tela inteira mostra tudo, inclusive notificações. Janelas escolhidas protegem o resto.</p>
+                </div>
+                <div className="ml-segmented">
+                  <button
+                    type="button"
+                    className={captureMode === 'screen' ? 'is-on' : undefined}
+                    aria-pressed={captureMode === 'screen'}
+                    title="Tela inteira (acompanha tudo o que aparece no monitor)"
+                    onClick={() => {
+                      setCaptureMode('screen');
+                      const primary = sources.find((s) => s.type === 'screen') || sources[0] || null;
+                      setTentativeSource(primary);
+                    }}
+                  >
+                    <Screen size={16} /> Tela inteira
+                  </button>
+                  <button
+                    type="button"
+                    className={captureMode === 'window' ? 'is-on' : undefined}
+                    aria-pressed={captureMode === 'window'}
+                    title="Janelas escolhidas (uma ou mais janelas; o resto fica protegido)"
+                    onClick={() => {
+                      setCaptureMode('window');
+                      setTentativeSource(null);
+                      const windowSources = sources.filter(
+                        (s) => s.type === 'window' || s.id.startsWith('window')
+                      );
+                      if (windowSources.length > 0) {
+                        setSelectedWindowSources([windowSources[0]]);
+                      } else {
+                        setSelectedWindowSources([]);
+                      }
+                    }}
+                  >
+                    <Application size={16} /> Janelas escolhidas
+                  </button>
+                </div>
               </div>
 
               {captureMode === 'screen' ? (
-                <div style={styles.autoScreenCard}>
-                  <div style={styles.autoScreenLeft}>
-                    {currentSource?.thumbnail ? (
-                      <img src={currentSource.thumbnail} alt={currentSource.name} style={styles.autoScreenThumb} />
+                <>
+                  <div style={styles.sourceGrid} role="radiogroup" aria-label="Monitor">
+                    {sources.length === 0 ? (
+                      <div className="ml-choice" style={styles.sourceCard}>
+                        <div style={styles.thumbPlaceholder}><Screen size={32} /></div>
+                        <div style={styles.sourceMeta}><span style={styles.sourceName}>{currentSource?.name || 'Monitor Principal'}</span></div>
+                      </div>
                     ) : (
-                      <div style={styles.autoScreenPlaceholder}>
-                        <Screen size={48} />
-                      </div>
+                      sources.map((src) => {
+                        const isSelected = currentSource?.id === src.id;
+                        return (
+                          <div
+                            key={src.id}
+                            className="ml-choice ml-brackets"
+                            role="radio"
+                            aria-checked={isSelected}
+                            tabIndex={isSelected ? 0 : -1}
+                            onClick={() => setTentativeSource(src)}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter' || e.key === ' ') {
+                                e.preventDefault();
+                                setTentativeSource(src);
+                              }
+                            }}
+                            style={styles.sourceCard}
+                          >
+                            {src.thumbnail ? (
+                              <img src={src.thumbnail} alt="" style={styles.thumbnail} />
+                            ) : (
+                              <div style={styles.thumbPlaceholder}><Screen size={32} /></div>
+                            )}
+                            <div style={styles.sourceMeta}>
+                              <span style={styles.sourceName}>{src.name}</span>
+                              <span style={isSelected ? styles.radioDotOn : styles.radioDot} />
+                            </div>
+                          </div>
+                        );
+                      })
                     )}
-                    <div style={styles.autoScreenDetails}>
-                      <div style={styles.autoScreenHeaderRow}>
-                        <span style={styles.autoScreenTitle}>{currentSource?.name || 'Monitor Principal'}</span>
-                        <span style={styles.autoSelectedBadge}>
-                          <Checkmark size={13} style={{ marginRight: '4px' }} /> Selecionado Automaticamente
-                        </span>
-                      </div>
-                      <p style={styles.autoScreenDesc}>
-                        A tela inteira será transmitida em alta resolução. Toda a sua navegação, trocas de aplicativos e menus do Windows serão transmitidos em tempo real para os alunos.
-                      </p>
-                      {sources.length > 1 && (
-                        <div style={styles.monitorPillsRow}>
-                          <span style={styles.monitorPillsLabel}>Alternar monitor:</span>
-                          {sources.map((src) => {
-                            const isSelected = currentSource?.id === src.id;
-                            return (
-                              <button
-                                key={src.id}
-                                type="button"
-                                onClick={() => setTentativeSource(src)}
-                                style={isSelected ? styles.monitorPillActive : styles.monitorPill}
-                              >
-                                {src.name} {isSelected ? '(Ativo)' : ''}
-                              </button>
-                            );
-                          })}
-                        </div>
-                      )}
-                    </div>
                   </div>
-                </div>
+                  <p style={styles.sourceNote}>
+                    <Checkmark size={14} style={{ flexShrink: 0, marginTop: '2px' }} />
+                    <span>
+                      Selecionado automaticamente. A tela inteira será transmitida em alta resolução: navegação, trocas de
+                      aplicativos e menus do sistema aparecem em tempo real para os alunos.
+                    </span>
+                  </p>
+                </>
               ) : (
                 <>
-                  <div style={styles.windowHintBox}>
-                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', verticalAlign: 'middle', marginRight: '4px' }}><Idea size={16} /></span><strong>Dica:</strong> Certifique-se de que a janela ou navegador esteja aberto na Área de Trabalho (não minimizado na barra de tarefas) para que seja listado.
+                  <div className="ml-banner ml-banner--info">
+                    <Idea size={18} style={{ flexShrink: 0, marginTop: '1px' }} />
+                    <div><strong style={{ display: 'inline' }}>Dica:</strong> Certifique-se de que a janela ou navegador esteja aberto na Área de Trabalho (não minimizado na barra de tarefas) para que seja listado.</div>
                   </div>
 
-                  <div style={styles.multiWindowBar}>
-                    <div style={styles.multiWindowBarLeft}>
-                      <span style={styles.multiWindowCounterBadge}>
-                        {selectedWindowSources.length} {selectedWindowSources.length === 1 ? 'janela autorizada' : 'janelas autorizadas'}
-                      </span>
-                      <span style={styles.multiWindowHint}>
-                        O MLab transmite a janela autorizada que você estiver usando. Aplicativos não selecionados (ex: WhatsApp, e-mails pessoais) ficam ocultos e protegidos.
-                      </span>
-                    </div>
-                    <div style={styles.multiWindowBarActions}>
-                      <button
-                        type="button"
-                        onClick={() => setSelectedWindowSources([...sources])}
-                        style={styles.multiWindowActionBtn}
-                        title="Autorizar todas as janelas abertas"
-                      >
-                        Selecionar Todas
-                      </button>
-                      {selectedWindowSources.length > 1 && (
-                        <button
-                          type="button"
-                          onClick={() => setSelectedWindowSources(sources.length > 0 ? [sources[0]] : [])}
-                          style={styles.multiWindowActionBtn}
-                          title="Transmitir apenas a primeira janela"
-                        >
-                          Apenas a Primeira
-                        </button>
-                      )}
-                    </div>
-                  </div>
-
-                  <div style={styles.sourceGrid}>
+                  <div style={styles.sourceGrid} role="group" aria-label="Janelas que podem aparecer">
                     {sources.length === 0 ? (
                       <p style={styles.noSources}>Nenhuma janela detectada. Certifique-se de que a janela desejada não está minimizada.</p>
                     ) : (
@@ -1703,148 +1676,151 @@ export const Room: React.FC<RoomProps> = ({ room, onCloseRoom }) => {
                         return (
                           <div
                             key={src.id}
+                            className="ml-choice ml-brackets"
+                            role="checkbox"
+                            aria-checked={isSelected}
+                            tabIndex={0}
                             onClick={() => handleToggleWindowSelection(src)}
-                            style={isSelected ? styles.sourceCardSelected : styles.sourceCard}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter' || e.key === ' ') {
+                                e.preventDefault();
+                                handleToggleWindowSelection(src);
+                              }
+                            }}
+                            style={styles.sourceCard}
                             title={isSelected ? 'Clique para desmarcar esta janela' : 'Clique para autorizar esta janela'}
                           >
-                            <img src={src.thumbnail} alt={src.name} style={styles.thumbnail} />
-                            <span style={styles.sourceName}>{src.name}</span>
-                            <div style={isSelected ? styles.windowCheckboxChecked : styles.windowCheckbox}>
-                              {isSelected ? <Checkmark size={12} /> : null}
-                            </div>
-                            {isSelected && (
-                              <span style={styles.selectedBadge}>
-                                <Checkmark size={12} style={{ marginRight: '4px' }} />Autorizada
+                            <img src={src.thumbnail} alt="" style={styles.thumbnail} />
+                            <div style={styles.sourceMeta}>
+                              <span style={styles.sourceName}>{src.name}</span>
+                              <span style={isSelected ? styles.windowCheckboxChecked : styles.windowCheckbox}>
+                                {isSelected ? <Checkmark size={14} /> : null}
                               </span>
-                            )}
+                            </div>
                           </div>
                         );
                       })
                     )}
                   </div>
+
+                  <div style={styles.multiWindowBar}>
+                    <span style={styles.multiWindowHint}>
+                      <strong style={{ color: 'var(--text-1)' }}>
+                        {selectedWindowSources.length} {selectedWindowSources.length === 1 ? 'janela autorizada' : 'janelas autorizadas'}
+                      </strong>
+                      . O MLab transmite a janela autorizada que você estiver usando. Aplicativos não selecionados (ex: WhatsApp, e-mails pessoais) ficam ocultos e protegidos.
+                    </span>
+                    <div style={styles.multiWindowBarActions}>
+                      <button
+                        type="button"
+                        className="ml-btn ml-btn--ghost ml-btn--sm"
+                        onClick={() => setSelectedWindowSources([...sources])}
+                        title="Autorizar todas as janelas abertas"
+                      >
+                        Selecionar Todas
+                      </button>
+                      {selectedWindowSources.length > 1 && (
+                        <button
+                          type="button"
+                          className="ml-btn ml-btn--ghost ml-btn--sm"
+                          onClick={() => setSelectedWindowSources(sources.length > 0 ? [sources[0]] : [])}
+                          title="Transmitir apenas a primeira janela"
+                        >
+                          Apenas a Primeira
+                        </button>
+                      )}
+                      <button
+                        type="button"
+                        className="ml-btn ml-btn--ghost ml-btn--sm"
+                        onClick={refreshSources}
+                        title="Atualizar lista de janelas e telas abertas"
+                      >
+                        <Renew size={16} /> Atualizar Janelas
+                      </button>
+                    </div>
+                  </div>
                 </>
               )}
-            </div>
+            </section>
 
-            {/* 3. Qualidade da Transmissão */}
-            <div style={styles.sectionBox}>
-              <h4 style={styles.sectionTitle}>3. Resolução e Qualidade de Vídeo</h4>
-              <div style={styles.qualitySelectorGrid}>
+            {/* Qualidade */}
+            <section style={styles.sectionBox} aria-labelledby="prep-qualidade">
+              <div>
+                <h2 id="prep-qualidade" style={styles.sectionTitle}>Qualidade</h2>
+                <p style={styles.sectionDesc}>Escolha pelo tipo de conteúdo da aula.</p>
+              </div>
+              <div style={styles.qualitySelectorGrid} role="radiogroup" aria-labelledby="prep-qualidade">
                 <div
+                  className="ml-choice"
                   onClick={() => handleSelectQuality('1080p_30')}
-                  style={qualityProfile === '1080p_30' ? styles.qualityCardActive : styles.qualityCard}
-                  role="button"
-                  tabIndex={0}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault();
+                      handleSelectQuality('1080p_30');
+                    }
+                  }}
+                  role="radio"
+                  aria-checked={qualityProfile === '1080p_30'}
+                  tabIndex={qualityProfile === '1080p_30' ? 0 : -1}
                 >
-                  <div style={styles.qualityCardHeader}>
-                    <span style={{ ...styles.qualityCardTitle, display: 'inline-flex', alignItems: 'center', gap: '8px' }}><Screen size={16} /> 1080p Full HD @ 30 fps</span>
-                    {qualityProfile === '1080p_30' && <span style={styles.selectedBadgeInline}><Checkmark size={12} style={{ marginRight: '4px' }} />Selecionado</span>}
-                  </div>
-                  <div style={styles.qualityDetails}>
-                    <span style={styles.qualityParam}>Bitrate: <strong>4.0 Mbps</strong> (Padrão)</span>
-                    <span style={styles.qualityParam}>Otimização: <strong>Nitidez para Textos e Código</strong></span>
-                    <span style={styles.qualityParam}>Fidelidade: <strong>Resolução Bloqueada</strong> (sem rebaixamento)</span>
-                  </div>
+                  <span className="ml-choice__title">Texto e código</span>
+                  <span className="ml-choice__desc">Prioriza a nitidez das letras, sem rebaixar a resolução. Ideal para editor, terminal e slides.</span>
+                  <span style={styles.qualitySpec}>1080p Full HD @ 30 fps, 4.0 Mbps</span>
                 </div>
 
                 <div
+                  className="ml-choice"
                   onClick={() => handleSelectQuality('1080p_60')}
-                  style={qualityProfile === '1080p_60' ? styles.qualityCardActive : styles.qualityCard}
-                  role="button"
-                  tabIndex={0}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault();
+                      handleSelectQuality('1080p_60');
+                    }
+                  }}
+                  role="radio"
+                  aria-checked={qualityProfile === '1080p_60'}
+                  tabIndex={qualityProfile === '1080p_60' ? 0 : -1}
                 >
-                  <div style={styles.qualityCardHeader}>
-                    <span style={{ ...styles.qualityCardTitle, display: 'inline-flex', alignItems: 'center', gap: '8px' }}><Play size={16} /> 1080p Full HD @ 60 fps</span>
-                    {qualityProfile === '1080p_60' && <span style={styles.selectedBadgeInline}><Checkmark size={12} style={{ marginRight: '4px' }} />Selecionado</span>}
-                  </div>
-                  <div style={styles.qualityDetails}>
-                    <span style={styles.qualityParam}>Bitrate: <strong>6.0 Mbps</strong> (Alta Fluidez)</span>
-                    <span style={styles.qualityParam}>Otimização: <strong>Fluidez Máxima para Vídeos e Animações</strong></span>
-                    <span style={styles.qualityParam}>Fidelidade: <strong>60 fps Contínuos</strong> (Ultra Nítido)</span>
-                  </div>
+                  <span className="ml-choice__title">Vídeo e animação</span>
+                  <span className="ml-choice__desc">Movimento mais fluido, a 60 quadros por segundo. Use para vídeos, jogos e simulações.</span>
+                  <span style={styles.qualitySpec}>1080p Full HD @ 60 fps, 6.0 Mbps</span>
                 </div>
               </div>
-            </div>
+            </section>
 
-            {/* 4. Botão de Avanço */}
-            <div style={styles.advanceBar}>
-              <button
-                type="button"
-                onClick={handleStartSession}
-                disabled={!currentSource}
-                style={currentSource ? styles.advanceBtn : styles.advanceBtnDisabled}
-              >
-                Avançar e Iniciar Transmissão {wantRecord ? '(Com Gravação)' : ''} →
-              </button>
-            </div>
+            {/* Gravação */}
+            <section style={styles.sectionBox} aria-labelledby="prep-gravacao">
+              <h2 id="prep-gravacao" style={styles.sectionTitle}>Gravação</h2>
+              <label className="ml-switch">
+                <input
+                  type="checkbox"
+                  role="switch"
+                  checked={wantRecord}
+                  onChange={(e) => setWantRecord(e.target.checked)}
+                />
+                Gravar a aula neste computador
+              </label>
+              {wantRecord && (
+                <p style={styles.recordNote}>
+                  Formato: <span style={styles.qualitySpec}>.webm (Alta Fidelidade em 1080p)</span>. Ao finalizar, você escolhe onde salvar o arquivo.
+                </p>
+              )}
+            </section>
           </div>
         ) : (
           /* ── SESSÃO AO VIVO (TRANSMISSÃO + BARRA + SIDEBAR RETRÁTIL) ── */
           <div style={styles.liveContainer}>
             <div style={styles.liveContentArea}>
               {/* Seção Principal da Transmissão */}
-              <div style={styles.liveMainSection}>
-                {/* Barra de Status */}
-                <div style={styles.statusBar}>
-                  <div style={styles.statusLeft}>
-                    <span style={styles.liveBadge}>
-                      <span style={styles.pulsingDotGreen} /> AO VIVO
-                    </span>
-                    <span style={styles.resolutionBadge}>
-                      {qualityProfile === '1080p_60' ? '1080p @ 60fps' : '1080p @ 30fps'}
-                    </span>
-                    <span style={styles.studentsBadge}>
-                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}><UserMultiple size={14} /> {studentsOnly.length} {studentsOnly.length === 1 ? 'Aluno' : 'Alunos'}</span>
-                    </span>
-                    <span style={styles.statusInfo}>
-                      Modo: {captureMode === 'screen' ? 'Tela Cheia' : (selectedWindowSources.length > 1 ? `Janela Específica (Múltiplas - ${selectedWindowSources.length} autorizadas)` : 'Janela Específica')} (
-                      {activeWindowSource?.name || selectedSource?.name || 'Fonte Ativa'})
-                    </span>
-                  </div>
-
-                  <div style={styles.statusRight}>
-                    {wantRecord ? (
-                      <div style={styles.recordStatusBox}>
-                        {recordingStatus === 'recording' && (
-                          <span style={styles.recordingBadge}>
-                            <span style={styles.pulsingDotRed} /> REC {formattedDuration} (.webm)
-                          </span>
-                        )}
-                        {recordingStatus === 'paused' && (
-                          <span style={styles.pausedBadge}>PAUSADO {formattedDuration}</span>
-                        )}
-                        {recordingStatus === 'stopped' && (
-                          <span style={styles.stoppedBadge}>GRAVAÇÃO FINALIZADA</span>
-                        )}
-
-                        {recordingStatus === 'recording' && (
-                          <button type="button" onClick={pauseRecording} style={styles.recControlBtn}>
-                            Pausar
-                          </button>
-                        )}
-                        {recordingStatus === 'paused' && (
-                          <button type="button" onClick={resumeRecording} style={styles.recControlBtn}>
-                            Retomar
-                          </button>
-                        )}
-                        {recordingStatus !== 'stopped' && (
-                          <button
-                            type="button"
-                            onClick={stopRecording}
-                            disabled={isSaving}
-                            style={styles.recSaveBtn}
-                          >
-                            {isSaving ? 'Salvando...' : 'Finalizar e Salvar'}
-                          </button>
-                        )}
-                      </div>
-                    ) : (
-                      <span style={styles.noRecordBadge}>Modo Apenas Transmissão</span>
-                    )}
-                  </div>
+              <div className="ml-on-stage" style={styles.liveMainSection}>
+                {/* Rótulo do palco: o que a turma vê */}
+                <div style={styles.stageLabel}>
+                  O que a turma está vendo agora. Modo: {captureMode === 'screen' ? 'Tela inteira' : (selectedWindowSources.length > 1 ? `Janelas escolhidas (${selectedWindowSources.length} autorizadas)` : 'Janelas escolhidas')} (
+                  {activeWindowSource?.name || selectedSource?.name || 'Fonte Ativa'})
                 </div>
 
                 {/* Visualizador da Transmissão + Barra Vertical de Marcação e Lupa no Lado Esquerdo */}
+                <div className={`ml-brackets ml-brackets--live${videoPaused ? '' : ' is-on'}`} style={styles.stageFrame}>
                 <div ref={previewAreaRef} style={styles.previewArea}>
                   {/* Barra Vertical de Marcação (Estilo Editor de PDF) e Lupa — Posicionável e Retrátil */}
                   <div
@@ -1877,7 +1853,7 @@ export const Room: React.FC<RoomProps> = ({ room, onCloseRoom }) => {
                         <span
                           style={{
                             ...styles.colorDotIndicator,
-                            backgroundColor: spotlight.enabled ? '#facc15' : strokeColor,
+                            backgroundColor: spotlight.enabled ? 'var(--accent)' : strokeColor,
                           }}
                         />
                       </button>
@@ -2130,7 +2106,7 @@ export const Room: React.FC<RoomProps> = ({ room, onCloseRoom }) => {
                         {currentThumbnail || selectedSource?.thumbnail || tentativeSource?.thumbnail ? (
                           <img
                             src={currentThumbnail || selectedSource?.thumbnail || tentativeSource?.thumbnail}
-                            alt="Pré-visualização da Tela Cheia"
+                            alt="Pré-visualização da tela inteira"
                             style={{ ...styles.previewMedia, opacity: videoPaused ? 0.3 : 1 }}
                           />
                         ) : (
@@ -2200,7 +2176,7 @@ export const Room: React.FC<RoomProps> = ({ room, onCloseRoom }) => {
                   {lastHandRaised && !isSidebarOpen && (
                     <div style={styles.handToastOverlay} role="alert">
                       <div style={styles.handToastContent}>
-                        <Touch_1Filled size={18} style={{ color: '#0f62fe', flexShrink: 0 }} />
+                        <Touch_1Filled size={18} style={{ color: 'var(--attention)', flexShrink: 0 }} />
                         <div style={styles.handToastText}>
                           <span style={styles.handToastStrong}>{lastHandRaised.name}</span> levantou a mão.
                         </div>
@@ -2228,6 +2204,7 @@ export const Room: React.FC<RoomProps> = ({ room, onCloseRoom }) => {
                       </div>
                     </div>
                   )}
+                </div>
                 </div>
 
                 {/* Seletor rápido de janelas autorizadas quando houver múltiplas */}
@@ -2257,81 +2234,122 @@ export const Room: React.FC<RoomProps> = ({ room, onCloseRoom }) => {
                   </div>
                 )}
 
-                {/* Barra de Controles de Transmissão */}
-                <div style={styles.controlsBar}>
-                  <button
-                    type="button"
-                    onClick={toggleMicMute}
-                    style={micMuted ? styles.controlBtnActive : styles.controlBtn}
-                  >
-                    {micMuted ? <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}><MicrophoneOff size={16} /> Desmutar Microfone</span> : <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}><Microphone size={16} /> Mutar Microfone</span>}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={toggleSystemAudio}
-                    style={systemAudioMuted ? styles.controlBtnActive : styles.controlBtn}
-                    title={systemAudioMuted ? "Transmitir o áudio interno do computador (vídeos educativos, músicas, etc.) para os alunos" : "Silenciar o áudio interno do computador"}
-                  >
-                    {systemAudioMuted ? (
-                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
-                        <VolumeMute size={16} /> Ativar Som do PC
-                      </span>
-                    ) : (
-                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
-                        <VolumeUp size={16} /> Silenciar Som do PC
-                      </span>
-                    )}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={handleToggleVideoPause}
-                    style={videoPaused ? styles.controlBtnPauseActive : styles.controlBtn}
-                  >
-                    {videoPaused ? 'Retomar Vídeo' : 'Pausar Vídeo'}
-                  </button>
-                  <button type="button" onClick={handleReconfigure} style={styles.controlBtn}>
-                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}><Settings size={16} /> Alterar Modo / Fonte</span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={handleTakeScreenshot}
-                    style={styles.controlBtn}
-                    title="Tirar print da janela do MLab e copiar para a área de transferência (F10 / PrintScreen)"
-                  >
-                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
-                      <Camera size={16} /> Tirar Print
-                    </span>
-                  </button>
-                  {/* Alternância rápida entre monitores se houver mais de uma tela detectada */}
-                  {captureMode === 'screen' && screenSources.length > 1 && (
+                {/* Dock de controles da aula */}
+                <div style={styles.dockPos}>
+                  <div className="ml-dock" role="toolbar" aria-label="Controles da aula">
                     <button
                       type="button"
-                      onClick={() => {
-                        const nextSource = screenSources.find((s) => s.id !== selectedSource?.id) || screenSources[0];
-                        handleSwitchScreen(nextSource);
-                      }}
-                      style={styles.controlBtn}
-                      title="Alternar rapidamente o monitor sendo transmitido"
+                      onClick={toggleMicMute}
+                      className={`ml-dock-btn${micMuted ? ' ml-dock-btn--off' : ''}`}
+                      aria-pressed={!micMuted}
+                      aria-label={micMuted ? 'Desmutar Microfone' : 'Mutar Microfone'}
+                      title={micMuted ? 'Microfone desligado. Clique para ligar.' : 'Microfone ligado. Clique para desligar.'}
                     >
-                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}><Screen size={16} /> Alternar Monitor</span>
+                      {micMuted ? <MicrophoneOff size={20} /> : <Microphone size={20} />}
+                      <span>Microfone</span>
                     </button>
-                  )}
-                  {/* Botão de Chat no Header de Baixo */}
-                  <button
-                    type="button"
-                    onClick={handleToggleSidebar}
-                    style={isSidebarOpen ? styles.controlBtnActiveChat : styles.controlBtn}
-                  >
-                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}><Chat size={16} /> Chat & Turma</span>
-                    {unreadCount > 0 && (
-                      <span style={styles.unreadBadge}>{unreadCount}</span>
+                    <button
+                      type="button"
+                      onClick={toggleSystemAudio}
+                      className={`ml-dock-btn${systemAudioMuted ? ' ml-dock-btn--off' : ''}`}
+                      aria-pressed={!systemAudioMuted}
+                      aria-label={systemAudioMuted ? 'Ativar Som do PC' : 'Silenciar Som do PC'}
+                      title={systemAudioMuted ? "Transmitir o áudio interno do computador (vídeos educativos, músicas, etc.) para os alunos" : "Silenciar o áudio interno do computador"}
+                    >
+                      {systemAudioMuted ? <VolumeMute size={20} /> : <VolumeUp size={20} />}
+                      <span>Som do PC</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleReconfigure}
+                      className="ml-dock-btn"
+                      title="Alterar modo ou fonte da transmissão"
+                    >
+                      <Settings size={20} />
+                      <span>Trocar tela</span>
+                    </button>
+                    {/* Alternância rápida entre monitores se houver mais de uma tela detectada */}
+                    {captureMode === 'screen' && screenSources.length > 1 && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const nextSource = screenSources.find((s) => s.id !== selectedSource?.id) || screenSources[0];
+                          handleSwitchScreen(nextSource);
+                        }}
+                        className="ml-dock-btn"
+                        aria-label="Alternar Monitor"
+                        title="Alternar rapidamente o monitor sendo transmitido"
+                      >
+                        <Screen size={20} />
+                        <span>Monitor</span>
+                      </button>
                     )}
-                    {raisedHandsStudents.length > 0 && (
-                      <span style={styles.raisedHandHeaderBadge} title={`${raisedHandsStudents.length} mão(s) levantada(s)`}>
-                        <Touch_1Filled size={12} /> {raisedHandsStudents.length}
-                      </span>
+                    <button
+                      type="button"
+                      onClick={handleToggleVideoPause}
+                      className="ml-dock-btn"
+                      aria-pressed={videoPaused}
+                      aria-label={videoPaused ? 'Retomar Vídeo' : 'Pausar Vídeo'}
+                    >
+                      {videoPaused ? <Play size={20} /> : <Pause size={20} />}
+                      <span>{videoPaused ? 'Retomar' : 'Pausar'}</span>
+                    </button>
+                    <span className="ml-dock__sep" />
+                    <button
+                      type="button"
+                      onClick={handleTakeScreenshot}
+                      className="ml-dock-btn"
+                      aria-label="Tirar Print"
+                      title="Tirar print da janela do MLab e copiar para a área de transferência (F10 / PrintScreen)"
+                    >
+                      <Camera size={20} />
+                      <span>Print</span>
+                    </button>
+                    {wantRecord && recordingStatus === 'recording' && (
+                      <button type="button" onClick={pauseRecording} className="ml-dock-btn ml-dock-btn--rec" aria-pressed="true" aria-label="Pausar gravação">
+                        <Recording size={20} />
+                        <span>Gravando</span>
+                      </button>
                     )}
-                  </button>
+                    {wantRecord && recordingStatus === 'paused' && (
+                      <button type="button" onClick={resumeRecording} className="ml-dock-btn" aria-label="Retomar gravação">
+                        <Recording size={20} />
+                        <span>Retomar gravação</span>
+                      </button>
+                    )}
+                    {wantRecord && recordingStatus !== 'stopped' && (
+                      <button
+                        type="button"
+                        onClick={stopRecording}
+                        disabled={isSaving}
+                        className="ml-dock-btn"
+                        aria-label="Finalizar e Salvar gravação"
+                      >
+                        <Download size={20} />
+                        <span>{isSaving ? 'Salvando...' : 'Salvar gravação'}</span>
+                      </button>
+                    )}
+                    <span className="ml-dock__sep" />
+                    <button
+                      type="button"
+                      onClick={handleToggleSidebar}
+                      className="ml-dock-btn"
+                      aria-pressed={isSidebarOpen}
+                    >
+                      {isSidebarOpen ? <PanelRightClose size={20} /> : <PanelRightOpen size={20} />}
+                      <span>Painel</span>
+                      {(unreadCount > 0 || raisedHandsStudents.length > 0) && (
+                        <span style={styles.dockBadges}>
+                          {unreadCount > 0 && <span style={styles.unreadBadge}>{unreadCount}</span>}
+                          {raisedHandsStudents.length > 0 && (
+                            <span style={styles.raisedHandHeaderBadge} title={`${raisedHandsStudents.length} mão(s) levantada(s)`}>
+                              <Touch_1Filled size={12} /> {raisedHandsStudents.length}
+                            </span>
+                          )}
+                        </span>
+                      )}
+                    </button>
+                  </div>
                 </div>
               </div>
 
@@ -2339,44 +2357,59 @@ export const Room: React.FC<RoomProps> = ({ room, onCloseRoom }) => {
               <aside
                 style={{
                   ...styles.sidebarDesktop,
-                  width: isSidebarOpen ? '360px' : '0px',
-                  minWidth: isSidebarOpen ? '360px' : '0px',
+                  width: isSidebarOpen ? '380px' : '0px',
+                  minWidth: isSidebarOpen ? '380px' : '0px',
                   opacity: isSidebarOpen ? 1 : 0,
-                  borderLeft: isSidebarOpen ? '1px solid #1e293b' : 'none',
+                  borderLeft: isSidebarOpen ? '1px solid var(--border-subtle)' : 'none',
                   pointerEvents: isSidebarOpen ? 'auto' : 'none',
                 }}
               >
-                {/* Header da Sidebar */}
+                {/* Abas do painel: Turma, Chat, Dúvidas, Arquivos */}
                 <div style={styles.sidebarHeader}>
                   <div style={styles.tabButtons}>
                     <button
                       type="button"
-                      onClick={() => setSidebarTab('chat')}
-                      style={sidebarTab === 'chat' ? styles.tabBtnActive : styles.tabBtn}
+                      onClick={() => setSidebarTab('students')}
+                      style={sidebarTab === 'students' ? styles.tabBtnActive : styles.tabBtn}
+                      title={`Alunos (${studentsOnly.length})`}
                     >
-                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}><Chat size={16} /> Chat</span>
+                      Turma
+                      {raisedHandsStudents.length > 0 && (
+                        <span style={styles.tabHandBadge} title={`${raisedHandsStudents.length} mão(s) levantada(s)`}>
+                          <Touch_1Filled size={11} /> {raisedHandsStudents.length}
+                        </span>
+                      )}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSidebarTab('chat');
+                        setChatSubTab('public');
+                      }}
+                      style={sidebarTab === 'chat' && chatSubTab === 'public' ? styles.tabBtnActive : styles.tabBtn}
+                      title="Chat público da turma"
+                    >
+                      Chat
                       {unreadCount > 0 && <span style={styles.tabBadge}>{unreadCount}</span>}
                     </button>
                     <button
                       type="button"
-                      onClick={() => setSidebarTab('students')}
-                      style={sidebarTab === 'students' ? styles.tabBtnActive : styles.tabBtn}
+                      onClick={() => {
+                        setSidebarTab('chat');
+                        setChatSubTab('private');
+                      }}
+                      style={sidebarTab === 'chat' && chatSubTab === 'private' ? styles.tabBtnActive : styles.tabBtn}
+                      title="Dúvidas privadas dos alunos"
                     >
-                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
-                        <UserMultiple size={16} /> Alunos ({studentsOnly.length})
-                        {raisedHandsStudents.length > 0 && (
-                          <span style={styles.tabHandBadge} title={`${raisedHandsStudents.length} mão(s) levantada(s)`}>
-                            <Touch_1Filled size={11} /> {raisedHandsStudents.length}
-                          </span>
-                        )}
-                      </span>
+                      <Locked size={14} /> Dúvidas
+                      {messages.filter((m: any) => m.is_private === true).length > 0 && <span style={styles.privateTabBadge}>{messages.filter((m: any) => m.is_private === true).length}</span>}
                     </button>
                     <button
                       type="button"
                       onClick={() => setSidebarTab('files')}
                       style={sidebarTab === 'files' ? styles.tabBtnActive : styles.tabBtn}
                     >
-                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}><Folder size={16} /> Arquivos ({uploadedFiles.length})</span>
+                      Arquivos ({uploadedFiles.length})
                     </button>
                   </div>
                   <button
@@ -2384,6 +2417,7 @@ export const Room: React.FC<RoomProps> = ({ room, onCloseRoom }) => {
                     onClick={() => setIsSidebarOpen(false)}
                     style={styles.closeSidebarBtn}
                     title="Recolher Painel"
+                    aria-label="Recolher Painel"
                   >
                     <Close size={16} />
                   </button>
@@ -2392,31 +2426,6 @@ export const Room: React.FC<RoomProps> = ({ room, onCloseRoom }) => {
                 {/* Aba 1: Chat da Aula com Abas Separadas: Público vs Privado */}
                 {sidebarTab === 'chat' && (
                   <div style={styles.chatTabContent}>
-                    {/* Seletor de Sub-aba: Chat Público vs Chat Privado */}
-                    <div style={styles.chatSubTabRow}>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setChatSubTab('public');
-                        }}
-                        style={chatSubTab === 'public' ? styles.chatSubTabActive : styles.chatSubTab}
-                      >
-                        Turma (Público)
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setChatSubTab('private')}
-                        style={chatSubTab === 'private' ? styles.chatSubTabActivePrivate : styles.chatSubTab}
-                      >
-                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}><Locked size={14} /> Dúvidas Privadas</span>
-                        {messages.filter((m: any) => m.is_private === true).length > 0 && (
-                          <span style={styles.privateTabBadge}>
-                            {messages.filter((m: any) => m.is_private === true).length}
-                          </span>
-                        )}
-                      </button>
-                    </div>
-
                     {chatSubTab === 'public' ? (
                       // ── ABA PÚBLICA ──────────────────────────────────
                       (() => {
@@ -2636,7 +2645,7 @@ export const Room: React.FC<RoomProps> = ({ room, onCloseRoom }) => {
                                       <p style={styles.emptyText}>
                                         Nenhuma mensagem trocada ainda com <strong>{targetStudent.name}</strong>.
                                       </p>
-                                      <p style={{ ...styles.emptyText, fontSize: '11px', color: '#64748b' }}>
+                                      <p style={{ ...styles.emptyText, fontSize: 'var(--fs-caption)', color: 'var(--text-3)' }}>
                                         Envie uma mensagem abaixo para iniciar a conversa privada.
                                       </p>
                                     </div>
@@ -2710,7 +2719,7 @@ export const Room: React.FC<RoomProps> = ({ room, onCloseRoom }) => {
                                   activePrivateScope.length === 0 ? (
                                     <div style={styles.emptyMessagesBox}>
                                       <p style={styles.emptyText}>Nenhuma dúvida privada recebida até o momento.</p>
-                                      <p style={{ ...styles.emptyText, fontSize: '11px', color: '#64748b' }}>
+                                      <p style={{ ...styles.emptyText, fontSize: 'var(--fs-caption)', color: 'var(--text-3)' }}>
                                         Selecione um aluno no menu acima para iniciar uma conversa.
                                       </p>
                                     </div>
@@ -2855,7 +2864,7 @@ export const Room: React.FC<RoomProps> = ({ room, onCloseRoom }) => {
                       <div style={styles.raisedHandsSection}>
                         <div style={styles.raisedHandsHeader}>
                           <span style={styles.raisedHandsTitle}>
-                            <Touch_1Filled size={16} style={{ color: '#0f62fe' }} /> Mãos Levantadas ({raisedHandsStudents.length})
+                            <Touch_1Filled size={16} style={{ color: 'var(--attention)' }} /> Mãos Levantadas ({raisedHandsStudents.length})
                           </span>
                           <span style={styles.raisedHandsHelp}>Ordem de chamada</span>
                         </div>
@@ -3044,6 +3053,30 @@ export const Room: React.FC<RoomProps> = ({ room, onCloseRoom }) => {
           </div>
         )}
       </main>
+
+      {!isLiveSession && (
+        <div style={styles.actionBar}>
+          <div style={styles.actionBarInner}>
+            <span style={styles.actionSummary} aria-live="polite">
+              <strong style={{ color: 'var(--text-1)', fontWeight: 600 }}>
+                {captureMode === 'screen'
+                  ? `Tela inteira${currentSource?.name ? `, ${currentSource.name}` : ''}`
+                  : `${selectedWindowSources.length} ${selectedWindowSources.length === 1 ? 'janela escolhida' : 'janelas escolhidas'}`}
+              </strong>
+              {qualityProfile === '1080p_60' ? ', 1080p a 60 fps' : ', 1080p a 30 fps'}
+              {wantRecord ? ', com gravação' : ', sem gravação'}
+            </span>
+            <button
+              type="button"
+              className="ml-btn ml-btn--primary ml-btn--lg"
+              onClick={handleStartSession}
+              disabled={!currentSource}
+            >
+              <Recording size={18} /> Começar transmissão
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
@@ -3053,27 +3086,169 @@ const styles: { [key: string]: React.CSSProperties } = {
     height: '100vh',
     display: 'flex',
     flexDirection: 'column',
-    backgroundColor: '#090d16',
-    color: '#f8fafc',
-    fontFamily: 'Inter, system-ui, sans-serif',
+    backgroundColor: 'var(--bg)',
+    color: 'var(--text-1)',
+    fontFamily: 'var(--font-ui)',
   },
   header: {
     display: 'flex',
-    justifyContent: 'space-between',
     alignItems: 'center',
-    padding: '10px 24px',
-    backgroundColor: '#0f172a',
-    borderBottom: '1px solid #1e293b',
+    gap: '12px 24px',
+    flexWrap: 'wrap',
+    minHeight: '56px',
+    padding: '8px 16px',
+    backgroundColor: 'var(--surface-1)',
+    borderBottom: '1px solid var(--border-subtle)',
+    flexShrink: 0,
   },
   headerTitleBox: {
     display: 'flex',
     alignItems: 'center',
-    gap: '14px',
+    flexWrap: 'wrap',
+    gap: '8px 10px',
+  },
+  headerLinks: {
+    flex: 1,
+    minWidth: 0,
+    display: 'flex',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+    gap: '4px 20px',
+  },
+  headerLinkItem: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '6px',
+    minWidth: 0,
+  },
+  headerLinkLabel: {
+    fontSize: 'var(--fs-caption)',
+    fontWeight: 600,
+    color: colors.textSecondary,
+    whiteSpace: 'nowrap',
+  },
+  headerSep: {
+    width: '1px',
+    height: '24px',
+    backgroundColor: 'var(--border-subtle)',
+  },
+  mono: {
+    fontFamily: 'var(--font-mono)',
+  },
+  sectionDesc: {
+    fontSize: 'var(--fs-small)',
+    color: 'var(--text-2)',
+    margin: '4px 0 0',
+  },
+  thumbPlaceholder: {
+    width: '100%',
+    aspectRatio: '16 / 9',
+    borderRadius: '6px',
+    backgroundColor: 'var(--stage)',
+    color: '#8A93A0',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  sourceMeta: {
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: '8px',
+    padding: '0 4px 4px',
+    minWidth: 0,
+  },
+  radioDot: {
+    width: '20px',
+    height: '20px',
+    borderRadius: '50%',
+    border: '2px solid var(--border-strong)',
+    flexShrink: 0,
+    boxSizing: 'border-box',
+  },
+  radioDotOn: {
+    width: '20px',
+    height: '20px',
+    borderRadius: '50%',
+    border: '6px solid var(--accent-fill)',
+    flexShrink: 0,
+    boxSizing: 'border-box',
+  },
+  sourceNote: {
+    display: 'flex',
+    alignItems: 'flex-start',
+    gap: '8px',
+    margin: 0,
+    fontSize: 'var(--fs-caption)',
+    lineHeight: 1.45,
+    color: 'var(--text-3)',
+    maxWidth: '72ch',
+  },
+  qualitySpec: {
+    fontFamily: 'var(--font-mono)',
+    fontSize: 'var(--fs-caption)',
+    color: 'var(--text-3)',
+  },
+  recordNote: {
+    margin: 0,
+    paddingLeft: '52px',
+    fontSize: 'var(--fs-small)',
+    lineHeight: 1.45,
+    color: 'var(--text-2)',
+  },
+  actionBar: {
+    flexShrink: 0,
+    backgroundColor: 'var(--surface-1)',
+    borderTop: '1px solid var(--border-subtle)',
+  },
+  actionBarInner: {
+    maxWidth: '880px',
+    margin: '0 auto',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: '16px',
+    padding: '12px 24px',
+  },
+  actionSummary: {
+    fontSize: 'var(--fs-small)',
+    color: 'var(--text-2)',
+    minWidth: 0,
+  },
+  stageLabel: {
+    flexShrink: 0,
+    fontSize: 'var(--fs-caption)',
+    color: '#9AA2AE',
+    margin: '0 -12px 18px',
+    whiteSpace: 'nowrap',
+    overflow: 'hidden',
+    textOverflow: 'ellipsis',
+  },
+  stageFrame: {
+    flex: 1,
+    minHeight: 0,
+    position: 'relative',
+  },
+  dockPos: {
+    position: 'absolute',
+    left: '50%',
+    bottom: '20px',
+    transform: 'translateX(-50%)',
+    zIndex: 30,
+    maxWidth: 'calc(100% - 24px)',
+  },
+  dockBadges: {
+    position: 'absolute',
+    top: '2px',
+    right: '2px',
+    display: 'inline-flex',
+    gap: '2px',
   },
   headerActions: {
     display: 'flex',
     alignItems: 'center',
-    gap: '12px',
+    gap: '8px',
+    flexShrink: 0,
   },
   logoImg: {
     width: '56px',
@@ -3081,352 +3256,390 @@ const styles: { [key: string]: React.CSSProperties } = {
     objectFit: 'contain',
   },
   title: {
-    fontSize: '20px',
-    fontWeight: '700',
+    fontSize: 'var(--fs-body)',
+    fontWeight: 700,
     color: colors.textPrimary,
-    fontFamily: typography.fontFamily,
     margin: 0,
-    lineHeight: '26px',
-    letterSpacing: '-0.02em',
+    whiteSpace: 'nowrap',
   },
   roomLinkStatic: {
-    fontSize: '12px',
-    fontFamily: 'monospace, Consolas, sans-serif',
+    fontSize: 'var(--fs-small)',
+    fontFamily: 'var(--font-mono)',
     color: colors.textPrimary,
-    backgroundColor: 'rgba(30, 41, 59, 0.7)',
-    padding: '2px 8px',
+    backgroundColor: 'var(--surface-2)',
+    padding: '5px 8px',
     borderRadius: radii.sm,
-    border: `1px solid ${colors.borderSubtle}`,
     userSelect: 'text',
     cursor: 'default',
+    whiteSpace: 'nowrap',
+    overflow: 'hidden',
+    textOverflow: 'ellipsis',
+    maxWidth: '340px',
   },
   screenshotSuccessBanner: {
-    padding: '10px 16px',
-    borderRadius: '8px',
-    backgroundColor: 'rgba(22, 163, 74, 0.15)',
-    border: '1px solid #16a34a',
-    color: '#86efac',
-    fontSize: '13px',
-    fontWeight: '600',
+    margin: '8px 16px 0',
+    padding: '10px 14px',
+    borderRadius: 'var(--r-panel)',
+    backgroundColor: 'var(--surface-2)',
+    borderLeft: '3px solid var(--live)',
+    color: 'var(--text-1)',
+    fontSize: 'var(--fs-small)',
+    fontWeight: 600,
     display: 'flex',
     alignItems: 'center',
     gap: '8px',
-    marginBottom: '12px',
   },
   closeBtn: {
-    padding: '8px 16px',
-    borderRadius: '6px',
-    border: 'none',
-    backgroundColor: '#ef4444',
-    color: '#ffffff',
-    fontSize: '13px',
-    fontWeight: '600',
+    minHeight: '40px',
+    padding: '0 14px',
+    borderRadius: 'var(--r-control)',
+    fontSize: 'var(--fs-small)',
+    fontWeight: 600,
     cursor: 'pointer',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: '8px',
+    whiteSpace: 'nowrap',
+    border: 'none',
+    backgroundColor: 'var(--danger-fill)',
+    color: '#ffffff',
   },
   closeBtnDisabled: {
-    padding: '8px 16px',
-    borderRadius: '6px',
+    minHeight: '40px',
+    padding: '0 14px',
+    borderRadius: 'var(--r-control)',
+    fontSize: 'var(--fs-small)',
+    fontWeight: 600,
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: '8px',
+    whiteSpace: 'nowrap',
     border: 'none',
-    backgroundColor: '#64748b',
-    color: '#cbd5e1',
-    fontSize: '13px',
-    fontWeight: '600',
+    backgroundColor: 'var(--surface-2)',
+    color: 'var(--text-3)',
     cursor: 'not-allowed',
-    opacity: 0.7,
   },
   permissionAlert: {
-    backgroundColor: 'rgba(239, 68, 68, 0.15)',
-    color: '#fca5a5',
-    padding: '10px 24px',
-    fontSize: '13px',
-    borderBottom: '1px solid rgba(239, 68, 68, 0.4)',
+    margin: '8px 16px 0',
+    backgroundColor: 'var(--surface-2)',
+    borderLeft: '3px solid var(--danger)',
+    borderRadius: 'var(--r-panel)',
+    color: 'var(--text-1)',
+    padding: '10px 14px',
+    fontSize: 'var(--fs-small)',
     display: 'flex',
     justifyContent: 'space-between',
     alignItems: 'center',
     gap: '12px',
   },
   retryPermBtn: {
-    backgroundColor: '#ef4444',
-    color: '#ffffff',
-    border: 'none',
-    padding: '6px 12px',
-    borderRadius: '6px',
-    fontSize: '12px',
-    fontWeight: '600',
+    minHeight: '32px',
+    padding: '0 10px',
+    borderRadius: 'var(--r-control)',
+    fontSize: 'var(--fs-caption)',
+    fontWeight: 600,
     cursor: 'pointer',
+    display: 'inline-flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: '6px',
+    whiteSpace: 'nowrap',
+    backgroundColor: 'transparent',
+    color: 'var(--text-1)',
+    border: '1px solid var(--border-strong)',
     flexShrink: 0,
   },
   errorBanner: {
-    backgroundColor: 'rgba(239, 68, 68, 0.2)',
-    color: '#fca5a5',
-    padding: '8px 24px',
-    fontSize: '13px',
+    margin: '8px 16px 0',
+    backgroundColor: 'var(--surface-2)',
+    borderLeft: '3px solid var(--danger)',
+    borderRadius: 'var(--r-panel)',
+    color: 'var(--text-1)',
+    padding: '10px 14px',
+    fontSize: 'var(--fs-small)',
   },
   successBanner: {
-    backgroundColor: 'rgba(34, 197, 94, 0.2)',
-    color: '#86efac',
-    padding: '10px 24px',
-    fontSize: '13px',
-    borderBottom: '1px solid rgba(34, 197, 94, 0.4)',
+    margin: '8px 16px 0',
+    backgroundColor: 'var(--surface-2)',
+    borderLeft: '3px solid var(--live)',
+    borderRadius: 'var(--r-panel)',
+    color: 'var(--text-1)',
+    padding: '10px 14px',
+    fontSize: 'var(--fs-small)',
   },
   mainContent: {
     flex: 1,
     overflowY: 'auto',
-    padding: '24px',
+    padding: '32px 24px 40px',
     display: 'flex',
     flexDirection: 'column',
   },
   mainContentLive: {
     flex: 1,
     overflow: 'hidden',
-    padding: '10px 16px',
     display: 'flex',
     flexDirection: 'column',
-    height: 'calc(100vh - 65px)',
     minHeight: 0,
     boxSizing: 'border-box',
   },
   setupCard: {
-    maxWidth: '900px',
+    maxWidth: '880px',
     margin: '0 auto',
     width: '100%',
-    backgroundColor: '#0f172a',
-    borderRadius: '12px',
-    border: '1px solid #1e293b',
-    padding: '28px',
     display: 'flex',
     flexDirection: 'column',
-    gap: '24px',
+    gap: '40px',
   },
   setupHeader: {
-    fontSize: '22px',
+    fontSize: 'var(--fs-title)',
+    lineHeight: 1.2,
     fontWeight: '700',
+    letterSpacing: '-0.01em',
     margin: 0,
-    color: '#f8fafc',
+    color: 'var(--text-1)',
   },
   setupSub: {
-    fontSize: '14px',
-    color: '#94a3b8',
-    margin: 0,
+    fontSize: 'var(--fs-body)',
+    color: 'var(--text-2)',
+    margin: '8px 0 0',
   },
   sectionBox: {
-    backgroundColor: '#172033',
-    padding: '20px',
-    borderRadius: '10px',
-    border: '1px solid #1e293b',
     display: 'flex',
     flexDirection: 'column',
-    gap: '14px',
+    gap: '16px',
   },
   sectionTitle: {
-    fontSize: '15px',
-    fontWeight: '600',
-    color: '#e2e8f0',
+    fontSize: 'var(--fs-lead)',
+    lineHeight: 1.2,
+    fontWeight: '700',
+    color: 'var(--text-1)',
     margin: 0,
   },
   sectionHeaderRow: {
     display: 'flex',
     justifyContent: 'space-between',
-    alignItems: 'center',
-    gap: '12px',
+    alignItems: 'flex-end',
+    gap: '16px',
     flexWrap: 'wrap',
   },
   refreshSourcesBtn: {
-    padding: '6px 12px',
-    borderRadius: '6px',
-    border: '1px solid #334155',
-    backgroundColor: '#0f172a',
-    color: '#38bdf8',
+    minHeight: '32px',
+    padding: '0 10px',
+    borderRadius: 'var(--r-control)',
+    fontSize: 'var(--fs-caption)',
+    fontWeight: 600,
     cursor: 'pointer',
-    fontSize: '12px',
-    fontWeight: '600',
-    display: 'flex',
+    display: 'inline-flex',
     alignItems: 'center',
+    justifyContent: 'center',
     gap: '6px',
-    transition: 'all 0.2s',
+    whiteSpace: 'nowrap',
+    border: '1px solid transparent',
+    backgroundColor: 'transparent',
+    color: 'var(--text-2)',
   },
   windowHintBox: {
     padding: '10px 14px',
-    borderRadius: '8px',
-    backgroundColor: 'rgba(56, 189, 248, 0.08)',
-    border: '1px solid rgba(56, 189, 248, 0.25)',
-    color: '#93c5fd',
-    fontSize: '13px',
-    lineHeight: '1.4',
+    borderRadius: 'var(--r-panel)',
+    backgroundColor: 'var(--surface-2)',
+    borderLeft: '3px solid var(--accent)',
+    color: 'var(--text-1)',
+    fontSize: 'var(--fs-small)',
+    lineHeight: 1.4,
   },
   buttonGroup: {
     display: 'flex',
-    gap: '12px',
+    gap: '8px',
     flexWrap: 'wrap',
   },
   choiceBtn: {
-    padding: '10px 18px',
-    borderRadius: '8px',
-    border: '1px solid #334155',
-    backgroundColor: '#0f172a',
-    color: '#cbd5e1',
+    minHeight: '40px',
+    padding: '0 14px',
+    borderRadius: 'var(--r-control)',
+    fontSize: 'var(--fs-small)',
+    fontWeight: 600,
     cursor: 'pointer',
-    fontSize: '14px',
-    fontWeight: '500',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: '8px',
+    whiteSpace: 'nowrap',
+    border: '1px solid var(--border-strong)',
+    backgroundColor: 'transparent',
+    color: 'var(--text-1)',
   },
   choiceBtnActive: {
-    padding: '10px 18px',
-    borderRadius: '8px',
-    border: '1px solid #38bdf8',
-    backgroundColor: 'rgba(56, 189, 248, 0.15)',
-    color: '#38bdf8',
+    minHeight: '40px',
+    padding: '0 14px',
+    borderRadius: 'var(--r-control)',
+    fontSize: 'var(--fs-small)',
+    fontWeight: 600,
     cursor: 'pointer',
-    fontSize: '14px',
-    fontWeight: '600',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: '8px',
+    whiteSpace: 'nowrap',
+    border: '1px solid var(--accent)',
+    backgroundColor: 'var(--accent-soft)',
+    color: 'var(--accent)',
   },
   formatSelectBox: {
-    marginTop: '6px',
-    paddingTop: '12px',
-    borderTop: '1px solid #243048',
+    paddingTop: '16px',
+    borderTop: '1px solid var(--border-subtle)',
     display: 'flex',
     flexDirection: 'column',
     gap: '8px',
   },
   formatLabel: {
-    fontSize: '13px',
-    color: '#94a3b8',
+    fontSize: 'var(--fs-small)',
+    fontWeight: 600,
+    color: 'var(--text-2)',
   },
   subChoiceBtnActive: {
-    padding: '8px 14px',
-    borderRadius: '6px',
-    border: '1px solid #22c55e',
-    backgroundColor: 'rgba(34, 197, 94, 0.15)',
-    color: '#4ade80',
+    minHeight: '32px',
+    padding: '0 10px',
+    borderRadius: 'var(--r-control)',
+    fontSize: 'var(--fs-caption)',
+    fontWeight: 600,
     cursor: 'pointer',
-    fontSize: '13px',
-    fontWeight: '600',
+    display: 'inline-flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: '6px',
+    whiteSpace: 'nowrap',
+    alignSelf: 'flex-start',
+    border: '1px solid var(--accent)',
+    backgroundColor: 'var(--accent-soft)',
+    color: 'var(--accent)',
   },
   modeTabs: {
     display: 'flex',
-    gap: '10px',
+    gap: '3px',
+    padding: '3px',
+    backgroundColor: 'var(--surface-2)',
+    borderRadius: 'calc(var(--r-control) + 3px)',
   },
   modeTab: {
     flex: 1,
-    padding: '12px',
-    borderRadius: '8px',
-    border: '1px solid #334155',
-    backgroundColor: '#0f172a',
-    color: '#94a3b8',
+    minHeight: '40px',
+    padding: '0 12px',
+    borderRadius: 'var(--r-control)',
+    border: 'none',
+    backgroundColor: 'transparent',
+    color: 'var(--text-2)',
+    fontSize: 'var(--fs-small)',
+    fontWeight: 600,
     cursor: 'pointer',
-    fontSize: '14px',
-    fontWeight: '500',
     textAlign: 'center',
   },
   modeTabActive: {
     flex: 1,
-    padding: '12px',
-    borderRadius: '8px',
-    border: '1px solid #38bdf8',
-    backgroundColor: 'rgba(56, 189, 248, 0.12)',
-    color: '#38bdf8',
+    minHeight: '40px',
+    padding: '0 12px',
+    borderRadius: 'var(--r-control)',
+    border: 'none',
+    backgroundColor: 'var(--surface-1)',
+    color: 'var(--text-1)',
+    boxShadow: '0 1px 2px rgba(0, 0, 0, 0.2)',
+    fontSize: 'var(--fs-small)',
+    fontWeight: 600,
     cursor: 'pointer',
-    fontSize: '14px',
-    fontWeight: '600',
     textAlign: 'center',
   },
   sourceGrid: {
-    display: 'flex',
-    gap: '16px',
-    flexWrap: 'wrap',
-    maxHeight: '260px',
-    overflowY: 'auto',
-    padding: '4px',
+    display: 'grid',
+    gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))',
+    gap: '24px',
+    padding: '6px',
   },
   noSources: {
-    color: '#94a3b8',
-    fontSize: '13px',
-    fontStyle: 'italic',
+    color: 'var(--text-2)',
+    fontSize: 'var(--fs-small)',
   },
   sourceCard: {
-    width: '180px',
-    padding: '10px',
-    backgroundColor: '#0f172a',
-    border: '1px solid #334155',
-    borderRadius: '8px',
-    cursor: 'pointer',
-    display: 'flex',
-    flexDirection: 'column',
-    alignItems: 'center',
-    gap: '8px',
-    position: 'relative',
+    padding: '8px',
+    gap: '10px',
   },
   sourceCardSelected: {
-    width: '180px',
-    padding: '10px',
-    backgroundColor: 'rgba(56, 189, 248, 0.08)',
-    border: '2px solid #38bdf8',
-    borderRadius: '8px',
-    cursor: 'pointer',
+    width: '190px',
+    padding: '8px',
+    backgroundColor: 'var(--accent-soft)',
+    border: '1px solid var(--accent)',
+    borderRadius: 'var(--r-panel)',
     display: 'flex',
     flexDirection: 'column',
     alignItems: 'center',
     gap: '8px',
     position: 'relative',
+    cursor: 'pointer',
   },
   thumbnail: {
     width: '100%',
-    height: '95px',
+    aspectRatio: '16 / 9',
     objectFit: 'cover',
-    borderRadius: '4px',
+    borderRadius: '6px',
+    backgroundColor: 'var(--stage)',
+    display: 'block',
   },
   sourceName: {
-    fontSize: '12px',
-    color: '#f8fafc',
-    textAlign: 'center',
+    fontSize: 'var(--fs-small)',
+    fontWeight: 600,
+    color: 'var(--text-1)',
     whiteSpace: 'nowrap',
     overflow: 'hidden',
     textOverflow: 'ellipsis',
-    width: '100%',
   },
   selectedBadgeInline: {
-    backgroundColor: colors.accent,
-    color: colors.bgBase,
-    fontSize: '11px',
-    fontWeight: '700',
-    padding: '2px 8px',
-    borderRadius: radii.sm,
     display: 'inline-flex',
     alignItems: 'center',
+    gap: '6px',
+    minHeight: '26px',
+    padding: '0 10px',
+    borderRadius: 'var(--r-pill)',
+    fontSize: 'var(--fs-caption)',
+    fontWeight: 600,
+    whiteSpace: 'nowrap',
+    backgroundColor: 'var(--accent-fill)',
+    color: '#ffffff',
   },
   selectedBadge: {
     position: 'absolute',
-    top: '6px',
-    right: '6px',
-    backgroundColor: '#38bdf8',
-    color: '#090d16',
-    fontSize: '11px',
+    top: '12px',
+    right: '12px',
+    backgroundColor: 'var(--accent-fill)',
+    color: '#ffffff',
+    fontSize: 'var(--fs-caption)',
     fontWeight: '700',
-    padding: '2px 6px',
-    borderRadius: '4px',
+    padding: '2px 8px',
+    borderRadius: 'var(--r-pill)',
   },
   advanceBar: {
     display: 'flex',
     justifyContent: 'flex-end',
-    marginTop: '8px',
   },
   advanceBtn: {
-    padding: '12px 28px',
-    borderRadius: '8px',
+    minHeight: '48px',
+    padding: '0 24px',
+    borderRadius: 'var(--r-control)',
     border: 'none',
-    backgroundColor: '#0284c7',
+    backgroundColor: 'var(--accent-fill)',
     color: '#ffffff',
-    fontSize: '15px',
-    fontWeight: '600',
+    fontSize: 'var(--fs-body)',
+    fontWeight: 600,
     cursor: 'pointer',
   },
   advanceBtnDisabled: {
-    padding: '12px 28px',
-    borderRadius: '8px',
+    minHeight: '48px',
+    padding: '0 24px',
+    borderRadius: 'var(--r-control)',
     border: 'none',
-    backgroundColor: '#334155',
-    color: '#64748b',
-    fontSize: '15px',
-    fontWeight: '600',
+    backgroundColor: 'var(--surface-2)',
+    color: 'var(--text-3)',
+    fontSize: 'var(--fs-body)',
+    fontWeight: 600,
     cursor: 'not-allowed',
   },
   liveContainer: {
@@ -3439,7 +3652,6 @@ const styles: { [key: string]: React.CSSProperties } = {
   liveContentArea: {
     flex: 1,
     display: 'flex',
-    gap: '12px',
     height: '100%',
     minHeight: 0,
     overflow: 'hidden',
@@ -3448,117 +3660,135 @@ const styles: { [key: string]: React.CSSProperties } = {
     flex: 1,
     display: 'flex',
     flexDirection: 'column',
-    gap: '10px',
     minWidth: 0,
-    justifyContent: 'space-between',
+    minHeight: 0,
+    position: 'relative',
+    backgroundColor: 'var(--stage)',
+    padding: '12px 28px 100px',
   },
   statusBar: {
     flexShrink: 0,
     display: 'flex',
     justifyContent: 'space-between',
     alignItems: 'center',
-    padding: '8px 16px',
-    backgroundColor: '#0f172a',
-    borderRadius: '10px',
-    border: '1px solid #1e293b',
+    gap: '12px',
+    minHeight: '44px',
+    padding: '6px 12px',
+    backgroundColor: 'var(--surface-1)',
+    borderRadius: 'var(--r-panel)',
+    border: '1px solid var(--border-subtle)',
   },
   statusLeft: {
     display: 'flex',
     alignItems: 'center',
-    gap: '12px',
+    gap: '8px',
+    minWidth: 0,
   },
   liveBadge: {
-    display: 'flex',
+    display: 'inline-flex',
     alignItems: 'center',
     gap: '6px',
-    fontSize: '12px',
-    fontWeight: '700',
-    color: '#4ade80',
-    backgroundColor: 'rgba(34, 197, 94, 0.1)',
-    padding: '3px 8px',
-    borderRadius: '6px',
+    minHeight: '26px',
+    padding: '0 10px',
+    borderRadius: 'var(--r-pill)',
+    fontSize: 'var(--fs-caption)',
+    fontWeight: 600,
+    whiteSpace: 'nowrap',
+    color: 'var(--live)',
+    backgroundColor: 'var(--live-soft)',
   },
   pulsingDotGreen: {
-    width: '7px',
-    height: '7px',
+    width: '8px',
+    height: '8px',
     borderRadius: '50%',
-    backgroundColor: '#22c55e',
+    backgroundColor: 'var(--live)',
   },
   resolutionBadge: {
-    fontSize: '11px',
-    fontWeight: '600',
-    color: '#38bdf8',
-    backgroundColor: 'rgba(56, 189, 248, 0.1)',
-    border: '1px solid rgba(56, 189, 248, 0.3)',
-    padding: '2px 7px',
-    borderRadius: '6px',
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: '6px',
+    minHeight: '26px',
+    padding: '0 10px',
+    borderRadius: 'var(--r-pill)',
+    fontSize: 'var(--fs-caption)',
+    fontWeight: 600,
+    whiteSpace: 'nowrap',
+    fontFamily: 'var(--font-mono)',
+    color: 'var(--text-2)',
+    backgroundColor: 'var(--surface-2)',
   },
   studentsBadge: {
-    fontSize: '11px',
-    fontWeight: '600',
-    color: '#e2e8f0',
-    backgroundColor: 'rgba(255, 255, 255, 0.08)',
-    border: '1px solid #334155',
-    padding: '2px 7px',
-    borderRadius: '6px',
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: '6px',
+    minHeight: '26px',
+    padding: '0 10px',
+    borderRadius: 'var(--r-pill)',
+    fontSize: 'var(--fs-caption)',
+    fontWeight: 600,
+    whiteSpace: 'nowrap',
+    color: 'var(--text-2)',
+    backgroundColor: 'var(--surface-2)',
   },
   qualitySelectorGrid: {
     display: 'grid',
-    gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
+    gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))',
     gap: '12px',
   },
   qualityCard: {
     position: 'relative',
-    backgroundColor: '#0f172a',
-    border: '1px solid #1e293b',
-    borderRadius: '8px',
-    padding: '14px 16px',
+    backgroundColor: 'transparent',
+    border: '1px solid var(--border-subtle)',
+    borderRadius: 'var(--r-panel)',
+    padding: '16px',
     display: 'flex',
     flexDirection: 'column',
     gap: '10px',
     cursor: 'pointer',
-    transition: 'all 0.15s ease',
   },
   qualityCardActive: {
     position: 'relative',
-    backgroundColor: '#0f172a',
-    border: '1.5px solid #38bdf8',
-    boxShadow: '0 0 12px rgba(56, 189, 248, 0.15)',
-    borderRadius: '8px',
-    padding: '14px 16px',
+    backgroundColor: 'var(--accent-soft)',
+    border: '1px solid var(--accent)',
+    borderRadius: 'var(--r-panel)',
+    padding: '16px',
     display: 'flex',
     flexDirection: 'column',
     gap: '10px',
     cursor: 'pointer',
-    transition: 'all 0.15s ease',
   },
   qualityCardHeader: {
     display: 'flex',
     justifyContent: 'space-between',
     alignItems: 'center',
+    gap: '8px',
+    minHeight: '26px',
   },
   qualityCardTitle: {
     display: 'inline-flex',
     alignItems: 'center',
-    gap: '6px',
+    gap: '8px',
     fontWeight: '700',
-    fontSize: '14px',
-    color: '#e2e8f0',
+    fontSize: 'var(--fs-body)',
+    color: 'var(--text-1)',
   },
   qualityDetails: {
     display: 'flex',
-    flexWrap: 'wrap',
-    gap: '16px',
-    fontSize: '12px',
-    color: '#94a3b8',
+    flexDirection: 'column',
+    gap: '4px',
+    fontSize: 'var(--fs-small)',
+    color: 'var(--text-2)',
   },
   qualityParam: {
     display: 'flex',
     gap: '4px',
   },
   statusInfo: {
-    fontSize: '12px',
-    color: '#cbd5e1',
+    fontSize: 'var(--fs-caption)',
+    color: 'var(--text-3)',
+    whiteSpace: 'nowrap',
+    overflow: 'hidden',
+    textOverflow: 'ellipsis',
   },
   statusRight: {
     display: 'flex',
@@ -3571,65 +3801,93 @@ const styles: { [key: string]: React.CSSProperties } = {
     gap: '8px',
   },
   recordingBadge: {
-    display: 'flex',
+    display: 'inline-flex',
     alignItems: 'center',
     gap: '6px',
-    fontSize: '12px',
-    fontWeight: '700',
-    color: '#f87171',
-    backgroundColor: 'rgba(239, 68, 68, 0.12)',
-    padding: '3px 8px',
-    borderRadius: '6px',
+    minHeight: '26px',
+    padding: '0 10px',
+    borderRadius: 'var(--r-pill)',
+    fontSize: 'var(--fs-caption)',
+    fontWeight: 600,
+    whiteSpace: 'nowrap',
+    fontFamily: 'var(--font-mono)',
+    color: 'var(--rec)',
+    backgroundColor: 'var(--danger-soft)',
   },
   pulsingDotRed: {
-    width: '7px',
-    height: '7px',
+    width: '8px',
+    height: '8px',
     borderRadius: '50%',
-    backgroundColor: '#ef4444',
+    backgroundColor: 'var(--rec)',
   },
   pausedBadge: {
-    fontSize: '12px',
-    fontWeight: '600',
-    color: '#38bdf8',
-    backgroundColor: 'rgba(2, 132, 199, 0.15)',
-    border: '1px solid rgba(56, 189, 248, 0.3)',
-    padding: '3px 8px',
-    borderRadius: '6px',
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: '6px',
+    minHeight: '26px',
+    padding: '0 10px',
+    borderRadius: 'var(--r-pill)',
+    fontSize: 'var(--fs-caption)',
+    fontWeight: 600,
+    whiteSpace: 'nowrap',
+    fontFamily: 'var(--font-mono)',
+    color: 'var(--attention)',
+    backgroundColor: 'var(--attention-soft)',
   },
   stoppedBadge: {
-    fontSize: '12px',
-    color: '#94a3b8',
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: '6px',
+    minHeight: '26px',
+    padding: '0 10px',
+    borderRadius: 'var(--r-pill)',
+    fontSize: 'var(--fs-caption)',
+    fontWeight: 600,
+    whiteSpace: 'nowrap',
+    color: 'var(--text-2)',
+    backgroundColor: 'var(--surface-2)',
   },
   noRecordBadge: {
-    fontSize: '12px',
-    color: '#64748b',
+    fontSize: 'var(--fs-caption)',
+    color: 'var(--text-3)',
+    whiteSpace: 'nowrap',
   },
   recControlBtn: {
-    padding: '5px 10px',
-    borderRadius: '6px',
-    border: '1px solid #334155',
-    backgroundColor: '#1e293b',
-    color: '#f8fafc',
-    fontSize: '11px',
+    minHeight: '32px',
+    padding: '0 10px',
+    borderRadius: 'var(--r-control)',
+    fontSize: 'var(--fs-caption)',
+    fontWeight: 600,
     cursor: 'pointer',
+    display: 'inline-flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: '6px',
+    whiteSpace: 'nowrap',
+    border: '1px solid var(--border-strong)',
+    backgroundColor: 'transparent',
+    color: 'var(--text-1)',
   },
   recSaveBtn: {
-    padding: '5px 10px',
-    borderRadius: '6px',
-    border: 'none',
-    backgroundColor: '#22c55e',
-    color: '#ffffff',
-    fontSize: '11px',
-    fontWeight: '600',
+    minHeight: '32px',
+    padding: '0 10px',
+    borderRadius: 'var(--r-control)',
+    fontSize: 'var(--fs-caption)',
+    fontWeight: 600,
     cursor: 'pointer',
+    display: 'inline-flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: '6px',
+    whiteSpace: 'nowrap',
+    border: 'none',
+    backgroundColor: 'var(--accent-fill)',
+    color: '#ffffff',
   },
   previewArea: {
-    flex: 1,
-    minHeight: 0,
-    maxHeight: '100%',
-    backgroundColor: '#020617',
-    borderRadius: '10px',
-    border: '1px solid #1e293b',
+    width: '100%',
+    height: '100%',
+    backgroundColor: 'var(--stage)',
     overflow: 'hidden',
     display: 'flex',
     alignItems: 'center',
@@ -3644,17 +3902,16 @@ const styles: { [key: string]: React.CSSProperties } = {
     top: '16px',
     right: '16px',
     zIndex: 20,
-    backgroundColor: '#161616',
-    border: '1px solid #0f62fe',
-    borderLeft: '4px solid #0f62fe',
-    borderRadius: '6px',
-    padding: '10px 14px',
+    backgroundColor: 'var(--surface-float)',
+    borderRadius: 'var(--r-panel)',
+    padding: '8px 8px 8px 14px',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'space-between',
     gap: '12px',
-    boxShadow: '0 4px 20px rgba(0,0,0,0.5)',
-    maxWidth: '340px',
+    boxShadow: 'var(--shadow-float)',
+    maxWidth: '380px',
+    borderLeft: '3px solid var(--accent)',
   },
   handToastContent: {
     display: 'flex',
@@ -3662,8 +3919,8 @@ const styles: { [key: string]: React.CSSProperties } = {
     gap: '8px',
   },
   handToastText: {
-    fontSize: '12px',
-    color: '#f4f4f4',
+    fontSize: 'var(--fs-small)',
+    color: 'var(--text-1)',
   },
   handToastStrong: {
     fontWeight: '600',
@@ -3676,21 +3933,29 @@ const styles: { [key: string]: React.CSSProperties } = {
     flexShrink: 0,
   },
   handToastViewBtn: {
-    padding: '3px 8px',
-    backgroundColor: '#0f62fe',
-    color: '#ffffff',
-    border: 'none',
-    borderRadius: '4px',
-    fontSize: '11px',
-    fontWeight: '600',
+    minHeight: '32px',
+    padding: '0 10px',
+    borderRadius: 'var(--r-control)',
+    fontSize: 'var(--fs-caption)',
+    fontWeight: 600,
     cursor: 'pointer',
+    display: 'inline-flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: '6px',
+    whiteSpace: 'nowrap',
+    border: 'none',
+    backgroundColor: 'var(--accent-fill)',
+    color: '#ffffff',
   },
   handToastDismissBtn: {
     background: 'transparent',
     border: 'none',
-    color: '#c6c6c6',
+    color: 'var(--text-2)',
+    width: '32px',
+    height: '32px',
+    borderRadius: 'var(--r-control)',
     cursor: 'pointer',
-    padding: '2px',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
@@ -3715,14 +3980,12 @@ const styles: { [key: string]: React.CSSProperties } = {
     position: 'absolute',
     bottom: '12px',
     right: '12px',
-    backgroundColor: 'rgba(15, 23, 42, 0.90)',
-    color: '#94a3b8',
-    fontSize: '11px',
-    fontWeight: '500',
+    backgroundColor: 'var(--surface-float)',
+    color: 'var(--text-2)',
+    fontSize: 'var(--fs-caption)',
+    fontWeight: 600,
     padding: '6px 12px',
-    borderRadius: '8px',
-    border: '1px solid rgba(51, 65, 85, 0.7)',
-    backdropFilter: 'blur(6px)',
+    borderRadius: 'var(--r-control)',
     display: 'flex',
     alignItems: 'center',
     gap: '10px',
@@ -3744,34 +4007,36 @@ const styles: { [key: string]: React.CSSProperties } = {
     textAlign: 'center',
   },
   screenShieldIcon: {
-    fontSize: '48px',
-    marginBottom: '12px',
+    display: 'flex',
+    color: 'var(--live)',
+    marginBottom: '16px',
   },
   screenShieldTitle: {
-    fontSize: '18px',
+    fontSize: 'var(--fs-title)',
+    lineHeight: 1.2,
     fontWeight: '700',
-    color: '#f8fafc',
+    color: 'var(--text-1)',
     margin: '0 0 8px 0',
   },
   screenShieldSubtitle: {
-    fontSize: '14px',
-    color: '#94a3b8',
+    fontSize: 'var(--fs-body)',
+    lineHeight: 1.5,
+    color: 'var(--text-2)',
     margin: 0,
-    maxWidth: '400px',
+    maxWidth: '440px',
   },
   pausedOverlayBadge: {
     position: 'absolute',
     top: '50%',
     left: '50%',
     transform: 'translate(-50%, -50%)',
-    backgroundColor: 'rgba(15, 23, 42, 0.92)',
-    color: '#38bdf8',
-    fontSize: '16px',
+    backgroundColor: 'var(--surface-float)',
+    color: 'var(--attention)',
+    fontSize: 'var(--fs-body)',
     fontWeight: '700',
-    padding: '12px 24px',
-    borderRadius: '10px',
-    border: '1px solid rgba(56, 189, 248, 0.4)',
-    boxShadow: '0 8px 30px rgba(0, 0, 0, 0.6)',
+    padding: '12px 20px',
+    borderRadius: 'var(--r-panel)',
+    boxShadow: 'var(--shadow-float)',
     display: 'flex',
     alignItems: 'center',
     gap: '10px',
@@ -3781,166 +4046,204 @@ const styles: { [key: string]: React.CSSProperties } = {
     flexShrink: 0,
     display: 'flex',
     justifyContent: 'center',
-    gap: '12px',
-    padding: '10px 16px',
-    backgroundColor: '#0f172a',
-    borderRadius: '10px',
-    border: '1px solid #1e293b',
+    flexWrap: 'wrap',
+    padding: '6px',
+    backgroundColor: 'var(--surface-1)',
+    borderRadius: 'var(--r-panel)',
+    border: '1px solid var(--border-subtle)',
+    gap: '4px',
   },
   controlBtn: {
-    padding: '9px 16px',
-    borderRadius: '8px',
-    border: '1px solid #334155',
-    backgroundColor: '#1e293b',
-    color: '#f8fafc',
+    minHeight: '40px',
+    borderRadius: 'var(--r-control)',
+    fontSize: 'var(--fs-small)',
+    fontWeight: 600,
     cursor: 'pointer',
-    fontSize: '13px',
-    fontWeight: '500',
     display: 'flex',
     alignItems: 'center',
-    gap: '6px',
+    justifyContent: 'center',
+    gap: '8px',
+    whiteSpace: 'nowrap',
+    border: '1px solid transparent',
+    backgroundColor: 'transparent',
+    color: 'var(--text-1)',
+    padding: '0 10px',
   },
   controlBtnActive: {
-    padding: '9px 16px',
-    borderRadius: '8px',
-    border: '1px solid #ef4444',
-    backgroundColor: 'rgba(239, 68, 68, 0.2)',
-    color: '#fca5a5',
+    minHeight: '40px',
+    borderRadius: 'var(--r-control)',
+    fontSize: 'var(--fs-small)',
+    fontWeight: 600,
     cursor: 'pointer',
-    fontSize: '13px',
-    fontWeight: '600',
     display: 'flex',
     alignItems: 'center',
-    gap: '6px',
+    justifyContent: 'center',
+    gap: '8px',
+    whiteSpace: 'nowrap',
+    border: '1px solid transparent',
+    backgroundColor: 'var(--danger-soft)',
+    color: 'var(--danger)',
+    padding: '0 10px',
   },
   controlBtnPauseActive: {
-    padding: '9px 16px',
-    borderRadius: '8px',
-    border: '1px solid #0284c7',
-    backgroundColor: 'rgba(2, 132, 199, 0.2)',
-    color: '#38bdf8',
+    minHeight: '40px',
+    borderRadius: 'var(--r-control)',
+    fontSize: 'var(--fs-small)',
+    fontWeight: 600,
     cursor: 'pointer',
-    fontSize: '13px',
-    fontWeight: '600',
     display: 'flex',
     alignItems: 'center',
-    gap: '6px',
+    justifyContent: 'center',
+    gap: '8px',
+    whiteSpace: 'nowrap',
+    border: '1px solid transparent',
+    backgroundColor: 'var(--attention-soft)',
+    color: 'var(--attention)',
+    padding: '0 10px',
   },
   controlBtnActiveChat: {
-    padding: '9px 16px',
-    borderRadius: '8px',
-    border: '1px solid #38bdf8',
-    backgroundColor: '#0284c7',
-    color: '#ffffff',
+    minHeight: '40px',
+    borderRadius: 'var(--r-control)',
+    fontSize: 'var(--fs-small)',
+    fontWeight: 600,
     cursor: 'pointer',
-    fontSize: '13px',
-    fontWeight: '600',
     display: 'flex',
     alignItems: 'center',
-    gap: '6px',
+    justifyContent: 'center',
+    gap: '8px',
+    whiteSpace: 'nowrap',
+    border: '1px solid transparent',
+    backgroundColor: 'var(--accent-soft)',
+    color: 'var(--accent)',
+    padding: '0 10px',
   },
   unreadBadge: {
-    backgroundColor: '#ef4444',
-    color: '#ffffff',
-    fontSize: '10px',
-    fontWeight: '700',
-    padding: '2px 6px',
-    borderRadius: '10px',
-    lineHeight: '1',
-  },
-  raisedHandHeaderBadge: {
-    backgroundColor: '#0f62fe',
-    color: '#ffffff',
-    fontSize: '10px',
-    fontWeight: '700',
-    padding: '2px 6px',
-    borderRadius: '10px',
-    lineHeight: '1',
+    fontSize: 'var(--fs-caption)',
+    fontWeight: 700,
+    minWidth: '20px',
+    padding: '3px 6px',
+    borderRadius: 'var(--r-pill)',
+    lineHeight: 1,
+    textAlign: 'center',
     display: 'inline-flex',
     alignItems: 'center',
+    justifyContent: 'center',
     gap: '3px',
+    backgroundColor: 'var(--accent-fill)',
+    color: '#ffffff',
+  },
+  raisedHandHeaderBadge: {
+    fontSize: 'var(--fs-caption)',
+    fontWeight: 700,
+    minWidth: '20px',
+    padding: '3px 6px',
+    borderRadius: 'var(--r-pill)',
+    lineHeight: 1,
+    textAlign: 'center',
+    display: 'inline-flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: '3px',
+    backgroundColor: 'var(--accent-fill)',
+    color: '#ffffff',
   },
   sidebarDesktop: {
-    backgroundColor: '#0f172a',
-    borderRadius: '10px',
+    backgroundColor: 'var(--surface-1)',
     display: 'flex',
     flexDirection: 'column',
     overflow: 'hidden',
-    transition: 'width 0.25s ease, opacity 0.2s ease',
+    transition: 'width 0.2s ease, opacity 0.2s ease',
   },
   sidebarHeader: {
-    padding: '10px 12px',
-    borderBottom: '1px solid #1e293b',
-    backgroundColor: '#172033',
+    padding: '0 4px 0 8px',
+    borderBottom: '1px solid var(--border-subtle)',
     display: 'flex',
     justifyContent: 'space-between',
     alignItems: 'center',
-    gap: '8px',
+    gap: '4px',
   },
   tabButtons: {
     display: 'flex',
-    gap: '6px',
+    gap: '2px',
     flex: 1,
+    minWidth: 0,
   },
   tabBtn: {
     flex: 1,
-    padding: '6px 8px',
-    borderRadius: '6px',
-    border: '1px solid #334155',
-    backgroundColor: '#0f172a',
-    color: '#94a3b8',
-    fontSize: '11px',
-    fontWeight: '500',
+    minHeight: '44px',
+    padding: '0 6px',
+    border: 'none',
+    backgroundColor: 'transparent',
+    fontSize: 'var(--fs-small)',
     cursor: 'pointer',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: '4px',
+    gap: '6px',
     whiteSpace: 'nowrap',
+    borderBottom: '2px solid transparent',
+    color: 'var(--text-2)',
+    fontWeight: 600,
   },
   tabBtnActive: {
     flex: 1,
-    padding: '6px 8px',
-    borderRadius: '6px',
-    border: '1px solid #38bdf8',
-    backgroundColor: 'rgba(56, 189, 248, 0.15)',
-    color: '#38bdf8',
-    fontSize: '11px',
-    fontWeight: '600',
+    minHeight: '44px',
+    padding: '0 6px',
+    border: 'none',
+    backgroundColor: 'transparent',
+    fontSize: 'var(--fs-small)',
     cursor: 'pointer',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: '4px',
+    gap: '6px',
     whiteSpace: 'nowrap',
+    borderBottom: '2px solid var(--accent)',
+    color: 'var(--text-1)',
+    fontWeight: 700,
   },
   tabBadge: {
-    backgroundColor: '#ef4444',
-    color: '#ffffff',
-    fontSize: '9px',
-    fontWeight: '700',
-    padding: '1px 5px',
-    borderRadius: '8px',
-  },
-  tabHandBadge: {
-    backgroundColor: '#0f62fe',
-    color: '#ffffff',
-    fontSize: '9px',
-    fontWeight: '700',
-    padding: '1px 5px',
-    borderRadius: '8px',
+    fontSize: 'var(--fs-caption)',
+    fontWeight: 700,
+    minWidth: '20px',
+    padding: '3px 6px',
+    borderRadius: 'var(--r-pill)',
+    lineHeight: 1,
+    textAlign: 'center',
     display: 'inline-flex',
     alignItems: 'center',
-    gap: '2px',
+    justifyContent: 'center',
+    gap: '3px',
+    backgroundColor: 'var(--accent-fill)',
+    color: '#ffffff',
+  },
+  tabHandBadge: {
+    fontSize: 'var(--fs-caption)',
+    fontWeight: 700,
+    minWidth: '20px',
+    padding: '3px 6px',
+    borderRadius: 'var(--r-pill)',
+    lineHeight: 1,
+    textAlign: 'center',
+    display: 'inline-flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: '3px',
+    backgroundColor: 'var(--accent-fill)',
+    color: '#ffffff',
   },
   closeSidebarBtn: {
     background: 'transparent',
     border: 'none',
-    color: '#94a3b8',
-    fontSize: '14px',
+    color: 'var(--text-2)',
+    width: '36px',
+    height: '36px',
+    borderRadius: 'var(--r-control)',
     cursor: 'pointer',
-    padding: '4px 6px',
-    borderRadius: '4px',
+    display: 'inline-flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexShrink: 0,
   },
   chatTabContent: {
     flex: 1,
@@ -3950,79 +4253,88 @@ const styles: { [key: string]: React.CSSProperties } = {
   },
   chatSubTabRow: {
     display: 'flex',
-    gap: '6px',
-    padding: '8px 12px',
-    backgroundColor: '#0f172a',
-    borderBottom: '1px solid #1e293b',
+    gap: '3px',
+    padding: '3px',
+    margin: '10px 12px 4px',
+    backgroundColor: 'var(--surface-2)',
+    borderRadius: 'calc(var(--r-control) + 3px)',
   },
   chatSubTab: {
     flex: 1,
-    padding: '6px 10px',
-    borderRadius: '6px',
-    border: '1px solid #334155',
-    backgroundColor: '#1e293b',
-    color: '#94a3b8',
-    fontSize: '11px',
-    fontWeight: '500',
+    minHeight: '34px',
+    padding: '0 10px',
+    borderRadius: 'var(--r-control)',
+    border: 'none',
+    fontSize: 'var(--fs-small)',
     cursor: 'pointer',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
     gap: '6px',
+    whiteSpace: 'nowrap',
+    backgroundColor: 'transparent',
+    color: 'var(--text-2)',
+    fontWeight: 600,
   },
   chatSubTabActive: {
     flex: 1,
-    padding: '6px 10px',
-    borderRadius: '6px',
-    border: '1px solid #38bdf8',
-    backgroundColor: 'rgba(56, 189, 248, 0.15)',
-    color: '#38bdf8',
-    fontSize: '11px',
-    fontWeight: '700',
+    minHeight: '34px',
+    padding: '0 10px',
+    borderRadius: 'var(--r-control)',
+    border: 'none',
+    fontSize: 'var(--fs-small)',
     cursor: 'pointer',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
     gap: '6px',
+    whiteSpace: 'nowrap',
+    backgroundColor: 'var(--surface-1)',
+    color: 'var(--text-1)',
+    fontWeight: 700,
+    boxShadow: '0 1px 2px rgba(0, 0, 0, 0.2)',
   },
   chatSubTabActivePrivate: {
     flex: 1,
-    padding: '6px 10px',
-    borderRadius: '6px',
-    border: '1px solid #a855f7',
-    backgroundColor: 'rgba(168, 85, 247, 0.15)',
-    color: '#c084fc',
-    fontSize: '11px',
-    fontWeight: '700',
+    minHeight: '34px',
+    padding: '0 10px',
+    borderRadius: 'var(--r-control)',
+    border: 'none',
+    fontSize: 'var(--fs-small)',
     cursor: 'pointer',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
     gap: '6px',
+    whiteSpace: 'nowrap',
+    backgroundColor: 'var(--surface-1)',
+    color: 'var(--text-1)',
+    fontWeight: 700,
+    boxShadow: '0 1px 2px rgba(0, 0, 0, 0.2)',
   },
   privateTabBadge: {
-    backgroundColor: '#a855f7',
-    color: '#ffffff',
-    fontSize: '9px',
-    fontWeight: '700',
-    padding: '1px 5px',
-    borderRadius: '8px',
-  },
-  privateSelectPromptBox: {
-    padding: '10px 14px',
-    backgroundColor: '#0f172a',
-    borderTop: '1px solid #1e293b',
-    display: 'flex',
+    fontSize: 'var(--fs-caption)',
+    fontWeight: 700,
+    minWidth: '20px',
+    padding: '3px 6px',
+    borderRadius: 'var(--r-pill)',
+    lineHeight: 1,
+    textAlign: 'center',
+    display: 'inline-flex',
     alignItems: 'center',
     justifyContent: 'center',
+    gap: '3px',
+    backgroundColor: 'var(--accent-fill)',
+    color: '#ffffff',
+  },
+  privateSelectPromptBox: {
+    padding: '12px',
+    borderTop: '1px solid var(--border-subtle)',
   },
   privateSelectPromptText: {
-    padding: '6px 10px',
-    fontSize: '11px',
-    color: '#c084fc',
-    backgroundColor: 'rgba(168, 85, 247, 0.1)',
-    borderRadius: '6px',
-    border: '1px dashed rgba(168, 85, 247, 0.4)',
+    fontSize: 'var(--fs-small)',
+    lineHeight: 1.4,
+    color: 'var(--text-2)',
     textAlign: 'center',
   },
   messagesList: {
@@ -4031,63 +4343,62 @@ const styles: { [key: string]: React.CSSProperties } = {
     overflowY: 'auto',
     display: 'flex',
     flexDirection: 'column',
-    gap: '10px',
+    gap: '14px',
   },
   emptyMessagesBox: {
-    padding: '30px 16px',
+    padding: '40px 20px',
     textAlign: 'center',
   },
   emptyText: {
-    fontSize: '12px',
-    color: '#64748b',
+    fontSize: 'var(--fs-small)',
+    lineHeight: 1.4,
+    color: 'var(--text-2)',
     margin: 0,
   },
   messageCard: {
-    backgroundColor: '#172033',
-    padding: '10px',
-    borderRadius: '8px',
-    border: '1px solid #1e293b',
+    padding: 0,
   },
   privateMessageCard: {
-    backgroundColor: 'rgba(49, 46, 129, 0.4)',
-    border: '1px solid #6366f1',
+    backgroundColor: 'var(--surface-2)',
+    borderRadius: 'var(--r-panel)',
+    padding: '10px 12px',
   },
   pinnedMessageCard: {
-    border: '1px solid #38bdf8',
-    backgroundColor: 'rgba(56, 189, 248, 0.1)',
+    backgroundColor: 'var(--accent-soft)',
+    borderRadius: 'var(--r-panel)',
+    padding: '10px 12px',
   },
   pinnedPrivateMessageCard: {
-    border: '1px solid #a855f7',
-    backgroundColor: 'rgba(168, 85, 247, 0.2)',
+    backgroundColor: 'var(--accent-soft)',
+    borderRadius: 'var(--r-panel)',
+    padding: '10px 12px',
   },
   pinnedBannerBox: {
-    padding: '8px 12px',
-    backgroundColor: 'rgba(14, 116, 144, 0.18)',
-    borderBottom: '1px solid rgba(56, 189, 248, 0.35)',
+    padding: '10px 12px',
+    backgroundColor: 'var(--accent-soft)',
     display: 'flex',
     flexDirection: 'column',
     gap: '6px',
   },
   pinnedBannerBoxPrivate: {
-    padding: '8px 12px',
-    backgroundColor: 'rgba(88, 28, 135, 0.22)',
-    borderBottom: '1px solid rgba(168, 85, 247, 0.4)',
+    padding: '10px 12px',
+    backgroundColor: 'var(--accent-soft)',
     display: 'flex',
     flexDirection: 'column',
     gap: '6px',
   },
   pinnedBannerHeader: {
-    fontSize: '11px',
+    fontSize: 'var(--fs-caption)',
     fontWeight: '700',
-    color: '#38bdf8',
+    color: 'var(--accent)',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'space-between',
   },
   pinnedBannerHeaderPrivate: {
-    fontSize: '11px',
+    fontSize: 'var(--fs-caption)',
     fontWeight: '700',
-    color: '#c084fc',
+    color: 'var(--accent)',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'space-between',
@@ -4097,121 +4408,127 @@ const styles: { [key: string]: React.CSSProperties } = {
     alignItems: 'center',
     justifyContent: 'space-between',
     gap: '8px',
-    padding: '5px 8px',
-    borderRadius: '6px',
-    backgroundColor: 'rgba(15, 23, 42, 0.65)',
-    border: '1px solid rgba(148, 163, 184, 0.2)',
   },
   pinnedBannerText: {
-    fontSize: '11px',
-    color: '#f1f5f9',
+    fontSize: 'var(--fs-small)',
+    lineHeight: 1.4,
+    color: 'var(--text-1)',
     flex: 1,
     wordBreak: 'break-word',
   },
   pinMsgBtn: {
     background: 'transparent',
     border: '1px solid transparent',
-    borderRadius: '4px',
-    color: '#94a3b8',
-    padding: '2px 4px',
+    borderRadius: 'var(--r-control)',
+    color: 'var(--text-3)',
+    width: '28px',
+    height: '28px',
     cursor: 'pointer',
     display: 'inline-flex',
     alignItems: 'center',
     justifyContent: 'center',
+    flexShrink: 0,
   },
   pinMsgBtnActive: {
-    background: 'rgba(56, 189, 248, 0.18)',
-    border: '1px solid #38bdf8',
-    borderRadius: '4px',
-    color: '#38bdf8',
-    padding: '2px 4px',
+    background: 'transparent',
+    border: '1px solid transparent',
+    borderRadius: 'var(--r-control)',
+    color: 'var(--accent)',
+    width: '28px',
+    height: '28px',
     cursor: 'pointer',
     display: 'inline-flex',
     alignItems: 'center',
     justifyContent: 'center',
+    flexShrink: 0,
   },
   pinMsgBtnActivePrivate: {
-    background: 'rgba(168, 85, 247, 0.2)',
-    border: '1px solid #a855f7',
-    borderRadius: '4px',
-    color: '#c084fc',
-    padding: '2px 4px',
+    background: 'transparent',
+    border: '1px solid transparent',
+    borderRadius: 'var(--r-control)',
+    color: 'var(--accent)',
+    width: '28px',
+    height: '28px',
     cursor: 'pointer',
     display: 'inline-flex',
     alignItems: 'center',
     justifyContent: 'center',
+    flexShrink: 0,
   },
   pinMsgBtnDisabled: {
     background: 'transparent',
     border: '1px solid transparent',
-    borderRadius: '4px',
-    color: '#475569',
-    padding: '2px 4px',
+    borderRadius: 'var(--r-control)',
+    color: 'var(--text-3)',
+    width: '28px',
+    height: '28px',
     cursor: 'not-allowed',
     opacity: 0.45,
     display: 'inline-flex',
     alignItems: 'center',
     justifyContent: 'center',
+    flexShrink: 0,
   },
   messageHeaderRow: {
     display: 'flex',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: '4px',
+    gap: '8px',
+    marginBottom: '2px',
   },
   senderName: {
-    fontSize: '12px',
-    fontWeight: '600',
-    color: '#38bdf8',
+    fontSize: 'var(--fs-small)',
+    fontWeight: '700',
+    color: 'var(--text-1)',
   },
   matriculaText: {
-    color: '#e2e8f0',
-    fontWeight: '500',
-    fontSize: '11px',
+    color: 'var(--text-3)',
+    fontWeight: 400,
+    fontFamily: 'var(--font-mono)',
+    fontSize: 'var(--fs-caption)',
   },
   roleTag: {
-    color: '#94a3b8',
+    color: 'var(--text-3)',
     fontWeight: '400',
+    fontSize: 'var(--fs-caption)',
   },
   publicTag: {
-    fontSize: '10px',
-    fontWeight: '700',
-    color: '#38bdf8',
-    backgroundColor: 'rgba(56, 189, 248, 0.15)',
-    border: '1px solid #38bdf8',
-    padding: '2px 6px',
-    borderRadius: '4px',
+    fontSize: 'var(--fs-caption)',
+    fontWeight: '600',
+    color: 'var(--text-3)',
   },
   privateTag: {
-    fontSize: '10px',
-    fontWeight: '700',
-    color: '#c7d2fe',
-    backgroundColor: 'rgba(99, 102, 241, 0.3)',
-    border: '1px solid #818cf8',
-    padding: '2px 6px',
-    borderRadius: '4px',
+    fontSize: 'var(--fs-caption)',
+    fontWeight: '600',
+    color: 'var(--accent)',
   },
   messageBody: {
-    fontSize: '13px',
-    color: '#f8fafc',
+    fontSize: 'var(--fs-body)',
+    lineHeight: 1.5,
+    color: 'var(--text-1)',
     margin: 0,
     wordBreak: 'break-word',
   },
   replyPrivateBtn: {
-    marginTop: '6px',
-    padding: '3px 8px',
-    fontSize: '10px',
-    fontWeight: '600',
-    color: '#a5b4fc',
-    backgroundColor: 'transparent',
-    border: '1px solid #6366f1',
-    borderRadius: '4px',
+    minHeight: '32px',
+    padding: '0 10px',
+    borderRadius: 'var(--r-control)',
+    fontSize: 'var(--fs-caption)',
+    fontWeight: 600,
     cursor: 'pointer',
+    display: 'inline-flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: '6px',
+    whiteSpace: 'nowrap',
+    marginTop: '6px',
+    color: 'var(--text-1)',
+    backgroundColor: 'transparent',
+    border: '1px solid var(--border-strong)',
   },
   chatForm: {
     padding: '12px',
-    borderTop: '1px solid #1e293b',
-    backgroundColor: '#172033',
+    borderTop: '1px solid var(--border-subtle)',
     display: 'flex',
     flexDirection: 'column',
     gap: '8px',
@@ -4220,26 +4537,34 @@ const styles: { [key: string]: React.CSSProperties } = {
     display: 'flex',
     justifyContent: 'space-between',
     alignItems: 'center',
-    backgroundColor: 'rgba(99, 102, 241, 0.15)',
-    padding: '6px 10px',
-    borderRadius: '6px',
-    border: '1px solid #6366f1',
+    gap: '8px',
+    backgroundColor: 'var(--surface-2)',
+    padding: '4px 4px 4px 10px',
+    borderRadius: 'var(--r-control)',
   },
   targetIndicatorText: {
-    fontSize: '11px',
-    color: '#c7d2fe',
+    fontSize: 'var(--fs-caption)',
+    color: 'var(--text-1)',
   },
   clearTargetBtn: {
+    minHeight: '32px',
+    padding: '0 10px',
+    borderRadius: 'var(--r-control)',
+    fontSize: 'var(--fs-caption)',
+    fontWeight: 600,
+    cursor: 'pointer',
+    display: 'inline-flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: '6px',
+    whiteSpace: 'nowrap',
     background: 'transparent',
     border: 'none',
-    color: '#f87171',
-    fontSize: '11px',
-    cursor: 'pointer',
-    fontWeight: '600',
+    color: 'var(--text-2)',
   },
   publicIndicatorText: {
-    fontSize: '11px',
-    color: '#94a3b8',
+    fontSize: 'var(--fs-caption)',
+    color: 'var(--text-3)',
   },
   chatInputRow: {
     display: 'flex',
@@ -4247,56 +4572,66 @@ const styles: { [key: string]: React.CSSProperties } = {
   },
   chatInput: {
     flex: 1,
-    padding: '8px 10px',
-    borderRadius: '6px',
-    border: '1px solid #334155',
-    backgroundColor: '#0f172a',
-    color: '#f8fafc',
-    fontSize: '12px',
-    outline: 'none',
+    minWidth: 0,
+    minHeight: '40px',
+    padding: '0 12px',
+    borderRadius: 'var(--r-control)',
+    border: '1px solid var(--border-strong)',
+    backgroundColor: 'var(--surface-1)',
+    color: 'var(--text-1)',
+    fontSize: 'var(--fs-body)',
   },
   sendBtn: {
-    padding: '8px 14px',
-    borderRadius: '6px',
-    border: 'none',
-    backgroundColor: '#0284c7',
-    color: '#ffffff',
-    fontSize: '12px',
-    fontWeight: '600',
+    minHeight: '40px',
+    padding: '0 14px',
+    borderRadius: 'var(--r-control)',
+    fontSize: 'var(--fs-small)',
+    fontWeight: 600,
     cursor: 'pointer',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: '8px',
+    whiteSpace: 'nowrap',
+    border: 'none',
+    backgroundColor: 'var(--accent-fill)',
+    color: '#ffffff',
   },
   sendPrivateBtn: {
-    padding: '8px 14px',
-    borderRadius: '6px',
-    border: 'none',
-    backgroundColor: '#6366f1',
-    color: '#ffffff',
-    fontSize: '12px',
-    fontWeight: '600',
+    minHeight: '40px',
+    padding: '0 14px',
+    borderRadius: 'var(--r-control)',
+    fontSize: 'var(--fs-small)',
+    fontWeight: 600,
     cursor: 'pointer',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: '8px',
+    whiteSpace: 'nowrap',
+    border: 'none',
+    backgroundColor: 'var(--accent-fill)',
+    color: '#ffffff',
   },
   privateHeaderBox: {
-    padding: '10px 12px',
-    backgroundColor: '#111c30',
-    borderBottom: '1px solid #1e293b',
+    padding: '8px 12px',
     display: 'flex',
     flexDirection: 'column',
-    gap: '4px',
+    gap: '6px',
   },
   privateSelectLabel: {
-    fontSize: '11px',
-    color: '#a5b4fc',
-    fontWeight: '600',
+    fontSize: 'var(--fs-small)',
+    color: 'var(--text-1)',
+    fontWeight: 600,
   },
   studentSelect: {
-    padding: '6px 8px',
-    borderRadius: '6px',
-    border: '1px solid #475569',
-    backgroundColor: '#1e293b',
-    color: '#f8fafc',
-    fontSize: '12px',
-    outline: 'none',
-    cursor: 'pointer',
+    minHeight: '40px',
+    padding: '0 10px',
+    borderRadius: 'var(--r-control)',
+    border: '1px solid var(--border-strong)',
+    backgroundColor: 'var(--surface-1)',
+    color: 'var(--text-1)',
+    fontSize: 'var(--fs-small)',
   },
   studentsTabContent: {
     flex: 1,
@@ -4305,44 +4640,57 @@ const styles: { [key: string]: React.CSSProperties } = {
     overflow: 'hidden',
   },
   studentsListHeader: {
-    padding: '12px',
+    padding: '14px 12px 6px',
     display: 'flex',
     justifyContent: 'space-between',
     alignItems: 'center',
-    borderBottom: '1px solid #1e293b',
   },
   studentsListTitle: {
-    fontSize: '13px',
-    fontWeight: '600',
-    color: '#f8fafc',
+    fontSize: 'var(--fs-small)',
+    fontWeight: '700',
+    color: 'var(--text-2)',
   },
   studentsCountBadge: {
-    fontSize: '11px',
-    color: '#4ade80',
-    backgroundColor: 'rgba(34, 197, 94, 0.1)',
-    padding: '2px 8px',
-    borderRadius: '10px',
-    fontWeight: '600',
+    fontSize: 'var(--fs-caption)',
+    fontWeight: 700,
+    minWidth: '20px',
+    padding: '3px 6px',
+    borderRadius: 'var(--r-pill)',
+    lineHeight: 1,
+    textAlign: 'center',
+    display: 'inline-flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: '3px',
+    color: 'var(--text-1)',
+    backgroundColor: 'var(--surface-2)',
   },
   studentsList: {
     flex: 1,
-    padding: '12px',
+    padding: '4px 6px 12px',
     overflowY: 'auto',
     display: 'flex',
     flexDirection: 'column',
-    gap: '8px',
+    gap: '2px',
   },
   studentCard: {
     display: 'flex',
     alignItems: 'center',
-    gap: '10px',
-    padding: '10px 12px',
-    backgroundColor: '#172033',
-    borderRadius: '8px',
-    border: '1px solid #1e293b',
+    gap: '12px',
+    minHeight: '52px',
+    padding: '6px',
+    borderRadius: 'var(--r-control)',
   },
   studentAvatar: {
-    fontSize: '20px',
+    width: '32px',
+    height: '32px',
+    borderRadius: '50%',
+    backgroundColor: 'var(--surface-2)',
+    color: 'var(--text-2)',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexShrink: 0,
   },
   studentInfoBox: {
     flex: 1,
@@ -4352,32 +4700,41 @@ const styles: { [key: string]: React.CSSProperties } = {
     overflow: 'hidden',
   },
   studentNameText: {
-    fontSize: '13px',
+    fontSize: 'var(--fs-body)',
     fontWeight: '600',
-    color: '#f8fafc',
+    color: 'var(--text-1)',
     whiteSpace: 'nowrap',
     overflow: 'hidden',
     textOverflow: 'ellipsis',
   },
   studentMatriculaText: {
-    fontSize: '11px',
-    color: '#94a3b8',
+    fontSize: 'var(--fs-caption)',
+    fontFamily: 'var(--font-mono)',
+    color: 'var(--text-3)',
+    whiteSpace: 'nowrap',
+    overflow: 'hidden',
+    textOverflow: 'ellipsis',
   },
   startPrivateChatBtn: {
-    padding: '4px 8px',
-    borderRadius: '4px',
-    border: '1px solid #6366f1',
-    backgroundColor: 'rgba(99, 102, 241, 0.15)',
-    color: '#c7d2fe',
-    fontSize: '11px',
-    fontWeight: '600',
+    minHeight: '32px',
+    padding: '0 10px',
+    borderRadius: 'var(--r-control)',
+    fontSize: 'var(--fs-caption)',
+    fontWeight: 600,
     cursor: 'pointer',
+    display: 'inline-flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: '6px',
+    whiteSpace: 'nowrap',
+    border: '1px solid var(--border-strong)',
+    backgroundColor: 'transparent',
+    color: 'var(--text-1)',
     flexShrink: 0,
   },
   raisedHandsSection: {
-    padding: '10px 12px',
-    backgroundColor: 'rgba(15, 98, 254, 0.08)',
-    borderBottom: '1px solid rgba(15, 98, 254, 0.3)',
+    padding: '12px',
+    backgroundColor: 'var(--attention-soft)',
     display: 'flex',
     flexDirection: 'column',
     gap: '8px',
@@ -4388,41 +4745,44 @@ const styles: { [key: string]: React.CSSProperties } = {
     alignItems: 'center',
   },
   raisedHandsTitle: {
-    fontSize: '12px',
-    fontWeight: '600',
-    color: '#78a9ff',
+    fontSize: 'var(--fs-small)',
+    fontWeight: '700',
+    color: 'var(--text-1)',
     display: 'inline-flex',
     alignItems: 'center',
     gap: '6px',
   },
   raisedHandsHelp: {
-    fontSize: '10px',
-    color: '#a8a8a8',
-    textTransform: 'uppercase',
-    letterSpacing: '0.5px',
+    fontSize: 'var(--fs-caption)',
+    color: 'var(--text-2)',
   },
   raisedHandsList: {
     display: 'flex',
     flexDirection: 'column',
-    gap: '6px',
+    gap: '4px',
   },
   raisedHandCard: {
     display: 'flex',
     alignItems: 'center',
-    gap: '8px',
-    padding: '8px 10px',
-    backgroundColor: '#161616',
-    borderRadius: '6px',
-    border: '1px solid #0f62fe',
+    gap: '10px',
+    minHeight: '52px',
+    padding: '6px 8px',
+    backgroundColor: 'var(--surface-1)',
+    borderRadius: 'var(--r-control)',
   },
   raisedHandOrderBadge: {
-    fontSize: '11px',
+    fontSize: 'var(--fs-small)',
     fontWeight: '700',
-    color: '#0f62fe',
-    backgroundColor: 'rgba(15, 98, 254, 0.15)',
-    padding: '2px 6px',
-    borderRadius: '4px',
+    minWidth: '28px',
+    height: '28px',
+    padding: '0 6px',
+    borderRadius: 'var(--r-pill)',
+    display: 'inline-flex',
+    alignItems: 'center',
+    justifyContent: 'center',
     flexShrink: 0,
+    color: '#ffffff',
+    backgroundColor: 'var(--accent-fill)',
   },
   raisedHandActions: {
     display: 'flex',
@@ -4431,40 +4791,45 @@ const styles: { [key: string]: React.CSSProperties } = {
     flexShrink: 0,
   },
   lowerHandBtn: {
-    padding: '4px 8px',
-    borderRadius: '4px',
-    border: '1px solid #da1e28',
-    backgroundColor: 'rgba(218, 30, 40, 0.15)',
-    color: '#ff8389',
-    fontSize: '11px',
-    fontWeight: '600',
+    minHeight: '32px',
+    padding: '0 10px',
+    borderRadius: 'var(--r-control)',
+    fontSize: 'var(--fs-caption)',
+    fontWeight: 600,
     cursor: 'pointer',
     display: 'inline-flex',
     alignItems: 'center',
-    gap: '4px',
+    justifyContent: 'center',
+    gap: '6px',
+    whiteSpace: 'nowrap',
+    border: '1px solid var(--border-strong)',
+    backgroundColor: 'transparent',
+    color: 'var(--text-1)',
   },
   lowerHandSmallBtn: {
-    padding: '4px 6px',
-    borderRadius: '4px',
-    border: '1px solid #da1e28',
-    backgroundColor: 'rgba(218, 30, 40, 0.15)',
-    color: '#ff8389',
-    fontSize: '11px',
+    width: '32px',
+    height: '32px',
+    borderRadius: 'var(--r-control)',
+    border: '1px solid var(--border-strong)',
+    backgroundColor: 'transparent',
+    color: 'var(--text-1)',
     cursor: 'pointer',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
   },
   studentHandTag: {
-    fontSize: '10px',
-    color: '#78a9ff',
-    backgroundColor: 'rgba(15, 98, 254, 0.15)',
-    padding: '1px 6px',
-    borderRadius: '10px',
-    fontWeight: '600',
+    fontSize: 'var(--fs-caption)',
+    color: 'var(--attention)',
+    backgroundColor: 'var(--attention-soft)',
+    padding: '1px 8px',
+    borderRadius: 'var(--r-pill)',
+    fontWeight: 600,
     display: 'inline-flex',
     alignItems: 'center',
     gap: '4px',
+    whiteSpace: 'nowrap',
+    flexShrink: 0,
   },
   filesTabContent: {
     flex: 1,
@@ -4473,38 +4838,40 @@ const styles: { [key: string]: React.CSSProperties } = {
     overflow: 'hidden',
   },
   uploadSection: {
-    padding: '14px 12px',
-    borderBottom: '1px solid #1e293b',
+    padding: '12px',
+    borderBottom: '1px solid var(--border-subtle)',
     display: 'flex',
     flexDirection: 'column',
     gap: '8px',
   },
   uploadBtn: {
     width: '100%',
-    padding: '10px',
-    borderRadius: '6px',
-    border: '1px dashed #38bdf8',
-    backgroundColor: 'rgba(56, 189, 248, 0.08)',
-    color: '#38bdf8',
-    fontSize: '12px',
-    fontWeight: '600',
+    minHeight: '48px',
+    padding: '0 12px',
+    borderRadius: 'var(--r-panel)',
+    border: '2px dashed var(--border-strong)',
+    backgroundColor: 'transparent',
+    color: 'var(--text-1)',
+    fontSize: 'var(--fs-small)',
+    fontWeight: 600,
     cursor: 'pointer',
     textAlign: 'center',
   },
   uploadBtnDisabled: {
     width: '100%',
-    padding: '10px',
-    borderRadius: '6px',
-    border: '1px dashed #475569',
-    backgroundColor: '#1e293b',
-    color: '#94a3b8',
-    fontSize: '12px',
+    minHeight: '48px',
+    padding: '0 12px',
+    borderRadius: 'var(--r-panel)',
+    border: '2px dashed var(--border-subtle)',
+    backgroundColor: 'transparent',
+    color: 'var(--text-3)',
+    fontSize: 'var(--fs-small)',
     cursor: 'not-allowed',
     textAlign: 'center',
   },
   dropHint: {
-    fontSize: '11px',
-    color: '#64748b',
+    fontSize: 'var(--fs-caption)',
+    color: 'var(--text-3)',
     textAlign: 'center',
   },
   uploadQueueList: {
@@ -4522,21 +4889,18 @@ const styles: { [key: string]: React.CSSProperties } = {
     alignItems: 'center',
     gap: '8px',
     padding: '6px 8px',
-    borderRadius: '6px',
-    backgroundColor: 'rgba(56, 189, 248, 0.08)',
-    border: '1px solid #1e3a5f',
-    color: '#cbd5e1',
-    fontSize: '11px',
+    borderRadius: 'var(--r-control)',
+    backgroundColor: 'var(--surface-2)',
+    borderLeft: '3px solid var(--accent)',
+    color: 'var(--text-1)',
+    fontSize: 'var(--fs-caption)',
   },
   uploadQueueItemDone: {
-    backgroundColor: 'rgba(34, 197, 94, 0.15)',
-    border: '1px solid #22c55e',
-    color: '#86efac',
+    borderLeft: '3px solid var(--live)',
   },
   uploadQueueItemError: {
-    backgroundColor: 'rgba(239, 68, 68, 0.12)',
-    border: '1px solid #ef4444',
-    color: '#fca5a5',
+    borderLeft: '3px solid var(--danger)',
+    color: 'var(--danger)',
   },
   uploadQueueName: {
     flex: 1,
@@ -4564,29 +4928,36 @@ const styles: { [key: string]: React.CSSProperties } = {
   },
   uploadedFilesList: {
     flex: 1,
-    padding: '12px',
+    padding: '12px 6px',
     overflowY: 'auto',
     display: 'flex',
     flexDirection: 'column',
-    gap: '8px',
+    gap: '2px',
   },
   filesListTitle: {
-    fontSize: '12px',
-    fontWeight: '600',
-    color: '#94a3b8',
-    marginBottom: '4px',
+    fontSize: 'var(--fs-small)',
+    fontWeight: '700',
+    color: 'var(--text-2)',
+    margin: '0 6px 6px',
   },
   fileItemRow: {
     display: 'flex',
     alignItems: 'center',
-    gap: '10px',
-    padding: '8px 10px',
-    backgroundColor: '#172033',
-    borderRadius: '6px',
-    border: '1px solid #1e293b',
+    gap: '12px',
+    minHeight: '52px',
+    padding: '6px',
+    borderRadius: 'var(--r-control)',
   },
   fileIcon: {
-    fontSize: '18px',
+    width: '32px',
+    height: '32px',
+    borderRadius: '50%',
+    backgroundColor: 'var(--surface-2)',
+    color: 'var(--text-2)',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexShrink: 0,
   },
   fileInfoColumn: {
     flex: 1,
@@ -4595,24 +4966,21 @@ const styles: { [key: string]: React.CSSProperties } = {
     overflow: 'hidden',
   },
   fileItemName: {
-    fontSize: '12px',
+    fontSize: 'var(--fs-small)',
     fontWeight: '600',
-    color: '#f8fafc',
+    color: 'var(--text-1)',
     whiteSpace: 'nowrap',
     overflow: 'hidden',
     textOverflow: 'ellipsis',
   },
   fileItemSize: {
-    fontSize: '10px',
-    color: '#94a3b8',
+    fontSize: 'var(--fs-caption)',
+    color: 'var(--text-3)',
   },
   fileSharedBadge: {
-    fontSize: '10px',
+    fontSize: 'var(--fs-caption)',
     fontWeight: '600',
-    color: '#4ade80',
-    backgroundColor: 'rgba(34, 197, 94, 0.1)',
-    padding: '2px 6px',
-    borderRadius: '4px',
+    color: 'var(--live)',
   },
   annotationToolbarLeft: {
     position: 'absolute',
@@ -4625,9 +4993,9 @@ const styles: { [key: string]: React.CSSProperties } = {
     alignItems: 'center',
     gap: '4px',
     padding: '8px 6px',
-    backgroundColor: 'rgba(15, 23, 42, 0.92)',
-    border: '1px solid #334155',
-    borderRadius: '10px',
+    backgroundColor: 'var(--surface-float)',
+    border: '1px solid var(--border-subtle)',
+    borderRadius: 'var(--r-panel)',
     boxShadow: '0 8px 24px rgba(0, 0, 0, 0.65)',
     backdropFilter: 'blur(8px)',
     userSelect: 'none',
@@ -4642,131 +5010,129 @@ const styles: { [key: string]: React.CSSProperties } = {
   annotationDragHandle: {
     flex: 1,
     height: '20px',
-    borderRadius: '5px',
+    borderRadius: 'var(--r-control)',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
-    color: '#94a3b8',
+    color: 'var(--text-2)',
     cursor: 'grab',
   },
   annotationCollapseMiniBtn: {
     width: '20px',
     height: '20px',
-    borderRadius: '5px',
+    borderRadius: 'var(--r-control)',
     border: 'none',
-    backgroundColor: 'rgba(51, 65, 85, 0.45)',
-    color: '#cbd5e1',
+    backgroundColor: 'var(--surface-2)',
+    color: 'var(--text-2)',
+    cursor: 'pointer',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
-    cursor: 'pointer',
     padding: 0,
   },
   annotationCollapsedFabBtn: {
     position: 'relative',
     width: '36px',
     height: '36px',
-    borderRadius: '10px',
-    border: '1px solid #38bdf8',
-    backgroundColor: 'rgba(56, 189, 248, 0.18)',
-    color: '#38bdf8',
+    borderRadius: 'var(--r-panel)',
+    border: '1px solid transparent',
+    backgroundColor: 'var(--surface-float)',
+    color: 'var(--text-1)',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
     cursor: 'grab',
     padding: 0,
-    boxShadow: '0 0 12px rgba(56, 189, 248, 0.28)',
+    boxShadow: 'var(--shadow-float)',
   },
   annotationToolBtn: {
     position: 'relative',
     width: '34px',
-    height: '32px',
-    borderRadius: '7px',
-    border: '1px solid transparent',
-    backgroundColor: 'transparent',
-    color: '#cbd5e1',
+    borderRadius: 'var(--r-control)',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
     cursor: 'pointer',
-    transition: 'all 0.15s ease',
+    height: '32px',
+    border: '1px solid transparent',
+    backgroundColor: 'transparent',
+    color: 'var(--text-2)',
   },
   annotationToolBtnActive: {
     position: 'relative',
     width: '34px',
-    height: '32px',
-    borderRadius: '7px',
-    border: '1px solid #38bdf8',
-    backgroundColor: 'rgba(56, 189, 248, 0.2)',
-    color: '#38bdf8',
+    borderRadius: 'var(--r-control)',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
     cursor: 'pointer',
-    boxShadow: '0 0 10px rgba(56, 189, 248, 0.25)',
+    height: '32px',
+    border: '1px solid transparent',
+    backgroundColor: 'var(--accent-fill)',
+    color: '#ffffff',
   },
   annotationToolBtnSpotlightActive: {
     position: 'relative',
     width: '34px',
-    height: '32px',
-    borderRadius: '7px',
-    border: '1px solid #facc15',
-    backgroundColor: 'rgba(250, 204, 21, 0.22)',
-    color: '#facc15',
+    borderRadius: 'var(--r-control)',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
     cursor: 'pointer',
-    boxShadow: '0 0 12px rgba(250, 204, 21, 0.35)',
+    height: '32px',
+    border: '1px solid transparent',
+    backgroundColor: 'var(--accent-fill)',
+    color: '#ffffff',
   },
   annotationToolBtnPaletteOpen: {
     position: 'relative',
     width: '34px',
-    height: '32px',
-    borderRadius: '7px',
-    border: '1px solid rgba(255, 255, 255, 0.35)',
-    backgroundColor: 'rgba(255, 255, 255, 0.12)',
-    color: '#f8fafc',
+    borderRadius: 'var(--r-control)',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
     cursor: 'pointer',
-    boxShadow: '0 0 10px rgba(255, 255, 255, 0.15)',
+    height: '32px',
+    border: '1px solid transparent',
+    backgroundColor: 'var(--surface-2)',
+    color: 'var(--text-1)',
   },
   annotationToolBtnDisabled: {
     position: 'relative',
     width: '34px',
-    height: '30px',
-    borderRadius: '7px',
-    border: '1px solid transparent',
-    backgroundColor: 'transparent',
-    color: '#475569',
+    borderRadius: 'var(--r-control)',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
+    height: '30px',
+    border: '1px solid transparent',
+    backgroundColor: 'transparent',
+    color: 'var(--text-3)',
     cursor: 'not-allowed',
     opacity: 0.45,
   },
   annotationToolBtnDanger: {
     position: 'relative',
     width: '34px',
-    height: '30px',
-    borderRadius: '7px',
-    border: '1px solid rgba(239, 68, 68, 0.35)',
-    backgroundColor: 'rgba(239, 68, 68, 0.12)',
-    color: '#f87171',
+    borderRadius: 'var(--r-control)',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
     cursor: 'pointer',
+    height: '30px',
+    border: '1px solid transparent',
+    backgroundColor: 'transparent',
+    color: 'var(--danger)',
   },
   shortcutHintBadge: {
     position: 'absolute',
     bottom: '1px',
-    right: '3px',
-    fontSize: '8px',
+    right: '2px',
+    fontSize: '10px',
+    fontFamily: 'var(--font-mono)',
     fontWeight: '700',
-    color: '#94a3b8',
+    color: 'inherit',
+    opacity: 0.75,
     lineHeight: 1,
     pointerEvents: 'none',
   },
@@ -4777,12 +5143,12 @@ const styles: { [key: string]: React.CSSProperties } = {
     width: '7px',
     height: '7px',
     borderRadius: '50%',
-    border: '1px solid #0f172a',
+    border: '1px solid var(--border-subtle)',
   },
   annotationToolbarDivider: {
     width: '22px',
     height: '1px',
-    backgroundColor: '#334155',
+    backgroundColor: 'var(--border-subtle)',
     margin: '2px 0',
   },
   palettePopoverBox: {
@@ -4791,9 +5157,9 @@ const styles: { [key: string]: React.CSSProperties } = {
     top: '50%',
     transform: 'translateY(-50%)',
     zIndex: 30,
-    backgroundColor: 'rgba(15, 23, 42, 0.96)',
-    border: '1px solid #334155',
-    borderRadius: '10px',
+    backgroundColor: 'var(--surface-float)',
+    border: '1px solid var(--border-subtle)',
+    borderRadius: 'var(--r-panel)',
     padding: '12px',
     display: 'flex',
     flexDirection: 'column',
@@ -4802,11 +5168,9 @@ const styles: { [key: string]: React.CSSProperties } = {
     minWidth: '175px',
   },
   paletteSectionTitle: {
-    fontSize: '10px',
+    fontSize: 'var(--fs-caption)',
     fontWeight: '700',
-    color: '#94a3b8',
-    textTransform: 'uppercase',
-    letterSpacing: '0.04em',
+    color: 'var(--text-2)',
   },
   paletteColorsRow: {
     display: 'flex',
@@ -4827,23 +5191,25 @@ const styles: { [key: string]: React.CSSProperties } = {
   },
   sizeOptionBtn: {
     flex: 1,
-    padding: '4px 6px',
-    borderRadius: '5px',
-    border: '1px solid #334155',
-    backgroundColor: '#1e293b',
-    color: '#cbd5e1',
-    fontSize: '11px',
-    fontWeight: '500',
+    minHeight: '28px',
+    padding: '0 6px',
+    borderRadius: 'var(--r-control)',
+    border: '1px solid var(--border-subtle)',
+    backgroundColor: 'transparent',
+    color: 'var(--text-2)',
+    fontSize: 'var(--fs-caption)',
+    fontWeight: 600,
     cursor: 'pointer',
   },
   sizeOptionBtnActive: {
     flex: 1,
-    padding: '4px 6px',
-    borderRadius: '5px',
-    border: '1px solid #38bdf8',
-    backgroundColor: 'rgba(56, 189, 248, 0.2)',
-    color: '#38bdf8',
-    fontSize: '11px',
+    minHeight: '28px',
+    padding: '0 6px',
+    borderRadius: 'var(--r-control)',
+    border: '1px solid var(--accent)',
+    backgroundColor: 'var(--accent-soft)',
+    color: 'var(--accent)',
+    fontSize: 'var(--fs-caption)',
     fontWeight: '700',
     cursor: 'pointer',
   },
@@ -4865,36 +5231,32 @@ const styles: { [key: string]: React.CSSProperties } = {
   },
   // Auto Screen Selection Styles
   autoScreenCard: {
-    backgroundColor: '#0f172a',
-    border: '2px solid rgba(56, 189, 248, 0.4)',
-    borderRadius: '10px',
-    padding: '16px',
-    boxShadow: '0 4px 16px rgba(0, 0, 0, 0.3)',
+    padding: 0,
   },
   autoScreenLeft: {
     display: 'flex',
-    alignItems: 'center',
-    gap: '16px',
+    alignItems: 'flex-start',
+    gap: '20px',
     flexWrap: 'wrap',
   },
   autoScreenThumb: {
-    width: '200px',
-    height: '115px',
+    width: '220px',
+    height: '124px',
     objectFit: 'cover',
-    borderRadius: '6px',
-    border: '2px solid #38bdf8',
-    backgroundColor: '#000',
+    borderRadius: 'var(--r-control)',
+    outline: '2px solid var(--accent)',
+    outlineOffset: '3px',
+    backgroundColor: 'var(--stage)',
   },
   autoScreenPlaceholder: {
-    width: '200px',
-    height: '115px',
-    borderRadius: '6px',
-    border: '1px solid #334155',
-    backgroundColor: '#172033',
+    width: '220px',
+    height: '124px',
+    borderRadius: 'var(--r-control)',
+    backgroundColor: 'var(--surface-2)',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
-    color: '#64748b',
+    color: 'var(--text-3)',
   },
   autoScreenDetails: {
     flex: 1,
@@ -4910,26 +5272,29 @@ const styles: { [key: string]: React.CSSProperties } = {
     flexWrap: 'wrap',
   },
   autoScreenTitle: {
-    fontSize: '15px',
+    fontSize: 'var(--fs-body)',
     fontWeight: '700',
-    color: '#f8fafc',
+    color: 'var(--text-1)',
   },
   autoSelectedBadge: {
     display: 'inline-flex',
     alignItems: 'center',
-    fontSize: '11px',
-    fontWeight: '700',
-    backgroundColor: 'rgba(56, 189, 248, 0.18)',
-    color: '#38bdf8',
-    border: '1px solid #38bdf8',
-    padding: '2px 8px',
-    borderRadius: '4px',
+    gap: '6px',
+    minHeight: '26px',
+    padding: '0 10px',
+    borderRadius: 'var(--r-pill)',
+    fontSize: 'var(--fs-caption)',
+    fontWeight: 600,
+    whiteSpace: 'nowrap',
+    backgroundColor: 'var(--accent-soft)',
+    color: 'var(--accent)',
   },
   autoScreenDesc: {
-    fontSize: '13px',
-    color: '#94a3b8',
+    fontSize: 'var(--fs-small)',
+    color: 'var(--text-2)',
     margin: 0,
-    lineHeight: '1.4',
+    lineHeight: 1.5,
+    maxWidth: '60ch',
   },
   monitorPillsRow: {
     display: 'flex',
@@ -4939,38 +5304,47 @@ const styles: { [key: string]: React.CSSProperties } = {
     flexWrap: 'wrap',
   },
   monitorPillsLabel: {
-    fontSize: '12px',
-    color: '#94a3b8',
-    fontWeight: '600',
+    fontSize: 'var(--fs-small)',
+    color: 'var(--text-2)',
+    fontWeight: 600,
   },
   monitorPill: {
-    padding: '4px 10px',
-    borderRadius: '6px',
-    border: '1px solid #334155',
-    backgroundColor: '#172033',
-    color: '#cbd5e1',
-    fontSize: '12px',
+    minHeight: '32px',
+    padding: '0 10px',
+    borderRadius: 'var(--r-control)',
+    fontSize: 'var(--fs-caption)',
+    fontWeight: 600,
     cursor: 'pointer',
+    display: 'inline-flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: '6px',
+    whiteSpace: 'nowrap',
+    border: '1px solid var(--border-strong)',
+    backgroundColor: 'transparent',
+    color: 'var(--text-1)',
   },
   monitorPillActive: {
-    padding: '4px 10px',
-    borderRadius: '6px',
-    border: '1px solid #38bdf8',
-    backgroundColor: 'rgba(56, 189, 248, 0.2)',
-    color: '#38bdf8',
-    fontSize: '12px',
-    fontWeight: '600',
+    minHeight: '32px',
+    padding: '0 10px',
+    borderRadius: 'var(--r-control)',
+    fontSize: 'var(--fs-caption)',
+    fontWeight: 600,
     cursor: 'pointer',
+    display: 'inline-flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: '6px',
+    whiteSpace: 'nowrap',
+    border: '1px solid var(--accent)',
+    backgroundColor: 'var(--accent-soft)',
+    color: 'var(--accent)',
   },
   // Multi-Window Selection Styles
   multiWindowBar: {
     display: 'flex',
     justifyContent: 'space-between',
     alignItems: 'center',
-    backgroundColor: '#0f172a',
-    border: '1px solid #1e293b',
-    borderRadius: '8px',
-    padding: '10px 14px',
     gap: '12px',
     flexWrap: 'wrap',
   },
@@ -4984,76 +5358,78 @@ const styles: { [key: string]: React.CSSProperties } = {
   multiWindowCounterBadge: {
     display: 'inline-flex',
     alignItems: 'center',
-    padding: '3px 8px',
-    borderRadius: '6px',
-    backgroundColor: 'rgba(56, 189, 248, 0.15)',
-    color: '#38bdf8',
-    border: '1px solid rgba(56, 189, 248, 0.3)',
-    fontSize: '12px',
-    fontWeight: '700',
+    gap: '6px',
+    minHeight: '26px',
+    padding: '0 10px',
+    borderRadius: 'var(--r-pill)',
+    fontSize: 'var(--fs-caption)',
+    fontWeight: 600,
+    whiteSpace: 'nowrap',
+    backgroundColor: 'var(--accent-soft)',
+    color: 'var(--accent)',
   },
   multiWindowHint: {
-    fontSize: '12px',
-    color: '#94a3b8',
+    fontSize: 'var(--fs-caption)',
+    lineHeight: 1.4,
+    color: 'var(--text-3)',
+    flex: '1 1 320px',
   },
   multiWindowBarActions: {
     display: 'flex',
-    gap: '8px',
+    gap: '4px',
+    flexWrap: 'wrap',
   },
   multiWindowActionBtn: {
-    padding: '5px 10px',
-    borderRadius: '6px',
-    border: '1px solid #334155',
-    backgroundColor: '#1e293b',
-    color: '#e2e8f0',
-    fontSize: '12px',
-    fontWeight: '500',
+    minHeight: '32px',
+    padding: '0 10px',
+    borderRadius: 'var(--r-control)',
+    fontSize: 'var(--fs-caption)',
+    fontWeight: 600,
     cursor: 'pointer',
+    display: 'inline-flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: '6px',
+    whiteSpace: 'nowrap',
+    border: '1px solid var(--border-strong)',
+    backgroundColor: 'transparent',
+    color: 'var(--text-1)',
   },
   windowCheckbox: {
-    position: 'absolute',
-    top: '8px',
-    left: '8px',
     width: '20px',
     height: '20px',
     borderRadius: '4px',
-    border: '1.5px solid #64748b',
-    backgroundColor: 'rgba(15, 23, 42, 0.75)',
+    border: '2px solid var(--border-strong)',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
-    zIndex: 2,
+    flexShrink: 0,
   },
   windowCheckboxChecked: {
-    position: 'absolute',
-    top: '8px',
-    left: '8px',
     width: '20px',
     height: '20px',
     borderRadius: '4px',
-    border: '1.5px solid #38bdf8',
-    backgroundColor: '#0284c7',
+    border: '2px solid var(--accent-fill)',
+    backgroundColor: 'var(--accent-fill)',
     color: '#ffffff',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
-    zIndex: 2,
+    flexShrink: 0,
   },
   windowPillsBar: {
+    flexShrink: 0,
     display: 'flex',
     alignItems: 'center',
     gap: '10px',
-    backgroundColor: '#0b1120',
-    borderTop: '1px solid #1e293b',
-    padding: '6px 16px',
+    marginTop: '18px',
+    padding: '2px 0',
     overflowX: 'auto',
   },
   windowPillsLabel: {
-    fontSize: '11px',
+    fontSize: 'var(--fs-caption)',
     fontWeight: '700',
-    color: '#94a3b8',
-    textTransform: 'uppercase',
-    letterSpacing: '0.04em',
+    color: 'var(--text-2)',
     whiteSpace: 'nowrap',
   },
   windowPillsList: {
@@ -5062,45 +5438,51 @@ const styles: { [key: string]: React.CSSProperties } = {
     gap: '6px',
   },
   windowPill: {
+    minHeight: '32px',
+    padding: '0 10px',
+    borderRadius: 'var(--r-control)',
+    fontSize: 'var(--fs-caption)',
+    fontWeight: 600,
+    cursor: 'pointer',
     display: 'inline-flex',
     alignItems: 'center',
+    justifyContent: 'center',
     gap: '6px',
-    padding: '4px 10px',
-    borderRadius: '6px',
-    border: '1px solid #334155',
-    backgroundColor: '#0f172a',
-    color: '#94a3b8',
-    fontSize: '12px',
-    cursor: 'pointer',
-    maxWidth: '180px',
-  },
-  windowPillActive: {
-    display: 'inline-flex',
-    alignItems: 'center',
-    gap: '6px',
-    padding: '4px 10px',
-    borderRadius: '6px',
-    border: '1px solid #38bdf8',
-    backgroundColor: 'rgba(56, 189, 248, 0.18)',
-    color: '#f8fafc',
-    fontSize: '12px',
-    fontWeight: '600',
-    cursor: 'pointer',
+    whiteSpace: 'nowrap',
+    border: '1px solid var(--border-subtle)',
+    backgroundColor: 'transparent',
+    color: 'var(--text-2)',
     maxWidth: '200px',
   },
+  windowPillActive: {
+    minHeight: '32px',
+    padding: '0 10px',
+    borderRadius: 'var(--r-control)',
+    fontSize: 'var(--fs-caption)',
+    fontWeight: 600,
+    cursor: 'pointer',
+    display: 'inline-flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: '6px',
+    whiteSpace: 'nowrap',
+    border: '1px solid var(--live)',
+    backgroundColor: 'var(--live-soft)',
+    color: 'var(--text-1)',
+    maxWidth: '220px',
+  },
   windowPillDot: {
-    width: '6px',
-    height: '6px',
+    width: '8px',
+    height: '8px',
     borderRadius: '50%',
-    backgroundColor: '#64748b',
+    backgroundColor: 'var(--border-strong)',
     flexShrink: 0,
   },
   windowPillDotActive: {
-    width: '6px',
-    height: '6px',
+    width: '8px',
+    height: '8px',
     borderRadius: '50%',
-    backgroundColor: '#22c55e',
-    boxShadow: '0 0 6px #22c55e',
+    backgroundColor: 'var(--live)',
     flexShrink: 0,
   },
   windowPillText: {
@@ -5109,13 +5491,9 @@ const styles: { [key: string]: React.CSSProperties } = {
     textOverflow: 'ellipsis',
   },
   windowPillActiveBadge: {
-    fontSize: '9px',
+    fontSize: 'var(--fs-caption)',
     fontWeight: '700',
-    backgroundColor: '#22c55e',
-    color: '#090d16',
-    padding: '1px 4px',
-    borderRadius: '4px',
-    textTransform: 'uppercase',
+    color: 'var(--live)',
     flexShrink: 0,
   },
 };
