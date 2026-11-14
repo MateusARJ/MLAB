@@ -123,6 +123,47 @@ func usaProberFalso(t *testing.T, taken map[string]net.IP) {
 	t.Cleanup(func() { newMDNSProber = original })
 }
 
+// proberCronometrado delega ao prober real e guarda a duração da primeira sondagem, que é a do claim. O monitor de
+// conflito reutiliza o mesmo prober em outra goroutine (+2 s), por isso só a primeira chamada conta e o acesso usa
+// mutex (030, C-3003).
+type proberCronometrado struct {
+	inner   nameProber
+	mu      *sync.Mutex
+	duracao *time.Duration
+}
+
+func (p proberCronometrado) probe(names []string) (map[string]net.IP, error) {
+	inicio := time.Now()
+	taken, err := p.inner.probe(names)
+	d := time.Since(inicio)
+	p.mu.Lock()
+	if *p.duracao == 0 {
+		*p.duracao = d
+	}
+	p.mu.Unlock()
+	return taken, err
+}
+
+// cronometraSondagem embrulha o prober do claim num cronômetro até o fim do teste e devolve a leitura da duração da
+// primeira sondagem (zero se não houve sondagem). Serve para aplicar o limite do RNF-121 só à sondagem (030, RF-3001).
+func cronometraSondagem(t *testing.T) func() time.Duration {
+	t.Helper()
+	var (
+		mu      sync.Mutex
+		duracao time.Duration
+	)
+	original := newMDNSProber
+	newMDNSProber = func(ifc *net.Interface, ip net.IP) nameProber {
+		return proberCronometrado{inner: original(ifc, ip), mu: &mu, duracao: &duracao}
+	}
+	t.Cleanup(func() { newMDNSProber = original })
+	return func() time.Duration {
+		mu.Lock()
+		defer mu.Unlock()
+		return duracao
+	}
+}
+
 // TestClaimMDNSNameEscolheNome cobre RF-122, RF-124 e RF-126 com prober falso (só o socket 5353 é real).
 func TestClaimMDNSNameEscolheNome(t *testing.T) {
 	ip := GetPrimaryPhysicalIP()

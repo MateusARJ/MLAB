@@ -192,20 +192,27 @@ func TestMDNSNaoDisputaNomeDeOutroBackend(t *testing.T) {
 		t.Skip("o responder falso não respondeu à consulta legacy (multicast indisponível no ambiente)")
 	}
 
+	// O RNF-121 limita o que a sondagem acrescenta à criação da sala; o claim inteiro também abre o socket 5353,
+	// enumera as interfaces e sobe o responder, passos anteriores à 012 que variam com a carga da máquina (030).
+	duracaoSondagem := cronometraSondagem(t)
 	inicio := time.Now()
 	host, err := ClaimMDNSName(ip)
-	duracao := time.Since(inicio)
+	duracaoClaim := time.Since(inicio)
 	if err != nil {
 		t.Skipf("Porta 5353 ocupada ou indisponível no ambiente de teste: %v", err)
 	}
 	defer StopMDNSServer()
-	t.Logf("nome escolhido %s em %v", host, duracao)
+	sondagem := duracaoSondagem()
+	t.Logf("nome escolhido %s; sondagem em %v; claim em %v", host, sondagem, duracaoClaim)
 
 	if host != "mlab-2.local" {
 		t.Fatalf("com mlab.local em uso, o backend deveria ficar com mlab-2.local; ficou com %q", host)
 	}
-	if duracao > 1500*time.Millisecond {
-		t.Errorf("claim levou %v; limite é 1,5 s (RNF-121)", duracao)
+	if sondagem == 0 {
+		t.Fatal("o claim não sondou os nomes")
+	}
+	if sondagem > 1500*time.Millisecond {
+		t.Errorf("sondagem levou %v; limite é 1,5 s (RNF-121)", sondagem)
 	}
 	time.Sleep(200 * time.Millisecond)
 
