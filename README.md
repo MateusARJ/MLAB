@@ -618,6 +618,7 @@ O número 011 não foi usado.
 | [0006](spec-kit/docs/adrs/0006-descontinuacao-do-login-e-sessao-local.md) | Fim do login: sessão por nome com chave de host |
 | [0007](spec-kit/docs/adrs/0007-versionamento-semantico.md) | Versionamento semântico a partir da 1.7.1 |
 | [0009](spec-kit/docs/adrs/0009-remocao-da-claim-email-do-professor.md) | Remoção da claim `email` do JWT do professor |
+| [0010](spec-kit/docs/adrs/0010-sessao-unica-recusa-nova-entrada.md) | Matrícula já conectada recusa a nova entrada |
 
 ---
 

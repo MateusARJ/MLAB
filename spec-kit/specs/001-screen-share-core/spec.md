@@ -222,7 +222,7 @@ Pode assistir à tela transmitida e participar do chat de texto. Não transmite 
 - RN-01: JWT de professor emitido somente mediante chave de host válida (header `X-MLab-Host-Key`), com TTL de 8h; não há conta, senha ou login (ADR 0006).
 - RN-02: emissão de JWT de aluno após envio de Nome e Matrícula válidos (TTL 6h).
 - RN-03: isolamento de JWT por sala (`room_id` verificado em requisições WS).
-- RN-04: restrição de sessão única por aluno (`4001 Duplicate Session` se a mesma matrícula reconectar).
+- RN-04: restrição de sessão única por aluno (ADR 0010, feature 027): enquanto houver sessão WebSocket ativa de um aluno com a mesma matrícula na sala, uma nova entrada com essa matrícula é recusada (`409` no `join`; close `4002 Student ID In Use` se a corrida chegar ao WebSocket) e o aluno conectado permanece. A reconexão do mesmo participante (mesmo token) encerra a conexão anterior dele com `4001 Duplicate Session`.
 - RN-05: apenas o professor proprietário (`owner_id`) pode gerar convites e encerrar a sala.
 - RN-06: slug da sala legível no formato `{titulo-da-sala}/{nome-do-professor}`, derivado do título e do nome do professor; criar uma nova sala encerra a sala anterior do mesmo professor (T032).
 - RN-07: capacidade máxima inicial de 50 alunos por sala (HTTP 429 se exceder).

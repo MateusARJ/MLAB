@@ -610,3 +610,57 @@ func TestGetActiveRoom_NoneActive(t *testing.T) {
 		t.Fatalf("expected ErrRoomNotFound, got %v", err)
 	}
 }
+
+// TestJoinMatriculaConectada cobre RF-2701 e RF-2702 (027, ADR 0010): a matrícula com WebSocket ativo recusa a nova
+// entrada com 409, inclusive com a sala cheia; a matrícula só registrada no store (aluno já saiu) entra.
+func TestJoinMatriculaConectada(t *testing.T) {
+	t.Setenv("JWT_SECRET", "test-secret-12345")
+
+	store := NewInMemoryStore()
+	handler := NewHandler(store)
+	mux := http.NewServeMux()
+	handler.RegisterRoutes(mux)
+
+	conectadas := map[string]bool{}
+	handler.SetStudentConnectedChecker(func(roomID, studentID string) bool {
+		return roomID == "sala-027" && conectadas[strings.ToUpper(studentID)]
+	})
+
+	sala := &Room{ID: "sala-027", Slug: "sala-027", Status: StatusPublishing, MaxParticipants: 1, CreatedAt: time.Now().UTC()}
+	if err := store.CreateRoom(context.Background(), sala); err != nil {
+		t.Fatalf("falha ao criar sala: %v", err)
+	}
+
+	join := func(studentID string) *httptest.ResponseRecorder {
+		body := []byte(`{"name": "Aluno", "student_id": "` + studentID + `"}`)
+		rec := httptest.NewRecorder()
+		mux.ServeHTTP(rec, httptest.NewRequest("POST", "/rooms/sala-027/join", bytes.NewReader(body)))
+		return rec
+	}
+
+	// 1. Primeira entrada: matrícula livre.
+	if rec := join("2025116TADS0001"); rec.Code != http.StatusOK {
+		t.Fatalf("primeira entrada: esperado 200, obtido %d: %s", rec.Code, rec.Body.String())
+	}
+
+	// 2. Matrícula conectada (outra caixa) com a sala cheia: 409 com a mensagem, antes do 429.
+	conectadas["2025116TADS0001"] = true
+	rec := join("2025116tads0001")
+	if rec.Code != http.StatusConflict {
+		t.Fatalf("matrícula conectada: esperado 409, obtido %d: %s", rec.Code, rec.Body.String())
+	}
+	var body map[string]string
+	_ = json.Unmarshal(rec.Body.Bytes(), &body)
+	if body["error"] != "Esta matrícula já está conectada nesta transmissão." {
+		t.Errorf("mensagem do 409 inesperada: %q", body["error"])
+	}
+	if n, _ := store.CountParticipants(context.Background(), "sala-027"); n != 1 {
+		t.Errorf("o 409 não deveria registrar participante (count %d)", n)
+	}
+
+	// 3. Aluno saiu (sem WebSocket): a mesma matrícula entra de novo, mesmo com a sala cheia.
+	conectadas["2025116TADS0001"] = false
+	if rec := join("2025116TADS0001"); rec.Code != http.StatusOK {
+		t.Fatalf("matrícula desconectada: esperado 200, obtido %d: %s", rec.Code, rec.Body.String())
+	}
+}

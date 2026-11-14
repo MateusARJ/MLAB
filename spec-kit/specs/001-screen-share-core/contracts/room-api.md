@@ -131,6 +131,9 @@ Aluno informa Nome e Matrícula e recebe um JWT de sessão. `{roomId}` aceita o 
 - `400 Bad Request` — campos vazios ou inválidos (inclui matrícula fora do padrão — `003-classroom-interaction`, US-17).
 - `404 Room not found` — slug/id inexistente.
 - `409 Room closed` — sala já encerrada.
+- `409 Student ID in use` — já há WebSocket ativo de um aluno com a mesma matrícula na sala (sem diferenciar
+  maiúsculas). Corpo: `{"error": "Esta matrícula já está conectada nesta transmissão."}`. Tem precedência sobre o
+  `429` (RN-04, ADR 0010, feature 027).
 - `429 Participant limit reached` — sala cheia.
 
 ---

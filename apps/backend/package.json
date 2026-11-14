@@ -1,6 +1,6 @@
 {
   "name": "@mlab/backend",
-  "version": "1.14.4",
+  "version": "1.15.0",
   "private": true,
   "scripts": {
     "build": "go build -o ./bin/server.exe ./cmd/server",

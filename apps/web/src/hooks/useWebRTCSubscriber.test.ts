@@ -278,6 +278,26 @@ describe('useWebRTCSubscriber Hook', () => {
     }
   });
 
+  it('deve ir para student-id-in-use sem reconectar ao receber close 4002 (027/RF-2706)', async () => {
+    vi.useFakeTimers();
+    try {
+      const { result } = renderHook(() => useWebRTCSubscriber(dummyToken, dummyRoomInfo));
+      const firstWs = mockWsInstance;
+
+      await act(async () => {
+        firstWs.onclose({ code: 4002, reason: 'Student ID In Use' });
+      });
+      await act(async () => {
+        vi.advanceTimersByTime(35000);
+      });
+
+      expect(result.current.connectionStatus).toBe('student-id-in-use');
+      expect(mockWsInstance).toBe(firstWs); // nenhuma nova conexão aberta
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   describe('fila de sinalização e negociação obsoleta (023)', () => {
     beforeEach(() => {
       class FakeInit {

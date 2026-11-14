@@ -123,4 +123,28 @@ describe('Join Component (Web)', () => {
       expect(handleJoined).not.toHaveBeenCalled();
     });
   });
+
+  it('deve exibir o aviso do 409 quando a matricula ja esta conectada na transmissao (027)', async () => {
+    const handleJoined = vi.fn();
+    (apiService.joinRoom as any).mockRejectedValueOnce(new Error('Esta matrícula já está conectada nesta transmissão.'));
+
+    render(
+      <MemoryRouter initialEntries={['/algoritmos-turma-04/professor-carlos/entrar']}>
+        <Routes>
+          <Route path="/:roomName/:professorName/entrar" element={<Join onJoined={handleJoined} />} />
+        </Routes>
+      </MemoryRouter>
+    );
+
+    fireEvent.change(screen.getByLabelText(/Nome Completo/i), { target: { value: 'Outro Aluno' } });
+    fireEvent.change(screen.getByLabelText(/Matrícula \/ Registro Acadêmico/i), {
+      target: { value: '2025116TADS0001' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: /Assistir à Aula ao Vivo/i }));
+
+    await waitFor(() => {
+      expect(screen.getByText('Esta matrícula já está conectada nesta transmissão.')).toBeInTheDocument();
+    });
+    expect(handleJoined).not.toHaveBeenCalled();
+  });
 });

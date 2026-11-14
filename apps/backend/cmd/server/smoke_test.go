@@ -341,30 +341,28 @@ func TestSmoke(t *testing.T) {
 		}
 	})
 
-	t.Run("A19_sessao_unica_por_aluno_4001", func(t *testing.T) {
+	t.Run("A19_sessao_unica_por_aluno", func(t *testing.T) {
 		e := newSmokeEnv(t)
 		profTok := e.profSession("Prof A19")
 		r := e.createRoom(profTok, "Aula A19")
 
-		// Mesma matrícula entrando de novo (RN-04: a sessão anterior deve cair com 4001).
+		// Matrícula conectada recusa a nova entrada com 409 e o aluno conectado continua (RN-04, ADR 0010 — 027).
 		first := e.mustJoin(r.ID, "Aluno", smokeValidStudent)
 		ws1 := e.mustWS("aba1", r.ID, first.Token)
 		ws1.expect("session-state", 5*time.Second)
-		second := e.mustJoin(r.ID, "Aluno", smokeValidStudent)
-		e.mustWS("aba2", r.ID, second.Token)
-		code, closed := ws1.waitClosed(3 * time.Second)
-		switch {
-		case !closed:
-			t.Errorf("RN-04: nova entrada com a mesma matrícula não derrubou a sessão anterior (participant_id %s ≠ %s)", first.ParticipantID, second.ParticipantID)
-		case code != 4001:
-			t.Errorf("RN-04: sessão anterior caiu com close code %d, esperado 4001", code)
+		if code, _ := e.join(r.ID, "Outro", strings.ToLower(smokeValidStudent)); code != http.StatusConflict {
+			t.Errorf("RN-04: nova entrada com a matrícula conectada respondeu %d, esperado 409", code)
+		}
+		ws1.send("chat-message", map[string]any{"content": "ainda na sala"})
+		if _, ok := ws1.waitFor(isChatWith("ainda na sala"), 5*time.Second); !ok {
+			t.Error("RN-04: o aluno conectado deveria continuar na sala após a recusa")
 		}
 
 		// Mesmo token reconectando: a conexão antiga deve cair com 4001.
 		ws3 := e.mustWS("token1", r.ID, first.Token)
 		ws3.expect("session-state", 5*time.Second)
 		e.mustWS("token2", r.ID, first.Token)
-		code, closed = ws3.waitClosed(3 * time.Second)
+		code, closed := ws3.waitClosed(3 * time.Second)
 		switch {
 		case !closed:
 			t.Error("reconexão com o mesmo token não derrubou a conexão anterior")

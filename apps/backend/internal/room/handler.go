@@ -22,6 +22,13 @@ var studentIDRegex = regexp.MustCompile(`^[0-9]+[A-Za-z]{1,4}[0-9]+$`)
 // RoomCloseBroadcasterFunc define a assinatura da função de broadcast para encerramento de sala.
 type RoomCloseBroadcasterFunc func(roomID string)
 
+// StudentConnectedFunc informa se há aluno conectado por WebSocket na sala com a matrícula
+// informada (RN-04, ADR 0010 — 027/RF-2701).
+type StudentConnectedFunc func(roomID, studentID string) bool
+
+// errStudentIDInUse é a mensagem do 409 do join para matrícula já conectada (027/C-2703).
+const errStudentIDInUse = "Esta matrícula já está conectada nesta transmissão."
+
 // Handler agrupa os endpoints HTTP do módulo room.
 type Handler struct {
 	store                Store
@@ -29,6 +36,7 @@ type Handler struct {
 	fileStore            *FileStore
 	fileBroadcaster      FileBroadcasterFunc
 	roomCloseBroadcaster RoomCloseBroadcasterFunc
+	studentConnected     StudentConnectedFunc
 }
 
 func getWebPort() string {
@@ -77,6 +85,12 @@ func (h *Handler) SetFileBroadcaster(fn FileBroadcasterFunc) {
 // SetRoomCloseBroadcaster define a função de notificação WebSocket quando a sala é encerrada.
 func (h *Handler) SetRoomCloseBroadcaster(fn RoomCloseBroadcasterFunc) {
 	h.roomCloseBroadcaster = fn
+}
+
+// SetStudentConnectedChecker define a consulta ao hub usada pelo join para recusar a matrícula
+// já conectada na sala (027/RF-2701).
+func (h *Handler) SetStudentConnectedChecker(fn StudentConnectedFunc) {
+	h.studentConnected = fn
 }
 
 // mdnsClaim e mdnsHost escolhem/anunciam e leem o nome mDNS deste backend. Variáveis para os testes do handler não
@@ -398,14 +412,21 @@ func (h *Handler) handleJoin(w http.ResponseWriter, r *http.Request, identifier 
 		return
 	}
 
+	// Sessão única (RN-04, ADR 0010): a matrícula com WebSocket ativo na sala recusa a nova
+	// entrada, antes da regra de sala cheia (027/RF-2701, RF-2702).
+	if h.studentConnected != nil && h.studentConnected(room.ID, req.StudentID) {
+		writeError(w, http.StatusConflict, errStudentIDInUse)
+		return
+	}
+
 	count, err := h.store.CountParticipants(r.Context(), room.ID)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "erro ao verificar participantes")
 		return
 	}
 	if count >= room.MaxParticipants {
-		// A reentrada do mesmo aluno (mesma matrícula) substitui o registro anterior e não
-		// ocupa vaga nova (RN-04).
+		// A reentrada do mesmo aluno (mesma matrícula, já desconectado) substitui o registro
+		// anterior e não ocupa vaga nova (RN-04).
 		rejoining, err := h.store.HasStudent(r.Context(), room.ID, req.StudentID)
 		if err != nil {
 			writeError(w, http.StatusInternalServerError, "erro ao verificar participantes")

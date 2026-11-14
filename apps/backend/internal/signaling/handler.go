@@ -162,6 +162,13 @@ func (h *Handler) GetHub(roomID string) *Hub {
 	return h.hubs[roomID]
 }
 
+// HasConnectedStudent informa se há aluno conectado por WebSocket na sala com a matrícula
+// informada (RN-04, ADR 0010). Usado pelo join para recusar a matrícula em uso (027/RF-2701).
+func (h *Handler) HasConnectedStudent(roomID, studentID string) bool {
+	hub := h.GetHub(roomID)
+	return hub != nil && hub.HasConnectedStudent(studentID)
+}
+
 // OnTrackReady é invocado quando a primeira track de vídeo do professor fica pronta no SFU.
 func (h *Handler) OnTrackReady(roomID string) {
 	if hub := h.GetHub(roomID); hub != nil {

@@ -48,7 +48,7 @@ const MATRIX = [
   ['A16b', 'Dois professores na mesma rede: `mlab.local` e `mlab-2.local`', ['manual']],
   ['A17', 'Acesso via ngrok', ['manual']],
   ['A18', 'Queda do aluno → backoff; queda do professor → reconnecting 30 s', ['backend', 'e2e-desktop']],
-  ['A19', 'Sessão duplicada do mesmo aluno → `4001`', ['backend']],
+  ['A19', 'Matrícula conectada recusa nova entrada (`409`); mesmo token → `4001`', ['backend']],
   ['A20', 'Rate limit do chat → `CHAT_RATE_LIMITED` sem desconectar', ['backend', 'e2e-desktop']],
   ['S2', 'Sessão de professor só com chave de host', ['backend']],
   ['S6', 'WebSocket recusa origem desconhecida', ['backend']],
