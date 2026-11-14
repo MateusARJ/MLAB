@@ -4,6 +4,10 @@ Status: READY
 Feature ID: `025-favicon-web`
 Origem: issue #68. Melhoria visual do web app dos alunos; não altera requisito funcional existente.
 
+> **Emenda 028 (2026-11-14, `028-design-system-2`, C-2806 e RF-2814):** o favicon passa a ser a logo do cabeçalho do
+> design system 2.0, só em PNG (`favicon-32.png` e `apple-touch-icon.png`). O `favicon.svg` foi excluído; os RF-2501 e
+> RNF-2502 deixam de valer e os RF-2503 e RF-2504 valem sem o SVG. O RF-2502 (quadrado escuro `#0f172a`) continua.
+
 ## 1. Objetivo
 
 Trocar o ícone da aba do navegador do web app dos alunos por um ícone próprio para tamanho pequeno: legível em
