@@ -11,7 +11,7 @@ vi.mock('../services/room', () => ({
 describe('Dashboard Component', () => {
   it('deve renderizar o formulario de criacao de sala com campo focado automaticamente', () => {
     render(<Dashboard onEnterRoom={vi.fn()} onLogout={vi.fn()} />);
-    const input = screen.getByLabelText(/Titulo \/ Disciplina/i);
+    const input = screen.getByLabelText(/Nome da aula/i);
     expect(input).toBeInTheDocument();
     expect(input).toHaveFocus();
   });
@@ -29,13 +29,13 @@ describe('Dashboard Component', () => {
 
     render(<Dashboard onEnterRoom={handleEnterRoom} onLogout={vi.fn()} />);
 
-    fireEvent.change(screen.getByLabelText(/Titulo \/ Disciplina/i), {
+    fireEvent.change(screen.getByLabelText(/Nome da aula/i), {
       target: { value: 'Turma Enter' },
     });
     fireEvent.submit(screen.getByRole('button', { name: /Criar Sala e Gerar Link/i }).closest('form')!);
 
     await waitFor(() => {
-      expect(screen.getByText(/Estado: Waiting/i)).toBeInTheDocument();
+      expect(screen.getByText(/Aguardando início/i)).toBeInTheDocument();
     });
 
     // Pressiona Enter globalmente
@@ -58,7 +58,7 @@ describe('Dashboard Component', () => {
 
     render(<Dashboard onEnterRoom={handleEnterRoom} onLogout={vi.fn()} />);
 
-    fireEvent.change(screen.getByLabelText(/Titulo \/ Disciplina/i), {
+    fireEvent.change(screen.getByLabelText(/Nome da aula/i), {
       target: { value: 'Algoritmos I' },
     });
 
@@ -66,7 +66,7 @@ describe('Dashboard Component', () => {
 
     await waitFor(() => {
       expect(roomService.createRoom).toHaveBeenCalledWith('Algoritmos I');
-      expect(screen.getByText(/Estado: Waiting/i)).toBeInTheDocument();
+      expect(screen.getByText(/Aguardando início/i)).toBeInTheDocument();
       expect(screen.getByRole('button', { name: /Copiar Link Fixo/i })).toBeInTheDocument();
       expect(screen.getByRole('button', { name: /Copiar Link Direto IP/i })).toBeInTheDocument();
       expect(screen.getByDisplayValue('http://mlab.local:5173')).toBeInTheDocument();
@@ -78,7 +78,7 @@ describe('Dashboard Component', () => {
       expect(screen.getByTitle(/Link Fixo Copiado/i)).toBeInTheDocument();
     });
 
-    fireEvent.click(screen.getByRole('button', { name: /Abrir Sala de Transmissão/i }));
+    fireEvent.click(screen.getByRole('button', { name: /Continuar/i }));
     expect(handleEnterRoom).toHaveBeenCalledWith(expect.objectContaining({
       id: 'room-123',
       slug: 'algoritmos-i/professor',
@@ -100,13 +100,13 @@ describe('Dashboard Component', () => {
 
     render(<Dashboard onEnterRoom={vi.fn()} onLogout={vi.fn()} />);
 
-    fireEvent.change(screen.getByLabelText(/Titulo \/ Disciplina/i), {
+    fireEvent.change(screen.getByLabelText(/Nome da aula/i), {
       target: { value: 'Redes Locais' },
     });
     fireEvent.click(screen.getByRole('button', { name: /Criar Sala e Gerar Link/i }));
 
     await waitFor(() => {
-      expect(screen.getByText('Rede Local (LAN)')).toBeInTheDocument();
+      expect(screen.getByText('Link pelo IP')).toBeInTheDocument();
       expect(screen.getByRole('button', { name: /Copiar Link Direto IP/i })).toBeInTheDocument();
       expect(screen.getByDisplayValue('http://192.168.1.50:5173')).toBeInTheDocument();
     });
@@ -122,13 +122,13 @@ describe('Dashboard Component', () => {
     });
 
     render(<Dashboard onEnterRoom={vi.fn()} onLogout={vi.fn()} />);
-    fireEvent.change(screen.getByLabelText(/Titulo \/ Disciplina/i), { target: { value: 'Turma' } });
+    fireEvent.change(screen.getByLabelText(/Nome da aula/i), { target: { value: 'Turma' } });
     fireEvent.click(screen.getByRole('button', { name: /Criar Sala e Gerar Link/i }));
 
     await waitFor(() => {
       expect(screen.getByDisplayValue('http://192.168.1.50:5173')).toBeInTheDocument();
     });
-    expect(screen.queryByText('Link Fixo (mDNS)')).not.toBeInTheDocument();
+    expect(screen.queryByText('Link direto')).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /Copiar Link Fixo/i })).not.toBeInTheDocument();
   });
 
@@ -152,7 +152,7 @@ describe('Dashboard Component', () => {
     });
 
     render(<Dashboard onEnterRoom={handleEnterRoom} onLogout={vi.fn()} />);
-    fireEvent.change(screen.getByLabelText(/Titulo \/ Disciplina/i), { target: { value: 'Turma' } });
+    fireEvent.change(screen.getByLabelText(/Nome da aula/i), { target: { value: 'Turma' } });
     fireEvent.click(screen.getByRole('button', { name: /Criar Sala e Gerar Link/i }));
 
     await waitFor(() => {
@@ -164,7 +164,7 @@ describe('Dashboard Component', () => {
     fireEvent.click(screen.getByRole('button', { name: /Copiar Link Fixo/i }));
     await waitFor(() => expect(copy).toHaveBeenCalledWith('http://mlab-2.local:8080'));
 
-    fireEvent.click(screen.getByRole('button', { name: /Abrir Sala de Transmissão/i }));
+    fireEvent.click(screen.getByRole('button', { name: /Continuar/i }));
     expect(handleEnterRoom).toHaveBeenCalledWith(expect.objectContaining({
       id: 'room-2',
       mdnsLink: 'http://mlab-2.local:8080',

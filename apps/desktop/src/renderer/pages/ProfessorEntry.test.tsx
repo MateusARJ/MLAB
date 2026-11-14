@@ -18,15 +18,15 @@ describe('ProfessorEntry Component (Desktop)', () => {
     render(<ProfessorEntry onSuccess={handleSuccess} />);
 
     expect(screen.getByText('MLab')).toBeInTheDocument();
-    expect(screen.getByText(/Painel do Professor — Identificação/i)).toBeInTheDocument();
-    expect(screen.getByLabelText(/Nome do Professor/i)).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /Ir para Criação da Turma/i })).toBeInTheDocument();
+    expect(screen.getByText(/Como a turma vai ver seu nome\?/i)).toBeInTheDocument();
+    expect(screen.getByLabelText(/Seu nome/i)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Continuar/i })).toBeInTheDocument();
   });
 
   it('deve exibir mensagem de erro ao submeter com o campo vazio', async () => {
     render(<ProfessorEntry onSuccess={handleSuccess} />);
 
-    const form = screen.getByRole('button', { name: /Ir para Criação da Turma/i }).closest('form')!;
+    const form = screen.getByRole('button', { name: /Continuar/i }).closest('form')!;
     fireEvent.submit(form);
 
     await waitFor(() => {
@@ -45,11 +45,11 @@ describe('ProfessorEntry Component (Desktop)', () => {
 
     render(<ProfessorEntry onSuccess={handleSuccess} />);
 
-    fireEvent.change(screen.getByLabelText(/Nome do Professor/i), {
+    fireEvent.change(screen.getByLabelText(/Seu nome/i), {
       target: { value: 'Prof. Carlos Eduardo' },
     });
 
-    fireEvent.click(screen.getByRole('button', { name: /Ir para Criação da Turma/i }));
+    fireEvent.click(screen.getByRole('button', { name: /Continuar/i }));
 
     await waitFor(() => {
       expect(authService.startProfessorSession).toHaveBeenCalledWith('Prof. Carlos Eduardo');

@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import { startProfessorSession } from '../services/auth';
-import mlabLogo from '../assets/MLAB-logo.png';
-import { Button, TextInput, Alert, colors, radii, typography } from '@mlab/ui';
+import { Button, TextInput, Alert, BrandMark, ThemeToggle, colors, typography } from '@mlab/ui';
 import { AppInfoFooter } from '../components/AppInfoFooter';
 
 interface ProfessorEntryProps {
@@ -36,43 +35,41 @@ export const ProfessorEntry: React.FC<ProfessorEntryProps> = ({ onSuccess }) => 
 
   return (
     <div style={styles.container}>
-      <div style={styles.card}>
-        <div style={styles.header}>
-          <img src={mlabLogo} alt="MLab Logo" style={styles.logoImg} />
-          <h1 style={styles.title}>MLab</h1>
-          <p style={styles.subtitle}>Painel do Professor — Identificação</p>
-        </div>
+      <header style={styles.top}>
+        <span className="ml-brand">
+          <BrandMark size={32} />
+          <span>MLab</span>
+        </span>
+        <ThemeToggle />
+      </header>
 
-        {error && (
-          <div style={{ marginBottom: '20px' }}>
-            <Alert variant="error" message={error} onClose={() => setError(null)} />
-          </div>
-        )}
-
+      <main style={styles.main}>
         <form onSubmit={handleSubmit} style={styles.form}>
+          <div>
+            <h1 style={styles.title}>Como a turma vai ver seu nome?</h1>
+            <p style={styles.subtitle}>Ele aparece no chat e na tela de entrada dos alunos.</p>
+          </div>
+
+          {error && <Alert variant="error" message={error} onClose={() => setError(null)} />}
+
           <TextInput
             id="professorName"
-            label="Nome do Professor"
+            label="Seu nome"
             type="text"
             value={name}
             onChange={(e) => setName(e.target.value)}
-            placeholder="Ex: Prof. Carlos Eduardo"
+            placeholder="Ex.: Prof. Carlos Eduardo"
+            autoComplete="name"
             autoFocus
             required
           />
 
-          <Button
-            type="submit"
-            variant="primary"
-            size="lg"
-            fullWidth
-            loading={loading}
-            style={{ marginTop: '8px' }}
-          >
-            {loading ? 'Acessando...' : 'Ir para Criação da Turma'}
+          <Button type="submit" variant="primary" size="lg" fullWidth loading={loading}>
+            {loading ? 'Acessando...' : 'Continuar'}
           </Button>
         </form>
-      </div>
+      </main>
+
       <AppInfoFooter />
     </div>
   );
@@ -83,50 +80,43 @@ const styles: { [key: string]: React.CSSProperties } = {
     minHeight: '100vh',
     display: 'flex',
     flexDirection: 'column',
-    alignItems: 'center',
-    justifyContent: 'center',
     backgroundColor: colors.bgBase,
     color: colors.textPrimary,
     fontFamily: typography.fontFamily,
-    padding: '20px',
     boxSizing: 'border-box',
   },
-  card: {
-    width: '100%',
-    maxWidth: '440px',
-    backgroundColor: colors.surfaceCard,
-    backdropFilter: 'blur(16px)',
-    border: `1px solid ${colors.borderSubtle}`,
-    borderRadius: radii.lg,
-    padding: '36px 32px',
-    boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.5)',
-    boxSizing: 'border-box',
+  top: {
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: '16px 24px',
   },
-  header: {
-    textAlign: 'center',
-    marginBottom: '28px',
-  },
-  logoImg: {
-    width: '96px',
-    height: '96px',
-    objectFit: 'contain',
-    marginBottom: '12px',
-  },
-  title: {
-    fontSize: '24px',
-    fontWeight: '700',
-    color: colors.accent,
-    marginBottom: '8px',
-    margin: '0 0 8px 0',
-  },
-  subtitle: {
-    fontSize: '14px',
-    color: colors.textMuted,
-    margin: 0,
+  main: {
+    flex: 1,
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: '24px',
   },
   form: {
+    width: '100%',
+    maxWidth: '400px',
     display: 'flex',
     flexDirection: 'column',
-    gap: '20px',
+    gap: '32px',
+  },
+  title: {
+    fontSize: 'var(--fs-display)',
+    lineHeight: 1.15,
+    fontWeight: 700,
+    letterSpacing: '-0.01em',
+    color: colors.textPrimary,
+    margin: 0,
+  },
+  subtitle: {
+    fontSize: 'var(--fs-body)',
+    lineHeight: 1.55,
+    color: colors.textSecondary,
+    margin: '8px 0 0',
   },
 };
