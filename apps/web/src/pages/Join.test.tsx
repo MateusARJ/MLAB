@@ -23,8 +23,9 @@ describe('Join Component (Web)', () => {
     );
 
     expect(screen.getByLabelText(/Nome Completo/i)).toBeInTheDocument();
-    expect(screen.getByLabelText(/Matrícula \/ Registro Acadêmico/i)).toBeInTheDocument();
-    expect(screen.getByText(/algoritmos turma 04 \(Prof\. professor carlos\)/i)).toBeInTheDocument();
+    expect(screen.getByLabelText(/Matrícula/i)).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: /algoritmos turma 04/i })).toBeInTheDocument();
+    expect(screen.getByText(/com Prof\. professor carlos/i)).toBeInTheDocument();
   });
 
   it('deve submeter o formulario com sucesso com rota /:roomName/:professorName/entrar e acionar onJoined', async () => {
@@ -47,11 +48,11 @@ describe('Join Component (Web)', () => {
     fireEvent.change(screen.getByLabelText(/Nome Completo/i), {
       target: { value: 'Carlos Silva' },
     });
-    fireEvent.change(screen.getByLabelText(/Matrícula \/ Registro Acadêmico/i), {
+    fireEvent.change(screen.getByLabelText(/Matrícula/i), {
       target: { value: '2025116TADS0000' },
     });
 
-    fireEvent.click(screen.getByRole('button', { name: /Assistir à Aula ao Vivo/i }));
+    fireEvent.click(screen.getByRole('button', { name: /Entrar na aula/i }));
 
     await waitFor(() => {
       expect(apiService.joinRoom).toHaveBeenCalledWith('algoritmos-turma-04/professor-carlos', {
@@ -82,11 +83,11 @@ describe('Join Component (Web)', () => {
     fireEvent.change(screen.getByLabelText(/Nome Completo/i), {
       target: { value: 'Carlos Silva' },
     });
-    fireEvent.change(screen.getByLabelText(/Matrícula \/ Registro Acadêmico/i), {
+    fireEvent.change(screen.getByLabelText(/Matrícula/i), {
       target: { value: '2025116TADS0000' },
     });
 
-    fireEvent.click(screen.getByRole('button', { name: /Assistir à Aula ao Vivo/i }));
+    fireEvent.click(screen.getByRole('button', { name: /Entrar na aula/i }));
 
     await waitFor(() => {
       expect(apiService.joinRoom).toHaveBeenCalledWith('charlie-delta-7342', {
@@ -111,11 +112,11 @@ describe('Join Component (Web)', () => {
     fireEvent.change(screen.getByLabelText(/Nome Completo/i), {
       target: { value: 'Carlos Silva' },
     });
-    fireEvent.change(screen.getByLabelText(/Matrícula \/ Registro Acadêmico/i), {
+    fireEvent.change(screen.getByLabelText(/Matrícula/i), {
       target: { value: '2024091812' }, // apenas números, sem sigla do curso
     });
 
-    fireEvent.click(screen.getByRole('button', { name: /Assistir à Aula ao Vivo/i }));
+    fireEvent.click(screen.getByRole('button', { name: /Entrar na aula/i }));
 
     await waitFor(() => {
       expect(screen.getByText(/Matrícula inválida/i)).toBeInTheDocument();
@@ -137,10 +138,10 @@ describe('Join Component (Web)', () => {
     );
 
     fireEvent.change(screen.getByLabelText(/Nome Completo/i), { target: { value: 'Outro Aluno' } });
-    fireEvent.change(screen.getByLabelText(/Matrícula \/ Registro Acadêmico/i), {
+    fireEvent.change(screen.getByLabelText(/Matrícula/i), {
       target: { value: '2025116TADS0001' },
     });
-    fireEvent.click(screen.getByRole('button', { name: /Assistir à Aula ao Vivo/i }));
+    fireEvent.click(screen.getByRole('button', { name: /Entrar na aula/i }));
 
     await waitFor(() => {
       expect(screen.getByText('Esta matrícula já está conectada nesta transmissão.')).toBeInTheDocument();

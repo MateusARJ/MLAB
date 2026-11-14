@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useLocation } from 'react-router-dom';
 import { joinRoom, getRoomInfo } from '../services/api';
-import { Button, TextInput, Alert, Play, colors, radii, typography } from '@mlab/ui';
+import { Button, TextInput, Alert, BrandMark, ThemeToggle, colors, typography } from '@mlab/ui';
 
 // Validação de matrícula: números com limite de até 4 letras (qualquer letra) da sigla do curso no miolo
 const STUDENT_ID_REGEX = /^[0-9]+[A-Za-z]{1,4}[0-9]+$/;
@@ -95,66 +95,73 @@ export const Join: React.FC<JoinProps> = ({ onJoined }) => {
 
   return (
     <div style={styles.container}>
-      <div style={styles.card}>
-        <div style={styles.header}>
-          <img src="/MLAB-logo.png" alt="MLab Logo" style={styles.logoImg} />
-          <h1 style={styles.title}>MLab</h1>
-          <p style={styles.subtitle}>
-            Entrada na Aula — Sala: <strong style={{ color: colors.accent }}>{displayTitle}</strong>
-          </p>
+      <header style={styles.top}>
+        <span className="ml-brand">
+          <BrandMark size={32} />
+          <span>MLab</span>
+        </span>
+        <ThemeToggle />
+      </header>
+
+      <main style={styles.main}>
+        <div style={styles.card}>
+          <div style={styles.header}>
+            <h1 style={styles.title}>{profDisplay ? (roomTitleDisplay || 'Aula') : displayTitle}</h1>
+            {profDisplay && <p style={styles.subtitle}>com Prof. {profDisplay}</p>}
+          </div>
+
+          {closedMessage && (
+            <div style={{ marginBottom: '24px' }}>
+              <Alert variant="info" message={closedMessage} />
+            </div>
+          )}
+          {error && (
+            <div style={{ marginBottom: '24px' }}>
+              <Alert variant="error" message={error} onClose={() => setError(null)} />
+            </div>
+          )}
+
+          <form onSubmit={handleSubmit} style={styles.form}>
+            <TextInput
+              id="studentName"
+              label="Nome completo"
+              type="text"
+              inputMode="text"
+              autoCapitalize="words"
+              autoComplete="name"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="Ex: Carlos Eduardo Silva"
+              required
+            />
+
+            <TextInput
+              id="studentId"
+              label="Matrícula"
+              type="text"
+              inputMode="text"
+              autoCapitalize="characters"
+              value={studentId}
+              maxLength={15}
+              onChange={(e) => setStudentId(e.target.value.toUpperCase().slice(0, 15))}
+              placeholder="Ex: 2025116TADS0000"
+              helperText="Números com a sigla do curso no meio, como 2025116TADS0031."
+              style={{ textTransform: 'uppercase', fontFamily: typography.fontMono }}
+              required
+            />
+
+            <Button
+              type="submit"
+              variant="primary"
+              size="lg"
+              fullWidth
+              loading={loading}
+              >
+              {loading ? 'Entrando...' : 'Entrar na aula'}
+            </Button>
+          </form>
         </div>
-
-        {closedMessage && (
-          <div style={{ marginBottom: '20px' }}>
-            <Alert variant="info" message={closedMessage} />
-          </div>
-        )}
-        {error && (
-          <div style={{ marginBottom: '20px' }}>
-            <Alert variant="error" message={error} onClose={() => setError(null)} />
-          </div>
-        )}
-
-        <form onSubmit={handleSubmit} style={styles.form}>
-          <TextInput
-            id="studentName"
-            label="Nome Completo"
-            type="text"
-            inputMode="text"
-            autoCapitalize="words"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            placeholder="Ex: Carlos Eduardo Silva"
-            required
-          />
-
-          <TextInput
-            id="studentId"
-            label="Matrícula / Registro Acadêmico"
-            type="text"
-            inputMode="text"
-            autoCapitalize="characters"
-            value={studentId}
-            maxLength={15}
-            onChange={(e) => setStudentId(e.target.value.toUpperCase().slice(0, 15))}
-            placeholder="Ex: 2025116TADS0000"
-            style={{ textTransform: 'uppercase' }}
-            required
-          />
-
-          <Button
-            type="submit"
-            variant="primary"
-            size="lg"
-            fullWidth
-            loading={loading}
-            icon={<Play size={18} />}
-            style={{ marginTop: '8px' }}
-          >
-            {loading ? 'Entrando na Sala...' : 'Assistir à Aula ao Vivo'}
-          </Button>
-        </form>
-      </div>
+      </main>
     </div>
   );
 };
@@ -163,50 +170,52 @@ const styles: { [key: string]: React.CSSProperties } = {
   container: {
     minHeight: '100dvh',
     display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
+    flexDirection: 'column',
     backgroundColor: colors.bgBase,
     color: colors.textPrimary,
     fontFamily: typography.fontFamily,
-    padding: '16px',
     boxSizing: 'border-box',
+  },
+  top: {
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: 'calc(12px + var(--sat, 0px)) 20px 12px',
+  },
+  main: {
+    flex: 1,
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: '16px 20px 64px',
   },
   card: {
     width: '100%',
-    maxWidth: '440px',
-    backgroundColor: colors.surfaceCard,
-    backdropFilter: 'blur(16px)',
-    border: `1px solid ${colors.borderSubtle}`,
-    borderRadius: radii.lg,
-    padding: '28px 20px',
-    boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.5)',
+    maxWidth: '420px',
     boxSizing: 'border-box',
   },
   header: {
-    textAlign: 'center',
+    paddingBottom: '24px',
     marginBottom: '24px',
-  },
-  logoImg: {
-    width: '76px',
-    height: '76px',
-    objectFit: 'contain',
-    marginBottom: '10px',
+    borderBottom: `1px solid ${colors.borderSubtle}`,
   },
   title: {
-    fontSize: '24px',
-    fontWeight: '700',
-    color: colors.accent,
-    marginBottom: '8px',
-    margin: '0 0 8px 0',
+    fontSize: 'var(--fs-title)',
+    lineHeight: 1.2,
+    fontWeight: 700,
+    letterSpacing: '-0.01em',
+    color: colors.textPrimary,
+    margin: 0,
+    overflowWrap: 'anywhere',
   },
   subtitle: {
-    fontSize: '14px',
-    color: colors.textMuted,
-    margin: 0,
+    fontSize: 'var(--fs-body)',
+    color: colors.textSecondary,
+    margin: '8px 0 0 0',
   },
   form: {
     display: 'flex',
     flexDirection: 'column',
-    gap: '20px',
+    gap: '24px',
   },
 };

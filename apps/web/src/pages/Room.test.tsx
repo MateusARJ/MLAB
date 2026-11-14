@@ -208,7 +208,7 @@ describe('Room Component (Web Subscriber)', () => {
 
     // Verifica que os controles estão presentes na sidebar
     expect(screen.getByText(/Controles da Transmissão/i)).toBeInTheDocument();
-    expect(screen.getAllByText('connected').length).toBeGreaterThanOrEqual(1);
+    expect(screen.getAllByText('Conectado').length).toBeGreaterThanOrEqual(1);
     expect(screen.queryByText(/Status:/i)).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: /Chat da Turma/i })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /Arquivos da Aula/i })).toBeInTheDocument();

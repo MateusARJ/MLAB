@@ -139,8 +139,8 @@ async function createProfessor(request: APIRequestContext, context: BrowserConte
 export async function joinAsStudent(page: Page, slug: string, name: string, studentId: string) {
   await page.goto(`/${slug}/entrar`);
   await page.getByLabel('Nome Completo').fill(name);
-  await page.getByLabel('Matrícula / Registro Acadêmico').fill(studentId);
-  await page.getByRole('button', { name: /Assistir à Aula ao Vivo/ }).click();
+  await page.getByLabel('Matrícula').fill(studentId);
+  await page.getByRole('button', { name: /Entrar na aula/ }).click();
   await expect(page).toHaveURL(new RegExp(`/${slug}/ao-vivo$`));
 }
 
