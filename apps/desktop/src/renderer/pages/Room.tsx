@@ -3636,11 +3636,14 @@ const styles: { [key: string]: React.CSSProperties } = {
     justifyContent: 'center',
     position: 'relative',
   },
+  // Camadas da prévia: vídeo/selos (≤ 10) < canvas de marcação (15) < aviso de mão (20)
+  // < barra de marcação (25) < popover de cores (30). O aviso precisa ficar acima do canvas,
+  // que ocupa toda a prévia e recebe eventos, senão "Ver Turma" e o X não recebem o clique (031, RF-3101).
   handToastOverlay: {
     position: 'absolute',
     top: '16px',
     right: '16px',
-    zIndex: 10,
+    zIndex: 20,
     backgroundColor: '#161616',
     border: '1px solid #0f62fe',
     borderLeft: '4px solid #0f62fe',
