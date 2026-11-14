@@ -15,6 +15,7 @@ import { closeRoom } from '../services/room';
 import { useRoomLinks } from '../hooks/useRoomLinks';
 import { useRoomFileUploads, type UploadItem } from '../hooks/useRoomFileUploads';
 import { FileDropZone } from '../components/FileDropZone';
+import { clampAnnotationToolbarPosition } from './annotationToolbarPosition';
 import {
   colors,
   radii,
@@ -163,6 +164,7 @@ export const Room: React.FC<RoomProps> = ({ room, onCloseRoom }) => {
   const spotlightCoordsRef = useRef<{ x: number; y: number }>({ x: 0.5, y: 0.5 });
   const rafRoomCanvasDrawRef = useRef<number>(0);
   const previewAreaRef = useRef<HTMLDivElement | null>(null);
+  const annotationToolbarRef = useRef<HTMLDivElement | null>(null);
   const annotationCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const isDrawingRef = useRef<boolean>(false);
   const hadCanvasDrawRef = useRef<boolean>(false);
@@ -202,8 +204,18 @@ export const Room: React.FC<RoomProps> = ({ room, onCloseRoom }) => {
       const effectiveW = containerRect.width > 0 ? containerRect.width : 1280;
       const effectiveH = containerRect.height > 0 ? containerRect.height : 720;
 
-      const currentX = toolbarPos ? toolbarPos.x : 12;
-      const currentY = toolbarPos ? toolbarPos.y : Math.max(12, Math.round(effectiveH * 0.15));
+      // Tamanho e posição reais da barra (028, RF-2815): o limite do arraste usa a altura da barra aberta.
+      const toolbarRect = annotationToolbarRef.current?.getBoundingClientRect();
+      const toolbarSize = {
+        width: toolbarRect && toolbarRect.width > 0 ? toolbarRect.width : 48,
+        height: toolbarRect && toolbarRect.height > 0 ? toolbarRect.height : 48,
+      };
+      const currentX = toolbarPos ? toolbarPos.x : toolbarRect ? Math.round(toolbarRect.left - containerRect.left) : 12;
+      const currentY = toolbarPos
+        ? toolbarPos.y
+        : toolbarRect && toolbarRect.height > 0
+          ? Math.round(toolbarRect.top - containerRect.top)
+          : Math.max(12, Math.round(effectiveH * 0.15));
       const offsetX = e.clientX - containerRect.left - currentX;
       const offsetY = e.clientY - containerRect.top - currentY;
 
@@ -214,8 +226,11 @@ export const Room: React.FC<RoomProps> = ({ room, onCloseRoom }) => {
         if (!isDraggingToolbarRef.current) return;
         const rawX = moveEvent.clientX - containerRect.left - offsetX;
         const rawY = moveEvent.clientY - containerRect.top - offsetY;
-        const nextX = Math.max(8, Math.min(effectiveW - 56, Math.round(rawX)));
-        const nextY = Math.max(8, Math.min(effectiveH - 56, Math.round(rawY)));
+        const { x: nextX, y: nextY } = clampAnnotationToolbarPosition(
+          { x: rawX, y: rawY },
+          { width: effectiveW, height: effectiveH },
+          toolbarSize,
+        );
         if (Math.abs(nextX - currentX) > 3 || Math.abs(nextY - currentY) > 3) {
           dragToolbarMovedRef.current = true;
         }
@@ -237,6 +252,33 @@ export const Room: React.FC<RoomProps> = ({ room, onCloseRoom }) => {
     },
     [toolbarPos]
   );
+
+  // Mantém a barra de marcação dentro da prévia quando a janela ou a própria barra muda de tamanho
+  // (028, RF-2815, issue #89): redimensionar a janela, recolher/expandir a barra.
+  useEffect(() => {
+    if (typeof ResizeObserver === 'undefined') return;
+    const container = previewAreaRef.current;
+    const toolbar = annotationToolbarRef.current;
+    if (!container || !toolbar) return;
+    const reclamp = () => {
+      const c = container.getBoundingClientRect();
+      const t = toolbar.getBoundingClientRect();
+      if (c.width <= 0 || c.height <= 0) return;
+      setToolbarPos((prev) => {
+        if (!prev) return prev;
+        const next = clampAnnotationToolbarPosition(
+          prev,
+          { width: c.width, height: c.height },
+          { width: t.width, height: t.height },
+        );
+        return next.x === prev.x && next.y === prev.y ? prev : next;
+      });
+    };
+    const observer = new ResizeObserver(reclamp);
+    observer.observe(container);
+    observer.observe(toolbar);
+    return () => observer.disconnect();
+  }, [isLiveSession]);
 
   const handleSelectTool = useCallback((tool: AnnotationTool) => {
     setActiveTool(tool);
@@ -1824,6 +1866,7 @@ export const Room: React.FC<RoomProps> = ({ room, onCloseRoom }) => {
                 <div ref={previewAreaRef} style={styles.previewArea}>
                   {/* Barra Vertical de Marcação (Estilo Editor de PDF) e Lupa — Posicionável e Retrátil */}
                   <div
+                    ref={annotationToolbarRef}
                     style={{
                       ...styles.annotationToolbarLeft,
                       ...(toolbarPos
@@ -4999,6 +5042,12 @@ const styles: { [key: string]: React.CSSProperties } = {
     boxShadow: '0 8px 24px rgba(0, 0, 0, 0.65)',
     backdropFilter: 'blur(8px)',
     userSelect: 'none',
+    // 028, RF-2815: a barra nunca passa da prévia; se não couber, rola por dentro.
+    boxSizing: 'border-box',
+    maxHeight: 'calc(100% - 16px)',
+    overflowY: 'auto',
+    overflowX: 'hidden',
+    scrollbarWidth: 'thin',
   },
   annotationToolbarHeaderRow: {
     display: 'flex',
