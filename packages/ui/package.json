@@ -20,6 +20,7 @@
     "typescript": "^5.5.0"
   },
   "dependencies": {
-    "@carbon/icons-react": "^11.89.0"
+    "@carbon/icons-react": "^11.89.0",
+    "lucide-react": "^1.72.0"
   }
 }
