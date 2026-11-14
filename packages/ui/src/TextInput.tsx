@@ -1,5 +1,4 @@
-import React, { useState } from 'react';
-import { colors, radii, typography } from './tokens';
+import React from 'react';
 
 export interface TextInputProps extends React.InputHTMLAttributes<HTMLInputElement> {
   label?: string;
@@ -9,117 +8,45 @@ export interface TextInputProps extends React.InputHTMLAttributes<HTMLInputEleme
   rightElement?: React.ReactNode;
 }
 
+/** Campo de texto com rótulo sempre visível, dica e erro ligados por aria-describedby. */
 export const TextInput = React.forwardRef<HTMLInputElement, TextInputProps>(({
   label,
   helperText,
   error,
   icon,
   rightElement,
-  disabled,
-  style,
   id,
-  onFocus,
-  onBlur,
+  className,
   ...rest
 }, ref) => {
-  const [focused, setFocused] = useState(false);
   const inputId = id || (label ? `input-${label.toLowerCase().replace(/\s+/g, '-')}` : undefined);
+  const noteId = inputId && (error || helperText) ? `${inputId}-note` : undefined;
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', width: '100%' }}>
+    <div className="ml-field">
       {label && (
-        <label
-          htmlFor={inputId}
-          style={{
-            fontSize: '13px',
-            fontWeight: 500,
-            color: error ? colors.dangerText : colors.textSecondary,
-            fontFamily: typography.fontFamily,
-          }}
-        >
+        <label htmlFor={inputId} className="ml-label">
           {label}
         </label>
       )}
 
-      <div
-        style={{
-          position: 'relative',
-          display: 'flex',
-          alignItems: 'center',
-          backgroundColor: colors.surfaceInput,
-          border: `1px solid ${error ? colors.danger : (focused ? colors.focusRing : colors.borderStrong)}`,
-          borderRadius: radii.md,
-          boxShadow: focused ? `0 0 0 2px ${error ? colors.dangerSoft : colors.primarySoft}` : 'none',
-          transition: 'all 0.15s ease-in-out',
-          boxSizing: 'border-box',
-        }}
-      >
-        {icon && (
-          <span
-            style={{
-              paddingLeft: '12px',
-              display: 'flex',
-              alignItems: 'center',
-              color: colors.textMuted,
-            }}
-          >
-            {icon}
-          </span>
-        )}
-
+      <div className={`ml-inputwrap${error ? ' is-invalid' : ''}${rest.readOnly ? ' is-readonly' : ''}`}>
+        {icon && <span className="ml-inputwrap__icon">{icon}</span>}
         <input
           ref={ref}
           id={inputId}
-          disabled={disabled}
-          style={{
-            flex: 1,
-            padding: '12px 14px',
-            paddingLeft: icon ? '8px' : '14px',
-            paddingRight: rightElement ? '8px' : '14px',
-            backgroundColor: 'transparent',
-            border: 'none',
-            color: colors.textPrimary,
-            fontSize: '14px',
-            fontFamily: typography.fontFamily,
-            outline: 'none',
-            width: '100%',
-            boxSizing: 'border-box',
-            opacity: disabled ? 0.6 : 1,
-            cursor: disabled ? 'not-allowed' : 'text',
-            ...style,
-          }}
-          onFocus={(e) => {
-            setFocused(true);
-            onFocus?.(e);
-          }}
-          onBlur={(e) => {
-            setFocused(false);
-            onBlur?.(e);
-          }}
+          className={`ml-inputwrap__input${className ? ` ${className}` : ''}`}
+          aria-invalid={error ? true : undefined}
+          aria-describedby={noteId}
           {...rest}
         />
-
-        {rightElement && (
-          <span
-            style={{
-              paddingRight: '10px',
-              display: 'flex',
-              alignItems: 'center',
-            }}
-          >
-            {rightElement}
-          </span>
-        )}
+        {rightElement && <span className="ml-inputwrap__right">{rightElement}</span>}
       </div>
 
       {error ? (
-        <span style={{ fontSize: '12px', color: colors.dangerText, fontFamily: typography.fontFamily }}>
-          {error}
-        </span>
+        <span id={noteId} className="ml-error">{error}</span>
       ) : helperText ? (
-        <span style={{ fontSize: '12px', color: colors.textMuted, fontFamily: typography.fontFamily }}>
-          {helperText}
-        </span>
+        <span id={noteId} className="ml-hint">{helperText}</span>
       ) : null}
     </div>
   );
