@@ -1,7 +1,11 @@
 /**
- * @mlab/ui
- * Carbon-Aligned UI Component Library for MLab
+ * @mlab/ui — MLab Design System 2.0
+ * Tokens em CSS (temas claro e escuro), fontes embutidas e componentes React.
  */
+import './styles/tokens.css';
+import { initTheme } from './ThemeToggle';
+
+initTheme();
 
 // Design Tokens
 export * from './tokens';
@@ -13,6 +17,7 @@ export * from './TextInput';
 export * from './StatusBadge';
 export * from './Alert';
 export * from './Card';
+export * from './ThemeToggle';
 
 // Carbon Icons Re-exports
 export {
