@@ -122,7 +122,7 @@ apps/web/public                   favicon-32.png e apple-touch-icon.png novos; f
 - [x] Princípio V: nenhum contrato muda.
 - [x] Princípio VI: Scope Lock e paths por task.
 - [x] Princípio VII: `packages/ui` tem dois consumidores reais (desktop e web).
-- [ ] Princípio VIII: converge ao final (T2810).
+- [x] Princípio VIII: converge registrado (T2810).
 - [x] Princípio IX: desvios #89 (corrigido aqui, C-2807), #90 e #91 registrados.
 
 ## 5. Decision Log
