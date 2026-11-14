@@ -407,8 +407,9 @@ func (h *Handler) handleJoin(w http.ResponseWriter, r *http.Request, identifier 
 		}
 	}
 
+	// Sala encerrada recusa novas entradas com 409 (RN-08, contracts/room-api.md — 029/RF-2901).
 	if room.Status == StatusClosed {
-		writeError(w, http.StatusNotFound, "esta transmissão já foi encerrada e o link não está mais disponível")
+		writeError(w, http.StatusConflict, "esta transmissão já foi encerrada e o link não está mais disponível")
 		return
 	}
 
