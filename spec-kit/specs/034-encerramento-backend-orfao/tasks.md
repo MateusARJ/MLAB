@@ -138,7 +138,7 @@ Checks:
 - [x] README: nome do binário e, em "Solução de problemas", onde ficam `mlab-main.log`/`mlab-backend.log`.
 - [x] `smoke-runbook.md:26` atualizado (o app encerra órfãos sozinho; instrução vira verificação).
 - [x] `converge.md` com evidências, desvios e impacto de versão (PATCH, C-3407).
-- [ ] `npm run bump -- patch` e `npm run version:check`; commit `chore(release): versao X.Y.Z`.
+- [x] `npm run bump -- patch` e `npm run version:check`; commit `chore(release): versao X.Y.Z` (1.15.4).
 - [x] `npm run spec:check -- spec-kit/specs/034-encerramento-backend-orfao` com PASS.
 
 ## Definition of Done da feature
