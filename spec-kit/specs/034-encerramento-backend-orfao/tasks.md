@@ -71,14 +71,14 @@ Checks:
 - [x] Verificação manual (Windows): transmissão com overlay aberto, fechar pelo X ⇒ nenhum `MLab.exe` restante.
 
 ### T3405 — Desktop: instância única
-[ ] T3405 [US-3404]
+[x] T3405 [US-3404]
 Depends On: T3403
 Allowed Paths: `apps/desktop/src/main/main.ts`
 Prohibited Paths: `apps/desktop/src/main/preload.ts`, `apps/desktop/src/renderer/**`, `apps/backend/**`,
 `packages/**`, `package.json`
 Checks:
-- [ ] `requestSingleInstanceLock()` antes de `whenReady`; sem trava ⇒ `app.quit()` sem criar janela nem backend.
-- [ ] `second-instance` restaura (se minimizada), mostra e foca a janela principal (RF-3410).
+- [x] `requestSingleInstanceLock()` antes de `whenReady`; sem trava ⇒ `app.quit()` sem criar janela nem backend.
+- [x] `second-instance` restaura (se minimizada), mostra e foca a janela principal (RF-3410).
 
 ### T3406 — Desktop: logs de diagnóstico do ciclo de vida
 [ ] T3406 [US-3405]

@@ -112,6 +112,26 @@ function getPreloadPath(): string {
   return join(__dirname, '../preload/preload.js')
 }
 
+// ── Instância única (034/RF-3410) ─────────────────────────────────────────────
+// Uma segunda abertura não cria janela nem backend: entrega o foco à janela existente.
+
+let mainWindow: BrowserWindow | null = null
+const hasSingleInstanceLock = app.requestSingleInstanceLock()
+
+if (!hasSingleInstanceLock) {
+  logApp('[Main] Outra instância do MLab já está aberta: esta instância será encerrada')
+  app.quit()
+} else {
+  app.on('second-instance', () => {
+    logApp('[Main] Segunda abertura do MLab: focando a janela existente')
+    const win = mainWindow
+    if (!win || win.isDestroyed()) return
+    if (win.isMinimized()) win.restore()
+    win.show()
+    win.focus()
+  })
+}
+
 function createWindow(): void {
   logApp('[Main] createWindow iniciado...')
   const appIcon = getAppIcon()
@@ -145,6 +165,7 @@ function createWindow(): void {
     ...(process.platform === 'darwin' ? { titleBarStyle: 'hiddenInset' } : {}),
     show: false
   })
+  mainWindow = win
 
   // Bloqueia navegação para fora do app e novas janelas; links web vão para o navegador do sistema (002/S7)
   hardenWebContents(win.webContents, (url) => shell.openExternal(url))
@@ -200,6 +221,7 @@ function createWindow(): void {
   // rastreador de cursor, que são janelas/recursos independentes e impediriam o window-all-closed (RF-3401).
   // No Windows/Linux o app encerra; no macOS segue no Dock com o backend vivo (C-3403).
   win.on('closed', () => {
+    if (mainWindow === win) mainWindow = null
     logApp('[Main] Janela principal fechada: encerrando overlay e rastreador de cursor')
     annotationOverlayManager.stop()
     cursorPresenceTracker.stop()
@@ -615,6 +637,8 @@ function shutdown(reason: string): Promise<void> {
 // ── App lifecycle ─────────────────────────────────────────────────────────────
 
 app.whenReady().then(() => {
+  // Sem a trava de instância única esta instância já está saindo: nem janela nem backend (RF-3410).
+  if (!hasSingleInstanceLock) return
   logApp('[Main] app.whenReady disparado. Configurando sessão e abrindo janela...')
 
   // Configuração explícita de permissões do Chromium para captura e áudio
