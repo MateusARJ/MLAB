@@ -29,20 +29,20 @@ Checks:
 - [x] Script `dev` do backend (`go run ./cmd/server`) compila com os arquivos novos; `SIGPIPE` ignorado no Unix.
 
 ### T3402 — Desktop: módulo de gestão do processo do backend
-[ ] T3402 [US-3401] [US-3403]
+[x] T3402 [US-3401] [US-3403]
 Depends On: T3401 (contrato do processo)
 Allowed Paths: `apps/desktop/src/main/backendManager.ts`, `apps/desktop/src/main/backendManager.test.ts`
 Prohibited Paths: `apps/desktop/src/main/main.ts`, `apps/desktop/src/main/preload.ts`, `apps/desktop/src/renderer/**`,
 `apps/backend/**`, `apps/web/**`, `packages/**`, `package.json`
 Checks:
-- [ ] `start()` inicia com `stdio` em pipe e o ambiente de `contracts/backend-embarcado.md`.
-- [ ] `start()` não chama `spawn` se o encerramento começar durante a checagem da porta (RF-3406).
-- [ ] `stop()`: saída voluntária após fechar o stdin; Windows força `taskkill /pid <pid> /f /t` síncrono; Unix envia
+- [x] `start()` inicia com `stdio` em pipe e o ambiente de `contracts/backend-embarcado.md`.
+- [x] `start()` não chama `spawn` se o encerramento começar durante a checagem da porta (RF-3406).
+- [x] `stop()`: saída voluntária após fechar o stdin; Windows força `taskkill /pid <pid> /f /t` síncrono; Unix envia
   `SIGTERM` e depois `SIGKILL` (RF-3404).
-- [ ] Porta ocupada (C-3401 B, Windows): `mlab-backend.exe`/`server.exe` encerrado e porta aguardada; imagem de
+- [x] Porta ocupada (C-3401 B, Windows): `mlab-backend.exe`/`server.exe` encerrado e porta aguardada; imagem de
   terceiros não encerrada; Linux/macOS só registram (RF-3409).
-- [ ] `parseNetstatListeningPid` (inclui `ESCUTANDO`) e `parseTasklistCsv` testados.
-- [ ] `stop()` antes de `start()` impede partidas futuras.
+- [x] `parseNetstatListeningPid` (inclui `ESCUTANDO`) e `parseTasklistCsv` testados.
+- [x] `stop()` antes de `start()` impede partidas futuras.
 
 ### T3403 — Desktop: procedimento único de encerramento
 [ ] T3403 [US-3401] [US-3402]
