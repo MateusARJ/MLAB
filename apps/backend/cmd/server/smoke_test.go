@@ -406,7 +406,50 @@ func TestSmoke(t *testing.T) {
 			t.Fatal("aluno não recebeu reconnecting na segunda queda")
 		}
 		if _, ok := s.waitFor(func(m wsMsg) bool { return m.Type == "room-closed" }, 40*time.Second); !ok {
-			t.Error("sala não foi encerrada após o timeout de reconexão de 30 s")
+			t.Fatal("sala não foi encerrada após o timeout de reconexão de 30 s")
 		}
+
+		// 3) Depois do timeout a sala sai do store: o link não aceita mais entradas (033/RF-3302, issue #94).
+		e.expectRoomGone(r.ID)
 	})
+
+	t.Run("T3303_end_session_sem_close_rest_encerra_a_sala", func(t *testing.T) {
+		e := newSmokeEnv(t)
+		profTok := e.profSession("Prof T3303")
+		r := e.createRoom(profTok, "Aula T3303")
+		prof := e.mustWS("professor", r.ID, profTok)
+		prof.send("publish-request", nil)
+		prof.expect("publish-approved", 5*time.Second)
+		j := e.mustJoin(r.ID, "Aluno", smokeValidStudent)
+		s := e.mustWS("aluno", r.ID, j.Token)
+		s.expect("session-state", 5*time.Second)
+
+		// Só o end-session pelo WebSocket, sem a REST close (033/RF-3301).
+		prof.send("end-session", nil)
+		if _, ok := s.waitFor(func(m wsMsg) bool { return m.Type == "room-closed" }, 5*time.Second); !ok {
+			t.Fatal("aluno não recebeu room-closed após o end-session do professor")
+		}
+		e.expectRoomGone(r.ID)
+	})
+}
+
+// expectRoomGone confere que a sala encerrada pelo hub saiu do store: join e info respondem 404 (033/RF-3302).
+// O hub avisa os clientes antes de chamar o listener que atualiza o store, por isso a checagem espera até 2 s.
+func (e *smokeEnv) expectRoomGone(roomID string) {
+	e.t.Helper()
+	deadline := time.Now().Add(2 * time.Second)
+	code := 0
+	for {
+		code, _ = e.join(roomID, "Aluno Atrasado", "2025116TADS0999")
+		if code == http.StatusNotFound || time.Now().After(deadline) {
+			break
+		}
+		time.Sleep(50 * time.Millisecond)
+	}
+	if code != http.StatusNotFound {
+		e.t.Errorf("join após o encerramento pelo hub: esperado 404, obtido %d", code)
+	}
+	if code, _, _ := e.do(http.MethodGet, "/rooms/"+roomID+"/info", "", nil, "", nil); code != http.StatusNotFound {
+		e.t.Errorf("info após o encerramento pelo hub: esperado 404, obtido %d", code)
+	}
 }

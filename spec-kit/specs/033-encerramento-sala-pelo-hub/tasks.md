@@ -34,16 +34,16 @@ Checks:
 - [x] `go test ./...`, `go vet ./...` verdes; `gofmt -l` vazio. Commit com `Refs #94`.
 
 ### T3303 — Smoke do timeout e do `end-session`
-[ ] T3303
+[x] T3303
 Depends On: T3302
 Allowed Paths: `apps/backend/cmd/server/smoke_test.go`, `spec-kit/specs/033-encerramento-sala-pelo-hub/tasks.md`
 Prohibited Paths: `apps/backend/internal/**`, `apps/backend/cmd/server/main.go`, `apps/web/**`, `apps/desktop/**`,
 `packages/**`, `package.json`
 Checks:
-- [ ] A18: depois do `room-closed` do timeout, `join` e `/info` → `404` (RF-3302).
-- [ ] Subteste novo: `end-session` sem REST `close` → aluno recebe `room-closed`; `join` e `/info` → `404`
+- [x] A18: depois do `room-closed` do timeout, `join` e `/info` → `404` (RF-3302).
+- [x] Subteste novo: `end-session` sem REST `close` → aluno recebe `room-closed`; `join` e `/info` → `404`
   (RF-3301, RF-3302).
-- [ ] `go test -tags smoke -run TestSmoke ./cmd/server/` verde.
+- [x] `go test -tags smoke -run TestSmoke ./cmd/server/` verde.
 
 ### T3304 — Espelho e converge
 [ ] T3304
