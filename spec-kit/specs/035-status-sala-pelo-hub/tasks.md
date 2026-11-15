@@ -19,18 +19,18 @@ Checks:
 - [x] `/rooms/active`: ordem `publishing > reconnecting > waiting`, desempate pela mais recente (RF-3503).
 
 ### T3502 — Store registra o status da sessão
-[ ] T3502
+[x] T3502
 Depends On: T3501
 Allowed Paths: `apps/backend/internal/room/model.go`, `apps/backend/internal/room/store.go`,
 `apps/backend/internal/room/room_test.go`, `spec-kit/specs/035-status-sala-pelo-hub/tasks.md`
 Prohibited Paths: `apps/backend/internal/room/handler.go`, `apps/backend/internal/signaling/**`,
 `apps/backend/internal/webrtc/**`, `apps/web/**`, `apps/desktop/**`, `packages/**`, `package.json`
 Checks:
-- [ ] `StatusReconnecting` no modelo.
-- [ ] `SetSessionStatus`: troca só o `Status`; sala ausente → `ErrRoomNotFound`; sala `closed` → `ErrRoomClosed` sem
+- [x] `StatusReconnecting` no modelo.
+- [x] `SetSessionStatus`: troca só o `Status`; sala ausente → `ErrRoomNotFound`; sala `closed` → `ErrRoomClosed` sem
   alterar nada; `StatusClosed` recusado (RF-3501, RNF-3501).
-- [ ] `GetActiveRoom` aceita `reconnecting`; ordem `publishing > reconnecting > waiting` (RF-3503).
-- [ ] Testes: transições, guardas, prioridade com as três salas (estende `TestGetActiveRoom_Deterministic`).
+- [x] `GetActiveRoom` aceita `reconnecting`; ordem `publishing > reconnecting > waiting` (RF-3503).
+- [x] Testes: transições, guardas, prioridade com as três salas (estende `TestGetActiveRoom_Deterministic`).
 
 ### T3503 — Handler da sala sincroniza o status vindo do hub
 [ ] T3503

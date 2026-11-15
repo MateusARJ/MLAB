@@ -595,11 +595,66 @@ func TestGetActiveRoom_Deterministic(t *testing.T) {
 			t.Fatalf("iteração %d: esperado nova-waiting, obtido %+v (err=%v)", i, got, err)
 		}
 
+		// 035/RF-3503: reconnecting fica à frente de waiting, mesmo criada antes.
+		_ = store.CreateRoom(ctx, &Room{ID: "reconectando", Slug: "e/p", Status: StatusReconnecting, CreatedAt: base.Add(-2 * time.Hour)})
+		got, err = store.GetActiveRoom(ctx)
+		if err != nil || got.ID != "reconectando" {
+			t.Fatalf("iteração %d: esperado reconectando (reconnecting > waiting), obtido %+v (err=%v)", i, got, err)
+		}
+
 		_ = store.CreateRoom(ctx, &Room{ID: "transmitindo", Slug: "d/p", Status: StatusPublishing, CreatedAt: base.Add(-time.Hour)})
 		got, err = store.GetActiveRoom(ctx)
 		if err != nil || got.ID != "transmitindo" {
 			t.Fatalf("iteração %d: esperado transmitindo (publishing tem prioridade), obtido %+v (err=%v)", i, got, err)
 		}
+	}
+}
+
+// TestSetSessionStatus cobre RF-3501 e RNF-3501 (035, issue #101): o store registra o status da sessão vindo do hub
+// e nunca reabre sala encerrada ou removida.
+func TestSetSessionStatus(t *testing.T) {
+	ctx := context.Background()
+	store := NewInMemoryStore()
+	_ = store.CreateRoom(ctx, &Room{ID: "sala", Slug: "aula/prof", RoomSlug: "aula", ProfessorSlug: "prof", Status: StatusWaiting, CreatedAt: time.Now()})
+
+	for _, status := range []Status{StatusPublishing, StatusReconnecting, StatusPublishing, StatusWaiting} {
+		if err := store.SetSessionStatus(ctx, "sala", status); err != nil {
+			t.Fatalf("SetSessionStatus(%s): %v", status, err)
+		}
+		got, _ := store.GetRoomByID(ctx, "sala")
+		if got.Status != status {
+			t.Fatalf("status esperado %s, obtido %s", status, got.Status)
+		}
+		if got.ClosedAt != nil {
+			t.Fatalf("SetSessionStatus não deveria preencher closed_at")
+		}
+	}
+
+	if err := store.SetSessionStatus(ctx, "sala", StatusClosed); err == nil {
+		t.Fatal("SetSessionStatus não deveria aceitar closed")
+	}
+	if got, _ := store.GetRoomByID(ctx, "sala"); got.Status != StatusWaiting {
+		t.Fatalf("closed recusado não deveria alterar a sala, obtido %s", got.Status)
+	}
+
+	if err := store.SetSessionStatus(ctx, "inexistente", StatusPublishing); !errors.Is(err, ErrRoomNotFound) {
+		t.Fatalf("sala inexistente: esperado ErrRoomNotFound, obtido %v", err)
+	}
+
+	// Sala encerrada: o aviso tardio não a reabre nem recria o índice de slug.
+	now := time.Now()
+	_ = store.UpdateRoomStatus(ctx, "sala", StatusClosed, &now)
+	if err := store.SetSessionStatus(ctx, "sala", StatusPublishing); !errors.Is(err, ErrRoomClosed) {
+		t.Fatalf("sala encerrada: esperado ErrRoomClosed, obtido %v", err)
+	}
+	if got, _ := store.GetRoomByID(ctx, "sala"); got.Status != StatusClosed || got.ClosedAt == nil {
+		t.Fatalf("sala encerrada não deveria mudar, obtido %+v", got)
+	}
+	if _, ok := store.(*inMemoryStore).slugIndex["aula/prof"]; ok {
+		t.Fatal("o slug da sala encerrada não deveria voltar ao índice")
+	}
+	if _, err := store.GetActiveRoom(ctx); !errors.Is(err, ErrRoomNotFound) {
+		t.Fatalf("sala encerrada não deveria ser ativa, obtido err=%v", err)
 	}
 }
 
