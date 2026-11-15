@@ -6,7 +6,7 @@ Data: 2026-11-15
 Issue de origem: #104
 Commits avaliados: `c19ac53` (revalidação dos artefatos), `15b37e5` (T3401), `bc80dbc` (T3402), `4b2e0f4` (T3403),
 `41e6b84` (T3404), `12b16b2` (T3405), `76e4cbb` (T3406), `24f6e84` (T3407), `4c62120` e `1fb2136` (T3408)
-Status: OPEN — falta só o cenário de logoff do Windows (§5)
+Status: CONVERGED
 
 ## Entradas
 
@@ -41,7 +41,7 @@ Status: OPEN — falta só o cenário de logoff do Windows (§5)
 | RF-3412 | `installer.nsh`; matriz: órfão `mlab-backend.exe` da pasta instalada encerrado na instalação; filtro do `server.exe` legado conferido no PowerShell 32 bits (só o da pasta do MLab; terceiro sobrevive); detecção do `MLab.exe` aberto impede qualquer encerramento |
 | RF-3413 | `mlab-main.log`: partida (PID, versão), resultado da partida, dono da 8080, processos de backend no Windows, etapas do encerramento com duração, código de saída do backend |
 | RF-3414 | `mlab-backend.log` (`MLAB_LOG_FILE`): partida com PID/PPID e watchdog, motivo e duração; `TestOpenLogOutput_ArquivoContinuaComStderrQuebrado`; `SIGPIPE` ignorado no Unix |
-| RNF-3401 | matriz manual (§5), exceto o logoff |
+| RNF-3401 | matriz manual (§5), todos os cenários |
 | RNF-3402 | `TestLogStartup_NaoRegistraSegredos`; teste vitest "nenhum log contém a chave de host nem o JWT_SECRET"; terceiros na 8080 e `server.exe` fora da pasta do MLab nunca encerrados |
 | RNF-3403 | `BackendManager` com dependências injetadas; testes Go com processo auxiliar |
 | RNF-3404 | nenhuma dependência nova |
@@ -51,7 +51,6 @@ Status: OPEN — falta só o cenário de logoff do Windows (§5)
 
 | Requisito | O que falta | Evidência |
 |---|---|---|
-| RF-3403 (`session-end`) | verificação manual do logoff do Windows | código em `main.ts`; cenário pendente na §5 |
 | RF-3402 (macOS) | execução num Mac | verificado só por leitura: `window-all-closed` não para o backend no macOS e `activate` recria a janela |
 
 ## 3. Divergências (código ≠ spec/plan/contrato)
@@ -87,7 +86,7 @@ confere o Gerenciador de Tarefas (`MLab.exe`, `mlab-backend.exe`, `server.exe`) 
 | abrir o MLab duas vezes | janela existente ganha foco | OK — segunda instância sai, um só processo principal e um só backend |
 | `server.exe` órfão + abrir o app novo | órfão encerrado; professor entra | OK — órfão encerrado em 250 ms; `POST /auth/session` → 200 |
 | `server.exe` órfão + instalar por cima | sem "arquivo em uso" | OK após `1fb2136` — instalação silenciosa (código 0) encerrou o órfão da pasta do MLab |
-| logoff do Windows com o MLab aberto | nada restante após novo login | **pendente** — verificação do responsável |
+| logoff do Windows com o MLab aberto | nada restante após novo login | OK — verificado pelo responsável em 2026-11-15 |
 
 Observações:
 
@@ -96,7 +95,7 @@ Observações:
 
 ## 6. Testes faltantes
 
-- Logoff do Windows (`session-end`): só manual, pendente.
+- Logoff do Windows (`session-end`): coberto só pela verificação manual (§5).
 - macOS: sem máquina para executar.
 - E2E automatizado do Electron: fora do escopo (C-3407).
 
@@ -120,5 +119,7 @@ Classificação pelo escopo de `docs/versionamento.md` §2 (ADR 0007).
 
 ## 10. Resultado
 
-- [x] OPEN — todos os requisitos verificados, exceto o cenário de logoff do Windows (§5), que depende do responsável.
-- [ ] CONVERGED
+- [ ] OPEN
+- [x] CONVERGED — o app e o backend embarcado encerram em todas as formas de fechamento da matriz (X, overlay aberto,
+  fechamento rápido, processo finalizado, segunda abertura, logoff); um backend órfão não bloqueia mais a próxima
+  execução nem a instalação. Pendência de plataforma: macOS verificado só por leitura (§2).

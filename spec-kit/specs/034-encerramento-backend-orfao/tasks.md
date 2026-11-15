@@ -118,13 +118,13 @@ Checks:
 - [x] Build `make:win` verde (compila o NSIS): verificado localmente no Windows; o CI `windows-latest` só roda no PR para a `main`.
 
 ### T3409 — Verificação, documentação, converge e versão
-[ ] T3409
+[x] T3409
 Depends On: T3401–T3408
 Allowed Paths: `spec-kit/specs/034-encerramento-backend-orfao/**`, `README.md`, `docs/metrics/smoke-runbook.md`,
 `package.json`, `package-lock.json`, `apps/*/package.json`, `packages/*/package.json`
 Prohibited Paths: `apps/**/src/**`, `packages/**/src/**`, `apps/backend/**/*.go`, `.github/**`
 Checks:
-- [ ] Matriz manual no Windows (instalador NSIS) registrada no `converge.md`:
+- [x] Matriz manual no Windows (instalador NSIS) registrada no `converge.md`:
   | Cenário | Esperado |
   |---|---|
   | fechar pelo X, sem sala | nada restante no Gerenciador de Tarefas |
@@ -143,8 +143,8 @@ Checks:
 
 ## Definition of Done da feature
 
-- [ ] Todos os testes/checks passaram
-- [ ] Scope Lock respeitado
-- [ ] Contrato `backend-embarcado.md` em READY e sincronizado com o código
-- [ ] Analyze pós-tasks = PASS
-- [ ] Convergência registrada
+- [x] Todos os testes/checks passaram
+- [x] Scope Lock respeitado
+- [x] Contrato `backend-embarcado.md` em READY e sincronizado com o código
+- [x] Analyze pós-tasks = PASS
+- [x] Convergência registrada
