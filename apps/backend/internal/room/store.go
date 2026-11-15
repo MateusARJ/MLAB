@@ -29,6 +29,9 @@ type Store interface {
 	GetRoomByOwnerID(ctx context.Context, ownerID string) (*Room, error)
 	GetActiveRoom(ctx context.Context) (*Room, error)
 	UpdateRoomStatus(ctx context.Context, roomID string, status Status, closedAt *time.Time) error
+	// SetSessionStatus registra o status da sessão vindo do hub (waiting, publishing, reconnecting) sem reabrir sala
+	// encerrada (035/RF-3501, RNF-3501).
+	SetSessionStatus(ctx context.Context, roomID string, status Status) error
 	DeleteRoom(ctx context.Context, roomID string) error
 
 	// Participantes
@@ -123,14 +126,14 @@ func (s *inMemoryStore) GetRoomByOwnerID(_ context.Context, ownerID string) (*Ro
 	return nil, ErrRoomNotFound
 }
 
-// GetActiveRoom retorna a sala ativa de forma determinística (002-security-hardening/S5):
-// prioriza salas em `publishing`; entre salas do mesmo status, vence a criada mais recentemente.
+// GetActiveRoom retorna a sala ativa de forma determinística (002-security-hardening/S5, 035/RF-3503):
+// `publishing` > `reconnecting` > `waiting`; entre salas do mesmo status, vence a criada mais recentemente.
 func (s *inMemoryStore) GetActiveRoom(_ context.Context) (*Room, error) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 	var best *Room
 	for _, r := range s.rooms {
-		if r.Status != StatusWaiting && r.Status != StatusPublishing {
+		if activeRoomRank(r) == 0 {
 			continue
 		}
 		if best == nil || activeRoomRank(r) > activeRoomRank(best) ||
@@ -145,12 +148,42 @@ func (s *inMemoryStore) GetActiveRoom(_ context.Context) (*Room, error) {
 	return &copy, nil
 }
 
-// activeRoomRank define a prioridade de uma sala ativa: publishing > waiting.
+// activeRoomRank define a prioridade de uma sala ativa: publishing > reconnecting > waiting. Sala em outro status
+// (closed) não é ativa e recebe 0.
 func activeRoomRank(r *Room) int {
-	if r.Status == StatusPublishing {
+	switch r.Status {
+	case StatusPublishing:
+		return 3
+	case StatusReconnecting:
 		return 2
+	case StatusWaiting:
+		return 1
+	default:
+		return 0
 	}
-	return 1
+}
+
+// errSessionStatusClosed recusa o encerramento por SetSessionStatus, que só registra o status da sessão.
+var errSessionStatusClosed = errors.New("SetSessionStatus não encerra salas; use UpdateRoomStatus")
+
+// SetSessionStatus troca só o status da sala. Sala inexistente devolve ErrRoomNotFound; sala closed devolve
+// ErrRoomClosed sem alterar nada, para que um aviso tardio do hub não reabra a sala nem recrie os índices de slug
+// (035/RNF-3501). O encerramento continua por UpdateRoomStatus.
+func (s *inMemoryStore) SetSessionStatus(_ context.Context, roomID string, status Status) error {
+	if status == StatusClosed {
+		return errSessionStatusClosed
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	r, ok := s.rooms[roomID]
+	if !ok {
+		return ErrRoomNotFound
+	}
+	if r.Status == StatusClosed {
+		return ErrRoomClosed
+	}
+	r.Status = status
+	return nil
 }
 
 func (s *inMemoryStore) UpdateRoomStatus(_ context.Context, roomID string, status Status, closedAt *time.Time) error {

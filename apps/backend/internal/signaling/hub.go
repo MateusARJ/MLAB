@@ -125,11 +125,31 @@ type Hub struct {
 	// onClosed é chamado (na goroutine do hub) quando a sala é encerrada pelo WebSocket
 	// (end-session ou timeout de reconexão), para liberar recursos fora do hub, como arquivos.
 	onClosed func(roomID string)
+
+	// onStatusChanged é chamado (na goroutine do hub) quando o status da sessão muda para `publishing` ou
+	// `reconnecting`, para que o store da sala acompanhe a transmissão (035/RF-3501). O `closed` segue por onClosed.
+	onStatusChanged func(roomID string, status SessionStatus)
+}
+
+// hubCallbacks reúne os avisos opcionais que o hub dá para fora, sempre na sua goroutine.
+type hubCallbacks struct {
+	onClosed        func(roomID string)
+	onStatusChanged func(roomID string, status SessionStatus)
 }
 
 // newHub cria e inicia um Hub para a sala especificada.
 // onClosed é opcional e recebe o roomID quando a sala é encerrada pelo hub.
 func newHub(roomID string, sfu SFU, onClosed ...func(roomID string)) *Hub {
+	var cb hubCallbacks
+	if len(onClosed) > 0 {
+		cb.onClosed = onClosed[0]
+	}
+	return newHubWithCallbacks(roomID, sfu, cb)
+}
+
+// newHubWithCallbacks cria e inicia um Hub com os avisos de encerramento e de mudança de status.
+// Os callbacks são fixados antes de a goroutine run() começar.
+func newHubWithCallbacks(roomID string, sfu SFU, cb hubCallbacks) *Hub {
 	h := &Hub{
 		roomID:        roomID,
 		clients:       make(map[string]*Client),
@@ -147,12 +167,25 @@ func newHub(roomID string, sfu SFU, onClosed ...func(roomID string)) *Hub {
 		sfu:           sfu,
 
 		connectedStudents: make(map[string]string),
-	}
-	if len(onClosed) > 0 {
-		h.onClosed = onClosed[0]
+
+		onClosed:        cb.onClosed,
+		onStatusChanged: cb.onStatusChanged,
 	}
 	go h.run()
 	return h
+}
+
+// setStatus muda o status da sessão e, se ele mudou, avisa onStatusChanged (035/RF-3501). O encerramento não passa
+// por aqui: onRoomClose e onPublisherTimeout gravam `closed` direto e avisam por onClosed (033).
+// Só pode ser chamado na goroutine run().
+func (h *Hub) setStatus(s SessionStatus) {
+	if h.status == s {
+		return
+	}
+	h.status = s
+	if h.onStatusChanged != nil && s != SessionClosed {
+		h.onStatusChanged(h.roomID, s)
+	}
 }
 
 // run é o loop central do Hub — única goroutine que toca o estado.
@@ -250,7 +283,7 @@ func (h *Hub) onRegister(c *Client) {
 		}
 		h.publisherID = c.participantID
 		if h.status == SessionReconnecting || h.status == SessionWaiting {
-			h.status = SessionPublishing
+			h.setStatus(SessionPublishing)
 		}
 		log.Printf("hub[%s]: professor ativo na sala (status=%s)", h.roomID, h.status)
 	}
@@ -338,7 +371,7 @@ func (h *Hub) onUnregister(c *Client) {
 
 	// Se era o publisher, inicia o timer de reconexão (§10a).
 	if c.participantID == h.publisherID && h.status == SessionPublishing {
-		h.status = SessionReconnecting
+		h.setStatus(SessionReconnecting)
 		h.broadcastAll(TypeSessionState, SessionStatePayload{
 			Status:            SessionReconnecting,
 			ParticipantsCount: len(h.clients),
@@ -409,7 +442,7 @@ func (h *Hub) onPublishRequest(c *Client) {
 	}
 
 	h.publisherID = c.participantID
-	h.status = SessionPublishing
+	h.setStatus(SessionPublishing)
 
 	c.sendJSON(TypePublishApproved, PublishApprovedPayload{PublisherID: c.participantID})
 	h.broadcastExcept(c.participantID, TypeSessionState, SessionStatePayload{
@@ -653,7 +686,7 @@ func (h *Hub) onRoomClose() {
 }
 
 func (h *Hub) onStreamStarted() {
-	h.status = SessionPublishing
+	h.setStatus(SessionPublishing)
 	log.Printf("hub[%s]: faixa de vídeo ativa — disparando stream-started para todos os participantes", h.roomID)
 	h.broadcastAll(TypeStreamStarted, StreamStartedPayload{
 		PublisherID: h.publisherID,

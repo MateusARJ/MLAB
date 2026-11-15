@@ -140,6 +140,12 @@ func newServer(cfg serverConfig) (http.Handler, error) {
 	// removida do store e seus arquivos são liberados, como na REST close (RN-13, RF-18 — 033/T3302)
 	sigHandler.SetRoomClosedListener(roomHandler.CloseRoomFromSession)
 
+	// Quando o status da sessão muda no hub (publishing ou reconnecting), o store da sala acompanha, para que /info,
+	// /rooms/active e o join reflitam a transmissão (RF-18 — 035/T3504)
+	sigHandler.SetRoomStatusListener(func(roomID string, status signaling.SessionStatus) {
+		roomHandler.SyncStatusFromSession(roomID, room.Status(status))
+	})
+
 	// Conecta a notificação de vídeo pronto do SFU ao hub de sinalização (inicia transmissão aos alunos sem F5)
 	sfuService.SetOnTrackReady(func(roomID string) {
 		sigHandler.OnTrackReady(roomID)

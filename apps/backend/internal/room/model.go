@@ -8,9 +8,10 @@ import (
 type Status string
 
 const (
-	StatusWaiting    Status = "waiting"
-	StatusPublishing Status = "publishing"
-	StatusClosed     Status = "closed"
+	StatusWaiting      Status = "waiting"
+	StatusPublishing   Status = "publishing"
+	StatusReconnecting Status = "reconnecting"
+	StatusClosed       Status = "closed"
 )
 
 // Room representa uma sala de transmissão.

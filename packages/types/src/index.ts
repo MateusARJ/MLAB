@@ -10,7 +10,7 @@ export type Role = 'professor' | 'aluno';
 
 // ── Room ─────────────────────────────────────────────────────────────────────
 
-export type RoomStatus = 'waiting' | 'publishing' | 'closed';
+export type RoomStatus = 'waiting' | 'publishing' | 'reconnecting' | 'closed';
 
 export interface Room {
   id: string;

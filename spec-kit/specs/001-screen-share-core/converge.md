@@ -27,7 +27,7 @@ Status: OPEN
 | RF-11 / RN-02 Nome + Matrícula | `room/handler.go` (`joinRoom`), `apps/web/src/pages/Join.tsx`; `Join.test.tsx` |
 | RF-13 / RF-14 / RN-05 link e operações REST do professor | `room/handler.go`; `room_security_test.go` |
 | RF-15 encerramento da sala | `POST /rooms/{id}/close`, `room-closed`; pelo hub: `room/handler.go` (`CloseRoomFromSession`), `room_test.go` (`TestCloseRoomFromSession`), smoke `T3303_end_session_sem_close_rest_encerra_a_sala` (033) |
-| RF-18 / RN-13 reconexão do professor 30s | `internal/signaling/hub.go`; `hub_test.go`; smoke `A18` (sala sai do store após o timeout, 033) |
+| RF-18 / RN-13 reconexão do professor 30s | `internal/signaling/hub.go`; `hub_test.go`; smoke `A18` (sala sai do store após o timeout, 033); `reconnecting` no store e nas respostas REST: `hub_status_test.go`, `TestSyncStatusFromSession` (035) |
 | RF-19 / RN-14 backoff do aluno | `useWebRTCSubscriber.ts`; `useWebRTCSubscriber.test.ts` |
 | RF-21 / RF-22 autoplay, fullscreen, PiP | `apps/web/src/pages/Room.tsx`; `Room.test.tsx` |
 | RF-23 / RN-11 TURN HMAC-SHA1 | `internal/signaling/` (credenciais temporárias); `signaling_security_test.go` |

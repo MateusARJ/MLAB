@@ -118,7 +118,7 @@ Aluno informa Nome e Matrícula e recebe um JWT de sessão. `{roomId}` aceita o 
   "token": "string (JWT aluno)",
   "expires_at": "ISO8601",
   "participant_id": "uuid",
-  "room_status": "waiting | publishing",
+  "room_status": "waiting | publishing | reconnecting",
   "room_id": "uuid (canônico)",
   "ws_url": "ws://<host>/ws/rooms/{room_id}/signal",
   "ice_servers": [{ "urls": ["string"] }],
@@ -158,13 +158,14 @@ Dados públicos da sala para a tela de entrada do aluno. Sem autenticação.
 ### GET /rooms/active
 
 Sala ativa no servidor (usada pelo web app para redirecionar o aluno que abre a raiz `/`). Sem autenticação.
-Prioridade: sala em `publishing`; depois a sala em `waiting` criada mais recentemente.
+Prioridade: `publishing` > `reconnecting` > `waiting`; entre salas do mesmo status vence a criada mais recentemente.
 
 **Response 200:** `room_id`, `slug`, `title`, `professor_name`, `status`, `link`, `ip_link`, `mdns_link`, `short_ip_link`, `short_mdns_link`.
 
 **Errors:** `404` — nenhuma sala ativa.
 
-> Regra de prioridade determinística em vigor desde `002-security-hardening`/S5 (T205).
+> Regra de prioridade determinística em vigor desde `002-security-hardening`/S5 (T205); `reconnecting` incluído na
+> `035-status-sala-pelo-hub` (RF-3503, C-3502).
 
 ---
 
