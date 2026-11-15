@@ -81,6 +81,12 @@ jobs:
       - name: Executar testes automatizados
         run: npm run test
 
+      # O detector de race exige cgo (indisponível no runner Windows); roda uma vez, na perna Linux (036/C-3603).
+      - name: Testes da sinalização com detector de race (Linux)
+        if: matrix.os == 'ubuntu-latest'
+        working-directory: apps/backend
+        run: go test -race ./internal/signaling/ ./cmd/server/
+
       - name: Build do instalador nativo (${{ matrix.platform }})
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
