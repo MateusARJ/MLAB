@@ -18,7 +18,7 @@ Feature: `003-classroom-interaction` (canais da 001 incluídos para manter um ú
 | `setActiveRoom(room \| null)` | `set-active-room` | 001 | Informa a sala ativa ao main (encerramento ao fechar o app) |
 | `setContentProtection(enabled)` | `set-content-protection` | 003/US-21 | Liga/desliga a proteção de conteúdo da janela |
 | `captureWindowToClipboard()` | `capture-window-to-clipboard` | 003/US-21 | Copia captura da janela transmitida |
-| `startCursorTracking(target)` / `stopCursorTracking()` | `cursor-tracking:start` / `cursor-tracking:stop` | 003/US-20 | Rastreamento de cursor e janela |
+| `startCursorTracking(target)` / `stopCursorTracking()` | `cursor-tracking:start` / `cursor-tracking:stop` | 003/US-20, 032/RF-3208 | Rastreamento de cursor e janela. `target`: `{ sourceId, type, displayId?, allowedSourceIds?, pinnedSourceId? }`. `pinnedSourceId` (opcional, 032): janela fixada; só vale se estiver em `allowedSourceIds`. Com ele, o alvo do cursor fica na janela fixada e `active-window-changed` continua sendo emitido. Sem ele, comportamento anterior. Previsto na 032 (T3201) |
 | `startAnnotationOverlay()` / `stopAnnotationOverlay()` | `annotation-overlay:start` / `annotation-overlay:stop` | 003/US-19 | Janela de overlay de anotação |
 | `syncAnnotationState(state)` | `annotation-overlay:sync-state` | 003/US-19 | Sincroniza ferramentas e traços |
 | `setAnnotationOverlayIgnoreMouse(ignore)` | `annotation-overlay:set-ignore-mouse` | 003/US-19 | Overlay transparente a cliques |
@@ -32,7 +32,7 @@ Feature: `003-classroom-interaction` (canais da 001 incluídos para manter um ú
 
 | API (assinatura) | Canal | Descrição |
 |---|---|---|
-| `onActiveWindowChanged(cb)` | `active-window-changed` | `{ sourceId }` da janela ativa |
+| `onActiveWindowChanged(cb)` | `active-window-changed` | `{ sourceId }` da janela autorizada que recebeu foco (só com 2+ autorizadas). Com `pinnedSourceId`, é emitido do mesmo jeito, mas não indica troca do alvo do cursor (032/RF-3203) |
 | `onActiveWindowUnauthorized(cb)` | `active-window-unauthorized` | `{ isUnauthorized }` — janela transmitida encoberta/não autorizada |
 | `onCursorState(cb)` | `cursor-state` | `CursorState` (`packages/types`) |
 | `onAnnotationStateSync(cb)` | `annotation-overlay:state` | `AnnotationSessionState` |
