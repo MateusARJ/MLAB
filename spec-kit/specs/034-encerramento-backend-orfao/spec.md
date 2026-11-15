@@ -2,8 +2,8 @@
 
 Status: READY
 Feature ID: `034-encerramento-backend-orfao`
-Origem: relato do responsável em 2026-11-15 ("ao fechar, às vezes o MLab não fecha completamente e fica rodando em
-segundo plano", Windows, instalador NSIS). Análise de causa raiz em `research.md`.
+Origem: issue #104, a partir do relato do responsável em 2026-11-15 ("ao fechar, às vezes o MLab não fecha
+completamente e fica rodando em segundo plano", Windows, instalador NSIS). Análise de causa raiz em `research.md`.
 
 ## 1. Objetivo
 
