@@ -9,14 +9,14 @@ Regras:
 - um commit atômico por task, com `Ref: T330x` e `Refs #94` ou `Refs #95`.
 
 ### T3301 — Contrato do `/info`
-[ ] T3301
+[x] T3301
 Allowed Paths: `spec-kit/specs/001-screen-share-core/contracts/room-api.md`,
 `spec-kit/specs/033-encerramento-sala-pelo-hub/tasks.md`
 Prohibited Paths: `apps/**`, `packages/**`, `spec-kit/specs/001-screen-share-core/spec.md`, `spec-kit/docs/adrs/**`
 Checks:
-- [ ] `200` do `GET /rooms/{roomId}/info` sem `closed` (RF-3303).
-- [ ] Erros `404 "sala não encontrada"` e `404 "esta transmissão já foi encerrada"` documentados (RF-3303).
-- [ ] Commit com `Refs #95`.
+- [x] `200` do `GET /rooms/{roomId}/info` sem `closed` (RF-3303).
+- [x] Erros `404 "sala não encontrada"` e `404 "esta transmissão já foi encerrada"` documentados (RF-3303).
+- [x] Commit com `Refs #95`.
 
 ### T3302 — Encerramento pelo hub atualiza o store
 [ ] T3302
