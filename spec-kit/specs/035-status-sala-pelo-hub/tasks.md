@@ -63,13 +63,13 @@ Checks:
   sem aviso repetido; encerramento não passa pelo callback (RF-3501, RNF-3502).
 
 ### T3505 — Tipo compartilhado
-[ ] T3505
+[x] T3505
 Depends On: T3504
 Allowed Paths: `packages/types/src/index.ts`, `spec-kit/specs/035-status-sala-pelo-hub/tasks.md`
 Prohibited Paths: `apps/**`, `packages/ui/**`, `package.json`
 Checks:
-- [ ] `RoomStatus` inclui `'reconnecting'` (RF-3504).
-- [ ] Build de `packages/types` e typecheck do monorepo verdes.
+- [x] `RoomStatus` inclui `'reconnecting'` (RF-3504).
+- [x] Build de `packages/types` e typecheck do monorepo verdes.
 
 ### T3506 — Espelho e converge
 [ ] T3506
