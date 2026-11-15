@@ -19,7 +19,7 @@ Status: OPEN
 | RNF-SEC-02 chave de host | `auth/handler.go` (`validHostKey`, `subtle.ConstantTimeCompare`); `desktop/src/main/hostKey.ts`; IPC `get-host-key`; `scripts/dev.js`, `turbo.json`; testes `TestSessionEndpoint*`, `hostKey.test.ts`, `services/auth.test.ts` |
 | RNF-SEC-03 sem login | `store_inmemory.go` apagado; `POST /auth/login` → 404 (`TestLoginEndpointRemoved`); `LoginRequest` removido; `SessionResponse` |
 | RNF-SEC-04 arquivos | `room/files.go` (`authorizeFileRead`, limites, nosniff, `ReleaseRoomFiles`); hub `onClosed`; `files_test.go`; `TestHub_OnClosedCallback_*`; web/desktop enviam token |
-| RNF-SEC-05 sala ativa | `room/store.go` (`GetActiveRoom`, `activeRoomRank`); `TestGetActiveRoom_*` |
+| RNF-SEC-05 sala ativa | `room/store.go` (`GetActiveRoom`, `activeRoomRank`); `TestGetActiveRoom_*`; status real vindo do hub e `reconnecting` entre `publishing` e `waiting`: `TestSyncStatusFromSession`, `hub_status_test.go` (035) |
 | RNF-SEC-06 origem | `room/origin.go` (`IsAllowedOrigin`); `CheckOrigin` e `corsMiddleware`; `origin_test.go`, `TestCorsMiddleware_*`, `TestSignalingSecurity_CheckOriginAllowlist` |
 | RNF-SEC-07 Electron | `navigationGuard.ts` (+ teste); IPC `write-clipboard-text`; `sandbox: true` nas duas janelas |
 | RNF-SEC-08 caminho absoluto | removido de `main.ts` |

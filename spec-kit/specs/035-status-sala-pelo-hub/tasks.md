@@ -72,17 +72,17 @@ Checks:
 - [x] Build de `packages/types` e typecheck do monorepo verdes.
 
 ### T3506 — Espelho e converge
-[ ] T3506
+[x] T3506
 Depends On: T3505
 Allowed Paths: `docs/requirements/functionals/RF018-gestao-de-reconexao-do-professor-timeout-30s.md`,
 `spec-kit/specs/001-screen-share-core/converge.md`, `spec-kit/specs/002-security-hardening/converge.md`,
 `spec-kit/specs/035-status-sala-pelo-hub/**`
 Prohibited Paths: `apps/**`, `packages/**`, `.github/**`, `spec-kit/docs/adrs/**`
 Checks:
-- [ ] `RF018`: o status `reconnecting` também aparece nas respostas REST da sala.
-- [ ] `001/converge.md` (RF-18) e `002/converge.md` (RNF-SEC-05) apontam os testes novos.
-- [ ] `converge.md` com evidências, desvios e impacto de versão (PATCH, C-3504).
-- [ ] `npm run spec:check -- spec-kit/specs/035-status-sala-pelo-hub` com PASS.
+- [x] `RF018`: o status `reconnecting` também aparece nas respostas REST da sala.
+- [x] `001/converge.md` (RF-18) e `002/converge.md` (RNF-SEC-05) apontam os testes novos.
+- [x] `converge.md` com evidências, desvios e impacto de versão (PATCH, C-3504).
+- [x] `npm run spec:check -- spec-kit/specs/035-status-sala-pelo-hub` com PASS.
 
 ### T3507 — Versão
 [ ] T3507
