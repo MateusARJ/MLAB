@@ -119,6 +119,15 @@ Fechamentos sem código próprio usam frame vazio. Códigos definidos (RN-04, AD
 | `4001` | `Duplicate Session` | o mesmo participante (mesmo token) abriu uma conexão nova; a anterior é fechada | não reconecta; volta à tela de entrada |
 | `4002` | `Student ID In Use` | outro aluno com a mesma matrícula já está conectado; a conexão nova é recusada e não entra na sala | não reconecta; volta à tela de entrada com "Esta matrícula já está conectada nesta transmissão." |
 
+### Conexão a sala encerrada
+
+Nenhuma conexão entra numa sessão encerrada (RN-13, RF-18; 037-registro-em-hub-encerrado):
+
+- sala inexistente no store: o handshake responde `404`; sala `closed` no store ou com a sessão já encerrada pelo hub:
+  `410 sala encerrada`. Nenhuma sessão nova é criada para a sala;
+- sessão encerrada depois do handshake e antes do registro: o servidor envia `room-closed` e fecha a conexão com frame
+  vazio, como faz com quem estava na sala no encerramento. O participante não aparece para os demais.
+
 ## Compatibility
 
 Qualquer alteração breaking (novo campo obrigatório, remoção de campo, mudança de tipo) exige atualização deste contrato, de `packages/types` e das tasks downstream.

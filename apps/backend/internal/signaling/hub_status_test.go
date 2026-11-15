@@ -70,16 +70,21 @@ func TestHub_StatusSemCallback(t *testing.T) {
 	}
 }
 
-// TestHandler_GetOrCreateHubConcorrenteAoEncerramento cobre RF-3601 e US-3601 (036, issue #102): o handler lê o
-// status do hub enquanto a goroutine run() o encerra, sem data race, e depois do encerramento entrega um hub novo
-// em `waiting`. Com `go test -race`, a leitura direta de hub.status que existia antes seria acusada aqui.
+// TestHandler_GetOrCreateHubConcorrenteAoEncerramento cobre RF-3601 (036, issue #102) e RF-3702 (037, issue #107): o
+// handler lê o status do hub enquanto a goroutine run() o encerra, sem data race, e depois do encerramento recusa a
+// sala sem criar hub novo (a 037 substitui a US-3601). Com `go test -race`, a leitura direta de hub.status que existia
+// antes seria acusada aqui.
 func TestHandler_GetOrCreateHubConcorrenteAoEncerramento(t *testing.T) {
 	const roomID = "room-status-concorrente"
 	handler := NewHandler(nil, nil)
-	antigo := handler.getOrCreateHub(roomID)
+	antigo, ok := handler.getOrCreateHub(roomID)
+	if !ok {
+		t.Fatal("a sala aberta deveria ganhar hub")
+	}
 
 	parar := make(chan struct{})
 	var wg sync.WaitGroup
+	var novos sync.Map // hubs diferentes do antigo devolvidos por getOrCreateHub
 	for i := 0; i < 8; i++ {
 		wg.Add(1)
 		go func() {
@@ -89,7 +94,9 @@ func TestHandler_GetOrCreateHubConcorrenteAoEncerramento(t *testing.T) {
 				case <-parar:
 					return
 				default:
-					handler.getOrCreateHub(roomID)
+					if h, ok := handler.getOrCreateHub(roomID); ok && h != antigo {
+						novos.Store(h, true)
+					}
 				}
 			}
 		}()
@@ -98,11 +105,11 @@ func TestHandler_GetOrCreateHubConcorrenteAoEncerramento(t *testing.T) {
 	// O encerramento passa pelo canal interno e é processado na goroutine run() do hub antigo.
 	antigo.BroadcastRoomClosed()
 
-	var novo *Hub
+	recusou := false
 	prazo := time.Now().Add(2 * time.Second)
 	for time.Now().Before(prazo) {
-		if h := handler.getOrCreateHub(roomID); h != antigo {
-			novo = h
+		if _, ok := handler.getOrCreateHub(roomID); !ok {
+			recusou = true
 			break
 		}
 		time.Sleep(time.Millisecond)
@@ -110,22 +117,17 @@ func TestHandler_GetOrCreateHubConcorrenteAoEncerramento(t *testing.T) {
 	close(parar)
 	wg.Wait()
 
-	if novo == nil {
-		t.Fatal("getOrCreateHub continuou devolvendo o hub encerrado")
+	if !recusou {
+		t.Fatal("getOrCreateHub continuou aceitando a sala encerrada")
 	}
 	if !antigo.isClosed() {
 		t.Fatal("o hub antigo deveria estar encerrado")
 	}
-	if novo.isClosed() {
-		t.Fatal("o hub novo não deveria estar encerrado")
-	}
-	novo.statusMu.RLock()
-	status := novo.status
-	novo.statusMu.RUnlock()
-	if status != SessionWaiting {
-		t.Fatalf("status do hub novo = %s; esperado waiting", status)
-	}
-	if atual := handler.getOrCreateHub(roomID); atual != novo {
-		t.Fatal("getOrCreateHub deveria reaproveitar o hub novo enquanto ele não encerra")
+	novos.Range(func(any, any) bool {
+		t.Fatal("nenhum hub novo deveria ser criado para a sala encerrada")
+		return false
+	})
+	if handler.GetHub(roomID) != antigo {
+		t.Fatal("o hub encerrado deveria continuar no mapa como marcador")
 	}
 }
