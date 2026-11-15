@@ -59,16 +59,16 @@ Checks:
 - [x] Modo dev (`MLAB_DEV_MONOREPO`/`turbo.json`) continua sem iniciar backend.
 
 ### T3404 — Desktop: fechar a janela principal encerra overlay e app
-[ ] T3404 [US-3401]
+[x] T3404 [US-3401]
 Depends On: T3403
 Allowed Paths: `apps/desktop/src/main/main.ts`
 Prohibited Paths: `apps/desktop/src/main/annotationOverlayWindow.ts`, `apps/desktop/src/main/preload.ts`,
 `apps/desktop/src/renderer/**`, `apps/backend/**`, `packages/**`, `package.json`
 Checks:
-- [ ] `closed` da janela principal chama `annotationOverlayManager.stop()` e `cursorPresenceTracker.stop()` (RF-3401).
-- [ ] Windows/Linux: `closed` da janela principal chama `app.quit()` mesmo com o overlay aberto (RF-3402, C-3402).
-- [ ] macOS: `window-all-closed` não encerra o backend; `activate` reabre a janela com o backend vivo (C-3403).
-- [ ] Verificação manual (Windows): transmissão com overlay aberto, fechar pelo X ⇒ nenhum `MLab.exe` restante.
+- [x] `closed` da janela principal chama `annotationOverlayManager.stop()` e `cursorPresenceTracker.stop()` (RF-3401).
+- [x] Windows/Linux: `closed` da janela principal chama `app.quit()` mesmo com o overlay aberto (RF-3402, C-3402).
+- [x] macOS: `window-all-closed` não encerra o backend; `activate` reabre a janela com o backend vivo (C-3403).
+- [x] Verificação manual (Windows): transmissão com overlay aberto, fechar pelo X ⇒ nenhum `MLab.exe` restante.
 
 ### T3405 — Desktop: instância única
 [ ] T3405 [US-3404]

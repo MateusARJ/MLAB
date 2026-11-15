@@ -196,6 +196,18 @@ function createWindow(): void {
     }
   })
 
+  // A janela principal é a única que mantém o app (034/C-3402): fechá-la libera o overlay de marcação e o
+  // rastreador de cursor, que são janelas/recursos independentes e impediriam o window-all-closed (RF-3401).
+  // No Windows/Linux o app encerra; no macOS segue no Dock com o backend vivo (C-3403).
+  win.on('closed', () => {
+    logApp('[Main] Janela principal fechada: encerrando overlay e rastreador de cursor')
+    annotationOverlayManager.stop()
+    cursorPresenceTracker.stop()
+    if (process.platform !== 'darwin') {
+      app.quit()
+    }
+  })
+
   // Logoff/desligamento do Windows: não há tempo para o encerramento assíncrono (034/RF-3403).
   win.on('session-end', () => {
     logApp('[Main] session-end: encerrando o backend de forma síncrona')
@@ -667,13 +679,13 @@ app.on('will-quit', () => {
   backend.forceKillSync()
 })
 
+// macOS: o app segue no Dock e o backend continua vivo para a próxima janela (activate); Cmd+Q passa pelo
+// procedimento único (034/C-3403).
 app.on('window-all-closed', () => {
   annotationOverlayManager.stop()
   cursorPresenceTracker.stop()
   if (process.platform !== 'darwin') {
     app.quit()
-  } else {
-    void backend.stop()
   }
 })
 
