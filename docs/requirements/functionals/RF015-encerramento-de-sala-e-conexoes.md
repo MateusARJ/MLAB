@@ -22,6 +22,9 @@ Liberar recursos do servidor (portas UDP, memória) e informar a todos que a aul
 
 - O backend envia a mensagem WS `room-closed` em broadcast.
 - O SFU destrói as sessões Pion ativas da sala e o Hub remove a referência da sala em memória.
+- O encerramento vale pelos três caminhos — REST `POST /rooms/{id}/close`, `end-session` pelo WebSocket e timeout de
+  30 s de reconexão do professor (RN-13): a sala é marcada `closed`, removida do store e seus arquivos são liberados,
+  então o link passa a responder `404` no `join` e no `info` (feature 033).
 
 ---
 

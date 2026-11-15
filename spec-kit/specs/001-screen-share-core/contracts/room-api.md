@@ -144,10 +144,14 @@ Dados públicos da sala para a tela de entrada do aluno. Sem autenticação.
 
 **Response 200:**
 ```json
-{ "room_id": "uuid", "slug": "string", "title": "string", "professor_name": "string", "status": "waiting | publishing | reconnecting | closed" }
+{ "room_id": "uuid", "slug": "string", "title": "string", "professor_name": "string", "status": "waiting | publishing | reconnecting" }
 ```
 
-**Errors:** `404 Room not found`.
+**Errors:**
+- `404 "sala não encontrada"` — sala inexistente ou já removida do store (encerrada pela REST `close` ou pelo hub).
+- `404 "esta transmissão já foi encerrada"` — sala `closed` ainda presente no store.
+
+> Sala encerrada nunca aparece no `200`: o encerramento a remove do store (033/RF-3303, C-3303).
 
 ---
 

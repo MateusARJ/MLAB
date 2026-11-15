@@ -1,6 +1,7 @@
 package room
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -93,11 +94,12 @@ func (h *Handler) SetStudentConnectedChecker(fn StudentConnectedFunc) {
 	h.studentConnected = fn
 }
 
-// mdnsClaim e mdnsHost escolhem/anunciam e leem o nome mDNS deste backend. Variáveis para os testes do handler não
-// usarem a rede.
+// mdnsClaim e mdnsHost escolhem/anunciam e leem o nome mDNS deste backend; mdnsStop encerra o anúncio no
+// encerramento pelo hub. Variáveis para os testes do handler não usarem a rede.
 var (
 	mdnsClaim = ClaimMDNSName
 	mdnsHost  = CurrentMDNSHost
+	mdnsStop  = StopMDNSServer
 )
 
 // getOutboundIP descobre o endereço IP de saída da interface de rede primária física.
@@ -537,6 +539,27 @@ func (h *Handler) closeRoom(w http.ResponseWriter, r *http.Request) {
 		Status:   StatusClosed,
 		ClosedAt: now.Format(time.RFC3339),
 	})
+}
+
+// CloseRoomFromSession encerra no store a sala que o hub de sinalização encerrou (end-session ou timeout de
+// reconexão do professor — RN-13, RF-18; 033/RF-3301), na mesma sequência da REST close: a sala é marcada
+// `closed`, removida do store e o link passa a responder 404 (033/RF-3302).
+//
+// O hub também chama este listener depois de uma REST close, que já removeu a sala. Nesse caso só os arquivos são
+// liberados: o anúncio mDNS fica intacto, porque pode já pertencer a uma sala criada depois (033/RNF-3301). Repetir a
+// chamada não falha (033/RNF-3302).
+func (h *Handler) CloseRoomFromSession(roomID string) {
+	ctx := context.Background()
+	if rm, err := h.store.GetRoomByID(ctx, roomID); err == nil && rm.Status != StatusClosed {
+		now := time.Now().UTC()
+		if err := h.store.UpdateRoomStatus(ctx, roomID, StatusClosed, &now); err != nil {
+			log.Printf("room: CloseRoomFromSession: UpdateRoomStatus: %v", err)
+		}
+		_ = h.store.DeleteRoom(ctx, roomID)
+		mdnsStop()
+		log.Printf("room: sala %s encerrada pelo hub de sinalização", roomID)
+	}
+	h.ReleaseRoomFiles(roomID)
 }
 
 // ── GET /rooms/active ─────────────────────────────────────────────────────────
