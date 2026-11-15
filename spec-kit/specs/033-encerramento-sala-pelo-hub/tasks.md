@@ -2,7 +2,7 @@
 
 Feature: `033-encerramento-sala-pelo-hub`
 Prerequisites: spec/clarify/plan/checklist/analyze aprovados
-Status: IN PROGRESS
+Status: DONE
 
 Regras:
 - `go test ./...` e `go vet ./...` em `apps/backend`; `gofmt -l` vazio nos arquivos Go alterados antes de marcar `[x]`;
@@ -58,10 +58,10 @@ Checks:
 - [x] `npm run spec:check -- spec-kit/specs/033-encerramento-sala-pelo-hub` com PASS.
 
 ### T3305 — Versão
-[ ] T3305
+[x] T3305
 Depends On: T3304
 Allowed Paths: `package.json`, `package-lock.json`, `apps/*/package.json`, `packages/*/package.json`,
 `spec-kit/specs/033-encerramento-sala-pelo-hub/tasks.md`
 Prohibited Paths: `apps/**/src/**`, `apps/backend/**`, `packages/**/src/**`, `.github/**`
 Checks:
-- [ ] `npm run bump -- patch` e `npm run version:check`; commit `chore(release): versao X.Y.Z`.
+- [x] `npm run bump -- patch` e `npm run version:check`; commit `chore(release): versao X.Y.Z`.
