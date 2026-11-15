@@ -29,6 +29,10 @@ type Handler struct {
 	// roomClosedListener é notificado quando um hub encerra a sala pelo WebSocket.
 	// Configurado uma única vez na inicialização, antes de servir requisições.
 	roomClosedListener func(roomID string)
+
+	// roomStatusListener é notificado quando o status da sessão de um hub muda para `publishing` ou `reconnecting`
+	// (035/RF-3501). Configurado uma única vez na inicialização, antes de servir requisições.
+	roomStatusListener func(roomID string, status SessionStatus)
 }
 
 // NewHandler cria um Handler de sinalização.
@@ -136,7 +140,10 @@ func (h *Handler) getOrCreateHub(roomID string) *Hub {
 		}
 	}
 
-	hub := newHub(roomID, h.sfu, h.notifyRoomClosed)
+	hub := newHubWithCallbacks(roomID, h.sfu, hubCallbacks{
+		onClosed:        h.notifyRoomClosed,
+		onStatusChanged: h.notifyRoomStatus,
+	})
 	h.hubs[roomID] = hub
 	log.Printf("signaling: hub criado para sala %s", roomID)
 	return hub
@@ -151,6 +158,18 @@ func (h *Handler) SetRoomClosedListener(fn func(roomID string)) {
 func (h *Handler) notifyRoomClosed(roomID string) {
 	if h.roomClosedListener != nil {
 		h.roomClosedListener(roomID)
+	}
+}
+
+// SetRoomStatusListener registra quem deve ser avisado quando o status da sessão de um hub muda para `publishing`
+// ou `reconnecting` (035/RF-3501). Deve ser chamado antes de servir requisições.
+func (h *Handler) SetRoomStatusListener(fn func(roomID string, status SessionStatus)) {
+	h.roomStatusListener = fn
+}
+
+func (h *Handler) notifyRoomStatus(roomID string, status SessionStatus) {
+	if h.roomStatusListener != nil {
+		h.roomStatusListener(roomID, status)
 	}
 }
 

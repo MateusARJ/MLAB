@@ -46,7 +46,7 @@ Checks:
   removida continua `404` (RF-3502, RNF-3501).
 
 ### T3504 — Hub avisa a mudança de status e o servidor liga o aviso ao store
-[ ] T3504
+[x] T3504
 Depends On: T3503
 Allowed Paths: `apps/backend/internal/signaling/hub.go`, `apps/backend/internal/signaling/handler.go`,
 `apps/backend/internal/signaling/hub_status_test.go`, `apps/backend/cmd/server/main.go`,
@@ -54,11 +54,12 @@ Allowed Paths: `apps/backend/internal/signaling/hub.go`, `apps/backend/internal/
 Prohibited Paths: `apps/backend/internal/signaling/message.go`, `apps/backend/internal/room/**`,
 `apps/backend/internal/webrtc/**`, `apps/web/**`, `apps/desktop/**`, `packages/**`, `package.json`
 Checks:
-- [ ] `setStatus` substitui as atribuições de `publishing`/`reconnecting`; avisa só quando o status muda e nunca para
+- [x] `setStatus` substitui as atribuições de `publishing`/`reconnecting`; avisa só quando o status muda e nunca para
   `closed` (RF-3501).
-- [ ] `newHub` recebe `hubCallbacks` opcional; testes existentes com `newHub(id, nil)` compilam sem mudança.
-- [ ] `SetRoomStatusListener` no `signaling.Handler`; `main.go` liga a `roomHandler.SyncStatusFromSession`.
-- [ ] `hub_status_test.go`: professor registra → `publishing`; publisher cai → `reconnecting`; volta → `publishing`;
+- [x] `newHubWithCallbacks` recebe `hubCallbacks`; `newHub` delega a ele e os testes existentes (inclusive
+  `newHub(id, nil, onClosed)` em `hub_test.go`) compilam sem mudança.
+- [x] `SetRoomStatusListener` no `signaling.Handler`; `main.go` liga a `roomHandler.SyncStatusFromSession`.
+- [x] `hub_status_test.go`: professor registra → `publishing`; publisher cai → `reconnecting`; volta → `publishing`;
   sem aviso repetido; encerramento não passa pelo callback (RF-3501, RNF-3502).
 
 ### T3505 — Tipo compartilhado
