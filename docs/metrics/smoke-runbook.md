@@ -23,7 +23,9 @@ Você precisa de: este PC com Windows, o WSL com Linux, o celular na **mesma Wi-
    - Instalador Windows: `npm run make:win` → instale o `.exe` de `apps/desktop/dist/`.
      (`make:win` não altera a versão; só `npm run make` altera.)
    - Linux: `npm run make:linux:appimage` → rode o `.AppImage` no WSL (WSLg).
-2. Feche qualquer instância antiga do MLab antes de cada rodada (o app sobe o backend na porta 8080).
+2. Antes de cada rodada, confira no Gerenciador de Tarefas que não sobrou `MLab.exe` nem `mlab-backend.exe`. Desde a
+   feature 034 o app encerra o backend ao fechar e encerra sozinho um backend órfão do MLab na porta 8080; se sobrar
+   algum processo, registre como desvio e anexe `mlab-main.log` e `mlab-backend.log`.
 3. Anote no JSON qual build foi usado (dev, Windows empacotado, Linux empacotado).
 
 Use a matrícula `2025116TADS0001` para os alunos.

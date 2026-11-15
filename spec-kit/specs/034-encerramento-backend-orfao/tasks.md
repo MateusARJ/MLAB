@@ -135,11 +135,11 @@ Checks:
   | `server.exe` 1.15.x órfão + abrir o app novo | órfão encerrado; professor entra |
   | `server.exe` órfão + instalar por cima | sem "arquivo em uso" |
   | logoff do Windows com o MLab aberto | nada restante após novo login |
-- [ ] README: nome do binário e, em "Solução de problemas", onde ficam `mlab-main.log`/`mlab-backend.log`.
-- [ ] `smoke-runbook.md:26` atualizado (o app encerra órfãos sozinho; instrução vira verificação).
-- [ ] `converge.md` com evidências, desvios e impacto de versão (PATCH, C-3407).
+- [x] README: nome do binário e, em "Solução de problemas", onde ficam `mlab-main.log`/`mlab-backend.log`.
+- [x] `smoke-runbook.md:26` atualizado (o app encerra órfãos sozinho; instrução vira verificação).
+- [x] `converge.md` com evidências, desvios e impacto de versão (PATCH, C-3407).
 - [ ] `npm run bump -- patch` e `npm run version:check`; commit `chore(release): versao X.Y.Z`.
-- [ ] `npm run spec:check -- spec-kit/specs/034-encerramento-backend-orfao` com PASS.
+- [x] `npm run spec:check -- spec-kit/specs/034-encerramento-backend-orfao` com PASS.
 
 ## Definition of Done da feature
 

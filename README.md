@@ -407,6 +407,10 @@ cd apps/backend
 go build -ldflags="-s -w" -o ./bin/mlab-server ./cmd/server
 ```
 
+Nos instaladores o binário se chama `mlab-backend.exe` (Windows) ou `mlab-backend` (Linux/macOS), em `resources/bin/`.
+O app inicia o backend e o encerra ao fechar; se o app morrer, o backend se encerra sozinho em poucos segundos. Até a
+1.15.x o binário se chamava `server.exe`/`server`.
+
 ---
 
 ## Versionamento e Releases
@@ -482,6 +486,8 @@ Encontrou uma vulnerabilidade? Abra uma issue sem detalhes de exploração e pe�
 | macOS: "o app está danificado" | `xattr -cr /Applications/MLab.app` |
 | Linux: captura falha no Wayland | Instale `xdg-desktop-portal` e PipeWire, ou entre numa sessão Xorg. |
 | Windows: SmartScreen bloqueia o instalador | **Mais informações → Executar assim mesmo** (o instalador não é assinado). |
+| O professor não entra depois de reabrir o app | Um backend de uma execução anterior pode ter ficado na porta `8080`. No Windows o MLab encerra sozinho o backend órfão ao abrir. Se a porta estiver com outro programa, o conflito fica no `mlab-main.log`: feche esse programa. |
+| O MLab parece continuar rodando depois de fechado | Veja os logs na pasta de dados do app: Windows `%APPDATA%\@mlab\desktop\logs`, Linux `~/.config/@mlab/desktop/logs`, macOS `~/Library/Application Support/@mlab/desktop/logs`. O `mlab-main.log` registra a partida e cada etapa do encerramento; o `mlab-backend.log`, o motivo e a duração do encerramento do backend. Anexe os dois ao abrir uma issue. |
 
 ### Limitações conhecidas
 
