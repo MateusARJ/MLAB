@@ -588,7 +588,13 @@ async function startBackendServer(): Promise<void> {
   const result = await backend.start({
     binaryPath,
     cwd: app.getPath('userData'),
-    env: buildBackendEnv({ base: process.env, webDir, parentPid: process.pid })
+    env: buildBackendEnv({
+      base: process.env,
+      webDir,
+      parentPid: process.pid,
+      // Log persistente do backend, ao lado do mlab-main.log (RF-3414).
+      logFile: join(app.getPath('userData'), 'logs', 'mlab-backend.log')
+    })
   })
   logApp(`[Backend] Resultado da partida: ${result}`)
 }
@@ -615,22 +621,29 @@ function shutdown(reason: string): Promise<void> {
   // Sem sala ativa o backend não é mais necessário: bloqueia já uma partida em andamento (RF-3406).
   if (!activeRoom) void backend.stop()
 
-  shutdownPromise = (async () => {
+  const started = Date.now()
+  const step = async (name: string, run: () => unknown): Promise<void> => {
+    const t0 = Date.now()
     try {
-      await closeActiveRoomGracefully()
+      await run()
+      logApp(`[Main] Encerramento: ${name} em ${Date.now() - t0} ms`)
     } catch (err) {
-      logApp(`[Main] Erro ao encerrar a sala ativa: ${err}`)
+      logApp(`[Main] Encerramento: ${name} falhou após ${Date.now() - t0} ms: ${err}`)
     }
-    annotationOverlayManager.dispose()
-    cursorPresenceTracker.dispose()
-    await backend.stop()
-  })()
-    .catch((err) => logApp(`[Main] Erro no encerramento: ${err}`))
-    .finally(() => {
-      clearTimeout(timer)
-      logApp('[Main] Encerramento concluído')
-      app.exit(0)
+  }
+
+  shutdownPromise = (async () => {
+    await step('sala ativa', closeActiveRoomGracefully)
+    await step('overlay e rastreador de cursor', () => {
+      annotationOverlayManager.dispose()
+      cursorPresenceTracker.dispose()
     })
+    await step('backend', () => backend.stop())
+  })().finally(() => {
+    clearTimeout(timer)
+    logApp(`[Main] Encerramento concluído em ${Date.now() - started} ms`)
+    app.exit(0)
+  })
   return shutdownPromise
 }
 
@@ -639,6 +652,7 @@ function shutdown(reason: string): Promise<void> {
 app.whenReady().then(() => {
   // Sem a trava de instância única esta instância já está saindo: nem janela nem backend (RF-3410).
   if (!hasSingleInstanceLock) return
+  logApp(`[Main] Partida do MLab ${app.getVersion()} (PID: ${process.pid}, plataforma: ${process.platform})`)
   logApp('[Main] app.whenReady disparado. Configurando sessão e abrindo janela...')
 
   // Configuração explícita de permissões do Chromium para captura e áudio

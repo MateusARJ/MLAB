@@ -355,6 +355,40 @@ describe('BackendManager.forceKillSync', () => {
   })
 })
 
+describe('diagnóstico (034/T3406: RF-3413, RNF-3402)', () => {
+  it('o tasklist do diagnóstico não atrasa o spawn', async () => {
+    const execText = vi.fn(() => new Promise<string>(() => {})) // tasklist que nunca responde
+    const h = harness({ execText })
+    expect(await new BackendManager(h.deps).start(config)).toBe('started')
+    expect(execText).toHaveBeenCalledWith('tasklist', ['/FO', 'CSV', '/NH'])
+    expect(h.spawnCalls).toHaveLength(1)
+  })
+
+  it('nenhum log contém a chave de host nem o JWT_SECRET', async () => {
+    const secrets = { MLAB_HOST_KEY: 'chave-host-super-secreta', JWT_SECRET: 'jwt-super-secreto' }
+    const h = harness({
+      fetchHealth: async () => true,
+      execText: async (command) =>
+        command === 'netstat' ? NETSTAT_EN : '"node.exe","7777","Console","1","10.000 K"\r\n'
+    })
+    const env = buildBackendEnv({ base: secrets, webDir: '/web', parentPid: 1, logFile: '/logs/mlab-backend.log' })
+    const m = new BackendManager(h.deps)
+    await m.start({ ...config, env }) // porta de terceiros: registra o dono
+    const h2 = harness()
+    h2.child.exitsOnStdinEnd = false
+    const m2 = new BackendManager(h2.deps)
+    await m2.start({ ...config, env })
+    h2.child.stderr.emit('data', Buffer.from('backend escutando\n'))
+    await m2.stop()
+    m2.forceKillSync()
+
+    const all = [...h.logs, ...h2.logs].join('\n')
+    expect(all.length).toBeGreaterThan(0)
+    expect(all).not.toContain(secrets.MLAB_HOST_KEY)
+    expect(all).not.toContain(secrets.JWT_SECRET)
+  })
+})
+
 describe('BackendManager.logProcessSnapshot', () => {
   it('Windows: lista só os backends do MLab', async () => {
     const h = harness({

@@ -81,16 +81,16 @@ Checks:
 - [x] `second-instance` restaura (se minimizada), mostra e foca a janela principal (RF-3410).
 
 ### T3406 — Desktop: logs de diagnóstico do ciclo de vida
-[ ] T3406 [US-3405]
+[x] T3406 [US-3405]
 Depends On: T3403
 Allowed Paths: `apps/desktop/src/main/main.ts`, `apps/desktop/src/main/backendManager.ts`,
 `apps/desktop/src/main/backendManager.test.ts`
 Prohibited Paths: `apps/desktop/src/renderer/**`, `apps/backend/**`, `packages/**`, `package.json`
 Checks:
-- [ ] `mlab-main.log` registra os itens de RF-3413 (PID/versão, resultado da partida, dono da 8080, processos no
+- [x] `mlab-main.log` registra os itens de RF-3413 (PID/versão, resultado da partida, dono da 8080, processos no
   Windows, etapas do encerramento com duração, código de saída do backend).
-- [ ] `MLAB_LOG_FILE` aponta para `<userData>/logs/mlab-backend.log` (RF-3414).
-- [ ] Teste: o diagnóstico `tasklist` não atrasa o `spawn`; nenhum log contém `MLAB_HOST_KEY`/`JWT_SECRET`.
+- [x] `MLAB_LOG_FILE` aponta para `<userData>/logs/mlab-backend.log` (RF-3414).
+- [x] Teste: o diagnóstico `tasklist` não atrasa o `spawn`; nenhum log contém `MLAB_HOST_KEY`/`JWT_SECRET`.
 
 ### T3407 — Build: renomeia o binário do backend
 [ ] T3407 [US-3406]
