@@ -45,18 +45,18 @@ Checks:
 - [x] `stop()` antes de `start()` impede partidas futuras.
 
 ### T3403 — Desktop: procedimento único de encerramento
-[ ] T3403 [US-3401] [US-3402]
+[x] T3403 [US-3401] [US-3402]
 Depends On: T3402
 Allowed Paths: `apps/desktop/src/main/main.ts`
 Prohibited Paths: `apps/desktop/src/main/annotationOverlayWindow.ts`, `apps/desktop/src/main/cursorPresence.ts`,
 `apps/desktop/src/main/preload.ts`, `apps/desktop/src/renderer/**`, `apps/backend/**`, `packages/**`, `package.json`
 Checks:
-- [ ] `isPortInUse`, `startBackendServer`/`stopBackendServer` antigos substituídos pelo `BackendManager`.
-- [ ] `shutdown(reason)` idempotente: sala ativa → overlay/cursor → `backend.stop()` → `app.exit(0)` (RF-3403).
-- [ ] `before-quit`, `SIGINT`, `SIGTERM` usam o procedimento; timeout de 8 s com `forceKillSync()` (RF-3405).
-- [ ] `session-end` (Windows), `will-quit` e `process 'exit'` só chamam `forceKillSync()` (síncrono).
-- [ ] `set-active-room` ignora reativação durante o encerramento.
-- [ ] Modo dev (`MLAB_DEV_MONOREPO`/`turbo.json`) continua sem iniciar backend.
+- [x] `isPortInUse`, `startBackendServer`/`stopBackendServer` antigos substituídos pelo `BackendManager`.
+- [x] `shutdown(reason)` idempotente: sala ativa → overlay/cursor → `backend.stop()` → `app.exit(0)` (RF-3403).
+- [x] `before-quit`, `SIGINT`, `SIGTERM` usam o procedimento; timeout de 8 s com `forceKillSync()` (RF-3405).
+- [x] `session-end` (Windows), `will-quit` e `process 'exit'` só chamam `forceKillSync()` (síncrono).
+- [x] `set-active-room` ignora reativação durante o encerramento.
+- [x] Modo dev (`MLAB_DEV_MONOREPO`/`turbo.json`) continua sem iniciar backend.
 
 ### T3404 — Desktop: fechar a janela principal encerra overlay e app
 [ ] T3404 [US-3401]

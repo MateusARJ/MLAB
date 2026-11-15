@@ -11,14 +11,13 @@ import {
 } from 'electron'
 import { join } from 'path'
 import { existsSync, appendFileSync, mkdirSync, chmodSync, promises as fsPromises } from 'fs'
-import { spawn, ChildProcess } from 'child_process'
-import http from 'http'
 import type { AnnotationSessionState } from '@mlab/types'
 import { CursorPresenceTracker, type CursorTrackingTarget } from './cursorPresence'
 import { AnnotationOverlayManager } from './annotationOverlayWindow'
 import { resolveHostKey } from './hostKey'
 import { hardenWebContents } from './navigationGuard'
 import { buildAppInfo, type AppMeta } from './appInfo'
+import { BackendManager, buildBackendEnv, createDefaultDeps } from './backendManager'
 
 // Injetado pelo electron-vite no build do main (electron.vite.config.ts, 021/C-2105).
 declare const __MLAB_APP_META__: AppMeta
@@ -197,6 +196,12 @@ function createWindow(): void {
     }
   })
 
+  // Logoff/desligamento do Windows: não há tempo para o encerramento assíncrono (034/RF-3403).
+  win.on('session-end', () => {
+    logApp('[Main] session-end: encerrando o backend de forma síncrona')
+    backend.forceKillSync()
+  })
+
   win.webContents.on('did-fail-load', (_event, errorCode, errorDescription, validatedURL) => {
     logApp(`[Main WebContents DID-FAIL-LOAD] code=${errorCode}, desc=${errorDescription}, url=${validatedURL}`)
   })
@@ -343,6 +348,11 @@ ipcMain.handle('get-app-info', () => buildAppInfo(app.getVersion(), __MLAB_APP_M
 let activeRoom: { id: string; token?: string } | null = null
 
 ipcMain.handle('set-active-room', (_event, room: { id: string; token?: string } | null) => {
+  // Durante o encerramento a sala já foi (ou está sendo) encerrada: não reativa (034/RF-3403).
+  if (room && shutdownPromise) {
+    logApp(`[Main] activeRoom ignorada durante o encerramento: ${room.id}`)
+    return
+  }
   activeRoom = room
   if (!room) {
     annotationOverlayManager.stop()
@@ -459,22 +469,8 @@ async function closeActiveRoomGracefully(): Promise<void> {
 
 // ── Backend Process Manager (Servidor Go SFU Invisível) ──────────────────────
 
-let serverProcess: ChildProcess | null = null
-
-function isPortInUse(port = 8080): Promise<boolean> {
-  return new Promise((resolve) => {
-    const req = http.get(`http://127.0.0.1:${port}/health`, (res) => {
-      resolve(res.statusCode === 200)
-    })
-    req.on('error', () => {
-      resolve(false)
-    })
-    req.setTimeout(500, () => {
-      req.destroy()
-      resolve(false)
-    })
-  })
-}
+// Partida, encerramento e órfãos do backend ficam no BackendManager (034/T3402).
+const backend = new BackendManager(createDefaultDeps(logApp))
 
 function getBackendExecutablePath(): string | null {
   const isDev = !app.isPackaged
@@ -541,19 +537,8 @@ async function startBackendServer(): Promise<void> {
     } catch {}
   }
 
-  const inUse = await isPortInUse(8080)
-  if (inUse) {
-    console.log('[Backend] Servidor já detectado ativo na porta 8080. Nenhuma nova instância foi iniciada.')
-    return
-  }
-
   const binaryPath = getBackendExecutablePath()
-  if (!binaryPath) {
-    console.warn('[Backend] Executável do backend não encontrado. O app aguardará servidor externo na porta 8080.')
-    return
-  }
-
-  if (process.platform !== 'win32') {
+  if (binaryPath && process.platform !== 'win32') {
     try {
       chmodSync(binaryPath, 0o755)
     } catch (err) {
@@ -561,76 +546,58 @@ async function startBackendServer(): Promise<void> {
     }
   }
 
-  console.log(`[Backend] Iniciando servidor em segundo plano de forma invisível: ${binaryPath}`)
+  const webDir = app.isPackaged
+    ? join(process.resourcesPath, 'web')
+    : join(process.cwd(), '../web/dist')
 
-  try {
-    const webDir = app.isPackaged
-      ? join(process.resourcesPath, 'web')
-      : join(process.cwd(), '../web/dist')
-
-    serverProcess = spawn(binaryPath, [], {
-      cwd: app.getPath('userData'),
-      detached: false,
-      windowsHide: true,
-      stdio: ['ignore', 'pipe', 'pipe'],
-      env: {
-        ...process.env,
-        PORT: '8080',
-        WEB_PORT: '8080',
-        // JWT_SECRET só é repassado se vier do ambiente (via ...process.env);
-        // caso contrário o backend gera um segredo aleatório por execução (ADR 0006).
-        WEB_DIR: webDir
-      }
-    })
-
-    serverProcess.stdout?.on('data', (data: Buffer) => {
-      const msg = data.toString().trim()
-      logApp(`[Backend] ${msg}`)
-      console.log(`[Backend] ${msg}`)
-    })
-
-    serverProcess.stderr?.on('data', (data: Buffer) => {
-      const msg = data.toString().trim()
-      logApp(`[Backend ERR] ${msg}`)
-      console.error(`[Backend ERR] ${msg}`)
-    })
-
-    serverProcess.on('error', (err) => {
-      logApp(`[Backend] Falha ao iniciar processo do backend: ${err}`)
-      console.error('[Backend] Falha ao iniciar processo do backend:', err)
-      serverProcess = null
-    })
-
-    serverProcess.on('exit', (code, signal) => {
-      logApp(`[Backend] Servidor finalizado (código: ${code}, sinal: ${signal})`)
-      console.log(`[Backend] Servidor finalizado (código: ${code}, sinal: ${signal})`)
-      serverProcess = null
-    })
-  } catch (err) {
-    logApp(`[Backend] Erro ao disparar servidor: ${err}`)
-    console.error('[Backend] Erro ao disparar servidor:', err)
-  }
+  // Porta ocupada, corrida com o fechamento e stdin do watchdog: BackendManager (RF-3404, RF-3406, RF-3409).
+  const result = await backend.start({
+    binaryPath,
+    cwd: app.getPath('userData'),
+    env: buildBackendEnv({ base: process.env, webDir, parentPid: process.pid })
+  })
+  logApp(`[Backend] Resultado da partida: ${result}`)
 }
 
-function stopBackendServer(): void {
-  if (serverProcess && serverProcess.pid) {
-    const pid = serverProcess.pid
-    logApp(`[Backend] Encerrando processo do servidor (PID: ${pid})...`)
-    console.log(`[Backend] Encerrando processo do servidor (PID: ${pid})...`)
+// ── Procedimento único de encerramento (034/RF-3403, RF-3405) ────────────────
+
+const SHUTDOWN_TIMEOUT_MS = 8000
+let shutdownPromise: Promise<void> | null = null
+
+/**
+ * Encerra o app uma única vez: sala ativa (alunos avisados) → overlay e rastreador → backend → app.exit(0).
+ * Estourando 8 s, encerra o backend de forma síncrona e sai mesmo assim.
+ */
+function shutdown(reason: string): Promise<void> {
+  if (shutdownPromise) return shutdownPromise
+  logApp(`[Main] Encerramento iniciado (motivo: ${reason})`)
+
+  const timer = setTimeout(() => {
+    logApp(`[Main] Encerramento excedeu ${SHUTDOWN_TIMEOUT_MS} ms: backend encerrado de forma síncrona`)
+    backend.forceKillSync()
+    app.exit(0)
+  }, SHUTDOWN_TIMEOUT_MS)
+
+  // Sem sala ativa o backend não é mais necessário: bloqueia já uma partida em andamento (RF-3406).
+  if (!activeRoom) void backend.stop()
+
+  shutdownPromise = (async () => {
     try {
-      if (process.platform === 'win32') {
-        spawn('taskkill', ['/pid', pid.toString(), '/f', '/t'], {
-          windowsHide: true,
-          stdio: 'ignore'
-        })
-      } else {
-        serverProcess.kill('SIGTERM')
-      }
+      await closeActiveRoomGracefully()
     } catch (err) {
-      console.error('[Backend] Erro ao encerrar processo do servidor:', err)
+      logApp(`[Main] Erro ao encerrar a sala ativa: ${err}`)
     }
-    serverProcess = null
-  }
+    annotationOverlayManager.dispose()
+    cursorPresenceTracker.dispose()
+    await backend.stop()
+  })()
+    .catch((err) => logApp(`[Main] Erro no encerramento: ${err}`))
+    .finally(() => {
+      clearTimeout(timer)
+      logApp('[Main] Encerramento concluído')
+      app.exit(0)
+    })
+  return shutdownPromise
 }
 
 // ── App lifecycle ─────────────────────────────────────────────────────────────
@@ -683,43 +650,36 @@ app.whenReady().then(() => {
   })
 })
 
-let isAppQuitting = false
-
-app.on('before-quit', async (event) => {
-  if (isAppQuitting) {
-    stopBackendServer()
-    return
-  }
-
-  if (activeRoom && activeRoom.id) {
-    event.preventDefault()
-    isAppQuitting = true
-    await closeActiveRoomGracefully()
-    stopBackendServer()
-    app.quit()
-  } else {
-    stopBackendServer()
-  }
+// Qualquer pedido de saída passa pelo procedimento único; ele termina com app.exit(0), que não reemite
+// before-quit.
+app.on('before-quit', (event) => {
+  event.preventDefault()
+  void shutdown('before-quit')
 })
 
+process.on('SIGINT', () => void shutdown('SIGINT'))
+process.on('SIGTERM', () => void shutdown('SIGTERM'))
+
+// Redes de segurança síncronas: não há como aguardar nesses pontos.
 app.on('will-quit', () => {
   annotationOverlayManager.dispose()
   cursorPresenceTracker.dispose()
-  stopBackendServer()
+  backend.forceKillSync()
 })
 
 app.on('window-all-closed', () => {
   annotationOverlayManager.stop()
   cursorPresenceTracker.stop()
-  stopBackendServer()
   if (process.platform !== 'darwin') {
     app.quit()
+  } else {
+    void backend.stop()
   }
 })
 
 process.on('exit', () => {
   annotationOverlayManager.dispose()
   cursorPresenceTracker.dispose()
-  stopBackendServer()
+  backend.forceKillSync()
 })
 
