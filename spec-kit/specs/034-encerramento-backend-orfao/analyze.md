@@ -71,6 +71,17 @@ build e empacotamento; T3409 só documentos e o bump.
 - Feature 032 altera `cursorPresence.ts` (proibido aqui) e lista `main.ts` nos seus Prohibited Paths: sem sobreposição.
 - Feature 033 (mergeada) tocou `cmd/server/main.go` em `newServer`; a T3401 altera `main()`: sem sobreposição.
 
+## 6a. Revalidação antes da T3401 (2026-11-15)
+
+- **G-1 (resolvida):** `apps/backend/package.json` usa `"dev": "go run ./cmd/server/main.go"`; com
+  `lifecycle*.go` no pacote `main`, esse comando deixaria de compilar e quebraria o `npm run dev`. O plan (§3.1,
+  Allowed Paths, Decision Log) e a T3401 (Allowed Paths e check) passam a cobrir o script `dev` →
+  `go run ./cmd/server`. Sem mudança de comportamento nem de contrato.
+- **G-2 (resolvida):** com stdout/stderr em pipe, a morte do app faria o Go encerrar por `SIGPIPE` na próxima escrita
+  em fd 1/2, antes do encerramento gracioso e do log em arquivo (RF-3414). O plan §3.1 registra `SIGPIPE` ignorado no
+  Unix, dentro de `lifecycle_unix.go` (já permitido); check acrescentado à T3401.
+- Spec, clarify e contrato não mudam; cobertura (§2) e Scope Lock (§4) continuam válidos.
+
 ## 7. Resultado
 
 - [ ] FAIL

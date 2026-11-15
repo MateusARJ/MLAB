@@ -62,6 +62,10 @@ Empacotamento
   (`os.FindProcess` + `Wait` no Windows; comparação de `os.Getppid()` no Unix, a cada 1 s). O primeiro motivo vence.
 - Encerramento gracioso: `srv.Shutdown(ctx 3 s)`, `srv.Close()` se estourar; `room.StopMDNSServer()` (função
   existente, chamada sem editar `internal/`); log do motivo e duração.
+- `SIGPIPE` ignorado no Unix (`lifecycle_unix.go`): com stdout/stderr em pipe, a morte do app não pode derrubar o
+  backend na próxima escrita de log antes do encerramento gracioso e do registro em arquivo (RF-3414).
+- Com arquivos novos no pacote `main`, o script `dev` do backend passa a ser `go run ./cmd/server` (o atual
+  `go run ./cmd/server/main.go` deixaria de compilar).
 - Log: com `MLAB_LOG_FILE`, `log.SetOutput` para um escritor que grava no arquivo e no stderr, ignorando falha de um
   deles.
 
@@ -163,7 +167,7 @@ novo é interno entre processos do mesmo pacote.
 
 - `apps/backend/cmd/server/main.go`, `apps/backend/cmd/server/lifecycle*.go`,
   `apps/backend/cmd/server/lifecycle_test.go`
-- `apps/backend/package.json` (só o nome do binário no script `build`)
+- `apps/backend/package.json` (script `dev` na T3401; nome do binário no script `build` na T3407)
 - `apps/desktop/src/main/main.ts`, `apps/desktop/src/main/backendManager.ts`,
   `apps/desktop/src/main/backendManager.test.ts`
 - `apps/desktop/package.json` (`extraResources`, `nsis.include`), `apps/desktop/installer/installer.nsh`
@@ -216,3 +220,4 @@ novo é interno entre processos do mesmo pacote.
 | 2026-11-15 | Dono da porta 8080 sem mudar `/health` | C-3401 |
 | 2026-11-15 | Janela principal encerra o app | C-3402 |
 | 2026-11-15 | macOS mantém o backend com o app no Dock | C-3403 |
+| 2026-11-15 | Script `dev` do backend vira `go run ./cmd/server`; `SIGPIPE` ignorado no Unix | analyze (revalidação) |
