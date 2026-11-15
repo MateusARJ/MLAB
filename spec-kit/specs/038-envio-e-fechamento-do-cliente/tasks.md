@@ -10,20 +10,22 @@ Regras:
 - um commit atômico por task, com `Ref: T380x` e `Refs #111`.
 
 ### T3801 — Cliente serializa envio e fechamento
-[ ] T3801
+[x] T3801
 Allowed Paths: `apps/backend/internal/signaling/client.go`, `apps/backend/internal/signaling/client_test.go`,
 `spec-kit/specs/038-envio-e-fechamento-do-cliente/tasks.md`
 Prohibited Paths: `apps/backend/internal/signaling/hub.go`, `apps/backend/internal/signaling/handler.go`,
 `apps/backend/internal/signaling/message.go`, `apps/backend/internal/room/**`, `apps/backend/internal/webrtc/**`,
 `apps/backend/cmd/**`, `apps/web/**`, `apps/desktop/**`, `packages/**`, `package.json`
 Checks:
-- [ ] `safeSend` e `closeWithCode` sob o lock do cliente; envio depois do fechamento devolve `false` sem tocar no canal
+- [x] `safeSend` e `closeWithCode` sob o lock do cliente; envio depois do fechamento devolve `false` sem tocar no canal
   (RF-3801).
-- [ ] Buffer cheio continua descartando sem bloquear (RF-3802); fechamento idempotente com o primeiro close code
+- [x] Buffer cheio continua descartando sem bloquear (RF-3802); fechamento idempotente com o primeiro close code
   (RF-3803).
-- [ ] Testes: envio depois do fechamento; envios concorrentes ao fechamento; buffer cheio; segundo fechamento sem efeito.
-- [ ] `go test -race ./internal/signaling/ ./cmd/server/` num container Linux sem corrida, incluindo
-  `TestServeWS_ConexaoDuranteEncerramento` (RNF-3801).
+- [x] Testes: envio depois do fechamento; envios concorrentes ao fechamento; buffer cheio; segundo fechamento sem efeito.
+- [x] `go test -race ./internal/signaling/ ./cmd/server/` num container Linux (`golang:1.26`) sem corrida, incluindo
+  `TestServeWS_ConexaoDuranteEncerramento` (RNF-3801): zero `DATA RACE` em 50 execuções. Na `development` @
+  `a0b9243`, o mesmo teste acusa a race. O teste ainda falha às vezes por `i/o timeout`; a causa é outra (primeira
+  mensagem descartada antes do registro), anterior a esta feature e registrada no #114.
 
 ### T3802 — Converge
 [ ] T3802

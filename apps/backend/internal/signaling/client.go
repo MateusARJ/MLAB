@@ -44,6 +44,10 @@ type Client struct {
 	handRaisedAt  time.Time
 	keyframeLimit keyframeLimiter // limite de request-keyframe do aluno (002/S9); só o hub acessa
 	closeOnce     sync.Once
+	// sendMu serializa safeSend e closeWithCode: o hub, o handler (ice-servers) e o readPump enviam em goroutines
+	// diferentes, e o envio nunca pode concorrer com close(send) (038/RF-3801). closed só muda sob sendMu.
+	sendMu sync.Mutex
+	closed bool
 	// closeCode/closeReason são definidos por closeWithCode antes de fechar o canal send;
 	// o writePump só os lê depois de observar o canal fechado. Código zero = frame vazio.
 	closeCode   int
@@ -140,11 +144,14 @@ func (c *Client) writePump() {
 	}
 }
 
-// safeSend envia dados para o canal send de forma não-bloqueante e blindada contra panics.
+// safeSend envia dados para o canal send de forma não-bloqueante. Depois do fechamento, descarta a mensagem e
+// devolve false sem tocar no canal; o lock garante que o envio não concorre com close(send) (038/RF-3801).
 func (c *Client) safeSend(data []byte) bool {
-	defer func() {
-		_ = recover()
-	}()
+	c.sendMu.Lock()
+	defer c.sendMu.Unlock()
+	if c.closed {
+		return false
+	}
 	select {
 	case c.send <- data:
 		return true
@@ -173,8 +180,11 @@ func (c *Client) close() {
 // Só a primeira chamada (de close ou closeWithCode) tem efeito.
 func (c *Client) closeWithCode(code int, reason string) {
 	c.closeOnce.Do(func() {
+		c.sendMu.Lock()
+		defer c.sendMu.Unlock()
 		c.closeCode = code
 		c.closeReason = reason
+		c.closed = true
 		close(c.send)
 	})
 }
