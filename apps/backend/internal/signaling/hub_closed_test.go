@@ -1,8 +1,15 @@
 package signaling
 
 import (
+	"context"
 	"encoding/json"
+	"net/http"
+	"net/http/httptest"
 	"testing"
+	"time"
+
+	"github.com/MateusARJ/MLAB/apps/backend/internal/auth"
+	"github.com/MateusARJ/MLAB/apps/backend/internal/room"
 )
 
 // drainTypes lê as mensagens pendentes do cliente e informa os tipos recebidos e se o canal send foi fechado.
@@ -93,5 +100,95 @@ func TestHub_RegistroAposEncerramento_ProfessorNaoReabreSessao(t *testing.T) {
 	}
 	if hub.publisherTimer != nil {
 		t.Fatal("nenhum timer de reconexão deveria ser criado")
+	}
+}
+
+// newStoreComSala cria um store em memória com uma sala aberta (waiting).
+func newStoreComSala(t *testing.T, roomID string) room.Store {
+	t.Helper()
+	store := room.NewInMemoryStore()
+	err := store.CreateRoom(context.Background(), &room.Room{
+		ID:              roomID,
+		Slug:            roomID + "-slug",
+		OwnerID:         "prof-1",
+		Status:          room.StatusWaiting,
+		MaxParticipants: 50,
+		CreatedAt:       time.Now(),
+	})
+	if err != nil {
+		t.Fatalf("CreateRoom: %v", err)
+	}
+	return store
+}
+
+// esperaEncerrar aguarda a goroutine run() processar o encerramento do hub.
+func esperaEncerrar(t *testing.T, hub *Hub) {
+	t.Helper()
+	prazo := time.Now().Add(2 * time.Second)
+	for !hub.isClosed() {
+		if time.Now().After(prazo) {
+			t.Fatal("o hub não encerrou a tempo")
+		}
+		time.Sleep(time.Millisecond)
+	}
+}
+
+// TestHandler_GetOrCreateHub_ConsultaOStore cobre RF-3703 (037, issue #107): sem hub, só a sala aberta no store ganha
+// hub; sala ausente ou closed não ganha.
+func TestHandler_GetOrCreateHub_ConsultaOStore(t *testing.T) {
+	ctx := context.Background()
+	store := newStoreComSala(t, "room-aberta")
+	if err := store.CreateRoom(ctx, &room.Room{ID: "room-fechada", Slug: "room-fechada-slug", OwnerID: "prof-2",
+		Status: room.StatusWaiting, MaxParticipants: 50, CreatedAt: time.Now()}); err != nil {
+		t.Fatalf("CreateRoom: %v", err)
+	}
+	agora := time.Now()
+	if err := store.UpdateRoomStatus(ctx, "room-fechada", room.StatusClosed, &agora); err != nil {
+		t.Fatalf("UpdateRoomStatus: %v", err)
+	}
+	handler := NewHandler(store, nil)
+
+	if hub, ok := handler.getOrCreateHub("room-aberta"); !ok || hub == nil {
+		t.Fatal("a sala aberta deveria ganhar hub")
+	}
+	for _, roomID := range []string{"room-fechada", "room-inexistente"} {
+		if _, ok := handler.getOrCreateHub(roomID); ok {
+			t.Fatalf("%s não deveria ganhar hub", roomID)
+		}
+		if handler.GetHub(roomID) != nil {
+			t.Fatalf("nenhum hub deveria ser criado para %s", roomID)
+		}
+	}
+}
+
+// TestHandler_HandshakeComHubEncerrado cobre RF-3702 e RF-3704 (037, issue #107): com a sessão já encerrada pelo hub e
+// a sala ainda no store (antes do onClosed removê-la), o handshake responde 410 e o hub não é recriado.
+func TestHandler_HandshakeComHubEncerrado(t *testing.T) {
+	const roomID = "room-handshake-encerrada"
+	t.Setenv("JWT_SECRET", "ws-closed-secret-12345") // valor de teste, não é segredo real
+	handler := NewHandler(newStoreComSala(t, roomID), nil)
+	mux := http.NewServeMux()
+	handler.RegisterRoutes(mux)
+
+	antigo, ok := handler.getOrCreateHub(roomID)
+	if !ok {
+		t.Fatal("a sala aberta deveria ganhar hub")
+	}
+	antigo.BroadcastRoomClosed()
+	esperaEncerrar(t, antigo)
+
+	token, err := auth.SignToken(auth.StudentMapClaims("aluno-1", "Aluno", "RA-01", roomID))
+	if err != nil {
+		t.Fatalf("SignToken: %v", err)
+	}
+	req := httptest.NewRequest(http.MethodGet, "/ws/rooms/"+roomID+"/signal?token="+token, nil)
+	rec := httptest.NewRecorder()
+	mux.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusGone {
+		t.Fatalf("status = %d; esperado 410", rec.Code)
+	}
+	if handler.GetHub(roomID) != antigo {
+		t.Fatal("o hub encerrado deveria continuar como marcador, sem hub novo")
 	}
 }

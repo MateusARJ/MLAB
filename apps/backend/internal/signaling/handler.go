@@ -1,6 +1,7 @@
 package signaling
 
 import (
+	"context"
 	"crypto/hmac"
 	"crypto/sha1"
 	"encoding/base64"
@@ -107,15 +108,20 @@ func (h *Handler) serveWS(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	// 5. Upgrade para WebSocket.
+	// 5. Obtém ou cria o Hub da sala antes do upgrade: sala com a sessão encerrada, ou que saiu do store depois da
+	// consulta acima, não ganha hub novo e recebe 410 (037/RF-3704).
+	hub, ok := h.getOrCreateHub(roomID)
+	if !ok {
+		http.Error(w, "sala encerrada", http.StatusGone)
+		return
+	}
+
+	// 6. Upgrade para WebSocket.
 	conn, err := h.upgrader.Upgrade(w, r, nil)
 	if err != nil {
 		log.Printf("signaling: upgrade error para room %s: %v", roomID, err)
 		return
 	}
-
-	// 6. Obtém ou cria o Hub da sala.
-	hub := h.getOrCreateHub(roomID)
 
 	// 7. Cria o cliente e o registra no hub.
 	client := newClient(hub, conn, participantID, roomID, name, studentID, Role(role))
@@ -127,16 +133,27 @@ func (h *Handler) serveWS(w http.ResponseWriter, r *http.Request) {
 	log.Printf("signaling: %s %s conectado à sala %s", role, participantID, roomID)
 }
 
-// getOrCreateHub retorna o Hub existente ou cria um novo para a sala.
-func (h *Handler) getOrCreateHub(roomID string) *Hub {
+// getOrCreateHub retorna o Hub da sala, criando-o se preciso. ok=false quando a sala não aceita mais conexões:
+//   - o hub da sala está encerrado. Ele fica no mapa como marcador e não é recriado, pois IDs de sala não se
+//     repetem (037/RF-3702);
+//   - não há hub e a sala está ausente ou closed no store. A consulta roda sob h.mu: a REST close marca a sala
+//     closed antes de procurar o hub (GetHub, também sob h.mu), então ou a sala é vista closed aqui, ou o hub criado
+//     é encontrado e encerrado (037/RF-3703). Ordem de locks: h.mu e depois o store, nunca o inverso (RNF-3701).
+func (h *Handler) getOrCreateHub(roomID string) (*Hub, bool) {
 	h.mu.Lock()
 	defer h.mu.Unlock()
 
 	if hub, ok := h.hubs[roomID]; ok {
 		if hub.isClosed() {
-			delete(h.hubs, roomID)
-		} else {
-			return hub
+			return nil, false
+		}
+		return hub, true
+	}
+
+	if h.roomStore != nil {
+		rm, err := h.roomStore.GetRoomByID(context.Background(), roomID)
+		if err != nil || rm.Status == room.StatusClosed {
+			return nil, false
 		}
 	}
 
@@ -146,7 +163,7 @@ func (h *Handler) getOrCreateHub(roomID string) *Hub {
 	})
 	h.hubs[roomID] = hub
 	log.Printf("signaling: hub criado para sala %s", roomID)
-	return hub
+	return hub, true
 }
 
 // SetRoomClosedListener registra quem deve ser avisado quando um hub encerra a sala

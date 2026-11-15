@@ -33,7 +33,7 @@ Checks:
   avisa o store; a sala segue sem clientes.
 
 ### T3703 — Handler não recria hub de sala encerrada
-[ ] T3703
+[x] T3703
 Depends On: T3702
 Allowed Paths: `apps/backend/internal/signaling/handler.go`, `apps/backend/internal/signaling/hub_status_test.go`,
 `apps/backend/internal/signaling/hub_closed_test.go`, `spec-kit/specs/037-registro-em-hub-encerrado/tasks.md`
@@ -41,11 +41,11 @@ Prohibited Paths: `apps/backend/internal/signaling/hub.go`, `apps/backend/intern
 `apps/backend/internal/room/**`, `apps/backend/internal/webrtc/**`, `apps/backend/cmd/**`, `apps/web/**`,
 `apps/desktop/**`, `packages/**`, `package.json`
 Checks:
-- [ ] `getOrCreateHub` devolve `(hub, ok)`; hub `closed` → `ok=false`, sem criar (RF-3702).
-- [ ] Criação confere o store sob `h.mu`; sala ausente ou `closed` → `ok=false` (RF-3703, RNF-3701).
-- [ ] `serveWS` obtém o hub antes do upgrade e responde `410` sem hub (RF-3704).
-- [ ] Teste da 036 ajustado: depois do encerramento, `getOrCreateHub` recusa e não cria hub (C-3702).
-- [ ] Testes: sala fora do store não ganha hub; handshake `410` por `httptest` com hub encerrado.
+- [x] `getOrCreateHub` devolve `(hub, ok)`; hub `closed` → `ok=false`, sem criar (RF-3702).
+- [x] Criação confere o store sob `h.mu`; sala ausente ou `closed` → `ok=false` (RF-3703, RNF-3701).
+- [x] `serveWS` obtém o hub antes do upgrade e responde `410` sem hub (RF-3704).
+- [x] Teste da 036 ajustado: depois do encerramento, `getOrCreateHub` recusa e não cria hub (C-3702).
+- [x] Testes: sala fora do store não ganha hub; handshake `410` por `httptest` com hub encerrado.
 
 ### T3704 — Teste de ponta a ponta da corrida
 [ ] T3704
