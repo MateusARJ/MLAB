@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
+import { clearHandToastOnLower, clearHandToastOnParticipants, type HandToast } from './handToast';
 
 export interface UseWebRTCPublisherProps {
   roomId: string;
@@ -81,12 +82,7 @@ export function useWebRTCPublisher({
   const [error, setError] = useState<string | null>(null);
   const [messages, setMessages] = useState<any[]>([]);
   const [participants, setParticipants] = useState<any[]>([]);
-  const [lastHandRaised, setLastHandRaised] = useState<{
-    participant_id: string;
-    name: string;
-    student_id?: string;
-    timestamp: number;
-  } | null>(null);
+  const [lastHandRaised, setLastHandRaised] = useState<HandToast | null>(null);
 
   const pcRef = useRef<RTCPeerConnection | null>(null);
   const wsRef = useRef<WebSocket | null>(null);
@@ -305,6 +301,8 @@ export function useWebRTCPublisher({
           } else if (msg.type === 'participants-update') {
             if (msg.payload && Array.isArray(msg.payload.participants)) {
               setParticipants(msg.payload.participants);
+              // 031, RF-3105: o aluno do aviso saiu ou está de mão abaixada.
+              setLastHandRaised((prev) => clearHandToastOnParticipants(prev, msg.payload.participants));
             }
           } else if (msg.type === 'hand-updated') {
             const update = msg.payload;
@@ -327,6 +325,9 @@ export function useWebRTCPublisher({
                   student_id: update.student_id,
                   timestamp: Date.now(),
                 });
+              } else {
+                // 031, RF-3103: mão abaixada pelo aluno ou pelo professor (confirmada pelo servidor).
+                setLastHandRaised((prev) => clearHandToastOnLower(prev, update.participant_id));
               }
             }
           } else if (msg.type === 'error') {
@@ -588,6 +589,8 @@ export function useWebRTCPublisher({
             p.participant_id === participantId ? { ...p, hand_raised: false } : p
           )
         );
+        // 031, RF-3104: o professor abaixou a mão do aluno do aviso.
+        setLastHandRaised((prev) => clearHandToastOnLower(prev, participantId));
       } catch (err) {
         console.warn('Erro ao enviar sinal de lower-hand:', err);
       }

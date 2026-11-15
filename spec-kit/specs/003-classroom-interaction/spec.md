@@ -56,6 +56,9 @@ contratos, testes e tarefas rastreáveis.
   - **Nota (017-maos-na-barra-marcacao):** fora da janela do MLab, a barra de marcação flutuante mostra a quantidade
     de mãos levantadas (ícone com número, até `9+`) e uma borda de destaque; a fila continua só dentro do MLab
     (RF-171 a RF-180 da 017).
+  - **Nota (031-aviso-mao-levantada, #90):** o aviso fica acima do canvas de marcação, então "Ver Turma" e o X
+    respondem ao clique com qualquer ferramenta; ele some quando a mão que mostra é abaixada pelo aluno, pelo
+    professor ou pela saída do aluno, mesmo com outras mãos na fila (RF-3101 a RF-3106 da 031).
 
 ### US-12 — Fixar mensagens
 

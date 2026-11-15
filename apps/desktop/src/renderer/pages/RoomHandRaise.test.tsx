@@ -148,6 +148,82 @@ describe('Room Component - Feature Levantar a Mão (Desktop)', () => {
     expect(mockDismissHandToast).toHaveBeenCalledTimes(1);
   });
 
+  const mockPublisherWithToast = (participants: any[] = []) => {
+    vi.spyOn(publisherModule, 'useWebRTCPublisher').mockReturnValue({
+      isPublishing: true,
+      connectionState: 'connected',
+      error: null,
+      messages: [],
+      participants: participants as any,
+      lastHandRaised: {
+        participant_id: 'part-aluno-1',
+        name: 'Lucas Lima',
+        timestamp: Date.now(),
+      },
+      dismissHandToast: mockDismissHandToast,
+      lowerStudentHand: mockLowerStudentHand,
+      sendChatMessage: vi.fn(),
+      pinChatMessage: vi.fn(),
+      sendStreamPause: vi.fn(),
+      startPublishing: vi.fn(),
+      changeStream: vi.fn(),
+      stopPublishing: vi.fn(),
+      endSession: vi.fn(),
+    });
+  };
+
+  const startStreaming = async () => {
+    const advanceBtn = screen.getByRole('button', { name: /Avançar e Iniciar Transmissão/i });
+    await waitFor(() => {
+      expect(advanceBtn).toBeEnabled();
+    });
+    fireEvent.click(advanceBtn);
+    await waitFor(() => {
+      expect(screen.getByRole('alert')).toBeInTheDocument();
+    });
+  };
+
+  // 031, RF-3101: fireEvent.click não passa pelo hit-testing do navegador, então a ordem de
+  // camadas é verificada pelos zIndex inline: aviso acima do canvas e abaixo da barra.
+  it('deve manter o aviso de mão levantada acima do canvas de marcação com qualquer ferramenta ativa', async () => {
+    mockPublisherWithToast();
+    render(<Room room={dummyRoom} onCloseRoom={vi.fn()} />);
+    await startStreaming();
+
+    const tools = ['cursor', 'pen', 'highlighter', 'arrow', 'rect', 'eraser', 'spotlight'];
+    for (const tool of tools) {
+      fireEvent.click(screen.getByTestId(`tool-btn-${tool}`));
+
+      const toastZ = Number(screen.getByRole('alert').style.zIndex);
+      const canvasZ = Number(screen.getByTestId('annotation-canvas').style.zIndex);
+      const toolbarZ = Number(screen.getByTestId('annotation-toolbar').style.zIndex);
+
+      expect(toastZ, `ferramenta ${tool}`).toBeGreaterThan(canvasZ);
+      expect(toastZ, `ferramenta ${tool}`).toBeLessThan(toolbarZ);
+    }
+  });
+
+  it('deve abrir a aba de alunos e dispensar o aviso ao clicar em Ver Turma', async () => {
+    mockPublisherWithToast([
+      {
+        participant_id: 'part-aluno-1',
+        name: 'Lucas Lima',
+        role: 'aluno',
+        student_id: '20241TADS0009',
+        hand_raised: true,
+        hand_raised_at: '2026-10-07T10:00:00Z',
+      },
+    ]);
+    render(<Room room={dummyRoom} onCloseRoom={vi.fn()} />);
+    await startStreaming();
+
+    fireEvent.click(screen.getByRole('button', { name: /Ver Turma/i }));
+
+    expect(mockDismissHandToast).toHaveBeenCalledTimes(1);
+    expect(screen.getByText(/Mãos Levantadas \(1\)/i)).toBeInTheDocument();
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+  });
+
   it('deve exibir botão de fixar ao lado de todas as mensagens (alunos e professor), respeitar o limite de 3 fixadas e decodificar entidades HTML de caracteres especiais', async () => {
     const mockPinChatMessage = vi.fn();
 
