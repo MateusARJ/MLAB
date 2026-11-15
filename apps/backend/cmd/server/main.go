@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"crypto/rand"
 	"encoding/hex"
 	"fmt"
@@ -8,7 +9,10 @@ import (
 	"net"
 	"net/http"
 	"os"
+	"os/signal"
 	"path/filepath"
+	"syscall"
+	"time"
 
 	"github.com/MateusARJ/MLAB/apps/backend/internal/auth"
 	"github.com/MateusARJ/MLAB/apps/backend/internal/room"
@@ -17,6 +21,15 @@ import (
 )
 
 func main() {
+	// Ciclo de vida (034/T3401): log persistente, SIGPIPE ignorado no Unix e registro da partida.
+	ignoreBrokenPipe()
+	logOut, closeLog := openLogOutput(os.Getenv(logFileEnv), os.Stderr)
+	defer closeLog()
+	log.SetOutput(logOut)
+	watchdogOn := watchdogEnabled()
+	parentPID := parseParentPID(os.Getenv(parentPIDEnv))
+	logStartup(watchdogOn, parentPID)
+
 	port := os.Getenv("PORT")
 	if port == "" {
 		port = "8080"
@@ -44,10 +57,29 @@ func main() {
 	}
 
 	addr := ":" + port
+	srv := &http.Server{Addr: addr, Handler: handler}
+	serveErr := make(chan error, 1)
+	go func() { serveErr <- srv.ListenAndServe() }()
 	log.Printf("MLab backend escutando em %s", addr)
-	if err := http.ListenAndServe(addr, handler); err != nil {
+
+	// Encerramento gracioso por sinal (RF-3408) ou, com o watchdog ligado, pela morte do app (RF-3407).
+	sigCtx, stopSignals := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stopSignals()
+	var watchdog <-chan string
+	if watchdogOn {
+		watchdog = startWatchdog(os.Stdin, parentPID, parentPollInterval)
+	}
+
+	reason, err := waitStopReason(sigCtx, serveErr, watchdog)
+	if err != nil {
 		log.Fatalf("erro no servidor: %v", err)
 	}
+	log.Printf("[Lifecycle] encerramento iniciado: %s", reason)
+	started := time.Now()
+	if err := gracefulShutdown(srv, gracefulShutdownTimeout, room.StopMDNSServer); err != nil {
+		log.Printf("[Lifecycle] encerramento gracioso excedeu %s; conexões fechadas à força: %v", gracefulShutdownTimeout, err)
+	}
+	log.Printf("[Lifecycle] encerrado em %s (motivo: %s)", time.Since(started).Round(time.Millisecond), reason)
 }
 
 // serverConfig reúne o que varia entre a execução real e os testes de smoke (004/T401).

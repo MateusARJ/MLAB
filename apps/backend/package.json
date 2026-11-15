@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "build": "go build -o ./bin/server.exe ./cmd/server",
-    "dev": "go run ./cmd/server/main.go",
+    "dev": "go run ./cmd/server",
     "test": "go test ./...",
     "test:load": "go test -tags loadtest -run TestLoad_SFUFanout -v -count=1 -timeout 10m ./internal/webrtc/",
     "test:smoke": "go test -tags smoke -run TestSmoke -v -count=1 -timeout 5m ./cmd/server/",

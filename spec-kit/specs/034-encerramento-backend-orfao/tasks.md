@@ -11,22 +11,22 @@ Regras:
 - desvio fora do escopo vira issue (`AGENTS.md` §14).
 
 ### T3401 — Backend: watchdog do processo pai e encerramento gracioso
-[ ] T3401 [US-3402] [US-3405]
+[x] T3401 [US-3402] [US-3405]
 Allowed Paths: `apps/backend/cmd/server/main.go`, `apps/backend/cmd/server/lifecycle.go`,
 `apps/backend/cmd/server/lifecycle_windows.go`, `apps/backend/cmd/server/lifecycle_unix.go`,
 `apps/backend/cmd/server/lifecycle_test.go`, `apps/backend/package.json` (só o script `dev`)
 Prohibited Paths: `apps/backend/internal/**`, `apps/desktop/**`, `apps/web/**`, `packages/**`, `scripts/**`,
 `package.json` (raiz)
 Checks:
-- [ ] Com `MLAB_PARENT_WATCHDOG=1`, EOF no stdin dispara o encerramento gracioso (RF-3407a): teste com `io.Pipe`.
-- [ ] Pai inexistente dispara; pai vivo não dispara (RF-3407b): testes com PID inválido e `os.Getppid()`.
-- [ ] Teste com processo auxiliar (binário de teste reexecutado): pai morto com `Kill` ⇒ filho sai em até 3 s.
-- [ ] `SIGINT`/`SIGTERM` e watchdog levam a `Shutdown` com timeout de 3 s e `room.StopMDNSServer()` (RF-3408).
-- [ ] `MLAB_LOG_FILE`: escrita no arquivo continua com stdout/stderr quebrado (RF-3414); nenhum segredo logado.
-- [ ] Sem `MLAB_PARENT_WATCHDOG`, a partida e as rotas não mudam; `/health` idêntico (RNF-3405); smoke do backend
+- [x] Com `MLAB_PARENT_WATCHDOG=1`, EOF no stdin dispara o encerramento gracioso (RF-3407a): teste com `io.Pipe`.
+- [x] Pai inexistente dispara; pai vivo não dispara (RF-3407b): testes com PID inválido e `os.Getppid()`.
+- [x] Teste com processo auxiliar (binário de teste reexecutado): pai morto com `Kill` ⇒ filho sai em até 3 s.
+- [x] `SIGINT`/`SIGTERM` e watchdog levam a `Shutdown` com timeout de 3 s e `room.StopMDNSServer()` (RF-3408).
+- [x] `MLAB_LOG_FILE`: escrita no arquivo continua com stdout/stderr quebrado (RF-3414); nenhum segredo logado.
+- [x] Sem `MLAB_PARENT_WATCHDOG`, a partida e as rotas não mudam; `/health` idêntico (RNF-3405); smoke do backend
   verde.
-- [ ] `GOOS=windows go vet ./cmd/server` e `GOOS=darwin go vet ./cmd/server` verdes.
-- [ ] Script `dev` do backend (`go run ./cmd/server`) compila com os arquivos novos; `SIGPIPE` ignorado no Unix.
+- [x] `GOOS=windows go vet ./cmd/server` e `GOOS=darwin go vet ./cmd/server` verdes.
+- [x] Script `dev` do backend (`go run ./cmd/server`) compila com os arquivos novos; `SIGPIPE` ignorado no Unix.
 
 ### T3402 — Desktop: módulo de gestão do processo do backend
 [ ] T3402 [US-3401] [US-3403]
