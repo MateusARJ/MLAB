@@ -269,6 +269,16 @@ func (h *Hub) HasConnectedStudent(studentID string) bool {
 }
 
 func (h *Hub) onRegister(c *Client) {
+	// Sessão encerrada (037/RF-3701): o cliente que chega depois do encerramento recebe room-closed e é fechado, como
+	// quem estava na sala; não entra em clients, não reserva matrícula e não muda status, publisher nem SFU. O
+	// unregister que o readPump envia em seguida é ignorado, pois o cliente não está em clients.
+	if h.status == SessionClosed {
+		log.Printf("hub[%s]: sessão encerrada; recusando %s %s", h.roomID, c.role, c.participantID)
+		c.sendJSON(TypeRoomClosed, struct{}{})
+		c.close()
+		return
+	}
+
 	// Sessão única (RN-04, ADR 0010): se outro aluno com a mesma matrícula já está conectado,
 	// a conexão nova é recusada com 4002 e não entra na sala; a conexão existente não muda
 	// (027/RF-2703). O unregister da conexão recusada é ignorado, pois ela não está em clients.

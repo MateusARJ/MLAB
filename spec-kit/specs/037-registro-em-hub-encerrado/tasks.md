@@ -19,7 +19,7 @@ Checks:
 - [x] Nenhum tipo, campo ou código novo (RNF-3702).
 
 ### T3702 — Hub encerrado recusa registro
-[ ] T3702
+[x] T3702
 Depends On: T3701
 Allowed Paths: `apps/backend/internal/signaling/hub.go`, `apps/backend/internal/signaling/hub_closed_test.go`,
 `spec-kit/specs/037-registro-em-hub-encerrado/tasks.md`
@@ -27,10 +27,10 @@ Prohibited Paths: `apps/backend/internal/signaling/handler.go`, `apps/backend/in
 `apps/backend/internal/signaling/client.go`, `apps/backend/internal/room/**`, `apps/backend/internal/webrtc/**`,
 `apps/web/**`, `apps/desktop/**`, `packages/**`, `package.json`
 Checks:
-- [ ] `onRegister` em hub `closed`: `room-closed`, conexão fechada, `clients`, `connectedStudents`, `publisherID` e
+- [x] `onRegister` em hub `closed`: `room-closed`, conexão fechada, `clients`, `connectedStudents`, `publisherID` e
   status intactos (RF-3701).
-- [ ] Testes: aluno e professor depois de `onRoomClose`; professor recusado não muda o status nem é aprovado; os demais
-  não recebem `participant-joined`.
+- [x] Testes: aluno e professor depois de `onRoomClose`; professor recusado não muda o status, não é aprovado nem
+  avisa o store; a sala segue sem clientes.
 
 ### T3703 — Handler não recria hub de sala encerrada
 [ ] T3703
