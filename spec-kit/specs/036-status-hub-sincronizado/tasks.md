@@ -45,13 +45,13 @@ Checks:
 - [x] Sem `workflow_dispatch` manual (o job de release roda nele).
 
 ### T3604 — Converge
-[ ] T3604
+[x] T3604
 Depends On: T3603
 Allowed Paths: `spec-kit/specs/036-status-hub-sincronizado/**`
 Prohibited Paths: `apps/**`, `packages/**`, `.github/**`, `spec-kit/docs/adrs/**`
 Checks:
-- [ ] `converge.md` com evidências, desvios (janela TOCTOU, C-3602) e impacto de versão (PATCH, C-3604).
-- [ ] `npm run spec:check -- spec-kit/specs/036-status-hub-sincronizado` com PASS.
+- [x] `converge.md` com evidências, desvios (janela TOCTOU, C-3602) e impacto de versão (PATCH, C-3604).
+- [x] `npm run spec:check -- spec-kit/specs/036-status-hub-sincronizado` com PASS.
 
 ### T3605 — Versão
 [ ] T3605
