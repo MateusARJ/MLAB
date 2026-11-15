@@ -60,13 +60,13 @@ Checks:
 - [x] `go test -count=20 -run` do teste estável.
 
 ### T3705 — Converge
-[ ] T3705
+[x] T3705
 Depends On: T3704
 Allowed Paths: `spec-kit/specs/037-registro-em-hub-encerrado/**`
 Prohibited Paths: `apps/**`, `packages/**`, `.github/**`, `spec-kit/docs/adrs/**`
 Checks:
-- [ ] `converge.md` com evidências, desvios e impacto de versão (PATCH, C-3704).
-- [ ] `npm run spec:check -- spec-kit/specs/037-registro-em-hub-encerrado` com PASS.
+- [x] `converge.md` com evidências, desvios e impacto de versão (PATCH, C-3704).
+- [x] `npm run spec:check -- spec-kit/specs/037-registro-em-hub-encerrado` com PASS.
 
 ### T3706 — Versão
 [ ] T3706
