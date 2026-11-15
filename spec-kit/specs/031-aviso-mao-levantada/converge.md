@@ -53,8 +53,9 @@ Status: CONVERGED
 
 ## 5. Testes faltantes
 
-- Clique real no app desktop: o desktop não tem Playwright (C-3104) e a verificação manual com professor e aluno
-  conectados não foi feita nesta sessão. Fica para o responsável no PR, seguindo os passos de reprodução da issue #90.
+- Clique real no app desktop: sem teste automatizado (o desktop não tem Playwright, C-3104). Verificação manual feita
+  pelo responsável em 2026-11-15 no app real, seguindo os passos de reprodução da issue #90: botões do aviso e
+  remoção do aviso pelos três caminhos funcionando.
 - O hook `useWebRTCPublisher` não tem teste próprio; a regra que ele aplica está coberta em `handToast.test.ts`.
 
 ## 6. Novas tasks necessárias
