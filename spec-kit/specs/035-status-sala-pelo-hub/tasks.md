@@ -10,13 +10,13 @@ Regras:
 - um commit atômico por task, com `Ref: T350x` e `Refs #101`.
 
 ### T3501 — Contrato do `join` e do `/rooms/active`
-[ ] T3501
+[x] T3501
 Allowed Paths: `spec-kit/specs/001-screen-share-core/contracts/room-api.md`,
 `spec-kit/specs/035-status-sala-pelo-hub/tasks.md`
 Prohibited Paths: `apps/**`, `packages/**`, `spec-kit/specs/001-screen-share-core/spec.md`, `spec-kit/docs/adrs/**`
 Checks:
-- [ ] `room_status` do `join`: `waiting | publishing | reconnecting` (RF-3502, RF-3504).
-- [ ] `/rooms/active`: ordem `publishing > reconnecting > waiting`, desempate pela mais recente (RF-3503).
+- [x] `room_status` do `join`: `waiting | publishing | reconnecting` (RF-3502, RF-3504).
+- [x] `/rooms/active`: ordem `publishing > reconnecting > waiting`, desempate pela mais recente (RF-3503).
 
 ### T3502 — Store registra o status da sessão
 [ ] T3502
