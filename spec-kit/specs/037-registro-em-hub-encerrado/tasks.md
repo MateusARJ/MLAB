@@ -10,13 +10,13 @@ Regras:
 - um commit atômico por task, com `Ref: T370x` e `Refs #107`.
 
 ### T3701 — Nota no contrato de sinalização
-[ ] T3701
+[x] T3701
 Allowed Paths: `spec-kit/specs/001-screen-share-core/contracts/signaling.md`,
 `spec-kit/specs/037-registro-em-hub-encerrado/tasks.md`
 Prohibited Paths: `apps/**`, `packages/**`, `spec-kit/specs/001-screen-share-core/spec.md`, `spec-kit/docs/adrs/**`
 Checks:
-- [ ] Conexão a sala encerrada: `410` no handshake ou `room-closed` com fechamento sem código (RF-3701, RF-3704).
-- [ ] Nenhum tipo, campo ou código novo (RNF-3702).
+- [x] Conexão a sala encerrada: `410` no handshake ou `room-closed` com fechamento sem código (RF-3701, RF-3704).
+- [x] Nenhum tipo, campo ou código novo (RNF-3702).
 
 ### T3702 — Hub encerrado recusa registro
 [ ] T3702
