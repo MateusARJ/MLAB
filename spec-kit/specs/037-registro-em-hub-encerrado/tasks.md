@@ -48,16 +48,16 @@ Checks:
 - [x] Testes: sala fora do store não ganha hub; handshake `410` por `httptest` com hub encerrado.
 
 ### T3704 — Teste de ponta a ponta da corrida
-[ ] T3704
+[x] T3704
 Depends On: T3703
 Allowed Paths: `apps/backend/internal/signaling/hub_closed_test.go`,
 `spec-kit/specs/037-registro-em-hub-encerrado/tasks.md`
 Prohibited Paths: `apps/backend/internal/signaling/hub.go`, `apps/backend/internal/signaling/handler.go`,
 `apps/backend/internal/room/**`, `apps/web/**`, `apps/desktop/**`, `packages/**`, `package.json`
 Checks:
-- [ ] Clientes WebSocket reais conectando enquanto o hub encerra: cada um termina com `410` ou `room-closed`; nenhum
+- [x] Clientes WebSocket reais conectando enquanto o hub encerra: cada um termina com `410` ou `room-closed`; nenhum
   fica registrado num hub vivo (US-3701, US-3702).
-- [ ] `go test -count=20 -run` do teste estável.
+- [x] `go test -count=20 -run` do teste estável.
 
 ### T3705 — Converge
 [ ] T3705
