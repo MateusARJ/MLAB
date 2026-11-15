@@ -107,15 +107,15 @@ Checks:
 - [x] `npm run make:linux` (CI) empacota com o nome novo (verificado localmente via WSL: `resources/bin/mlab-backend`).
 
 ### T3408 — Build: instalador NSIS encerra backends órfãos
-[ ] T3408 [US-3406]
+[x] T3408 [US-3406]
 Depends On: T3407
 Allowed Paths: `apps/desktop/installer/installer.nsh`, `apps/desktop/package.json`
 Prohibited Paths: `apps/desktop/src/**`, `apps/backend/**`, `.github/**`, `packages/**`
 Checks:
-- [ ] `nsis.include` aponta para `installer/installer.nsh`; macros `customInit` e `customUnInit` (RF-3412).
-- [ ] Nada é encerrado quando `MLab.exe` está em execução.
-- [ ] `server.exe` só é encerrado em `<pasta>\resources\bin\server.exe` com `MLab.exe` em `<pasta>`.
-- [ ] Build `make:win` verde no CI `windows-latest` (compila o NSIS).
+- [x] `nsis.include` aponta para `installer/installer.nsh`; macros `customInit` e `customUnInit` (RF-3412).
+- [x] Nada é encerrado quando `MLab.exe` está em execução.
+- [x] `server.exe` só é encerrado em `<pasta>\resources\bin\server.exe` com `MLab.exe` em `<pasta>`.
+- [x] Build `make:win` verde (compila o NSIS): verificado localmente no Windows; o CI `windows-latest` só roda no PR para a `main`.
 
 ### T3409 — Verificação, documentação, converge e versão
 [ ] T3409

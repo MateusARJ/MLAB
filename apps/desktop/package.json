@@ -97,6 +97,7 @@
     },
     "nsis": {
       "oneClick": false,
+      "include": "installer/installer.nsh",
       "perMachine": true,
       "allowToChangeInstallationDirectory": true,
       "shortcutName": "MLab",
