@@ -35,14 +35,14 @@ Checks:
 - [x] `go test -count=50 -run` do teste novo estável.
 
 ### T3603 — `-race` na perna Linux do CI
-[ ] T3603
+[x] T3603
 Depends On: T3602
 Allowed Paths: `.github/workflows/build-all.yml`, `spec-kit/specs/036-status-hub-sincronizado/tasks.md`
 Prohibited Paths: `apps/**`, `packages/**`, `package.json`
 Checks:
-- [ ] Passo `go test -race ./internal/signaling/ ./cmd/server/` em `apps/backend`, só em `ubuntu-latest`, depois dos
+- [x] Passo `go test -race ./internal/signaling/ ./cmd/server/` em `apps/backend`, só em `ubuntu-latest`, depois dos
   testes automatizados (RNF-3601).
-- [ ] Sem `workflow_dispatch` manual (o job de release roda nele).
+- [x] Sem `workflow_dispatch` manual (o job de release roda nele).
 
 ### T3604 — Converge
 [ ] T3604
