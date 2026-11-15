@@ -93,12 +93,18 @@ type SFU interface {
 }
 
 // Hub gerencia todos os clientes WebSocket de uma sala.
-// Todo estado interno é acessado exclusivamente pela goroutine run().
+// Todo estado interno é escrito exclusivamente pela goroutine run(). As exceções lidas de outras goroutines são
+// status (statusMu) e connectedStudents (studentsMu).
 type Hub struct {
-	roomID       string
-	clients      map[string]*Client
-	publisherID  string
-	status       SessionStatus
+	roomID      string
+	clients     map[string]*Client
+	publisherID string
+
+	// status é o estado da sessão. Só a goroutine run() escreve, sempre por writeStatus, e lê sem lock; o handler
+	// lê por isClosed, de outra goroutine, por isso o mutex próprio (036/RF-3601).
+	statusMu sync.RWMutex
+	status   SessionStatus
+
 	chatLimits   map[string]*chatTracker
 	streamPaused bool // indica se a transmissão está pausada pelo professor
 
@@ -182,10 +188,25 @@ func (h *Hub) setStatus(s SessionStatus) {
 	if h.status == s {
 		return
 	}
-	h.status = s
+	h.writeStatus(s)
 	if h.onStatusChanged != nil && s != SessionClosed {
 		h.onStatusChanged(h.roomID, s)
 	}
+}
+
+// writeStatus é o único ponto que atribui o status, sob statusMu, sem chamar callbacks com o lock tomado
+// (036/RNF-3602). Só pode ser chamado na goroutine run().
+func (h *Hub) writeStatus(s SessionStatus) {
+	h.statusMu.Lock()
+	h.status = s
+	h.statusMu.Unlock()
+}
+
+// isClosed informa se a sessão do hub foi encerrada. Seguro para chamar de qualquer goroutine (036/RF-3601).
+func (h *Hub) isClosed() bool {
+	h.statusMu.RLock()
+	defer h.statusMu.RUnlock()
+	return h.status == SessionClosed
 }
 
 // run é o loop central do Hub — única goroutine que toca o estado.
@@ -649,7 +670,7 @@ func (h *Hub) onPublisherTimeout() {
 		return // professor reconectou a tempo
 	}
 	log.Printf("hub[%s]: timeout de reconexão — encerrando sala", h.roomID)
-	h.status = SessionClosed
+	h.writeStatus(SessionClosed)
 	h.broadcastAll(TypeRoomClosed, struct{}{})
 	for _, c := range h.clients {
 		c.close()
@@ -668,7 +689,7 @@ func (h *Hub) onPublisherTimeout() {
 
 func (h *Hub) onRoomClose() {
 	log.Printf("hub[%s]: sala encerrada pelo professor", h.roomID)
-	h.status = SessionClosed
+	h.writeStatus(SessionClosed)
 	h.broadcastAll(TypeRoomClosed, struct{}{})
 	for _, c := range h.clients {
 		c.close()

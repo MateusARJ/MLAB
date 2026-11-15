@@ -133,7 +133,7 @@ func (h *Handler) getOrCreateHub(roomID string) *Hub {
 	defer h.mu.Unlock()
 
 	if hub, ok := h.hubs[roomID]; ok {
-		if hub.status == SessionClosed {
+		if hub.isClosed() {
 			delete(h.hubs, roomID)
 		} else {
 			return hub

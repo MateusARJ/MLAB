@@ -10,17 +10,17 @@ Regras:
 - um commit atômico por task, com `Ref: T360x` e `Refs #102`.
 
 ### T3601 — Status do hub com escrita e leitura sincronizadas
-[ ] T3601
+[x] T3601
 Allowed Paths: `apps/backend/internal/signaling/hub.go`, `apps/backend/internal/signaling/handler.go`,
 `spec-kit/specs/036-status-hub-sincronizado/tasks.md`
 Prohibited Paths: `apps/backend/internal/signaling/message.go`, `apps/backend/internal/room/**`,
 `apps/backend/internal/webrtc/**`, `apps/backend/cmd/**`, `apps/web/**`, `apps/desktop/**`, `packages/**`,
 `.github/**`, `package.json`
 Checks:
-- [ ] `statusMu sync.RWMutex`; `writeStatus` é o único ponto que atribui `h.status` (RF-3601).
-- [ ] `setStatus`, `onPublisherTimeout` e `onRoomClose` usam `writeStatus`; callbacks fora do lock (RNF-3602).
-- [ ] `isClosed()` lê sob `RLock`; `getOrCreateHub` usa `hub.isClosed()` (RF-3601).
-- [ ] Testes existentes do pacote `signaling` verdes sem alteração (RNF-3602).
+- [x] `statusMu sync.RWMutex`; `writeStatus` é o único ponto que atribui `h.status` (RF-3601).
+- [x] `setStatus`, `onPublisherTimeout` e `onRoomClose` usam `writeStatus`; callbacks fora do lock (RNF-3602).
+- [x] `isClosed()` lê sob `RLock`; `getOrCreateHub` usa `hub.isClosed()` (RF-3601).
+- [x] Testes existentes do pacote `signaling` verdes sem alteração (RNF-3602).
 
 ### T3602 — Teste do `getOrCreateHub` concorrente ao encerramento
 [ ] T3602
