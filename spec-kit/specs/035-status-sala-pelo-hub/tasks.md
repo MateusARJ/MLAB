@@ -2,7 +2,7 @@
 
 Feature: `035-status-sala-pelo-hub`
 Prerequisites: spec/clarify/plan/checklist/analyze aprovados
-Status: READY
+Status: DONE
 
 Regras:
 - `go test -race ./...` e `go vet ./...` em `apps/backend`; `gofmt -l` vazio nos arquivos Go alterados antes de marcar
@@ -85,10 +85,10 @@ Checks:
 - [x] `npm run spec:check -- spec-kit/specs/035-status-sala-pelo-hub` com PASS.
 
 ### T3507 — Versão
-[ ] T3507
+[x] T3507
 Depends On: T3506
 Allowed Paths: `package.json`, `package-lock.json`, `apps/*/package.json`, `packages/*/package.json`,
 `spec-kit/specs/035-status-sala-pelo-hub/tasks.md`
 Prohibited Paths: `apps/**/src/**`, `apps/backend/**`, `packages/**/src/**`, `.github/**`
 Checks:
-- [ ] `npm run bump -- patch` e `npm run version:check`; commit `chore(release): versao X.Y.Z`.
+- [x] `npm run bump -- patch` e `npm run version:check`; commit `chore(release): versao X.Y.Z`.
