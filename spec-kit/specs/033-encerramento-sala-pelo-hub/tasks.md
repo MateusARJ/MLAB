@@ -19,19 +19,19 @@ Checks:
 - [x] Commit com `Refs #95`.
 
 ### T3302 — Encerramento pelo hub atualiza o store
-[ ] T3302
+[x] T3302
 Depends On: T3301
 Allowed Paths: `apps/backend/internal/room/handler.go`, `apps/backend/internal/room/room_test.go`,
 `apps/backend/cmd/server/main.go`, `spec-kit/specs/033-encerramento-sala-pelo-hub/tasks.md`
 Prohibited Paths: `apps/backend/internal/signaling/**`, `apps/backend/internal/webrtc/**`,
 `apps/backend/internal/room/store.go`, `apps/web/**`, `apps/desktop/**`, `packages/**`, `package.json`
 Checks:
-- [ ] `CloseRoomFromSession`: sala aberta → `closed`, removida, arquivos liberados, mDNS parado (RF-3301).
-- [ ] Sala ausente ou já `closed`: só libera arquivos, sem parar o mDNS (RNF-3301, RNF-3302).
-- [ ] `main.go` liga o listener do hub a `CloseRoomFromSession`.
-- [ ] `TestCloseRoomFromSession`: depois da chamada, `join`, `/info` e `/rooms/active` → `404`; repetição não falha
+- [x] `CloseRoomFromSession`: sala aberta → `closed`, removida, arquivos liberados, mDNS parado (RF-3301).
+- [x] Sala ausente ou já `closed`: só libera arquivos, sem parar o mDNS (RNF-3301, RNF-3302).
+- [x] `main.go` liga o listener do hub a `CloseRoomFromSession`.
+- [x] `TestCloseRoomFromSession`: depois da chamada, `join`, `/info` e `/rooms/active` → `404`; repetição não falha
   (RF-3302, RNF-3302).
-- [ ] `go test ./...`, `go vet ./...` verdes; `gofmt -l` vazio. Commit com `Refs #94`.
+- [x] `go test ./...`, `go vet ./...` verdes; `gofmt -l` vazio. Commit com `Refs #94`.
 
 ### T3303 — Smoke do timeout e do `end-session`
 [ ] T3303

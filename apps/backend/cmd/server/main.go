@@ -104,8 +104,9 @@ func newServer(cfg serverConfig) (http.Handler, error) {
 	// O join recusa a matrícula já conectada no hub da sala (RN-04, ADR 0010 — 027/T2703)
 	roomHandler.SetStudentConnectedChecker(sigHandler.HasConnectedStudent)
 
-	// Libera os arquivos da sala quando o hub a encerra pelo WebSocket (end-session ou timeout)
-	sigHandler.SetRoomClosedListener(roomHandler.ReleaseRoomFiles)
+	// Quando o hub encerra a sala pelo WebSocket (end-session ou timeout de reconexão), a sala é encerrada e
+	// removida do store e seus arquivos são liberados, como na REST close (RN-13, RF-18 — 033/T3302)
+	sigHandler.SetRoomClosedListener(roomHandler.CloseRoomFromSession)
 
 	// Conecta a notificação de vídeo pronto do SFU ao hub de sinalização (inicia transmissão aos alunos sem F5)
 	sfuService.SetOnTrackReady(func(roomID string) {

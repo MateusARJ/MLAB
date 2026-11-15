@@ -710,3 +710,89 @@ func TestJoinSalaEncerrada(t *testing.T) {
 		t.Fatalf("sala inexistente: esperado 404, obtido %d: %s", rec.Code, rec.Body.String())
 	}
 }
+
+// TestCloseRoomFromSession cobre RF-3301, RF-3302, RNF-3301 e RNF-3302 (033, issue #94): a sala encerrada pelo hub
+// de sinalização sai do store e o link deixa de aceitar entradas; o aviso do hub sobre sala já removida pela REST close
+// só libera arquivos e não encerra o anúncio mDNS.
+func TestCloseRoomFromSession(t *testing.T) {
+	t.Setenv("JWT_SECRET", "test-secret-12345")
+
+	paradas := 0
+	originalStop := mdnsStop
+	mdnsStop = func() { paradas++ }
+	t.Cleanup(func() { mdnsStop = originalStop })
+
+	store := NewInMemoryStore()
+	handler := NewHandler(store)
+	mux := http.NewServeMux()
+	handler.RegisterRoutes(mux)
+
+	sala := &Room{
+		ID: "sala-033", Slug: "aula/prof", RoomSlug: "aula", ProfessorSlug: "prof", OwnerID: "prof-1",
+		Status: StatusWaiting, MaxParticipants: 50, CreatedAt: time.Now().UTC(),
+	}
+	if err := store.CreateRoom(context.Background(), sala); err != nil {
+		t.Fatalf("falha ao criar sala: %v", err)
+	}
+	if err := handler.fileStore.Add(&RoomFile{ID: "arq-1", RoomID: "sala-033", Name: "a.pdf", Size: 3, Data: []byte("abc")}); err != nil {
+		t.Fatalf("falha ao adicionar arquivo: %v", err)
+	}
+
+	request := func(method, path string, body []byte) *httptest.ResponseRecorder {
+		rec := httptest.NewRecorder()
+		mux.ServeHTTP(rec, httptest.NewRequest(method, path, bytes.NewReader(body)))
+		return rec
+	}
+	joinBody := []byte(`{"name": "Aluno", "student_id": "2025116TADS0001"}`)
+
+	// Antes do encerramento a sala aceita entradas.
+	if rec := request("POST", "/rooms/sala-033/join", joinBody); rec.Code != http.StatusOK {
+		t.Fatalf("antes do encerramento: esperado 200 no join, obtido %d: %s", rec.Code, rec.Body.String())
+	}
+
+	handler.CloseRoomFromSession("sala-033")
+
+	if _, err := store.GetRoomByID(context.Background(), "sala-033"); !errors.Is(err, ErrRoomNotFound) {
+		t.Fatalf("a sala deveria ter saído do store, obtido err=%v", err)
+	}
+	if n := len(handler.fileStore.List("sala-033")); n != 0 {
+		t.Errorf("os arquivos da sala deveriam ter sido liberados, restam %d", n)
+	}
+	if paradas != 1 {
+		t.Errorf("o anúncio mDNS deveria ter sido encerrado uma vez, obtido %d", paradas)
+	}
+
+	casos := []struct {
+		nome, method, path string
+		body               []byte
+	}{
+		{"join por id", "POST", "/rooms/sala-033/join", joinBody},
+		{"join por slug", "POST", "/rooms/aula/prof/join", joinBody},
+		{"info por id", "GET", "/rooms/sala-033/info", nil},
+		{"info por slug", "GET", "/rooms/aula/prof/info", nil},
+		{"sala ativa", "GET", "/rooms/active", nil},
+	}
+	for _, c := range casos {
+		if rec := request(c.method, c.path, c.body); rec.Code != http.StatusNotFound {
+			t.Errorf("%s após o encerramento pelo hub: esperado 404, obtido %d: %s", c.nome, rec.Code, rec.Body.String())
+		}
+	}
+
+	// Repetição (aviso do hub depois da REST close) e sala inexistente: sem falha e sem encerrar o mDNS de novo.
+	handler.CloseRoomFromSession("sala-033")
+	handler.CloseRoomFromSession("sala-inexistente")
+	if paradas != 1 {
+		t.Errorf("sala já removida não deveria encerrar o anúncio mDNS (paradas=%d)", paradas)
+	}
+
+	// Sala nova aberta depois não é afetada pelo aviso atrasado da sala antiga.
+	nova := &Room{ID: "sala-nova", Slug: "outra/prof", Status: StatusWaiting, MaxParticipants: 50, CreatedAt: time.Now().UTC()}
+	_ = store.CreateRoom(context.Background(), nova)
+	handler.CloseRoomFromSession("sala-033")
+	if got, err := store.GetRoomByID(context.Background(), "sala-nova"); err != nil || got.Status != StatusWaiting {
+		t.Errorf("a sala nova não deveria ser afetada, obtido %+v (err=%v)", got, err)
+	}
+	if paradas != 1 {
+		t.Errorf("o aviso atrasado não deveria encerrar o mDNS da sala nova (paradas=%d)", paradas)
+	}
+}
