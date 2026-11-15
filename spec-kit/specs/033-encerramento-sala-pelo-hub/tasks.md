@@ -46,16 +46,16 @@ Checks:
 - [x] `go test -tags smoke -run TestSmoke ./cmd/server/` verde.
 
 ### T3304 — Espelho e converge
-[ ] T3304
+[x] T3304
 Depends On: T3303
 Allowed Paths: `docs/requirements/functionals/RF015-encerramento-de-sala-e-conexoes.md`,
 `spec-kit/specs/001-screen-share-core/converge.md`, `spec-kit/specs/033-encerramento-sala-pelo-hub/**`
 Prohibited Paths: `apps/**`, `packages/**`, `.github/**`, `spec-kit/docs/adrs/**`
 Checks:
-- [ ] `RF015`: encerramento por `end-session` ou timeout também remove a sala do store.
-- [ ] `001/converge.md`: evidências de RF-15, RF-18/RN-13 apontam os testes novos.
-- [ ] `converge.md` com evidências, desvios e impacto de versão (PATCH, C-3305).
-- [ ] `npm run spec:check -- spec-kit/specs/033-encerramento-sala-pelo-hub` com PASS.
+- [x] `RF015`: encerramento por `end-session` ou timeout também remove a sala do store.
+- [x] `001/converge.md`: evidências de RF-15, RF-18/RN-13 apontam os testes novos.
+- [x] `converge.md` com evidências, desvios e impacto de versão (PATCH, C-3305).
+- [x] `npm run spec:check -- spec-kit/specs/033-encerramento-sala-pelo-hub` com PASS.
 
 ### T3305 — Versão
 [ ] T3305
