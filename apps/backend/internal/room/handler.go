@@ -562,6 +562,16 @@ func (h *Handler) CloseRoomFromSession(roomID string) {
 	h.ReleaseRoomFiles(roomID)
 }
 
+// SyncStatusFromSession registra no store o status da sessão que o hub de sinalização mudou (`publishing` ou
+// `reconnecting` — RF-18; 035/RF-3501), para que `/info`, `/rooms/active` e o `join` reflitam a transmissão
+// (035/RF-3502). Sala já encerrada ou removida é ignorada: o aviso tardio do hub não a reabre (035/RNF-3501).
+func (h *Handler) SyncStatusFromSession(roomID string, status Status) {
+	err := h.store.SetSessionStatus(context.Background(), roomID, status)
+	if err != nil && !errors.Is(err, ErrRoomNotFound) && !errors.Is(err, ErrRoomClosed) {
+		log.Printf("room: SyncStatusFromSession: sala %s status %s: %v", roomID, status, err)
+	}
+}
+
 // ── GET /rooms/active ─────────────────────────────────────────────────────────
 
 func (h *Handler) getActiveRoom(w http.ResponseWriter, r *http.Request) {

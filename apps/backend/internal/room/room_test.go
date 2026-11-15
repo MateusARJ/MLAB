@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -763,6 +764,72 @@ func TestJoinSalaEncerrada(t *testing.T) {
 
 	if rec := join("sala-inexistente"); rec.Code != http.StatusNotFound {
 		t.Fatalf("sala inexistente: esperado 404, obtido %d: %s", rec.Code, rec.Body.String())
+	}
+}
+
+// TestSyncStatusFromSession cobre RF-3501, RF-3502 e RNF-3501 (035, issue #101): o status que o hub muda aparece em
+// /info, no join e em /rooms/active; o aviso sobre sala removida não a traz de volta.
+func TestSyncStatusFromSession(t *testing.T) {
+	t.Setenv("JWT_SECRET", "test-secret-12345")
+
+	originalStop := mdnsStop
+	mdnsStop = func() {}
+	t.Cleanup(func() { mdnsStop = originalStop })
+
+	store := NewInMemoryStore()
+	handler := NewHandler(store)
+	mux := http.NewServeMux()
+	handler.RegisterRoutes(mux)
+
+	sala := &Room{
+		ID: "sala-035", Slug: "aula/prof", RoomSlug: "aula", ProfessorSlug: "prof", OwnerID: "prof-1",
+		Status: StatusWaiting, MaxParticipants: 50, CreatedAt: time.Now().UTC(),
+	}
+	if err := store.CreateRoom(context.Background(), sala); err != nil {
+		t.Fatalf("falha ao criar sala: %v", err)
+	}
+
+	request := func(method, path string, body []byte) map[string]any {
+		t.Helper()
+		rec := httptest.NewRecorder()
+		mux.ServeHTTP(rec, httptest.NewRequest(method, path, bytes.NewReader(body)))
+		if rec.Code != http.StatusOK {
+			t.Fatalf("%s %s: esperado 200, obtido %d: %s", method, path, rec.Code, rec.Body.String())
+		}
+		var out map[string]any
+		_ = json.Unmarshal(rec.Body.Bytes(), &out)
+		return out
+	}
+
+	for i, status := range []Status{StatusPublishing, StatusReconnecting, StatusPublishing} {
+		handler.SyncStatusFromSession("sala-035", status)
+
+		if got := request("GET", "/rooms/sala-035/info", nil)["status"]; got != string(status) {
+			t.Errorf("info após %s: status %v", status, got)
+		}
+		if got := request("GET", "/rooms/aula/prof/info", nil)["status"]; got != string(status) {
+			t.Errorf("info por slug após %s: status %v", status, got)
+		}
+		if got := request("GET", "/rooms/active", nil)["status"]; got != string(status) {
+			t.Errorf("rooms/active após %s: status %v", status, got)
+		}
+		body := fmt.Appendf(nil, `{"name": "Aluno", "student_id": "2025116TADS000%d"}`, i+1)
+		if got := request("POST", "/rooms/sala-035/join", body)["room_status"]; got != string(status) {
+			t.Errorf("join após %s: room_status %v", status, got)
+		}
+	}
+
+	// Sala removida (REST close ou hub) e sala inexistente: o aviso tardio é ignorado e o link segue 404.
+	handler.CloseRoomFromSession("sala-035")
+	handler.SyncStatusFromSession("sala-035", StatusPublishing)
+	handler.SyncStatusFromSession("sala-inexistente", StatusReconnecting)
+	if _, err := store.GetRoomByID(context.Background(), "sala-035"); !errors.Is(err, ErrRoomNotFound) {
+		t.Fatalf("a sala removida não deveria voltar ao store, obtido err=%v", err)
+	}
+	rec := httptest.NewRecorder()
+	mux.ServeHTTP(rec, httptest.NewRequest("GET", "/rooms/sala-035/info", nil))
+	if rec.Code != http.StatusNotFound {
+		t.Errorf("info da sala removida: esperado 404, obtido %d", rec.Code)
 	}
 }
 

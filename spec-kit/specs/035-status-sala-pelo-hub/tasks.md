@@ -33,16 +33,16 @@ Checks:
 - [x] Testes: transições, guardas, prioridade com as três salas (estende `TestGetActiveRoom_Deterministic`).
 
 ### T3503 — Handler da sala sincroniza o status vindo do hub
-[ ] T3503
+[x] T3503
 Depends On: T3502
 Allowed Paths: `apps/backend/internal/room/handler.go`, `apps/backend/internal/room/room_test.go`,
 `spec-kit/specs/035-status-sala-pelo-hub/tasks.md`
 Prohibited Paths: `apps/backend/internal/room/store.go`, `apps/backend/internal/signaling/**`,
 `apps/backend/internal/webrtc/**`, `apps/web/**`, `apps/desktop/**`, `packages/**`, `package.json`
 Checks:
-- [ ] `SyncStatusFromSession(roomID, status)`: grava via `SetSessionStatus`; sala ausente ou `closed` ignorada em
+- [x] `SyncStatusFromSession(roomID, status)`: grava via `SetSessionStatus`; sala ausente ou `closed` ignorada em
   silêncio; outro erro no log (RF-3501, RNF-3501).
-- [ ] Teste: depois da sincronização, `/info`, `join` e `/rooms/active` devolvem `publishing` e `reconnecting`; sala
+- [x] Teste: depois da sincronização, `/info`, `join` e `/rooms/active` devolvem `publishing` e `reconnecting`; sala
   removida continua `404` (RF-3502, RNF-3501).
 
 ### T3504 — Hub avisa a mudança de status e o servidor liga o aviso ao store
