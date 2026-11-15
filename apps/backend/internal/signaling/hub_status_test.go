@@ -2,7 +2,9 @@ package signaling
 
 import (
 	"reflect"
+	"sync"
 	"testing"
+	"time"
 )
 
 // TestHub_AvisaMudancaDeStatus cobre RF-3501 e RNF-3502 (035, issue #101): o hub avisa `publishing` quando o
@@ -65,5 +67,65 @@ func TestHub_StatusSemCallback(t *testing.T) {
 	hub.onRegister(professor)
 	if hub.status != SessionPublishing {
 		t.Fatalf("status = %s; esperado publishing", hub.status)
+	}
+}
+
+// TestHandler_GetOrCreateHubConcorrenteAoEncerramento cobre RF-3601 e US-3601 (036, issue #102): o handler lê o
+// status do hub enquanto a goroutine run() o encerra, sem data race, e depois do encerramento entrega um hub novo
+// em `waiting`. Com `go test -race`, a leitura direta de hub.status que existia antes seria acusada aqui.
+func TestHandler_GetOrCreateHubConcorrenteAoEncerramento(t *testing.T) {
+	const roomID = "room-status-concorrente"
+	handler := NewHandler(nil, nil)
+	antigo := handler.getOrCreateHub(roomID)
+
+	parar := make(chan struct{})
+	var wg sync.WaitGroup
+	for i := 0; i < 8; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for {
+				select {
+				case <-parar:
+					return
+				default:
+					handler.getOrCreateHub(roomID)
+				}
+			}
+		}()
+	}
+
+	// O encerramento passa pelo canal interno e é processado na goroutine run() do hub antigo.
+	antigo.BroadcastRoomClosed()
+
+	var novo *Hub
+	prazo := time.Now().Add(2 * time.Second)
+	for time.Now().Before(prazo) {
+		if h := handler.getOrCreateHub(roomID); h != antigo {
+			novo = h
+			break
+		}
+		time.Sleep(time.Millisecond)
+	}
+	close(parar)
+	wg.Wait()
+
+	if novo == nil {
+		t.Fatal("getOrCreateHub continuou devolvendo o hub encerrado")
+	}
+	if !antigo.isClosed() {
+		t.Fatal("o hub antigo deveria estar encerrado")
+	}
+	if novo.isClosed() {
+		t.Fatal("o hub novo não deveria estar encerrado")
+	}
+	novo.statusMu.RLock()
+	status := novo.status
+	novo.statusMu.RUnlock()
+	if status != SessionWaiting {
+		t.Fatalf("status do hub novo = %s; esperado waiting", status)
+	}
+	if atual := handler.getOrCreateHub(roomID); atual != novo {
+		t.Fatal("getOrCreateHub deveria reaproveitar o hub novo enquanto ele não encerra")
 	}
 }

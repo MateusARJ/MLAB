@@ -23,16 +23,16 @@ Checks:
 - [x] Testes existentes do pacote `signaling` verdes sem alteração (RNF-3602).
 
 ### T3602 — Teste do `getOrCreateHub` concorrente ao encerramento
-[ ] T3602
+[x] T3602
 Depends On: T3601
 Allowed Paths: `apps/backend/internal/signaling/hub_status_test.go`,
 `spec-kit/specs/036-status-hub-sincronizado/tasks.md`
 Prohibited Paths: `apps/backend/internal/signaling/hub.go`, `apps/backend/internal/signaling/handler.go`,
 `apps/backend/internal/room/**`, `apps/web/**`, `apps/desktop/**`, `packages/**`, `.github/**`, `package.json`
 Checks:
-- [ ] Goroutines chamam `getOrCreateHub` enquanto o hub processa o encerramento; depois dele, `getOrCreateHub`
+- [x] Goroutines chamam `getOrCreateHub` enquanto o hub processa o encerramento; depois dele, `getOrCreateHub`
   devolve um hub novo em `waiting` (US-3601, RF-3601).
-- [ ] `go test -count=50 -run` do teste novo estável.
+- [x] `go test -count=50 -run` do teste novo estável.
 
 ### T3603 — `-race` na perna Linux do CI
 [ ] T3603
