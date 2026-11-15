@@ -93,18 +93,18 @@ Checks:
 - [x] Teste: o diagnóstico `tasklist` não atrasa o `spawn`; nenhum log contém `MLAB_HOST_KEY`/`JWT_SECRET`.
 
 ### T3407 — Build: renomeia o binário do backend
-[ ] T3407 [US-3406]
+[x] T3407 [US-3406]
 Depends On: T3403
 Allowed Paths: `scripts/build-backend.js`, `scripts/dev.js`, `apps/backend/package.json`,
 `apps/desktop/package.json`, `apps/desktop/src/main/main.ts`, `apps/backend/cmd/server/main.go`, `README.md`
 Prohibited Paths: `apps/backend/internal/**`, `apps/desktop/src/renderer/**`, `apps/web/**`, `packages/**`,
 `.github/**`
 Checks:
-- [ ] Build gera `mlab-backend.exe`, `mlab-backend-linux`, `mlab-backend-darwin`; `extraResources` copiam para
+- [x] Build gera `mlab-backend.exe`, `mlab-backend-linux`, `mlab-backend-darwin`; `extraResources` copiam para
   `bin/mlab-backend(.exe)` (RF-3411).
-- [ ] Resolução do binário no app procura os nomes novos e, por último, os legados com aviso no log.
-- [ ] `git grep "server\.exe\|server-linux\|server-darwin"` só encontra os nomes legados intencionais e specs antigas.
-- [ ] `npm run make:linux` (CI) empacota com o nome novo.
+- [x] Resolução do binário no app procura os nomes novos e, por último, os legados com aviso no log.
+- [x] `git grep "server\.exe\|server-linux\|server-darwin"` só encontra os nomes legados intencionais e specs antigas.
+- [x] `npm run make:linux` (CI) empacota com o nome novo (verificado localmente via WSL: `resources/bin/mlab-backend`).
 
 ### T3408 — Build: instalador NSIS encerra backends órfãos
 [ ] T3408 [US-3406]

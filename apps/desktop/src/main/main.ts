@@ -508,47 +508,52 @@ const backend = new BackendManager(createDefaultDeps(logApp))
 
 function getBackendExecutablePath(): string | null {
   const isDev = !app.isPackaged
-  const platformBin =
+  // Nomes atuais (034/RF-3411) e, por último, os legados (até a 1.15.x), aceitos com aviso no log.
+  const currentNames =
     process.platform === 'win32'
-      ? 'server.exe'
+      ? ['mlab-backend.exe']
       : process.platform === 'darwin'
-      ? 'server-darwin'
-      : 'server-linux'
-  const genericBin = process.platform === 'win32' ? 'server.exe' : 'server'
+      ? ['mlab-backend-darwin', 'mlab-backend']
+      : ['mlab-backend-linux', 'mlab-backend']
+  const legacyNames =
+    process.platform === 'win32'
+      ? ['server.exe']
+      : process.platform === 'darwin'
+      ? ['server-darwin', 'server']
+      : ['server-linux', 'server']
 
-  const binaryNames = platformBin === genericBin ? [genericBin] : [platformBin, genericBin]
+  const dirs = isDev
+    ? [
+        join(process.cwd(), '../backend/bin'),
+        join(process.cwd(), '../../apps/backend/bin'),
+        join(__dirname, '../../../../apps/backend/bin'),
+        join(__dirname, '../../../backend/bin'),
+        join(process.cwd(), 'apps/backend/bin')
+      ]
+    : [
+        join(process.resourcesPath, 'bin'),
+        process.resourcesPath,
+        join(__dirname, '../../resources/bin'),
+        join(process.cwd(), 'resources/bin')
+      ]
 
-  const candidates: string[] = []
-
-  if (isDev) {
-    const devDirs = [
-      join(process.cwd(), '../backend/bin'),
-      join(process.cwd(), '../../apps/backend/bin'),
-      join(__dirname, '../../../../apps/backend/bin'),
-      join(__dirname, '../../../backend/bin'),
-      join(process.cwd(), 'apps/backend/bin')
-    ]
-    for (const dir of devDirs) {
-      for (const b of binaryNames) {
-        candidates.push(join(dir, b))
+  const find = (names: string[]): string | null => {
+    for (const name of names) {
+      for (const dir of dirs) {
+        const candidate = join(dir, name)
+        if (existsSync(candidate)) return candidate
       }
     }
-  } else {
-    for (const b of binaryNames) {
-      candidates.push(join(process.resourcesPath, 'bin', b))
-      candidates.push(join(process.resourcesPath, b))
-      candidates.push(join(__dirname, '../../resources/bin', b))
-      candidates.push(join(process.cwd(), 'resources/bin', b))
-    }
+    return null
   }
 
-  for (const candidate of candidates) {
-    if (existsSync(candidate)) {
-      return candidate
-    }
+  const current = find(currentNames)
+  if (current) return current
+  const legacy = find(legacyNames)
+  if (legacy) {
+    logApp(`[Backend] Aviso: usando o binário com nome legado: ${legacy}`)
   }
-
-  return null
+  return legacy
 }
 
 async function startBackendServer(): Promise<void> {

@@ -212,7 +212,7 @@ func resolveWebDir() string {
 		}
 	}
 
-	// 2. Relativo ao executável (ex: resources/bin/server.exe -> resources/web)
+	// 2. Relativo ao executável (ex: resources/bin/mlab-backend.exe -> resources/web)
 	if execPath, err := os.Executable(); err == nil {
 		execDir := filepath.Dir(execPath)
 		candidates := []string{

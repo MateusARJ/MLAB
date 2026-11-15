@@ -51,7 +51,7 @@ function checkNetworkProfile() {
 }
 checkNetworkProfile();
 
-// Define flag para que o Electron não tente inicializar server.exe concorrentemente com @mlab/backend
+// Define flag para que o Electron não tente inicializar mlab-backend.exe concorrentemente com @mlab/backend
 process.env.MLAB_DEV_MONOREPO = '1';
 
 // Chave de host compartilhada entre o backend (go run) e o app Electron nesta execução de dev (ADR 0006).

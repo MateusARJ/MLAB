@@ -3,7 +3,7 @@
   "version": "1.15.3",
   "private": true,
   "scripts": {
-    "build": "go build -o ./bin/server.exe ./cmd/server",
+    "build": "go build -o ./bin/mlab-backend.exe ./cmd/server",
     "dev": "go run ./cmd/server",
     "test": "go test ./...",
     "test:load": "go test -tags loadtest -run TestLoad_SFUFanout -v -count=1 -timeout 10m ./internal/webrtc/",
