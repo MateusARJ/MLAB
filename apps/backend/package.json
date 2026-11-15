@@ -1,10 +1,10 @@
 {
   "name": "@mlab/backend",
-  "version": "1.15.3",
+  "version": "1.15.4",
   "private": true,
   "scripts": {
-    "build": "go build -o ./bin/server.exe ./cmd/server",
-    "dev": "go run ./cmd/server/main.go",
+    "build": "go build -o ./bin/mlab-backend.exe ./cmd/server",
+    "dev": "go run ./cmd/server",
     "test": "go test ./...",
     "test:load": "go test -tags loadtest -run TestLoad_SFUFanout -v -count=1 -timeout 10m ./internal/webrtc/",
     "test:smoke": "go test -tags smoke -run TestSmoke -v -count=1 -timeout 5m ./cmd/server/",

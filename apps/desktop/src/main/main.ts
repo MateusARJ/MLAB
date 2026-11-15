@@ -11,14 +11,13 @@ import {
 } from 'electron'
 import { join } from 'path'
 import { existsSync, appendFileSync, mkdirSync, chmodSync, promises as fsPromises } from 'fs'
-import { spawn, ChildProcess } from 'child_process'
-import http from 'http'
 import type { AnnotationSessionState } from '@mlab/types'
 import { CursorPresenceTracker, type CursorTrackingTarget } from './cursorPresence'
 import { AnnotationOverlayManager } from './annotationOverlayWindow'
 import { resolveHostKey } from './hostKey'
 import { hardenWebContents } from './navigationGuard'
 import { buildAppInfo, type AppMeta } from './appInfo'
+import { BackendManager, buildBackendEnv, createDefaultDeps } from './backendManager'
 
 // Injetado pelo electron-vite no build do main (electron.vite.config.ts, 021/C-2105).
 declare const __MLAB_APP_META__: AppMeta
@@ -113,6 +112,26 @@ function getPreloadPath(): string {
   return join(__dirname, '../preload/preload.js')
 }
 
+// ── Instância única (034/RF-3410) ─────────────────────────────────────────────
+// Uma segunda abertura não cria janela nem backend: entrega o foco à janela existente.
+
+let mainWindow: BrowserWindow | null = null
+const hasSingleInstanceLock = app.requestSingleInstanceLock()
+
+if (!hasSingleInstanceLock) {
+  logApp('[Main] Outra instância do MLab já está aberta: esta instância será encerrada')
+  app.quit()
+} else {
+  app.on('second-instance', () => {
+    logApp('[Main] Segunda abertura do MLab: focando a janela existente')
+    const win = mainWindow
+    if (!win || win.isDestroyed()) return
+    if (win.isMinimized()) win.restore()
+    win.show()
+    win.focus()
+  })
+}
+
 function createWindow(): void {
   logApp('[Main] createWindow iniciado...')
   const appIcon = getAppIcon()
@@ -146,6 +165,7 @@ function createWindow(): void {
     ...(process.platform === 'darwin' ? { titleBarStyle: 'hiddenInset' } : {}),
     show: false
   })
+  mainWindow = win
 
   // Bloqueia navegação para fora do app e novas janelas; links web vão para o navegador do sistema (002/S7)
   hardenWebContents(win.webContents, (url) => shell.openExternal(url))
@@ -195,6 +215,25 @@ function createWindow(): void {
         win.destroy()
       }
     }
+  })
+
+  // A janela principal é a única que mantém o app (034/C-3402): fechá-la libera o overlay de marcação e o
+  // rastreador de cursor, que são janelas/recursos independentes e impediriam o window-all-closed (RF-3401).
+  // No Windows/Linux o app encerra; no macOS segue no Dock com o backend vivo (C-3403).
+  win.on('closed', () => {
+    if (mainWindow === win) mainWindow = null
+    logApp('[Main] Janela principal fechada: encerrando overlay e rastreador de cursor')
+    annotationOverlayManager.stop()
+    cursorPresenceTracker.stop()
+    if (process.platform !== 'darwin') {
+      app.quit()
+    }
+  })
+
+  // Logoff/desligamento do Windows: não há tempo para o encerramento assíncrono (034/RF-3403).
+  win.on('session-end', () => {
+    logApp('[Main] session-end: encerrando o backend de forma síncrona')
+    backend.forceKillSync()
   })
 
   win.webContents.on('did-fail-load', (_event, errorCode, errorDescription, validatedURL) => {
@@ -343,6 +382,11 @@ ipcMain.handle('get-app-info', () => buildAppInfo(app.getVersion(), __MLAB_APP_M
 let activeRoom: { id: string; token?: string } | null = null
 
 ipcMain.handle('set-active-room', (_event, room: { id: string; token?: string } | null) => {
+  // Durante o encerramento a sala já foi (ou está sendo) encerrada: não reativa (034/RF-3403).
+  if (room && shutdownPromise) {
+    logApp(`[Main] activeRoom ignorada durante o encerramento: ${room.id}`)
+    return
+  }
   activeRoom = room
   if (!room) {
     annotationOverlayManager.stop()
@@ -459,66 +503,57 @@ async function closeActiveRoomGracefully(): Promise<void> {
 
 // ── Backend Process Manager (Servidor Go SFU Invisível) ──────────────────────
 
-let serverProcess: ChildProcess | null = null
-
-function isPortInUse(port = 8080): Promise<boolean> {
-  return new Promise((resolve) => {
-    const req = http.get(`http://127.0.0.1:${port}/health`, (res) => {
-      resolve(res.statusCode === 200)
-    })
-    req.on('error', () => {
-      resolve(false)
-    })
-    req.setTimeout(500, () => {
-      req.destroy()
-      resolve(false)
-    })
-  })
-}
+// Partida, encerramento e órfãos do backend ficam no BackendManager (034/T3402).
+const backend = new BackendManager(createDefaultDeps(logApp))
 
 function getBackendExecutablePath(): string | null {
   const isDev = !app.isPackaged
-  const platformBin =
+  // Nomes atuais (034/RF-3411) e, por último, os legados (até a 1.15.x), aceitos com aviso no log.
+  const currentNames =
     process.platform === 'win32'
-      ? 'server.exe'
+      ? ['mlab-backend.exe']
       : process.platform === 'darwin'
-      ? 'server-darwin'
-      : 'server-linux'
-  const genericBin = process.platform === 'win32' ? 'server.exe' : 'server'
+      ? ['mlab-backend-darwin', 'mlab-backend']
+      : ['mlab-backend-linux', 'mlab-backend']
+  const legacyNames =
+    process.platform === 'win32'
+      ? ['server.exe']
+      : process.platform === 'darwin'
+      ? ['server-darwin', 'server']
+      : ['server-linux', 'server']
 
-  const binaryNames = platformBin === genericBin ? [genericBin] : [platformBin, genericBin]
+  const dirs = isDev
+    ? [
+        join(process.cwd(), '../backend/bin'),
+        join(process.cwd(), '../../apps/backend/bin'),
+        join(__dirname, '../../../../apps/backend/bin'),
+        join(__dirname, '../../../backend/bin'),
+        join(process.cwd(), 'apps/backend/bin')
+      ]
+    : [
+        join(process.resourcesPath, 'bin'),
+        process.resourcesPath,
+        join(__dirname, '../../resources/bin'),
+        join(process.cwd(), 'resources/bin')
+      ]
 
-  const candidates: string[] = []
-
-  if (isDev) {
-    const devDirs = [
-      join(process.cwd(), '../backend/bin'),
-      join(process.cwd(), '../../apps/backend/bin'),
-      join(__dirname, '../../../../apps/backend/bin'),
-      join(__dirname, '../../../backend/bin'),
-      join(process.cwd(), 'apps/backend/bin')
-    ]
-    for (const dir of devDirs) {
-      for (const b of binaryNames) {
-        candidates.push(join(dir, b))
+  const find = (names: string[]): string | null => {
+    for (const name of names) {
+      for (const dir of dirs) {
+        const candidate = join(dir, name)
+        if (existsSync(candidate)) return candidate
       }
     }
-  } else {
-    for (const b of binaryNames) {
-      candidates.push(join(process.resourcesPath, 'bin', b))
-      candidates.push(join(process.resourcesPath, b))
-      candidates.push(join(__dirname, '../../resources/bin', b))
-      candidates.push(join(process.cwd(), 'resources/bin', b))
-    }
+    return null
   }
 
-  for (const candidate of candidates) {
-    if (existsSync(candidate)) {
-      return candidate
-    }
+  const current = find(currentNames)
+  if (current) return current
+  const legacy = find(legacyNames)
+  if (legacy) {
+    logApp(`[Backend] Aviso: usando o binário com nome legado: ${legacy}`)
   }
-
-  return null
+  return legacy
 }
 
 async function startBackendServer(): Promise<void> {
@@ -541,19 +576,8 @@ async function startBackendServer(): Promise<void> {
     } catch {}
   }
 
-  const inUse = await isPortInUse(8080)
-  if (inUse) {
-    console.log('[Backend] Servidor já detectado ativo na porta 8080. Nenhuma nova instância foi iniciada.')
-    return
-  }
-
   const binaryPath = getBackendExecutablePath()
-  if (!binaryPath) {
-    console.warn('[Backend] Executável do backend não encontrado. O app aguardará servidor externo na porta 8080.')
-    return
-  }
-
-  if (process.platform !== 'win32') {
+  if (binaryPath && process.platform !== 'win32') {
     try {
       chmodSync(binaryPath, 0o755)
     } catch (err) {
@@ -561,81 +585,79 @@ async function startBackendServer(): Promise<void> {
     }
   }
 
-  console.log(`[Backend] Iniciando servidor em segundo plano de forma invisível: ${binaryPath}`)
+  const webDir = app.isPackaged
+    ? join(process.resourcesPath, 'web')
+    : join(process.cwd(), '../web/dist')
 
-  try {
-    const webDir = app.isPackaged
-      ? join(process.resourcesPath, 'web')
-      : join(process.cwd(), '../web/dist')
-
-    serverProcess = spawn(binaryPath, [], {
-      cwd: app.getPath('userData'),
-      detached: false,
-      windowsHide: true,
-      stdio: ['ignore', 'pipe', 'pipe'],
-      env: {
-        ...process.env,
-        PORT: '8080',
-        WEB_PORT: '8080',
-        // JWT_SECRET só é repassado se vier do ambiente (via ...process.env);
-        // caso contrário o backend gera um segredo aleatório por execução (ADR 0006).
-        WEB_DIR: webDir
-      }
+  // Porta ocupada, corrida com o fechamento e stdin do watchdog: BackendManager (RF-3404, RF-3406, RF-3409).
+  const result = await backend.start({
+    binaryPath,
+    cwd: app.getPath('userData'),
+    env: buildBackendEnv({
+      base: process.env,
+      webDir,
+      parentPid: process.pid,
+      // Log persistente do backend, ao lado do mlab-main.log (RF-3414).
+      logFile: join(app.getPath('userData'), 'logs', 'mlab-backend.log')
     })
-
-    serverProcess.stdout?.on('data', (data: Buffer) => {
-      const msg = data.toString().trim()
-      logApp(`[Backend] ${msg}`)
-      console.log(`[Backend] ${msg}`)
-    })
-
-    serverProcess.stderr?.on('data', (data: Buffer) => {
-      const msg = data.toString().trim()
-      logApp(`[Backend ERR] ${msg}`)
-      console.error(`[Backend ERR] ${msg}`)
-    })
-
-    serverProcess.on('error', (err) => {
-      logApp(`[Backend] Falha ao iniciar processo do backend: ${err}`)
-      console.error('[Backend] Falha ao iniciar processo do backend:', err)
-      serverProcess = null
-    })
-
-    serverProcess.on('exit', (code, signal) => {
-      logApp(`[Backend] Servidor finalizado (código: ${code}, sinal: ${signal})`)
-      console.log(`[Backend] Servidor finalizado (código: ${code}, sinal: ${signal})`)
-      serverProcess = null
-    })
-  } catch (err) {
-    logApp(`[Backend] Erro ao disparar servidor: ${err}`)
-    console.error('[Backend] Erro ao disparar servidor:', err)
-  }
+  })
+  logApp(`[Backend] Resultado da partida: ${result}`)
 }
 
-function stopBackendServer(): void {
-  if (serverProcess && serverProcess.pid) {
-    const pid = serverProcess.pid
-    logApp(`[Backend] Encerrando processo do servidor (PID: ${pid})...`)
-    console.log(`[Backend] Encerrando processo do servidor (PID: ${pid})...`)
+// ── Procedimento único de encerramento (034/RF-3403, RF-3405) ────────────────
+
+const SHUTDOWN_TIMEOUT_MS = 8000
+let shutdownPromise: Promise<void> | null = null
+
+/**
+ * Encerra o app uma única vez: sala ativa (alunos avisados) → overlay e rastreador → backend → app.exit(0).
+ * Estourando 8 s, encerra o backend de forma síncrona e sai mesmo assim.
+ */
+function shutdown(reason: string): Promise<void> {
+  if (shutdownPromise) return shutdownPromise
+  logApp(`[Main] Encerramento iniciado (motivo: ${reason})`)
+
+  const timer = setTimeout(() => {
+    logApp(`[Main] Encerramento excedeu ${SHUTDOWN_TIMEOUT_MS} ms: backend encerrado de forma síncrona`)
+    backend.forceKillSync()
+    app.exit(0)
+  }, SHUTDOWN_TIMEOUT_MS)
+
+  // Sem sala ativa o backend não é mais necessário: bloqueia já uma partida em andamento (RF-3406).
+  if (!activeRoom) void backend.stop()
+
+  const started = Date.now()
+  const step = async (name: string, run: () => unknown): Promise<void> => {
+    const t0 = Date.now()
     try {
-      if (process.platform === 'win32') {
-        spawn('taskkill', ['/pid', pid.toString(), '/f', '/t'], {
-          windowsHide: true,
-          stdio: 'ignore'
-        })
-      } else {
-        serverProcess.kill('SIGTERM')
-      }
+      await run()
+      logApp(`[Main] Encerramento: ${name} em ${Date.now() - t0} ms`)
     } catch (err) {
-      console.error('[Backend] Erro ao encerrar processo do servidor:', err)
+      logApp(`[Main] Encerramento: ${name} falhou após ${Date.now() - t0} ms: ${err}`)
     }
-    serverProcess = null
   }
+
+  shutdownPromise = (async () => {
+    await step('sala ativa', closeActiveRoomGracefully)
+    await step('overlay e rastreador de cursor', () => {
+      annotationOverlayManager.dispose()
+      cursorPresenceTracker.dispose()
+    })
+    await step('backend', () => backend.stop())
+  })().finally(() => {
+    clearTimeout(timer)
+    logApp(`[Main] Encerramento concluído em ${Date.now() - started} ms`)
+    app.exit(0)
+  })
+  return shutdownPromise
 }
 
 // ── App lifecycle ─────────────────────────────────────────────────────────────
 
 app.whenReady().then(() => {
+  // Sem a trava de instância única esta instância já está saindo: nem janela nem backend (RF-3410).
+  if (!hasSingleInstanceLock) return
+  logApp(`[Main] Partida do MLab ${app.getVersion()} (PID: ${process.pid}, plataforma: ${process.platform})`)
   logApp('[Main] app.whenReady disparado. Configurando sessão e abrindo janela...')
 
   // Configuração explícita de permissões do Chromium para captura e áudio
@@ -683,35 +705,28 @@ app.whenReady().then(() => {
   })
 })
 
-let isAppQuitting = false
-
-app.on('before-quit', async (event) => {
-  if (isAppQuitting) {
-    stopBackendServer()
-    return
-  }
-
-  if (activeRoom && activeRoom.id) {
-    event.preventDefault()
-    isAppQuitting = true
-    await closeActiveRoomGracefully()
-    stopBackendServer()
-    app.quit()
-  } else {
-    stopBackendServer()
-  }
+// Qualquer pedido de saída passa pelo procedimento único; ele termina com app.exit(0), que não reemite
+// before-quit.
+app.on('before-quit', (event) => {
+  event.preventDefault()
+  void shutdown('before-quit')
 })
 
+process.on('SIGINT', () => void shutdown('SIGINT'))
+process.on('SIGTERM', () => void shutdown('SIGTERM'))
+
+// Redes de segurança síncronas: não há como aguardar nesses pontos.
 app.on('will-quit', () => {
   annotationOverlayManager.dispose()
   cursorPresenceTracker.dispose()
-  stopBackendServer()
+  backend.forceKillSync()
 })
 
+// macOS: o app segue no Dock e o backend continua vivo para a próxima janela (activate); Cmd+Q passa pelo
+// procedimento único (034/C-3403).
 app.on('window-all-closed', () => {
   annotationOverlayManager.stop()
   cursorPresenceTracker.stop()
-  stopBackendServer()
   if (process.platform !== 'darwin') {
     app.quit()
   }
@@ -720,6 +735,6 @@ app.on('window-all-closed', () => {
 process.on('exit', () => {
   annotationOverlayManager.dispose()
   cursorPresenceTracker.dispose()
-  stopBackendServer()
+  backend.forceKillSync()
 })
 

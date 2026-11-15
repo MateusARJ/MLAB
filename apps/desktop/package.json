@@ -1,6 +1,6 @@
 {
   "name": "@mlab/desktop",
-  "version": "1.15.3",
+  "version": "1.15.4",
   "description": "Plataforma de transmissão de tela e interação para aulas ao vivo",
   "homepage": "https://mlab.com",
   "author": {
@@ -90,13 +90,14 @@
       "requestedExecutionLevel": "asInvoker",
       "extraResources": [
         {
-          "from": "../backend/bin/server.exe",
-          "to": "bin/server.exe"
+          "from": "../backend/bin/mlab-backend.exe",
+          "to": "bin/mlab-backend.exe"
         }
       ]
     },
     "nsis": {
       "oneClick": false,
+      "include": "installer/installer.nsh",
       "perMachine": true,
       "allowToChangeInstallationDirectory": true,
       "shortcutName": "MLab",
@@ -115,8 +116,8 @@
       "artifactName": "${productName}-Mac-${version}.${ext}",
       "extraResources": [
         {
-          "from": "../backend/bin/server-darwin",
-          "to": "bin/server"
+          "from": "../backend/bin/mlab-backend-darwin",
+          "to": "bin/mlab-backend"
         }
       ]
     },
@@ -139,8 +140,8 @@
       },
       "extraResources": [
         {
-          "from": "../backend/bin/server-linux",
-          "to": "bin/server"
+          "from": "../backend/bin/mlab-backend-linux",
+          "to": "bin/mlab-backend"
         }
       ]
     }
