@@ -44,7 +44,7 @@ Checks:
   `sourceId`.
 
 ### T3203 — Room: estado e regras de fixação
-[ ] T3203
+[x] T3203
 Depends On: T3202
 Allowed Paths: `apps/desktop/src/renderer/pages/Room.tsx`, `apps/desktop/src/renderer/pages/Room.test.tsx`
 Prohibited Paths: `apps/desktop/src/renderer/hooks/**`, `apps/desktop/src/renderer/media/**`,
@@ -60,26 +60,26 @@ Checks:
 - [x] Clique no nome com fixação chama `handlePinWindow` (RF-3209).
 - [x] Fixação limpa em `handleReconfigure`, `handleEndSession` e na saída do ao vivo (RF-3206).
 - [x] Fim da captura da fixada desfixa por `handleUnpinWindow` (RF-3207).
-- [ ] Testes em `Room.test.tsx`, partindo do teste de múltiplas janelas existente (callback de
+- [x] Testes em `Room.test.tsx`, partindo do teste de múltiplas janelas existente (callback de
   `onActiveWindowChanged`): foco em B com A fixada não troca; desfixar após foco em B troca para B; desfixar sem foco
   em outra não chama `selectSource`; depois de desfixar o foco volta a trocar; fixar B com A fixada passa para B;
   reconfigurar/encerrar limpa; fim da captura desfixa; `startCursorTracking`/`selectSource` recebem `pinnedSourceId`.
   Nota (2026-11-16): sem a interface não há como acionar a fixação no componente; esses testes entram no commit da
-  T3204, e a T3203 só é marcada `[x]` depois deles. O seletor expõe `data-pinned-source-id` para os testes.
+  T3204, e a T3203 só foi marcada `[x]` depois deles. O seletor expõe `data-pinned-source-id` para os testes.
 
 ### T3204 — Room: interface da fixação
-[ ] T3204
+[x] T3204
 Depends On: T3203
 Allowed Paths: `apps/desktop/src/renderer/pages/Room.tsx`, `apps/desktop/src/renderer/pages/Room.test.tsx`
 Prohibited Paths: `apps/desktop/src/renderer/hooks/**`, `apps/desktop/src/main/**`, `packages/**`, `apps/backend/**`,
 `apps/web/**`, `package.json`
 Checks:
-- [ ] Botão de alfinete por janela no seletor (`Pin`/`PinFilled`), com `aria-label` "Fixar <nome>"/"Desafixar
+- [x] Botão de alfinete por janela no seletor (`Pin`/`PinFilled`), com `aria-label` "Fixar <nome>"/"Desafixar
   <nome>", `aria-pressed` e acesso por teclado (RF-3201).
-- [ ] Selo "Fixada" na fixada e "Em pausa" nas demais; rótulo da prévia "Fixada: <nome>"; sem fixação, textos atuais
+- [x] Selo "Fixada" na fixada e "Em pausa" nas demais; rótulo da prévia "Fixada: <nome>"; sem fixação, textos atuais
   (RF-3205, RF-3210).
-- [ ] Estilos com os tokens do design system 2.0 (028).
-- [ ] Testes: nomes acessíveis, `aria-pressed`, textos "Fixada"/"Em pausa"/"Fixada: <nome>" e ausência deles sem
+- [x] Estilos com os tokens do design system 2.0 (028).
+- [x] Testes: nomes acessíveis, `aria-pressed`, textos "Fixada"/"Em pausa"/"Fixada: <nome>" e ausência deles sem
   fixação.
 
 ### T3205 — Regressão de múltiplas janelas sem fixação

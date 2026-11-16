@@ -1962,7 +1962,9 @@ export const Room: React.FC<RoomProps> = ({ room, onCloseRoom }) => {
                 {/* Rótulo do palco: o que a turma vê */}
                 <div style={styles.stageLabel}>
                   O que a turma está vendo agora. Modo: {captureMode === 'screen' ? 'Tela inteira' : (selectedWindowSources.length > 1 ? `Janelas escolhidas (${selectedWindowSources.length} autorizadas)` : 'Janelas escolhidas')} (
-                  {activeWindowSource?.name || selectedSource?.name || 'Fonte Ativa'})
+                  {pinnedWindowSourceId
+                    ? `Fixada: ${selectedWindowSources.find((s) => s.id === pinnedWindowSourceId)?.name || activeWindowSource?.name || 'Fonte Ativa'}`
+                    : activeWindowSource?.name || selectedSource?.name || 'Fonte Ativa'})
                 </div>
 
                 {/* Visualizador da Transmissão + Barra Vertical de Marcação e Lupa no Lado Esquerdo */}
@@ -2363,18 +2365,51 @@ export const Room: React.FC<RoomProps> = ({ room, onCloseRoom }) => {
                     <div style={styles.windowPillsList}>
                       {selectedWindowSources.map((src) => {
                         const isActive = (activeWindowSource?.id || selectedSource?.id) === src.id;
+                        const isPinned = pinnedWindowSourceId === src.id;
+                        // 032/RF-3205: com uma janela fixada, ela mostra "Fixada" e as demais "Em pausa".
+                        const badge = pinnedWindowSourceId
+                          ? isPinned
+                            ? 'Fixada'
+                            : 'Em pausa'
+                          : isActive
+                            ? 'No Ar'
+                            : null;
                         return (
-                          <button
-                            key={src.id}
-                            type="button"
-                            onClick={() => handleWindowPillClick(src)}
-                            style={isActive ? styles.windowPillActive : styles.windowPill}
-                            title={`Alternar para transmitir agora: ${src.name}`}
-                          >
-                            <span style={isActive ? styles.windowPillDotActive : styles.windowPillDot} />
-                            <span style={styles.windowPillText}>{src.name}</span>
-                            {isActive && <span style={styles.windowPillActiveBadge}>No Ar</span>}
-                          </button>
+                          <div key={src.id} style={styles.windowPillGroup}>
+                            <button
+                              type="button"
+                              onClick={() => handleWindowPillClick(src)}
+                              style={isActive ? styles.windowPillActive : styles.windowPill}
+                              title={
+                                pinnedWindowSourceId
+                                  ? `Fixar e transmitir agora: ${src.name}`
+                                  : `Alternar para transmitir agora: ${src.name}`
+                              }
+                            >
+                              <span style={isActive ? styles.windowPillDotActive : styles.windowPillDot} />
+                              <span style={styles.windowPillText}>{src.name}</span>
+                              {badge && (
+                                <span style={badge === 'Em pausa' ? styles.windowPillPausedBadge : styles.windowPillActiveBadge}>
+                                  {badge}
+                                </span>
+                              )}
+                            </button>
+                            {/* 032/RF-3201: alfinete por janela, com nome acessível e estado pressionado. */}
+                            <button
+                              type="button"
+                              onClick={() => (isPinned ? handleUnpinWindow() : handlePinWindow(src))}
+                              style={isPinned ? styles.windowPinBtnActive : styles.windowPinBtn}
+                              aria-pressed={isPinned}
+                              aria-label={isPinned ? `Desafixar ${src.name}` : `Fixar ${src.name}`}
+                              title={
+                                isPinned
+                                  ? `Desafixar ${src.name} e voltar a seguir a janela em uso`
+                                  : `Fixar ${src.name}: só ela é transmitida, mesmo usando outra janela`
+                              }
+                            >
+                              {isPinned ? <PinFilled size={14} /> : <Pin size={14} />}
+                            </button>
+                          </div>
                         );
                       })}
                     </div>
@@ -5647,6 +5682,45 @@ const styles: { [key: string]: React.CSSProperties } = {
     fontSize: 'var(--fs-caption)',
     fontWeight: '700',
     color: 'var(--live)',
+    flexShrink: 0,
+  },
+  // 032: janela autorizada que não está no ar enquanto outra está fixada.
+  windowPillPausedBadge: {
+    fontSize: 'var(--fs-caption)',
+    fontWeight: '600',
+    color: 'var(--text-3)',
+    flexShrink: 0,
+  },
+  windowPillGroup: {
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: '2px',
+    flexShrink: 0,
+  },
+  windowPinBtn: {
+    width: '32px',
+    height: '32px',
+    borderRadius: 'var(--r-control)',
+    border: '1px solid var(--border-subtle)',
+    backgroundColor: 'transparent',
+    color: 'var(--text-2)',
+    cursor: 'pointer',
+    display: 'inline-flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexShrink: 0,
+  },
+  windowPinBtnActive: {
+    width: '32px',
+    height: '32px',
+    borderRadius: 'var(--r-control)',
+    border: '1px solid var(--accent-fill)',
+    backgroundColor: 'var(--accent-soft)',
+    color: 'var(--accent)',
+    cursor: 'pointer',
+    display: 'inline-flex',
+    alignItems: 'center',
+    justifyContent: 'center',
     flexShrink: 0,
   },
 };
