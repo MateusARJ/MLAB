@@ -94,9 +94,9 @@ Classificação pelo escopo de `docs/versionamento.md` §2 (ADR 0007).
 
 | Nível | Versão resultante | Justificativa |
 |---|---|---|
-| MAJOR | 2.0.0 | Escolhido pelo responsável (C-2809): o fluxo do professor muda de organização e de rótulos. Commit com `!`: `081327b` (antes `41de663`). |
+| MAJOR | 2.0.0 | Escolhido pelo responsável (C-2809): o fluxo do professor muda de organização e de rótulos. Commit com `!`: `964abc3` (antes `41de663` e `081327b`). |
 
-O bump parte da versão da `development` no momento da atualização (1.15.8, seção 10). O PR fica em rascunho e só
+O bump parte da versão da `development` no momento da atualização (1.15.10, seções 10 e 11). O PR fica em rascunho e só
 entra na `development` depois que a 1.15.x for para a `main` (C-2809, mantida pelo responsável em 2026-11-15). Se a
 `development` mudar até lá, a branch é rebaseada de novo e o commit `chore(release)` é refeito.
 
@@ -128,3 +128,25 @@ Validações após o rebase (Windows, Node 22, Go 1.27):
 - `npm run build` (Turborepo, 5 tarefas): verde;
 - `npm run spec:check`: PASS em todas as features;
 - E2E do aluno: não executado (seção 5).
+
+## 11. Atualização sobre a development 1.15.10 (2026-11-16)
+
+A branch foi rebaseada de novo, da 1.15.8 (`ecf1583`) para a `development` na 1.15.10 (`3646ecb`), que trouxe as
+features 039 a 041 (backend), mudanças de CI, o README até a 1.15.10 e as notas de release. O commit de release foi
+descartado e refeito ao final.
+
+| Ponto | Encaminhamento |
+|---|---|
+| Conflitos | Só o campo `version` dos `package.json` e do `package-lock.json`, resolvido pelo novo bump. Nenhum conflito de código. |
+| `README.md` | Mesclado sem conflito; o Carbon aparece só no histórico de ferramentas (RF-2816, seção 2). |
+| Demais arquivos | Backend, CI e `docs/releases` ficam fora do Scope Lock da 028. |
+
+Validações após o rebase (Windows, Node 22, Go 1.27):
+
+- `npm run test -w apps/desktop`: 32 arquivos, 357 testes verdes;
+- `npm run test -w apps/web`: 5 arquivos, 54 testes verdes;
+- `npm run lint -w` em `packages/ui`, `apps/web` e `apps/desktop`: verdes;
+- `cd apps/backend && go test ./...`: verde;
+- `npm run build` (Turborepo, 5 tarefas): verde;
+- `npm run spec:check`: PASS;
+- E2E do aluno e validação manual no Electron: não executados (seção 5).
