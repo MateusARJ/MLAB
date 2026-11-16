@@ -28,7 +28,7 @@ Checks:
 - [x] Linha de `startCursorTracking` em `003/contracts/desktop-ipc.md` passa a "Em vigor desde 032 (T3201)".
 
 ### T3202 — Hook: repassar a fixação, reiniciar o rastreamento e avisar o fim da captura
-[ ] T3202
+[x] T3202
 Depends On: T3201
 Allowed Paths: `apps/desktop/src/renderer/hooks/useScreenCapture.ts`,
 `apps/desktop/src/renderer/hooks/useScreenCapture.test.ts`, `apps/desktop/src/test/setup.ts`
@@ -36,11 +36,11 @@ Prohibited Paths: `apps/desktop/src/renderer/pages/**`, `apps/desktop/src/render
 `apps/desktop/src/renderer/hooks/useWebRTCPublisher.ts`, `apps/desktop/src/main/**`, `apps/backend/**`,
 `apps/web/**`, `packages/**`, `package.json`
 Checks:
-- [ ] `selectSource` aceita `pinnedSourceId` opcional e o repassa ao `startCursorTracking`; chamadas atuais não mudam.
-- [ ] `restartCursorTracking(source, allowedIds?, pinnedId?)` chama `startCursorTracking` sem `getUserMedia`
+- [x] `selectSource` aceita `pinnedSourceId` opcional e o repassa ao `startCursorTracking`; chamadas atuais não mudam.
+- [x] `restartCursorTracking(source, allowedIds?, pinnedId?)` chama `startCursorTracking` sem `getUserMedia`
   (RF-3202, RF-3204).
-- [ ] Listener `ended` na faixa de vídeo bruta expõe ao chamador o `sourceId` cuja captura terminou (RF-3207).
-- [ ] Testes: repasse de `pinnedSourceId`; `restartCursorTracking` sem nova captura; `ended` da faixa bruta notifica o
+- [x] Listener `ended` na faixa de vídeo bruta expõe ao chamador o `sourceId` cuja captura terminou (RF-3207).
+- [x] Testes: repasse de `pinnedSourceId`; `restartCursorTracking` sem nova captura; `ended` da faixa bruta notifica o
   `sourceId`.
 
 ### T3203 — Room: estado e regras de fixação
