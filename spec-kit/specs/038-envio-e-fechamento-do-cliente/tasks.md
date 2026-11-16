@@ -28,13 +28,13 @@ Checks:
   mensagem descartada antes do registro), anterior a esta feature e registrada no #114.
 
 ### T3802 — Converge
-[ ] T3802
+[x] T3802
 Depends On: T3801
 Allowed Paths: `spec-kit/specs/038-envio-e-fechamento-do-cliente/**`
 Prohibited Paths: `apps/**`, `packages/**`, `.github/**`, `spec-kit/docs/adrs/**`
 Checks:
-- [ ] `converge.md` com evidências, desvios e impacto de versão (PATCH, C-3802).
-- [ ] `npm run spec:check -- spec-kit/specs/038-envio-e-fechamento-do-cliente` com PASS.
+- [x] `converge.md` com evidências, desvios e impacto de versão (PATCH, C-3802).
+- [x] `npm run spec:check -- spec-kit/specs/038-envio-e-fechamento-do-cliente` com PASS.
 
 ### T3803 — Versão
 [ ] T3803
