@@ -1,7 +1,12 @@
 /**
- * @mlab/ui
- * Carbon-Aligned UI Component Library for MLab
+ * @mlab/ui — MLab Design System 2.0
+ * Tokens em CSS (temas claro e escuro), fontes embutidas e componentes React.
  */
+import './styles/tokens.css';
+import './styles/components.css';
+import { initTheme } from './ThemeToggle';
+
+initTheme();
 
 // Design Tokens
 export * from './tokens';
@@ -13,54 +18,68 @@ export * from './TextInput';
 export * from './StatusBadge';
 export * from './Alert';
 export * from './Card';
+export * from './Brand';
+export * from './ThemeToggle';
 
-// Carbon Icons Re-exports
+// Ícones: Lucide (ISC), traço fino, um import por ícone.
+// Os nomes exportados são os que as telas já usavam; cada um aponta para o ícone Lucide equivalente.
 export {
-  Screen,
-  Application,
+  Monitor as Screen,
+  AppWindow as Application,
   Camera,
-  Microphone,
-  MicrophoneOff,
-  Recording,
-  Chat,
-  Locked,
-  UserMultiple,
+  Mic as Microphone,
+  MicOff as MicrophoneOff,
+  CircleDot as Recording,
+  MessageSquare as Chat,
+  Lock as Locked,
+  Users as UserMultiple,
   Folder,
-  Attachment,
+  Paperclip as Attachment,
   Copy,
-  Checkmark,
+  Check as Checkmark,
   Settings,
-  Renew,
+  RefreshCw as Renew,
   Play,
-  Exit,
-  Close,
+  LogOut as Exit,
+  X as Close,
   Maximize,
   Minimize,
-  Popup,
+  PictureInPicture2 as Popup,
   Download,
-  Education,
-  Idea,
-  Security,
-  Touch_1,
-  Touch_1Filled,
-  VolumeUp,
-  VolumeMute,
+  GraduationCap as Education,
+  Lightbulb as Idea,
+  ShieldCheck as Security,
+  Hand as Touch_1,
+  Volume2 as VolumeUp,
+  VolumeX as VolumeMute,
   Pin,
-  PinFilled,
-  Cursor_1,
-  Pen,
-  Draw,
-  ArrowUpRight,
-  SquareOutline,
-  Erase,
+  MousePointer2 as Cursor_1,
+  PenLine as Pen,
+  Highlighter as Draw,
+  MoveUpRight as ArrowUpRight,
+  Square as SquareOutline,
+  Eraser as Erase,
   ZoomIn,
-  ColorPalette,
-  Undo,
-  Redo,
-  TrashCan,
-  Draggable,
+  Palette as ColorPalette,
+  Undo2 as Undo,
+  Redo2 as Redo,
+  Trash2 as TrashCan,
+  GripVertical as Draggable,
   ChevronLeft,
-} from '@carbon/icons-react';
+  Pause,
+  Sun,
+  Moon,
+  Keyboard,
+  Info,
+  TriangleAlert,
+  Send,
+  Upload,
+  FileText,
+  Wifi,
+  PanelRightClose,
+  PanelRightOpen,
+} from 'lucide-react';
+export { Touch_1Filled, PinFilled } from './icons';
 
 /**
  * Decodifica com segurança as 5 entidades HTML geradas por html.EscapeString do Go

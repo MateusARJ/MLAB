@@ -1,0 +1,228 @@
+/* ==========================================================================
+   MLab Design System 2.0 — Tokens
+   Fonte única da verdade para cor, tipo, espaço, forma e movimento.
+   Tema: [data-theme="dark" | "light"] no <html>. Sem atributo = segue o SO.
+   Contraste validado (WCAG 2.2 AA): ver docs/02-design-system.md §2.4
+   ========================================================================== */
+
+/* ---------- Fontes (embutidas: o MLab roda 100% offline) ---------- */
+@font-face {
+  font-family: "Atkinson Hyperlegible Next";
+  src: url("./fonts/atkinson-hyperlegible-next-latin-400-normal.woff2") format("woff2");
+  font-weight: 400; font-style: normal; font-display: swap;
+}
+@font-face {
+  font-family: "Atkinson Hyperlegible Next";
+  src: url("./fonts/atkinson-hyperlegible-next-latin-600-normal.woff2") format("woff2");
+  font-weight: 600; font-style: normal; font-display: swap;
+}
+@font-face {
+  font-family: "Atkinson Hyperlegible Next";
+  src: url("./fonts/atkinson-hyperlegible-next-latin-700-normal.woff2") format("woff2");
+  font-weight: 700; font-style: normal; font-display: swap;
+}
+@font-face {
+  font-family: "Atkinson Hyperlegible Mono";
+  src: url("./fonts/atkinson-hyperlegible-mono-latin-400-normal.woff2") format("woff2");
+  font-weight: 400; font-style: normal; font-display: swap;
+}
+@font-face {
+  font-family: "Atkinson Hyperlegible Mono";
+  src: url("./fonts/atkinson-hyperlegible-mono-latin-600-normal.woff2") format("woff2");
+  font-weight: 600; font-style: normal; font-display: swap;
+}
+
+/* ---------- 1. Primitivos (não usar direto nos componentes) ---------- */
+:root {
+  /* Grafite: neutros levemente azulados, herdados do navy do logo */
+  --p-graphite-0:  #FFFFFF;
+  --p-graphite-25: #F4F5F7;
+  --p-graphite-50: #ECEEF2;
+  --p-graphite-100:#DCE0E6;
+  --p-graphite-200:#C9CED6;
+  --p-graphite-300:#9AA2AE;
+  --p-graphite-400:#8A93A0;
+  --p-graphite-500:#5E6672;
+  --p-graphite-600:#464E5A;
+  --p-graphite-700:#3A414D;
+  --p-graphite-800:#252A33;
+  --p-graphite-850:#1C2027;
+  --p-graphite-900:#14171C;
+  --p-graphite-950:#0E1013;
+
+  /* Azul MLab (do "M" do logo) */
+  --p-blue-300: #8DB6FF;
+  --p-blue-400: #4C8DFF;
+  --p-blue-500: #2F6BDE;
+  --p-blue-600: #1A5FD6;
+  --p-blue-700: #154BAA;
+
+
+  /* Verde "no ar" / vermelho "gravando" e erro */
+  --p-green-400: #3CC07E;
+  --p-green-700: #127A47;
+  --p-red-400:   #F0555A;
+  --p-red-500:   #D93A40;
+  --p-red-600:   #C9282E;
+}
+
+/* ---------- 2. Semânticos — tema escuro (padrão na sala ao vivo) ---------- */
+:root,
+[data-theme="dark"] {
+  color-scheme: dark;
+
+  --bg:            var(--p-graphite-900);
+  --surface-1:     var(--p-graphite-850);   /* painéis, cabeçalhos */
+  --surface-2:     var(--p-graphite-800);   /* hover, campos, itens selecionados */
+  --surface-float: #2B313B;                 /* popovers, toolbar flutuante, diálogos */
+  --stage:         var(--p-graphite-950);   /* moldura do vídeo: sempre a área mais escura */
+
+  --border-subtle: var(--p-graphite-700);   /* divisórias (decorativas) */
+  --border-strong: #6E7785;                 /* contorno de controles: >= 3:1 */
+
+  --text-1: #ECEFF3;
+  --text-2: #AEB5C0;
+  --text-3: var(--p-graphite-400);          /* metadados; mínimo 4.6:1 em surface-2 */
+
+  --accent:            var(--p-blue-400);   /* links, ícones ativos, foco */
+  --accent-fill:       var(--p-blue-500);   /* fundo do botão primário */
+  --accent-fill-hover: var(--p-blue-600);
+  --on-accent:         #FFFFFF;
+  --accent-soft:       rgba(76, 141, 255, 0.16);
+
+  /* Atenção (mão levantada, pausa, aguardando): azul de destaque. Sem amarelo na interface;
+     o amarelo só existe na barra flutuante de marcação fora do MLab (mão levantada, 017). */
+  --attention:      var(--p-blue-400);
+  --attention-soft: rgba(76, 141, 255, 0.16);
+  --on-attention:   var(--on-accent);
+
+  --live:      var(--p-green-400);
+  --live-soft: rgba(60, 192, 126, 0.14);
+  --rec:       var(--p-red-400);
+  --danger:        var(--p-red-400);
+  --danger-fill:   var(--p-red-500);
+  --danger-soft:   rgba(240, 85, 90, 0.14);
+  --on-danger:     #FFFFFF;
+
+  --focus: var(--p-blue-300);
+  --scrim: rgba(8, 10, 13, 0.64);
+  --shadow-float: 0 12px 32px rgba(0, 0, 0, 0.45), 0 0 0 1px rgba(255, 255, 255, 0.06);
+}
+
+/* ---------- 3. Semânticos — tema claro ---------- */
+[data-theme="light"] {
+  color-scheme: light;
+
+  --bg:            var(--p-graphite-25);
+  --surface-1:     var(--p-graphite-0);
+  --surface-2:     var(--p-graphite-50);
+  --surface-float: var(--p-graphite-0);
+  --stage:         #1B1F25;   /* o palco continua escuro: evita ofuscamento ao redor do conteúdo */
+
+  --border-subtle: var(--p-graphite-100);
+  --border-strong: #7F8896;
+
+  --text-1: #151920;
+  --text-2: var(--p-graphite-600);
+  --text-3: var(--p-graphite-500);
+
+  --accent:            var(--p-blue-600);
+  --accent-fill:       var(--p-blue-600);
+  --accent-fill-hover: var(--p-blue-700);
+  --on-accent:         #FFFFFF;
+  --accent-soft:       rgba(26, 95, 214, 0.10);
+
+  --attention:      var(--p-blue-600);
+  --attention-soft: var(--p-graphite-50);   /* destaque cinza, o mesmo fundo dos links */
+  --on-attention:   var(--on-accent);
+
+  --live:      var(--p-green-700);
+  --live-soft: rgba(18, 122, 71, 0.10);
+  --rec:       var(--p-red-600);
+  --danger:        var(--p-red-600);
+  --danger-fill:   var(--p-red-600);
+  --danger-soft:   rgba(201, 40, 46, 0.08);
+  --on-danger:     #FFFFFF;
+
+  --focus: var(--p-blue-600);
+  --scrim: rgba(21, 25, 32, 0.48);
+  --shadow-float: 0 12px 32px rgba(21, 25, 32, 0.14), 0 0 0 1px rgba(21, 25, 32, 0.08);
+}
+
+/* Sem preferência explícita: seguir o sistema operacional */
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme]) {
+    color-scheme: light;
+    --bg: var(--p-graphite-25); --surface-1: var(--p-graphite-0); --surface-2: var(--p-graphite-50);
+    --surface-float: var(--p-graphite-0); --stage: #1B1F25;
+    --border-subtle: var(--p-graphite-100); --border-strong: #7F8896;
+    --text-1: #151920; --text-2: var(--p-graphite-600); --text-3: var(--p-graphite-500);
+    --accent: var(--p-blue-600); --accent-fill: var(--p-blue-600); --accent-fill-hover: var(--p-blue-700);
+    --accent-soft: rgba(26, 95, 214, 0.10);
+    --attention: var(--p-blue-600); --attention-soft: var(--p-graphite-50);
+    --live: var(--p-green-700); --live-soft: rgba(18, 122, 71, 0.10);
+    --rec: var(--p-red-600); --danger: var(--p-red-600); --danger-fill: var(--p-red-600);
+    --danger-soft: rgba(201, 40, 46, 0.08);
+    --focus: var(--p-blue-600); --scrim: rgba(21, 25, 32, 0.48);
+    --shadow-float: 0 12px 32px rgba(21, 25, 32, 0.14), 0 0 0 1px rgba(21, 25, 32, 0.08);
+  }
+}
+
+/* ---------- 4. Tipografia ---------- */
+:root {
+  --font-ui:   "Atkinson Hyperlegible Next", "Segoe UI", system-ui, sans-serif;
+  --font-mono: "Atkinson Hyperlegible Mono", "Cascadia Mono", Consolas, ui-monospace, monospace;
+
+  /* Escala 1.2 (terça menor) a partir de 16px. Nada abaixo de 13px. */
+  --text-scale: 1;                                   /* A−/A+ do usuário: 0.875 – 1.25 */
+  --fs-caption: calc(13px * var(--text-scale));      /* metadados, horários */
+  --fs-small:   calc(14px * var(--text-scale));      /* rótulos, botões compactos */
+  --fs-body:    calc(16px * var(--text-scale));      /* texto corrido, chat, campos */
+  --fs-lead:    calc(19px * var(--text-scale));      /* títulos de painel */
+  --fs-title:   calc(23px * var(--text-scale));      /* título de página */
+  --fs-display: calc(33px * var(--text-scale));      /* números e telas de estado */
+
+  --lh-tight: 1.2;
+  --lh-ui:    1.4;
+  --lh-text:  1.55;
+
+  --fw-regular: 400;
+  --fw-medium:  600;   /* Atkinson tem 600 bem marcado: usado no lugar de 500 */
+  --fw-bold:    700;
+
+  --measure: 68ch;     /* largura máxima de texto corrido */
+}
+
+/* ---------- 5. Espaço, forma, alvos ---------- */
+:root {
+  --sp-1: 4px;  --sp-2: 8px;  --sp-3: 12px; --sp-4: 16px;
+  --sp-5: 24px; --sp-6: 32px; --sp-7: 48px; --sp-8: 64px;
+
+  --r-control: 6px;    /* botões, campos, chips */
+  --r-panel:   10px;   /* cartões, painéis, diálogos */
+  --r-pill:    999px;  /* status e avatares */
+
+  --target:    40px;   /* alvo mínimo no desktop (WCAG 2.5.8 pede 24; usamos 40) */
+  --target-touch: 44px;
+
+  --border-w: 1px;
+  --focus-w:  2px;
+}
+
+/* ---------- 6. Movimento ---------- */
+:root {
+  --dur-fast: 120ms;
+  --dur:      200ms;
+  --dur-slow: 320ms;
+  --ease:     cubic-bezier(0.2, 0, 0, 1);
+  --ease-out: cubic-bezier(0, 0, 0.2, 1);
+}
+@media (prefers-reduced-motion: reduce) {
+  :root { --dur-fast: 0ms; --dur: 0ms; --dur-slow: 0ms; }
+}
+
+/* ---------- 7. Camadas ---------- */
+:root {
+  --z-base: 0; --z-sticky: 10; --z-panel: 20; --z-dock: 30;
+  --z-popover: 40; --z-dialog: 50; --z-toast: 60; --z-overlay-toolbar: 70;
+}

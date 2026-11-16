@@ -3,6 +3,7 @@ import { Routes, Route, Navigate, useNavigate, useParams } from 'react-router-do
 import { Join } from './pages/Join'
 import { Room } from './pages/Room'
 import { getActiveRoom } from './services/api'
+import { BrandMark } from '@mlab/ui'
 
 /**
  * Roteamento do web app dos alunos.
@@ -104,48 +105,42 @@ function RootRedirect(): React.ReactElement {
   }
 
   return (
-    <div
-      style={{
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'center',
-        justifyContent: 'center',
-        height: '100vh',
-        fontFamily: 'system-ui, sans-serif',
-        background: '#0f172a',
-        color: '#f1f5f9',
-        gap: '1rem',
-        padding: '20px',
-        textAlign: 'center',
-      }}
-    >
-      <h1 style={{ fontSize: '1.75rem', margin: 0 }}>MLab</h1>
-      <p style={{ color: '#94a3b8', fontSize: '0.95rem', margin: 0, maxWidth: '400px' }}>
+    <div style={placeholderStyle}>
+      <BrandMark size={64} />
+      <h1 style={placeholderTitle}>MLab</h1>
+      <p style={placeholderText}>
         Aguardando o professor iniciar a aula...
       </p>
       <button
         type="button"
+        className="ml-btn ml-btn--secondary"
         onClick={() => {
           setLoading(true)
           setRetryCount((prev) => prev + 1)
         }}
-        style={{
-          marginTop: '8px',
-          padding: '8px 18px',
-          borderRadius: '6px',
-          backgroundColor: '#0f62fe',
-          color: '#ffffff',
-          border: 'none',
-          fontSize: '14px',
-          fontWeight: 600,
-          cursor: 'pointer',
-        }}
+        style={{ marginTop: '8px' }}
       >
         Verificar Novamente
       </button>
     </div>
   )
 }
+
+const placeholderStyle: React.CSSProperties = {
+  display: 'flex',
+  flexDirection: 'column',
+  alignItems: 'center',
+  justifyContent: 'center',
+  minHeight: '100dvh',
+  fontFamily: 'var(--font-ui)',
+  background: 'var(--bg)',
+  color: 'var(--text-1)',
+  gap: '12px',
+  padding: '24px',
+  textAlign: 'center',
+}
+const placeholderTitle: React.CSSProperties = { fontSize: 'var(--fs-title)', fontWeight: 700, margin: '8px 0 0' }
+const placeholderText: React.CSSProperties = { color: 'var(--text-2)', fontSize: 'var(--fs-body)', margin: 0, maxWidth: '36ch' }
 
 function JoinRoute({ setRoomData }: { setRoomData: any }) {
   const navigate = useNavigate()
@@ -204,21 +199,10 @@ function Placeholder({
   subtitle: string
 }): React.ReactElement {
   return (
-    <div
-      style={{
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'center',
-        justifyContent: 'center',
-        height: '100vh',
-        fontFamily: 'system-ui, sans-serif',
-        background: '#0f172a',
-        color: '#f1f5f9',
-        gap: '0.5rem'
-      }}
-    >
-      <h1 style={{ fontSize: '1.75rem' }}>{title}</h1>
-      <p style={{ color: '#94a3b8', fontSize: '0.875rem' }}>{subtitle}</p>
+    <div style={placeholderStyle}>
+      <BrandMark size={64} />
+      <h1 style={placeholderTitle}>{title}</h1>
+      <p style={placeholderText}>{subtitle}</p>
     </div>
   )
 }

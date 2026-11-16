@@ -11,13 +11,13 @@ test('A9 @mobile entrada pela raiz, validação da matrícula e acesso ao vivo',
   await expect(page).toHaveURL(new RegExp(`/${prof.slug}/entrar$`));
 
   await page.getByLabel('Nome Completo').fill('Aluna Teste');
-  await page.getByLabel('Matrícula / Registro Acadêmico').fill('ABC');
-  await page.getByRole('button', { name: /Assistir à Aula ao Vivo/ }).click();
+  await page.getByLabel('Matrícula').fill('ABC');
+  await page.getByRole('button', { name: /Entrar na aula/ }).click();
   await expect(page.getByRole('alert')).toBeVisible();
   await expect(page).toHaveURL(/\/entrar$/);
 
-  await page.getByLabel('Matrícula / Registro Acadêmico').fill(MATRICULA);
-  await page.getByRole('button', { name: /Assistir à Aula ao Vivo/ }).click();
+  await page.getByLabel('Matrícula').fill(MATRICULA);
+  await page.getByRole('button', { name: /Entrar na aula/ }).click();
   await expect(page).toHaveURL(new RegExp(`/${prof.slug}/ao-vivo$`));
 });
 

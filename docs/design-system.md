@@ -1,156 +1,105 @@
-# MLab Design System — Especificação Oficial (Carbon Aligned)
+# MLab Design System 2.0
 
-> **Diretriz Mandatória para Desenvolvedores e IAs:**
-> Este documento define a identidade visual, padrões de componentes, tokens e regras de usabilidade do **MLab**. Qualquer nova tela, refatoração ou funcionalidade deve obrigatoriamente seguir as especificações e componentes aqui descritos para manter 100% de consistência estética e funcional.
+> Fonte única da identidade visual do MLab. Vale para o app do professor (`apps/desktop`) e para a página do aluno (`apps/web`).
+> Código: `packages/ui` (`src/styles/tokens.css`, `src/styles/components.css`, `src/tokens.ts`, componentes React).
+> Substitui a especificação anterior ("Carbon Aligned").
 
----
+## 1. Princípios
 
-## 1. Princípios de Design
+1. **O conteúdo é a área mais clara da tela.** A interface recua. O palco do vídeo usa sempre o tom mais escuro (`--stage`), inclusive no tema claro.
+2. **Legível do fundo do laboratório.** Fonte de alta legibilidade embutida, texto de interface a partir de 13 px, contraste WCAG AA.
+3. **Estado sempre visível, sempre em texto.** Ao vivo, gravando, pausado, conectando: ponto ou ícone + rótulo, nunca só cor.
+4. **Uma cor, um significado.** Azul é ação. Verde é "no ar". Vermelho é gravação, mudo ou ação destrutiva. Não há amarelo na interface: mão levantada, pausa e "aguardando" usam o azul de destaque. A única exceção é a barra flutuante de marcação fora do MLab, que fica amarela quando um aluno levanta a mão (017).
+5. **Teclado, mouse e toque têm o mesmo poder.** Foco visível em tudo (`:focus-visible` global), alvos de 40 px, nenhum controle que só apareça no hover.
+6. **Offline por definição.** Fontes e ícones vão dentro do app.
+7. **Zero emojis.** Ícones são SVG do conjunto Lucide, reexportados por `@mlab/ui`.
 
-1. **Foco no Conteúdo (Content-First):** O vídeo da transmissão ao vivo é o elemento central. Todos os controles, barras e chats devem ser minimalistas, discretos e recolhíveis (*retractable/auto-hide*).
-2. **Zero Emojis:** É estritamente proibido o uso de emojis na interface visual. Toda representação gráfica deve utilizar exclusivamente os componentes de ícones SVG oficiais do **Carbon Design System** (`@carbon/icons-react`).
-3. **Previsibilidade e Hierarquia:** Cada tela possui no máximo uma ação primária clara. Ações destrutivas ou de saída utilizam sempre a variante de perigo (*danger*).
-4. **Fluidez e Responsividade:** Transições suaves entre estados (expandir/recolher sidebar, mutar/desmutar microfone, alternar tela cheia).
-5. **Acessibilidade e Alto Contraste:** Textos nítidos sobre fundo escuro com contraste mínimo de 4.5:1 (WCAG AA).
+## 2. Temas
 
----
+Dois temas, claro e escuro, definidos por `data-theme` no `<html>`. `@mlab/ui` aplica o tema ao carregar (`initTheme`): o que o usuário escolheu (salvo em `localStorage`, chave `mlab-theme`) ou, na falta, o do sistema operacional. O componente `ThemeToggle` alterna.
 
-## 2. Paleta de Cores e Tokens CSS
+Tudo que fica **sobre o palco do vídeo** (controles do player, avisos, barra de marcação) usa a classe `ml-on-stage`, que fixa os valores escuros dos tokens.
 
-As cores do MLab combinam a seriedade corporativa do Carbon Design System com o tom moderno da marca.
+## 3. Tokens de cor
 
-```css
-:root {
-  /* Marca e Ações Primárias (MLab Blue) */
-  --mlab-primary: #0284c7;             /* Botões primários, links ativos */
-  --mlab-primary-hover: #0369a1;       /* Hover de botão primário */
-  --mlab-primary-active: #075985;      /* Clique / ativo */
-  --mlab-accent: #38bdf8;              /* Títulos, realces, ícones de destaque */
-  --mlab-primary-soft: rgba(2, 132, 199, 0.15); /* Fundos selecionados, alertas info */
+Nunca use hexadecimal em tela ou componente. Use `var(--token)` no CSS ou `colors.*` de `@mlab/ui` no estilo inline. Faltou um token? Crie em `tokens.css`.
 
-  /* Ações Negativas e Alertas Críticos (Danger Red) */
-  --mlab-danger: #ef4444;              /* Encerrar aula, cancelar, sair */
-  --mlab-danger-hover: #dc2626;        /* Hover destrutivo */
-  --mlab-danger-soft: rgba(239, 68, 68, 0.15); /* Banners de erro */
-  --mlab-danger-text: #fca5a5;         /* Texto sobre fundo soft */
+| Token CSS | `colors.*` (legado) | Uso | Escuro | Claro |
+|---|---|---|---|---|
+| `--bg` | `bgBase` | Fundo da aplicação | `#14171C` | `#F4F5F7` |
+| `--surface-1` | `surfaceCard`, `surfaceCardSolid`, `surfaceInput` | Painéis, cabeçalho, campos | `#1C2027` | `#FFFFFF` |
+| `--surface-2` | `surfaceHover` | Hover, item selecionado, chips | `#252A33` | `#ECEEF2` |
+| `--surface-float` | `surfaceFloat` | Popover, toast, diálogo | `#2B313B` | `#FFFFFF` |
+| `--stage` | `stage` | Moldura do vídeo | `#0E1013` | `#1B1F25` |
+| `--border-subtle` | `borderSubtle` | Divisórias | `#3A414D` | `#DCE0E6` |
+| `--border-strong` | `borderStrong`, `borderInteractive` | Contorno de campos e botões secundários (≥ 3:1) | `#6E7785` | `#7F8896` |
+| `--text-1` / `--text-2` / `--text-3` | `textPrimary` / `textSecondary` / `textMuted` | Texto principal, secundário, metadados | `#ECEFF3` / `#AEB5C0` / `#8A93A0` | `#151920` / `#464E5A` / `#5E6672` |
+| `--accent` | `accent` | Link, ícone e aba ativos | `#4C8DFF` | `#1A5FD6` |
+| `--accent-fill` | `primary` | Fundo do botão primário | `#2F6BDE` | `#1A5FD6` |
+| `--attention` / `--attention-soft` | `warning`, `warningSoft` | Mão levantada, pausa, aguardando | `#4C8DFF` / azul 16% | `#1A5FD6` / `#ECEEF2` |
+| `--live` | `success` | Ao vivo, enviado | `#3CC07E` | `#127A47` |
+| `--rec`, `--danger` | `rec`, `danger`, `dangerText` | Gravando, mudo, erro, encerrar | `#F0555A` | `#C9282E` |
+| `--focus` | `focusRing` | Anel de foco | `#8DB6FF` | `#1A5FD6` |
 
-  /* Estados Semânticos */
-  --mlab-success: #16a34a;             /* Transmissão Ao Vivo, sucesso */
-  --mlab-success-soft: rgba(22, 163, 74, 0.15);
-  --mlab-warning: #eab308;             /* Aula pausada, aguardando início */
-  --mlab-warning-soft: rgba(234, 179, 8, 0.15);
-  --mlab-warning-text: #fde047;
+Há ainda as variantes `*-soft` (fundos translúcidos) e `--on-*` (texto sobre preenchimento).
 
-  /* Superfícies e Fundos (Dark Theme) */
-  --mlab-bg-base: #0f172a;             /* Fundo geral da aplicação (Slate 900) */
-  --mlab-surface-card: #1e293b;        /* Cards, cabeçalhos, sidebars (Slate 800) */
-  --mlab-surface-input: #0f172a;       /* Fundo de campos de digitação */
-  --mlab-surface-hover: #334155;       /* Hover em itens de lista / botões ghost */
+**Atenção:** `colors.*` devolve `var(--…)`. Não serve para `<canvas>` nem para concatenar transparência. As cores de marcação sobre a tela continuam em hexadecimal fixo, porque desenham sobre o conteúdo do professor.
 
-  /* Bordas e Divisores */
-  --mlab-border-subtle: rgba(255, 255, 255, 0.1); /* Bordas de cards e modais */
-  --mlab-border-strong: #334155;       /* Bordas de inputs e caixas */
-  --mlab-border-interactive: #475569;  /* Bordas de botões secundários */
-  --mlab-focus-ring: #38bdf8;          /* Anel de foco para acessibilidade */
+## 4. Tipografia
 
-  /* Tipografia e Textos */
-  --mlab-text-primary: #f8fafc;        /* Títulos e valores principais */
-  --mlab-text-secondary: #cbd5e1;      /* Rótulos e textos explicativos */
-  --mlab-text-muted: #94a3b8;          /* Metadados, timestamps, placeholders */
+**Atkinson Hyperlegible Next** (interface) e **Atkinson Hyperlegible Mono** (links, IPs, matrículas, cronômetros), licença SIL OFL, embutidas em `packages/ui/src/styles/fonts` (cerca de 70 KB). A família foi desenhada para baixa visão: I, l e 1; O e 0; rn e m são deliberadamente diferentes.
 
-  /* Raios de Borda (Modern Rounded) */
-  --mlab-radius-sm: 4px;               /* Badges, tags pequenas */
-  --mlab-radius-md: 8px;               /* Botões, inputs, abas */
-  --mlab-radius-lg: 16px;              /* Cards, painéis, modais */
-  --mlab-radius-full: 9999px;          /* Pílulas de status */
-}
-```
-
----
-
-## 3. Tipografia
-
-- **Família Tipográfica:** `'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif`.
-- **Títulos:**
-  - `Display / Logo`: 24px, peso 700, cor `--mlab-accent`.
-  - `Card Title`: 20px, peso 700, cor `--mlab-text-primary`.
-  - `Section / Tool Header`: 16px, peso 600, cor `--mlab-text-primary`.
-- **Corpo:**
-  - `Body Standard`: 14px, peso 400 ou 500, line-height 1.5, cor `--mlab-text-primary`.
-  - `Label / Form`: 13px, peso 500, cor `--mlab-text-secondary`.
-  - `Caption / Timestamp`: 12px, peso 400, cor `--mlab-text-muted`.
-
----
-
-## 4. Mapeamento Mandatório de Ícones (Carbon Icons)
-
-**NUNCA** utilize emojis na interface. Use os seguintes ícones do `@carbon/icons-react`:
-
-| Contexto / Função | Ícone Carbon | Tamanho Padrão |
+| Token | Tamanho | Uso |
 |---|---|---|
-| Transmissão de Tela / Modo Tela Cheia | `<Screen size={20} />` | 16px ou 20px |
-| Captura de Janela / Aba | `<Application size={20} />` | 16px ou 20px |
-| Microfone Ativado (Falando) | `<Microphone size={18} />` | 16px ou 18px |
-| Microfone Mudo (Desativado) | `<MicrophoneOff size={18} />` | 16px ou 18px |
-| Gravação de Aula | `<Recording size={18} />` | 16px ou 18px |
-| Chat Geral / Envio de Mensagem | `<Chat size={18} />` | 16px ou 18px |
-| Dúvidas / Chat Privado | `<Locked size={16} />` | 16px |
-| Lista de Alunos | `<UserMultiple size={18} />` | 18px |
-| Pasta de Arquivos / Materiais | `<Folder size={18} />` | 18px |
-| Anexar Arquivo / Upload | `<Attachment size={16} />` | 16px |
-| Copiar Link | `<Copy size={16} />` | 16px |
-| Sucesso / Confirmado | `<Checkmark size={16} />` | 16px |
-| Configurações / Trocar Fonte | `<Settings size={18} />` | 18px |
-| Atualizar / Recarregar Janelas | `<Renew size={16} />` | 16px |
-| Iniciar / Transmitir | `<Play size={18} />` | 18px |
-| Encerrar Transmissão / Sair | `<Exit size={18} />` | 18px |
-| Fechar Painel / Cancelar | `<Close size={18} />` | 16px ou 18px |
-| Tela Cheia (Player do Aluno) | `<Maximize size={18} />` | 18px |
-| Janela Flutuante (PiP) | `<Popup size={18} />` | 18px |
-| Alertas e Avisos | `<WarningAlt size={18} />` | 18px |
+| `--fs-display` | 33 px | Título da tela de entrada |
+| `--fs-title` | 23 px | Título de página, telas de estado |
+| `--fs-lead` | 19 px | Título de seção e de painel |
+| `--fs-body` | 16 px | Texto corrido, chat, campos |
+| `--fs-small` | 14 px | Rótulos, botões, abas |
+| `--fs-caption` | 13 px | Metadados. Mínimo para texto de interface |
 
----
+Pesos: 400, 600 e 700 (a família não tem 500). Sem caixa alta em rótulos novos.
 
-## 5. Padrões de Componentes
+Exceção documentada: as letras de atalho dentro dos botões da barra de marcação usam 10 px, porque são um reforço do `title` e precisam caber no botão.
 
-### 5.1 Botões (`Button` & `IconButton`)
+## 5. Espaço, forma e movimento
 
-1. **`primary`:** Ação principal da tela (ex: "Iniciar Transmissão", "Assistir Aula", "Criar Sala").
-   - Fundo: `--mlab-primary`, Texto: Branco, Padding: `12px 20px`, Radius: `8px`.
-2. **`secondary`:** Ações complementares (ex: "Apenas Transmitir", "Atualizar Janelas").
-   - Borda: `1px solid --mlab-border-interactive`, Fundo: transparente, Hover: `--mlab-surface-card`.
-3. **`danger`:** Ações irreversíveis ou destrutivas (ex: "Encerrar Transmissão", "Sair da Sala").
-   - Fundo: `--mlab-danger`, Hover: `--mlab-danger-hover`, Texto: Branco.
-4. **`danger-ghost`:** Ação destrutiva discreta (ex: Sair no topo).
-   - Sem fundo, cor `--mlab-danger`, hover `--mlab-danger-soft`.
-5. **`ghost`:** Ícones de utilidade sem fundo (ex: botão de fechar sidebar, maximizar).
-   - Borda: nenhuma, hover: `--mlab-surface-hover`.
+- Espaço em múltiplos de 4 px (`--sp-1` … `--sp-8`).
+- Raio por hierarquia: `--r-control` 6 px (botões, campos), `--r-panel` 10 px (cartões, painéis), `--r-pill` (status, contadores, avatares).
+- Sombra só no que flutua (`--shadow-float`). Painéis fixos usam borda.
+- Alvos: 40 px (botões), 44 px (campos e abas).
+- Movimento só em resposta a ações; `prefers-reduced-motion` zera as durações.
 
-### 5.2 Entradas de Texto (`TextInput`)
-- Fundo: `--mlab-surface-input` (`#0f172a`).
-- Borda: `1px solid --mlab-border-strong` (`#334155`).
-- Foco: `1px solid --mlab-focus-ring` com `box-shadow: 0 0 0 2px rgba(56, 189, 248, 0.2)`.
-- Rótulo superior sempre visível e legível em `--mlab-text-secondary`.
+## 6. Componentes (`@mlab/ui`)
 
-### 5.3 Badges e Indicadores de Status
-- Formato pílula (*rounded pill*), fonte 12px, peso 600.
-- **Ao Vivo:** dot verde pulsante (`#16a34a`) com texto "AO VIVO".
-- **Pausado:** dot amarelo (`#eab308`) com texto "PAUSADO".
-- **Resolução:** fundo sutil neutro, texto "1080p @ 30fps" ou "1080p @ 60fps".
+| Componente | Observações |
+|---|---|
+| `Button` | Variantes `primary`, `secondary`, `ghost`, `danger`, `danger-ghost`; `success` é mapeado para `primary`. Tamanhos `sm` 32, `md` 40, `lg` 48. Um primário por tela. |
+| `IconButton` | Sempre com `aria-label` e `title`. |
+| `TextInput` | Rótulo sempre visível; `helperText` e `error` ligados por `aria-describedby`; `readOnly` vira campo de valor em fonte mono. |
+| `StatusBadge` | Ponto + texto. Estados `live`, `paused`, `waiting`, `error`, `info`, `neutral`. |
+| `Alert` | Barra de cor à esquerda; `role="alert"`. |
+| `Card` | Superfície com borda, sem sombra nem blur. |
+| `BrandMark` | Símbolo do MLab (colchetes + cursor), em SVG, para uso em interface. |
+| `ThemeToggle`, `useTheme` | Alterna e lê o tema. |
+| Ícones | Lucide, reexportados com os nomes que as telas já usavam (`Screen`, `Microphone`, `Touch_1`…). |
 
-### 5.4 Sidebar Retrátil
-- Painel lateral fixo à direita com largura de 340px a 380px (ou 100% no mobile).
-- Backdrop blur sutil (`backdrop-filter: blur(16px)`).
-- Abas superiores no estilo Carbon Tabs (Chat Público, Dúvidas Privadas, Arquivos).
-- Auto-hide quando o usuário clica na área de vídeo ou aciona a tecla Esc.
+Classes utilitárias de `components.css` (`ml-btn`, `ml-icon-btn`, `ml-status`, `ml-banner`, `ml-topbar`, `ml-brand`, `ml-hint`, `ml-on-stage`…) podem ser usadas direto em elementos simples.
 
----
+## 7. Padrões de tela
 
-## 6. Regras de Consistência para Novas Telas e Features
+- **Cabeçalho:** `BrandMark` + título curto à esquerda; estado; ações à direita. A ação destrutiva (Encerrar, Sair) fica sempre no fim.
+- **Abas:** sublinhado azul na aba ativa. Escolhas curtas e exclusivas usam o controle segmentado.
+- **Chat:** mensagens sem caixa; fundo só para mensagem privada (`--surface-2`) e fixada (`--accent-soft`).
+- **Mão levantada:** azul. No tema escuro, o destaque dos alunos com mão levantada é azul translúcido (`--attention-soft`), como o botão de mão do menu de tela cheia do aluno; no tema claro, é o cinza dos campos de link (`--surface-2`). Posição na fila, contador e botão ativo usam `--accent-fill`.
+- **Aula pausada (aluno):** o ícone gira devagar (4 s por volta), como na versão anterior; para quem pede menos movimento, fica parado.
+- **Mudo:** microfone e som do PC desligados aparecem em vermelho suave, com o rótulo da ação que o botão executa.
+- **Controles sobre o vídeo:** sempre visíveis, fundo escuro translúcido.
 
-1. **Importação:** Sempre que for renderizar um botão, input, badge ou card, verifique ou reutilize os componentes centralizados em `@mlab/ui` ou siga estritamente os tokens acima.
-2. **Identidade da Logo:**
-   - Tela de Entrada do Aluno (`Join.tsx`): Logo com 76px de altura/largura.
-   - Tela de Identificação do Professor (`ProfessorEntry.tsx`): Logo com 96px de altura/largura.
-   - Topbar da Transmissão e Dashboard: Logo com 46px de altura/largura alinhada à esquerda do título.
-3. **Não alteração de regras de negócio:** A modernização da UI/UX não altera nenhum contrato WebRTC, endpoints do backend Go, autenticação JWT ou política de sincronização de turmas.
+## 8. Vocabulário
+
+| Use | Em vez de |
+|---|---|
+| Link direto | Link fixo (mDNS), link amigável |
+| Link pelo IP | Link direto (IP da rede local) |
+| Conectado, Conectando, Reconectando, Pausado | `connected`, `connecting`, `reconnecting`, `pausado` |

@@ -15,7 +15,6 @@
   <img src="https://img.shields.io/badge/Electron-Desktop-47848F?style=flat&logo=electron&logoColor=white" alt="Electron" />
   <img src="https://img.shields.io/badge/React-18-61DAFB?style=flat&logo=react&logoColor=black" alt="React" />
   <img src="https://img.shields.io/badge/Vite-Fast-646CFF?style=flat&logo=vite&logoColor=white" alt="Vite" />
-  <img src="https://img.shields.io/badge/Carbon_Design-IBM-0f62fe?style=flat&logo=ibm&logoColor=white" alt="IBM Carbon" />
   <img src="https://img.shields.io/badge/Methodology-SDD_%26_AI-7c3aed?style=flat" alt="SDD" />
   <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-green.svg" alt="License" /></a>
   <a href="https://github.com/MateusARJ/MLAB/releases/latest"><img src="https://img.shields.io/github/v/release/MateusARJ/MLAB?label=vers%C3%A3o&color=0f62fe" alt="Versão" /></a>
@@ -674,7 +673,7 @@ mlab/
 │   ├── desktop/               # App Electron + React (professor)
 │   │   ├── src/main/          # Processo principal: backend embarcado, overlay de marcação, atalhos,
 │   │   │                      # rastreio do cursor, guarda de navegação e preload (contextBridge)
-│   │   ├── src/renderer/      # Interface React (Carbon): sala, barra flutuante, arquivos, gravação
+│   │   ├── src/renderer/      # Interface React (design system 2.0): sala, barra flutuante, arquivos, gravação
 │   │   └── src/renderer/media/ # Máscara do cursor (worker) e política de repasse dos quadros
 │   └── web/                   # Web do aluno (React + Vite)
 │       ├── e2e/               # Testes E2E (Playwright) com professor simulado
@@ -682,7 +681,7 @@ mlab/
 │       └── src/pages/         # Entrada (Join) e sala ao vivo (Room)
 ├── packages/
 │   ├── types/                 # DTOs e mensagens de sinalização compartilhados
-│   └── ui/                    # Componentes visuais e ícones Carbon compartilhados
+│   └── ui/                    # Design system 2.0: tokens, fontes e componentes
 ├── docs/                      # Requisitos detalhados, métricas, teste de carga e design system
 ├── spec-kit/                  # Constituição, specs por feature e ADRs (SDD)
 ├── scripts/                   # dev, build do backend, empacotamento, smoke e spec:check
@@ -708,7 +707,8 @@ O MLab é construído sobre tecnologias de código aberto. Agradecemos e reconhe
 | **[Go Cryptography](https://golang.org/x/crypto)** | BSD-3-Clause | Copyright (c) 2009 The Go Authors | Primitivas criptográficas usadas pelo Pion WebRTC (DTLS) |
 | **[Electron](https://github.com/electron/electron)** | MIT | Copyright (c) OpenJS Foundation and Electron contributors | Framework desktop multiplataforma |
 | **[React](https://github.com/facebook/react)** | MIT | Copyright (c) Meta Platforms, Inc. and affiliates | Biblioteca de interfaces |
-| **[Carbon Design System](https://github.com/carbon-design-system)** | Apache-2.0 | Copyright (c) IBM Corporation | Sistema de design e ícones |
+| **[Lucide](https://lucide.dev)** | ISC | Copyright (c) Lucide Contributors | Ícones da interface |
+| **[Atkinson Hyperlegible Next / Mono](https://www.brailleinstitute.org/freefont/)** | SIL OFL 1.1 | Copyright (c) Braille Institute of America | Fontes da interface (embutidas) |
 | **[Vite](https://github.com/vitejs/vite)** | MIT | Copyright (c) 2019-present Evan You & Vite Contributors | Build e servidor de desenvolvimento do web |
 | **[Turborepo](https://github.com/vercel/turbo)** | MIT | Copyright (c) 2021 Vercel, Inc. | Orquestrador do monorepo |
 | **[TypeScript](https://github.com/microsoft/TypeScript)** | Apache-2.0 | Copyright (c) Microsoft Corporation | Tipagem estática em todo o monorepo |

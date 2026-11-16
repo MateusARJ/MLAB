@@ -1,6 +1,6 @@
 {
   "name": "@mlab/ui",
-  "version": "1.15.10",
+  "version": "2.0.0",
   "private": true,
   "main": "./src/index.ts",
   "types": "./src/index.ts",
@@ -20,6 +20,6 @@
     "typescript": "^5.5.0"
   },
   "dependencies": {
-    "@carbon/icons-react": "^11.89.0"
+    "lucide-react": "^1.72.0"
   }
 }
