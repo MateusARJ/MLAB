@@ -14,28 +14,30 @@ const (
 	TypeSubscribeRequest = "subscribe-request"
 	TypeChatMessage      = "chat-message"
 	TypeEndSession       = "end-session"
-	TypeStreamPause      = "stream-pause" // professor envia para pausar/retomar transmissão
-	TypeRequestKeyFrame  = "request-keyframe" // publisher solicita keyframe imediato (ex: após troca de fonte)
+	TypeStreamPause      = "stream-pause"     // professor envia para pausar/retomar transmissão
+	TypeRequestKeyFrame  = "request-keyframe" // professor (após troca de fonte) ou aluno (ao conectar/congelar) pede keyframe; aluno limitado (002/S9)
 	TypeRaiseHand        = "raise-hand"       // aluno levanta ou abaixa a mão
 	TypeLowerHand        = "lower-hand"       // professor (ou aluno) abaixa a mão
+	TypePinMessage       = "pin-message"      // professor fixa ou desafixa mensagem no chat público ou privado
 )
 
 // Mensagens que o servidor envia ao(s) cliente(s).
 const (
-	TypeSessionState      = "session-state"
-	TypePublishApproved   = "publish-approved"
-	TypeParticipantJoined = "participant-joined"
-	TypeParticipantLeft   = "participant-left"
-	TypeRoomClosed        = "room-closed"
-	TypeIceServers        = "ice-servers"
-	TypeError             = "error"
-	TypeStreamPaused      = "stream-paused"      // broadcast: transmissão pausada/retomada
-	TypeFileShared        = "file-shared"         // broadcast: novo arquivo compartilhado
+	TypeSessionState       = "session-state"
+	TypePublishApproved    = "publish-approved"
+	TypeParticipantJoined  = "participant-joined"
+	TypeParticipantLeft    = "participant-left"
+	TypeRoomClosed         = "room-closed"
+	TypeIceServers         = "ice-servers"
+	TypeError              = "error"
+	TypeStreamPaused       = "stream-paused"       // broadcast: transmissão pausada/retomada
+	TypeFileShared         = "file-shared"         // broadcast: novo arquivo compartilhado
 	TypeParticipantsUpdate = "participants-update" // broadcast: lista atualizada de participantes
-	TypeChatHistory       = "chat-history"       // unicast: histórico de chat público para novo participante
-	TypeFilesHistory      = "files-history"      // unicast: lista de arquivos já compartilhados para novo participante
-	TypeStreamStarted     = "stream-started"     // broadcast: professor iniciou a transmissão e a mídia está pronta
-	TypeHandUpdated       = "hand-updated"       // broadcast: status de mão levantada atualizado
+	TypeChatHistory        = "chat-history"        // unicast: histórico de chat público para novo participante
+	TypeFilesHistory       = "files-history"       // unicast: lista de arquivos já compartilhados para novo participante
+	TypeStreamStarted      = "stream-started"      // broadcast: professor iniciou a transmissão e a mídia está pronta
+	TypeHandUpdated        = "hand-updated"        // broadcast: status de mão levantada atualizado
+	TypeChatMessagePinned  = "chat-message-pinned" // broadcast/unicast: mensagem fixada ou desafixada pelo professor
 )
 
 // SessionStatus reflete o estado da sala de transmissão.
@@ -140,6 +142,7 @@ type ChatRecvPayload struct {
 	IsPrivate     bool   `json:"is_private"`
 	TargetID      string `json:"target_id,omitempty"`
 	SentAt        string `json:"sent_at"`
+	Pinned        bool   `json:"pinned,omitempty"`
 }
 
 type IceServer struct {
@@ -225,4 +228,20 @@ type HandUpdatedPayload struct {
 	StudentID     string `json:"student_id,omitempty"`
 	Raised        bool   `json:"raised"`
 	RaisedAt      string `json:"raised_at,omitempty"`
+}
+
+// PinMessageSendPayload é enviado exclusivamente pelo professor para fixar/desafixar uma mensagem.
+type PinMessageSendPayload struct {
+	MessageID string `json:"message_id"`
+	Pinned    bool   `json:"pinned"`
+	IsPrivate bool   `json:"is_private,omitempty"`
+	TargetID  string `json:"target_id,omitempty"`
+}
+
+// ChatMessagePinnedPayload notifica os clientes sobre uma mensagem fixada ou desafixada pelo professor.
+type ChatMessagePinnedPayload struct {
+	MessageID string `json:"message_id"`
+	Pinned    bool   `json:"pinned"`
+	IsPrivate bool   `json:"is_private"`
+	TargetID  string `json:"target_id,omitempty"`
 }

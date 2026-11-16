@@ -18,21 +18,31 @@ window.electronAPI = {
     success: true,
     filePath: 'C:/fake/path/aula-mlab.webm',
   }),
-  checkMediaPermissions: vi.fn().mockResolvedValue({
-    microphone: 'granted',
-    screen: 'granted',
-  }),
-  requestMediaPermissions: vi.fn().mockResolvedValue({
-    microphone: true,
-    screen: true,
-  }),
   copyToClipboard: vi.fn().mockResolvedValue(true),
+  getHostKey: vi.fn().mockResolvedValue('chave-de-host-de-teste'),
+  getAppInfo: vi.fn().mockResolvedValue({
+    name: 'MLab',
+    version: '9.8.7',
+    description: 'Plataforma de transmissão de tela e interação para aulas ao vivo',
+    copyright: 'Copyright © 2026 Mateus de Araujo',
+  }),
   setActiveRoom: vi.fn().mockResolvedValue(undefined),
   setContentProtection: vi.fn().mockResolvedValue(true),
   captureWindowToClipboard: vi.fn().mockResolvedValue(true),
   startCursorTracking: vi.fn().mockResolvedValue(true),
   stopCursorTracking: vi.fn().mockResolvedValue(undefined),
+  onActiveWindowChanged: vi.fn().mockImplementation(() => () => {}),
+  onActiveWindowUnauthorized: vi.fn().mockImplementation(() => () => {}),
   onCursorState: vi.fn().mockImplementation(() => () => {}),
+  startAnnotationOverlay: vi.fn().mockResolvedValue(true),
+  stopAnnotationOverlay: vi.fn().mockResolvedValue(undefined),
+  syncAnnotationState: vi.fn().mockResolvedValue(undefined),
+  setAnnotationOverlayIgnoreMouse: vi.fn().mockResolvedValue(undefined),
+  setAnnotationToolbarRect: vi.fn().mockResolvedValue(undefined),
+  onAnnotationStateSync: vi.fn().mockImplementation(() => () => {}),
+  onAnnotationShortcutCommand: vi.fn().mockImplementation(() => () => {}),
+  setAnnotationRaisedHands: vi.fn().mockResolvedValue(undefined),
+  onAnnotationRaisedHands: vi.fn().mockImplementation(() => () => {}),
 };
 
 if (typeof window !== 'undefined') {
@@ -124,7 +134,7 @@ if (typeof window !== 'undefined') {
     navigator.mediaDevices = {};
   }
   // @ts-ignore
-  navigator.mediaDevices.getUserMedia = vi.fn().mockResolvedValue(new globalThis.MediaStream());
+  navigator.mediaDevices.getUserMedia = vi.fn().mockImplementation(() => Promise.resolve(new globalThis.MediaStream()));
 
   // Mock global de fetch para evitar ECONNREFUSED em testes ao acessar endpoints locais
   // @ts-ignore

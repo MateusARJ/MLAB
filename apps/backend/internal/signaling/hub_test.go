@@ -2,6 +2,7 @@ package signaling
 
 import (
 	"encoding/json"
+	"fmt"
 	"strings"
 	"testing"
 	"time"
@@ -408,4 +409,303 @@ func TestHub_StreamStarted_Broadcast(t *testing.T) {
 	}
 }
 
+func TestHub_PinMessage_RoleEnforcementLimitAndBroadcast(t *testing.T) {
+	hub := newHub("room-test-pin", nil)
 
+	prof := &Client{
+		hub:           hub,
+		send:          make(chan []byte, 20),
+		participantID: "prof-pin-01",
+		roomID:        "room-test-pin",
+		role:          RoleProfessor,
+		name:          "Professor",
+	}
+	student1 := &Client{
+		hub:           hub,
+		send:          make(chan []byte, 20),
+		participantID: "student-pin-01",
+		roomID:        "room-test-pin",
+		role:          RoleAluno,
+		name:          "Aluno 1",
+	}
+	student2 := &Client{
+		hub:           hub,
+		send:          make(chan []byte, 20),
+		participantID: "student-pin-02",
+		roomID:        "room-test-pin",
+		role:          RoleAluno,
+		name:          "Aluno 2",
+	}
+
+	hub.clients[prof.participantID] = prof
+	hub.clients[student1.participantID] = student1
+	hub.clients[student2.participantID] = student2
+
+	// Popula 4 mensagens públicas no histórico
+	hub.chatHistory = []ChatRecvPayload{
+		{MessageID: "msg-1", Content: "Msg 1", IsPrivate: false},
+		{MessageID: "msg-2", Content: "Msg 2", IsPrivate: false},
+		{MessageID: "msg-3", Content: "Msg 3", IsPrivate: false},
+		{MessageID: "msg-4", Content: "Msg 4", IsPrivate: false},
+	}
+
+	// 1. Aluno tentando fixar mensagem -> FORBIDDEN
+	hub.onPinMessage(student1, WsMessage{
+		Type:    TypePinMessage,
+		Payload: []byte(`{"message_id":"msg-1","pinned":true}`),
+	})
+	select {
+	case msgBytes := <-student1.send:
+		var wsMsg WsMessage
+		_ = json.Unmarshal(msgBytes, &wsMsg)
+		if wsMsg.Type != TypeError {
+			t.Fatalf("expected error for student pin, got %s", wsMsg.Type)
+		}
+		var errPayload ErrorPayload
+		_ = json.Unmarshal(wsMsg.Payload, &errPayload)
+		if errPayload.Code != "FORBIDDEN" {
+			t.Errorf("expected FORBIDDEN, got %s", errPayload.Code)
+		}
+	default:
+		t.Fatal("expected FORBIDDEN error for student pin")
+	}
+
+	// 2. Professor fixa 3 mensagens públicas -> permitido e atualizado no chatHistory
+	for _, id := range []string{"msg-1", "msg-2", "msg-3"} {
+		hub.onPinMessage(prof, WsMessage{
+			Type:    TypePinMessage,
+			Payload: []byte(`{"message_id":"` + id + `","pinned":true,"is_private":false}`),
+		})
+	}
+	if !hub.chatHistory[0].Pinned || !hub.chatHistory[1].Pinned || !hub.chatHistory[2].Pinned {
+		t.Fatal("expected first 3 messages in chatHistory to be marked Pinned=true")
+	}
+
+	// Limpa canais de send antes de testar a 4ª fixação
+	for len(prof.send) > 0 {
+		<-prof.send
+	}
+	for len(student1.send) > 0 {
+		<-student1.send
+	}
+	for len(student2.send) > 0 {
+		<-student2.send
+	}
+
+	// 3. Professor tenta fixar a 4ª mensagem pública -> bloqueado por PIN_LIMIT_REACHED (máx 3)
+	hub.onPinMessage(prof, WsMessage{
+		Type:    TypePinMessage,
+		Payload: []byte(`{"message_id":"msg-4","pinned":true,"is_private":false}`),
+	})
+	if hub.chatHistory[3].Pinned {
+		t.Fatal("expected 4th message NOT to be pinned when limit of 3 is reached")
+	}
+	select {
+	case msgBytes := <-prof.send:
+		var wsMsg WsMessage
+		_ = json.Unmarshal(msgBytes, &wsMsg)
+		var errPayload ErrorPayload
+		_ = json.Unmarshal(wsMsg.Payload, &errPayload)
+		if errPayload.Code != "PIN_LIMIT_REACHED" {
+			t.Errorf("expected PIN_LIMIT_REACHED, got %s", errPayload.Code)
+		}
+	default:
+		t.Fatal("expected PIN_LIMIT_REACHED error when pinning 4th message")
+	}
+
+	// 4. Professor desafixa msg-1 e fixa msg-4 -> permitido
+	hub.onPinMessage(prof, WsMessage{
+		Type:    TypePinMessage,
+		Payload: []byte(`{"message_id":"msg-1","pinned":false,"is_private":false}`),
+	})
+	hub.onPinMessage(prof, WsMessage{
+		Type:    TypePinMessage,
+		Payload: []byte(`{"message_id":"msg-4","pinned":true,"is_private":false}`),
+	})
+	if hub.chatHistory[0].Pinned || !hub.chatHistory[3].Pinned {
+		t.Fatal("expected msg-1 unpinned and msg-4 pinned")
+	}
+
+	// Limpa canais antes do teste de chat privado
+	for len(prof.send) > 0 {
+		<-prof.send
+	}
+	for len(student1.send) > 0 {
+		<-student1.send
+	}
+	for len(student2.send) > 0 {
+		<-student2.send
+	}
+
+	// 5. Professor fixa mensagem privada para student-pin-01 -> student2 NÃO recebe
+	hub.onPinMessage(prof, WsMessage{
+		Type:    TypePinMessage,
+		Payload: []byte(`{"message_id":"priv-msg-1","pinned":true,"is_private":true,"target_id":"student-pin-01"}`),
+	})
+	if len(student1.send) != 1 {
+		t.Fatalf("expected student1 to receive private pin event, got %d messages", len(student1.send))
+	}
+	if len(student2.send) != 0 {
+		t.Fatalf("security violation: student2 received private pin event meant for student1")
+	}
+}
+
+func TestHub_OnClosedCallback_CalledWhenRoomCloses(t *testing.T) {
+	closed := make(chan string, 1)
+	hub := newHub("room-onclosed", nil, func(roomID string) { closed <- roomID })
+
+	hub.BroadcastRoomClosed()
+
+	select {
+	case got := <-closed:
+		if got != "room-onclosed" {
+			t.Fatalf("expected roomID room-onclosed, got %q", got)
+		}
+	case <-time.After(2 * time.Second):
+		t.Fatal("onClosed callback was not called after room close")
+	}
+}
+
+func TestHub_WithoutOnClosedCallback_ClosesNormally(t *testing.T) {
+	hub := newHub("room-sem-callback", nil)
+	hub.BroadcastRoomClosed()
+	time.Sleep(50 * time.Millisecond)
+}
+
+// drainChatContents devolve o conteúdo das mensagens chat-message recebidas por um cliente de teste.
+func drainChatContents(c *Client) []string {
+	var contents []string
+	for len(c.send) > 0 {
+		var msg WsMessage
+		_ = json.Unmarshal(<-c.send, &msg)
+		if msg.Type == TypeChatMessage {
+			var p ChatRecvPayload
+			_ = json.Unmarshal(msg.Payload, &p)
+			contents = append(contents, p.Content)
+		}
+	}
+	return contents
+}
+
+func containsString(list []string, s string) bool {
+	for _, v := range list {
+		if v == s {
+			return true
+		}
+	}
+	return false
+}
+
+// 003/T313 — roteamento do chat privado (RN-303).
+func TestHub_PrivateChat_Routing(t *testing.T) {
+	hub := newHub("room-test-private", nil)
+	newClient := func(id string, role Role) *Client {
+		return &Client{hub: hub, send: make(chan []byte, 64), participantID: id, roomID: "room-test-private", role: role, name: id}
+	}
+	prof := newClient("prof-01", RoleProfessor)
+	alunoA := newClient("aluno-a", RoleAluno)
+	alunoB := newClient("aluno-b", RoleAluno)
+	for _, c := range []*Client{prof, alunoA, alunoB} {
+		hub.onRegister(c)
+	}
+	for _, c := range []*Client{prof, alunoA, alunoB} {
+		drainChatContents(c)
+	}
+
+	// Aluno A → professor
+	hub.onChatMessage(alunoA, WsMessage{Type: TypeChatMessage, Payload: []byte(`{"content":"duvida do aluno A","is_private":true}`)})
+	profGot, aGot, bGot := drainChatContents(prof), drainChatContents(alunoA), drainChatContents(alunoB)
+	if !containsString(profGot, "duvida do aluno A") {
+		t.Errorf("professor deveria receber a mensagem privada do aluno A, recebeu %v", profGot)
+	}
+	if !containsString(aGot, "duvida do aluno A") {
+		t.Errorf("remetente deveria receber o eco da própria mensagem, recebeu %v", aGot)
+	}
+	if containsString(bGot, "duvida do aluno A") {
+		t.Fatalf("RN-303 violada: aluno B recebeu mensagem privada do aluno A")
+	}
+
+	// Professor → aluno A
+	hub.onChatMessage(prof, WsMessage{Type: TypeChatMessage, Payload: []byte(`{"content":"resposta para A","is_private":true,"target_id":"aluno-a"}`)})
+	profGot, aGot, bGot = drainChatContents(prof), drainChatContents(alunoA), drainChatContents(alunoB)
+	if !containsString(aGot, "resposta para A") {
+		t.Errorf("aluno A deveria receber a resposta privada, recebeu %v", aGot)
+	}
+	if !containsString(profGot, "resposta para A") {
+		t.Errorf("professor deveria receber o eco da própria mensagem, recebeu %v", profGot)
+	}
+	if containsString(bGot, "resposta para A") {
+		t.Fatalf("RN-303 violada: aluno B recebeu mensagem privada destinada ao aluno A")
+	}
+
+	// Mensagens privadas não entram no histórico público
+	for _, m := range hub.chatHistory {
+		if m.IsPrivate {
+			t.Fatalf("mensagem privada encontrada no histórico: %+v", m)
+		}
+	}
+}
+
+// 003/T314 — o histórico guarda só as 200 mensagens públicas mais recentes (RN-304).
+func TestHub_ChatHistory_KeepsLatest200(t *testing.T) {
+	hub := newHub("room-test-history-cap", nil)
+	for i := 1; i <= 201; i++ {
+		// Remetentes distintos para não acionar o rate limit por participante.
+		sender := &Client{hub: hub, send: make(chan []byte, 4), participantID: fmt.Sprintf("prof-%03d", i), roomID: "room-test-history-cap", role: RoleProfessor, name: "Professor"}
+		hub.onChatMessage(sender, WsMessage{Type: TypeChatMessage, Payload: []byte(fmt.Sprintf(`{"content":"mensagem %03d"}`, i))})
+	}
+
+	if len(hub.chatHistory) != 200 {
+		t.Fatalf("expected 200 messages in history, got %d", len(hub.chatHistory))
+	}
+	if first := hub.chatHistory[0].Content; first != "mensagem 002" {
+		t.Errorf("expected oldest kept message to be 'mensagem 002', got %q", first)
+	}
+	if last := hub.chatHistory[199].Content; last != "mensagem 201" {
+		t.Errorf("expected newest message to be 'mensagem 201', got %q", last)
+	}
+}
+
+// Casos XSS migrados de internal/chat/chat_security_test.go (005/T504): o hub é o único
+// caminho de sanitização do chat.
+func TestHub_ChatMessage_XSSPayloads(t *testing.T) {
+	cases := []struct {
+		input    string
+		expected string
+	}{
+		{"<script>alert('xss')</script>", "&lt;script&gt;alert(&#39;xss&#39;)&lt;/script&gt;"},
+		{"<img src=x onerror=alert(1)>", "&lt;img src=x onerror=alert(1)&gt;"},
+		{"<b>Texto em negrito</b>", "&lt;b&gt;Texto em negrito&lt;/b&gt;"},
+		{"<iframe src=\"javascript:alert(1)\"></iframe>", "&lt;iframe src=&#34;javascript:alert(1)&#34;&gt;&lt;/iframe&gt;"},
+	}
+
+	for _, tc := range cases {
+		hub := newHub("room-test-xss", nil)
+		client := &Client{
+			hub:           hub,
+			send:          make(chan []byte, 10),
+			participantID: "part-xss",
+			roomID:        "room-test-xss",
+			role:          RoleAluno,
+			name:          "Aluno Teste",
+		}
+		hub.clients[client.participantID] = client
+		hub.chatLimits[client.participantID] = &chatTracker{}
+
+		payload, _ := json.Marshal(ChatSendPayload{Content: tc.input})
+		hub.onChatMessage(client, WsMessage{Type: TypeChatMessage, Payload: payload})
+
+		select {
+		case msgBytes := <-client.send:
+			var wsMsg WsMessage
+			_ = json.Unmarshal(msgBytes, &wsMsg)
+			var recv ChatRecvPayload
+			_ = json.Unmarshal(wsMsg.Payload, &recv)
+			if recv.Content != tc.expected {
+				t.Errorf("input %q: esperado %q, obtido %q", tc.input, tc.expected, recv.Content)
+			}
+		case <-time.After(time.Second):
+			t.Fatalf("input %q: mensagem não foi difundida", tc.input)
+		}
+	}
+}

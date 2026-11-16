@@ -1,6 +1,7 @@
 package room
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -11,7 +12,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/screenshare/classroom/internal/auth"
+	"github.com/MateusARJ/MLAB/apps/backend/internal/auth"
 )
 
 const defaultMaxParticipants = 50
@@ -22,13 +23,21 @@ var studentIDRegex = regexp.MustCompile(`^[0-9]+[A-Za-z]{1,4}[0-9]+$`)
 // RoomCloseBroadcasterFunc define a assinatura da função de broadcast para encerramento de sala.
 type RoomCloseBroadcasterFunc func(roomID string)
 
+// StudentConnectedFunc informa se há aluno conectado por WebSocket na sala com a matrícula
+// informada (RN-04, ADR 0010 — 027/RF-2701).
+type StudentConnectedFunc func(roomID, studentID string) bool
+
+// errStudentIDInUse é a mensagem do 409 do join para matrícula já conectada (027/C-2703).
+const errStudentIDInUse = "Esta matrícula já está conectada nesta transmissão."
+
 // Handler agrupa os endpoints HTTP do módulo room.
 type Handler struct {
 	store                Store
-	baseURL              string // ex: https://screenshare.example.com
+	baseURL              string // ex: https://mlab.example.com
 	fileStore            *FileStore
 	fileBroadcaster      FileBroadcasterFunc
 	roomCloseBroadcaster RoomCloseBroadcasterFunc
+	studentConnected     StudentConnectedFunc
 }
 
 func getWebPort() string {
@@ -78,6 +87,20 @@ func (h *Handler) SetFileBroadcaster(fn FileBroadcasterFunc) {
 func (h *Handler) SetRoomCloseBroadcaster(fn RoomCloseBroadcasterFunc) {
 	h.roomCloseBroadcaster = fn
 }
+
+// SetStudentConnectedChecker define a consulta ao hub usada pelo join para recusar a matrícula
+// já conectada na sala (027/RF-2701).
+func (h *Handler) SetStudentConnectedChecker(fn StudentConnectedFunc) {
+	h.studentConnected = fn
+}
+
+// mdnsClaim e mdnsHost escolhem/anunciam e leem o nome mDNS deste backend; mdnsStop encerra o anúncio no
+// encerramento pelo hub. Variáveis para os testes do handler não usarem a rede.
+var (
+	mdnsClaim = ClaimMDNSName
+	mdnsHost  = CurrentMDNSHost
+	mdnsStop  = StopMDNSServer
+)
 
 // getOutboundIP descobre o endereço IP de saída da interface de rede primária física.
 func getOutboundIP() string {
@@ -193,13 +216,11 @@ func (h *Handler) createRoom(w http.ResponseWriter, r *http.Request) {
 		roomSlug = "sala"
 	}
 
-	// Extrai e normaliza o nome do professor (request > claims["name"] > claims["email"])
+	// Extrai e normaliza o nome do professor (request > claims["name"] > "professor"; ADR 0009)
 	profName := strings.TrimSpace(req.ProfessorName)
 	if profName == "" {
-		if nameClaim, ok := claims["name"].(string); ok && strings.TrimSpace(nameClaim) != "" {
+		if nameClaim, ok := claims["name"].(string); ok {
 			profName = strings.TrimSpace(nameClaim)
-		} else if emailClaim, ok := claims["email"].(string); ok && strings.TrimSpace(emailClaim) != "" {
-			profName = slugFromEmail(emailClaim)
 		}
 	}
 	profSlug := slugify(profName)
@@ -211,6 +232,7 @@ func (h *Handler) createRoom(w http.ResponseWriter, r *http.Request) {
 	if existing, err := h.store.GetRoomByOwnerID(r.Context(), professorID); err == nil && existing != nil {
 		_ = h.store.UpdateRoomStatus(r.Context(), existing.ID, StatusClosed, nil)
 		_ = h.store.DeleteRoom(r.Context(), existing.ID)
+		h.ReleaseRoomFiles(existing.ID)
 		StopMDNSServer()
 	}
 
@@ -235,13 +257,13 @@ func (h *Handler) createRoom(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// O nome mDNS é escolhido antes de montar a resposta, para os links usarem o nome anunciado de fato
+	// (012, RF-123). Falha só gera log: a sala existe e o link por IP funciona (RNF-123).
 	lanIP := getOutboundIP()
 	if lanIP != "" && lanIP != "127.0.0.1" && lanIP != "localhost" {
-		go func(pSlug, ip string) {
-			if _, err := StartMDNSServer(pSlug, ip); err != nil {
-				log.Printf("[mDNS] Aviso: falha ao registrar anúncio mDNS: %v", err)
-			}
-		}(room.ProfessorSlug, lanIP)
+		if _, err := mdnsClaim(lanIP); err != nil {
+			log.Printf("[mDNS] Aviso: falha ao registrar anúncio mDNS: %v", err)
+		}
 	}
 
 	links := h.buildRoomLinks(r, room)
@@ -387,8 +409,16 @@ func (h *Handler) handleJoin(w http.ResponseWriter, r *http.Request, identifier 
 		}
 	}
 
+	// Sala encerrada recusa novas entradas com 409 (RN-08, contracts/room-api.md — 029/RF-2901).
 	if room.Status == StatusClosed {
-		writeError(w, http.StatusNotFound, "esta transmissão já foi encerrada e o link não está mais disponível")
+		writeError(w, http.StatusConflict, "esta transmissão já foi encerrada e o link não está mais disponível")
+		return
+	}
+
+	// Sessão única (RN-04, ADR 0010): a matrícula com WebSocket ativo na sala recusa a nova
+	// entrada, antes da regra de sala cheia (027/RF-2701, RF-2702).
+	if h.studentConnected != nil && h.studentConnected(room.ID, req.StudentID) {
+		writeError(w, http.StatusConflict, errStudentIDInUse)
 		return
 	}
 
@@ -398,8 +428,17 @@ func (h *Handler) handleJoin(w http.ResponseWriter, r *http.Request, identifier 
 		return
 	}
 	if count >= room.MaxParticipants {
-		writeError(w, http.StatusTooManyRequests, "sala cheia")
-		return
+		// A reentrada do mesmo aluno (mesma matrícula, já desconectado) substitui o registro
+		// anterior e não ocupa vaga nova (RN-04).
+		rejoining, err := h.store.HasStudent(r.Context(), room.ID, req.StudentID)
+		if err != nil {
+			writeError(w, http.StatusInternalServerError, "erro ao verificar participantes")
+			return
+		}
+		if !rejoining {
+			writeError(w, http.StatusTooManyRequests, "sala cheia")
+			return
+		}
 	}
 
 	participantID := newID()
@@ -493,12 +532,44 @@ func (h *Handler) closeRoom(w http.ResponseWriter, r *http.Request) {
 		h.roomCloseBroadcaster(roomID)
 	}
 	_ = h.store.DeleteRoom(r.Context(), roomID)
+	h.ReleaseRoomFiles(roomID)
 	StopMDNSServer()
 
 	writeJSON(w, http.StatusOK, CloseResponse{
 		Status:   StatusClosed,
 		ClosedAt: now.Format(time.RFC3339),
 	})
+}
+
+// CloseRoomFromSession encerra no store a sala que o hub de sinalização encerrou (end-session ou timeout de
+// reconexão do professor — RN-13, RF-18; 033/RF-3301), na mesma sequência da REST close: a sala é marcada
+// `closed`, removida do store e o link passa a responder 404 (033/RF-3302).
+//
+// O hub também chama este listener depois de uma REST close, que já removeu a sala. Nesse caso só os arquivos são
+// liberados: o anúncio mDNS fica intacto, porque pode já pertencer a uma sala criada depois (033/RNF-3301). Repetir a
+// chamada não falha (033/RNF-3302).
+func (h *Handler) CloseRoomFromSession(roomID string) {
+	ctx := context.Background()
+	if rm, err := h.store.GetRoomByID(ctx, roomID); err == nil && rm.Status != StatusClosed {
+		now := time.Now().UTC()
+		if err := h.store.UpdateRoomStatus(ctx, roomID, StatusClosed, &now); err != nil {
+			log.Printf("room: CloseRoomFromSession: UpdateRoomStatus: %v", err)
+		}
+		_ = h.store.DeleteRoom(ctx, roomID)
+		mdnsStop()
+		log.Printf("room: sala %s encerrada pelo hub de sinalização", roomID)
+	}
+	h.ReleaseRoomFiles(roomID)
+}
+
+// SyncStatusFromSession registra no store o status da sessão que o hub de sinalização mudou (`publishing` ou
+// `reconnecting` — RF-18; 035/RF-3501), para que `/info`, `/rooms/active` e o `join` reflitam a transmissão
+// (035/RF-3502). Sala já encerrada ou removida é ignorada: o aviso tardio do hub não a reabre (035/RNF-3501).
+func (h *Handler) SyncStatusFromSession(roomID string, status Status) {
+	err := h.store.SetSessionStatus(context.Background(), roomID, status)
+	if err != nil && !errors.Is(err, ErrRoomNotFound) && !errors.Is(err, ErrRoomClosed) {
+		log.Printf("room: SyncStatusFromSession: sala %s status %s: %v", roomID, status, err)
+	}
 }
 
 // ── GET /rooms/active ─────────────────────────────────────────────────────────
@@ -559,10 +630,15 @@ func (h *Handler) buildRoomLinks(r *http.Request, room *Room) roomLinks {
 		profSlug = "professor"
 	}
 
+	// Sem anúncio mDNS ativo não há link .local e o link padrão é o por IP (012, RF-126).
 	ipBase := fmt.Sprintf("%s://%s:%s", proto, ip, webPort)
-	mdnsBase := fmt.Sprintf("%s://mlab.local:%s", proto, webPort)
+	mdnsBase := ""
+	defaultLink := ipBase
+	if host := mdnsHost(); host != "" {
+		mdnsBase = fmt.Sprintf("%s://%s:%s", proto, host, webPort)
+		defaultLink = mdnsBase
+	}
 
-	defaultLink := mdnsBase
 	if ngrok := os.Getenv("NGROK_URL"); ngrok != "" {
 		defaultLink = strings.TrimRight(ngrok, "/")
 	} else if pub := os.Getenv("PUBLIC_URL"); pub != "" {

@@ -1,4 +1,9 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
+import type { ErrorPayload } from '@mlab/types';
+
+/** Texto padrão do aviso de limite do chat quando o servidor não envia mensagem (005/C-503). */
+export const CHAT_RATE_LIMITED_FALLBACK = 'Você está enviando mensagens rápido demais. Aguarde alguns segundos.';
+const CHAT_NOTICE_DURATION_MS = 5000;
 
 function parseJwtSub(token: string): string | null {
   try {
@@ -15,12 +20,44 @@ export function useWebRTCSubscriber(token: string, roomInfo: { room_id: string; 
   const [stream, setStream] = useState<MediaStream | null>(null);
   const [autoplayBlocked, setAutoplayBlocked] = useState(false);
   const [connectionStatus, setConnectionStatus] = useState<
-    'connecting' | 'connected' | 'reconnecting' | 'closed' | 'publishing' | 'waiting'
+    | 'connecting'
+    | 'connected'
+    | 'reconnecting'
+    | 'closed'
+    | 'duplicate'
+    | 'student-id-in-use'
+    | 'publishing'
+    | 'waiting'
   >('connecting');
   const [isStreamPaused, setIsStreamPaused] = useState<boolean>(false);
   const [sharedFiles, setSharedFiles] = useState<any[]>([]);
   const [messages, setMessages] = useState<any[]>([]);
   const [isHandRaised, setIsHandRaised] = useState<boolean>(false);
+  const [chatNotice, setChatNotice] = useState<string | null>(null);
+  // WebSocket da sala aberto: o chat só aceita mensagens quando verdadeiro (005/RF-506, C-506).
+  const [isChatReady, setIsChatReady] = useState<boolean>(false);
+  const chatNoticeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const dismissChatNotice = useCallback(() => {
+    if (chatNoticeTimerRef.current) {
+      clearTimeout(chatNoticeTimerRef.current);
+      chatNoticeTimerRef.current = null;
+    }
+    setChatNotice(null);
+  }, []);
+
+  const showChatNotice = useCallback((text: string) => {
+    if (chatNoticeTimerRef.current) clearTimeout(chatNoticeTimerRef.current);
+    setChatNotice(text);
+    chatNoticeTimerRef.current = setTimeout(() => {
+      chatNoticeTimerRef.current = null;
+      setChatNotice(null);
+    }, CHAT_NOTICE_DURATION_MS);
+  }, []);
+
+  useEffect(() => () => {
+    if (chatNoticeTimerRef.current) clearTimeout(chatNoticeTimerRef.current);
+  }, []);
 
   const pcRef = useRef<RTCPeerConnection | null>(null);
   const wsRef = useRef<WebSocket | null>(null);
@@ -49,6 +86,7 @@ export function useWebRTCSubscriber(token: string, roomInfo: { room_id: string; 
     }
 
     setConnectionStatus('connecting');
+    setIsChatReady(false);
 
     let finalWsUrl = wsUrl;
     if (typeof window !== 'undefined' && window.location && window.location.host) {
@@ -77,6 +115,23 @@ export function useWebRTCSubscriber(token: string, roomInfo: { room_id: string; 
       hasSubscribedStateRef.current = true;
 
       pc.ontrack = (event) => {
+        // Reduz o buffer de jitter para zero para latência ultra-baixa em tempo real (< 100ms)
+        const receiver = event.receiver;
+        if (receiver) {
+          try {
+            // @ts-ignore
+            if ('playoutDelayHint' in receiver) {
+              // @ts-ignore
+              receiver.playoutDelayHint = 0;
+            }
+            // @ts-ignore
+            if ('jitterBufferTarget' in receiver) {
+              // @ts-ignore
+              receiver.jitterBufferTarget = 0;
+            }
+          } catch {}
+        }
+
         setStream((prev) => {
           const activePrevTracks = prev ? prev.getTracks().filter((t) => t.readyState === 'live') : [];
           if (activePrevTracks.some((t) => t.id === event.track.id)) {
@@ -139,15 +194,31 @@ export function useWebRTCSubscriber(token: string, roomInfo: { room_id: string; 
     };
 
     ws.onopen = () => {
+      if (wsRef.current === ws) setIsChatReady(true);
       // Solicita a transmissão ao abrir a conexão WebSocket
       setupPeerConnectionAndSubscribe(ws);
     };
 
-    ws.onmessage = async (evt) => {
+    // Uma fila por WebSocket: as mensagens de sinalização são tratadas uma de cada vez, na ordem de chegada, para um
+    // stream-started não fechar a PeerConnection no meio da negociação de uma offer (023/RF-2305).
+    let messageQueue: Promise<void> = Promise.resolve();
+
+    const handleMessage = async (data: string) => {
       try {
-        const msg = JSON.parse(evt.data);
+        const msg = JSON.parse(data);
         if (msg.type === 'chat-message') {
           setMessages((prev) => [...prev, msg.payload]);
+        } else if (msg.type === 'chat-message-pinned') {
+          const pinUpdate = msg.payload;
+          if (pinUpdate && pinUpdate.message_id) {
+            setMessages((prev) =>
+              prev.map((m) =>
+                (m.message_id || m.id) === pinUpdate.message_id
+                  ? { ...m, pinned: !!pinUpdate.pinned }
+                  : m
+              )
+            );
+          }
         } else if (msg.type === 'chat-history') {
           if (msg.payload && Array.isArray(msg.payload.messages)) {
             setMessages(msg.payload.messages);
@@ -201,6 +272,7 @@ export function useWebRTCSubscriber(token: string, roomInfo: { room_id: string; 
               wsRef.current.close(1000, 'Session closed');
               wsRef.current = null;
             }
+            setIsChatReady(false);
           } else {
             setConnectionStatus(msg.payload.status);
             if (msg.payload.status === 'publishing') {
@@ -229,6 +301,7 @@ export function useWebRTCSubscriber(token: string, roomInfo: { room_id: string; 
             wsRef.current.close(1000, 'Room closed');
             wsRef.current = null;
           }
+          setIsChatReady(false);
         } else if (msg.type === 'offer') {
           const currentPc = pcRef.current;
           if (currentPc && msg.payload && msg.payload.sdp) {
@@ -236,14 +309,29 @@ export function useWebRTCSubscriber(token: string, roomInfo: { room_id: string; 
               console.warn('Ignorando offer fora de estado estável:', currentPc.signalingState);
               return;
             }
+            // A PC pode ser trocada ou fechada fora da fila (desmontagem, reconexão) enquanto a negociação
+            // aguarda: nesse caso o resultado é descartado e nenhuma answer sai (023/RF-2306).
+            const isStale = () => pcRef.current !== currentPc || currentPc.signalingState === 'closed';
             await currentPc.setRemoteDescription(
               new RTCSessionDescription({
                 type: 'offer',
                 sdp: msg.payload.sdp,
               })
             );
+            if (isStale()) return;
+            // Garante que todos os receptores WebRTC (vídeo e áudio) operem em ultra-baixa latência (zero playout delay)
+            currentPc.getReceivers().forEach((receiver) => {
+              try {
+                // @ts-ignore
+                if ('playoutDelayHint' in receiver) receiver.playoutDelayHint = 0;
+                // @ts-ignore
+                if ('jitterBufferTarget' in receiver) receiver.jitterBufferTarget = 0;
+              } catch {}
+            });
             const answer = await currentPc.createAnswer();
+            if (isStale()) return;
             await currentPc.setLocalDescription(answer);
+            if (isStale()) return;
             if (ws.readyState === WebSocket.OPEN) {
               ws.send(
                 JSON.stringify({
@@ -260,8 +348,19 @@ export function useWebRTCSubscriber(token: string, roomInfo: { room_id: string; 
               const candInit = JSON.parse(msg.payload.candidate);
               await currentPc.addIceCandidate(new RTCIceCandidate(candInit));
             } catch {
+              // Não insiste numa PC já substituída ou fechada (023/RF-2306)
+              if (pcRef.current !== currentPc || currentPc.signalingState === 'closed') return;
               await currentPc.addIceCandidate(new RTCIceCandidate({ candidate: msg.payload.candidate }));
             }
+          }
+        } else if (msg.type === 'error') {
+          // Erros de sinalização não encerram a conexão. O limite do chat vira aviso visual
+          // (001/plan.md §10b — 005/C-503).
+          const err = msg.payload as ErrorPayload | undefined;
+          if (err?.code === 'CHAT_RATE_LIMITED') {
+            showChatNotice(err.message?.trim() || CHAT_RATE_LIMITED_FALLBACK);
+          } else if (err) {
+            console.warn('Erro de sinalização:', err.code, err.message);
           }
         } else if (msg.type === 'ice-servers') {
           const currentPc = pcRef.current;
@@ -274,15 +373,37 @@ export function useWebRTCSubscriber(token: string, roomInfo: { room_id: string; 
       }
     };
 
+    ws.onmessage = (evt) => {
+      messageQueue = messageQueue.then(() => handleMessage(evt.data));
+      return messageQueue;
+    };
+
     ws.onclose = (evt) => {
+      if (wsRef.current === ws) setIsChatReady(false);
       if (isCleanedUpRef.current) return;
 
-      // Trata encerramento intencional da sala pelo professor ou sessão duplicada (RN-04 / erro 4001 / 4004 / 1000)
+      // Sessão aberta em outra aba ou dispositivo (RN-04 — 4001 Duplicate Session): não reconecta.
+      if (evt.code === 4001) {
+        isClosedRef.current = true;
+        connectionStatusRef.current = 'duplicate';
+        setConnectionStatus('duplicate');
+        return;
+      }
+
+      // Outro aluno com a mesma matrícula já está na sala (RN-04, ADR 0010 — 4002 Student ID In Use):
+      // a conexão foi recusada e não reconecta (027/RF-2706).
+      if (evt.code === 4002) {
+        isClosedRef.current = true;
+        connectionStatusRef.current = 'student-id-in-use';
+        setConnectionStatus('student-id-in-use');
+        return;
+      }
+
+      // Trata encerramento intencional da sala pelo professor (4004 / 1000)
       if (
         isClosedRef.current ||
         connectionStatusRef.current === 'closed' ||
         evt.code === 1000 ||
-        evt.code === 4001 ||
         evt.code === 4004
       ) {
         isClosedRef.current = true;
@@ -309,7 +430,7 @@ export function useWebRTCSubscriber(token: string, roomInfo: { room_id: string; 
         connect();
       }, delay);
     };
-  }, [token, roomId, wsUrl, iceServers]);
+  }, [token, roomId, wsUrl, iceServers, showChatNotice]);
 
   useEffect(() => {
     isCleanedUpRef.current = false;
@@ -325,6 +446,7 @@ export function useWebRTCSubscriber(token: string, roomInfo: { room_id: string; 
         wsRef.current.close();
         wsRef.current = null;
       }
+      setIsChatReady(false);
       if (pcRef.current) {
         pcRef.current.close();
         pcRef.current = null;
@@ -335,7 +457,7 @@ export function useWebRTCSubscriber(token: string, roomInfo: { room_id: string; 
   // Carrega lista inicial de arquivos compartilhados
   useEffect(() => {
     if (!roomId) return;
-    fetch(`/rooms/${roomId}/files`)
+    fetch(`/rooms/${roomId}/files`, { headers: { Authorization: `Bearer ${token}` } })
       .then((res) => (res.ok ? res.json() : []))
       .then((data) => {
         if (Array.isArray(data)) {
@@ -348,7 +470,7 @@ export function useWebRTCSubscriber(token: string, roomInfo: { room_id: string; 
         }
       })
       .catch((err) => console.warn('Erro ao carregar arquivos da sala:', err));
-  }, [roomId]);
+  }, [roomId, token]);
 
   const sendChatMessage = useCallback((text: string, isPrivate: boolean = false) => {
     if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
@@ -396,5 +518,8 @@ export function useWebRTCSubscriber(token: string, roomInfo: { room_id: string; 
     toggleHand,
     sendChatMessage,
     requestKeyframe,
+    chatNotice,
+    dismissChatNotice,
+    isChatReady,
   };
 }

@@ -11,9 +11,16 @@ import {
   Renew,
   Touch_1,
   Touch_1Filled,
+  PinFilled,
+  Alert,
+  Button,
+  colors,
+  radii,
+  decodeChatEntities,
 } from '@mlab/ui';
 import React, { useRef, useEffect, useState } from 'react';
 import { useWebRTCSubscriber } from '../hooks/useWebRTCSubscriber';
+import { fileDownloadUrl } from '../services/api';
 
 interface RoomProps {
   token: string;
@@ -82,11 +89,28 @@ export const Room: React.FC<RoomProps> = ({ token, roomInfo, onLeave }) => {
     requestKeyframe,
     isHandRaised = false,
     toggleHand = () => {},
+    chatNotice = null,
+    dismissChatNotice = () => {},
+    isChatReady = false,
   } = useWebRTCSubscriber(token, roomInfo);
+
+  // Chat só aceita mensagens com o WebSocket da sala aberto (005/RF-506, C-506).
+  const chatConnectingPlaceholder = 'Conectando ao chat...';
+
+  // Aviso de limite do chat (CHAT_RATE_LIMITED — 001/plan.md §10b, 005/C-503).
+  const chatNoticeAlert = chatNotice ? (
+    <Alert variant="warning" message={chatNotice} onClose={dismissChatNotice} style={{ marginBottom: '8px' }} />
+  ) : null;
 
   // Quando o professor encerra a transmissão (connectionStatus === 'closed'), redireciona de volta para a tela de credenciais
   useEffect(() => {
-    if (connectionStatus === 'closed') {
+    if (connectionStatus === 'duplicate') {
+      // RN-04: outra sessão do mesmo aluno assumiu o lugar desta (005/C-502).
+      onLeave('Sua sessão foi aberta em outra aba ou dispositivo.');
+    } else if (connectionStatus === 'student-id-in-use') {
+      // RN-04 (ADR 0010): outro aluno já está conectado com esta matrícula (027/RF-2706).
+      onLeave('Esta matrícula já está conectada nesta transmissão.');
+    } else if (connectionStatus === 'closed') {
       onLeave('A transmissão foi encerrada pelo professor. Por favor, insira suas credenciais novamente.');
     }
   }, [connectionStatus, onLeave]);
@@ -124,7 +148,14 @@ export const Room: React.FC<RoomProps> = ({ token, roomInfo, onLeave }) => {
     } else {
       privateMessagesEndRef.current?.scrollIntoView?.({ behavior: 'smooth' });
     }
-  }, [messages, studentChatTab, isChatOpen]);
+  }, [messages.length, studentChatTab, isChatOpen]);
+
+  // Auto-scroll da lista de arquivos, no mesmo padrão do chat (018/RF-191): ao abrir a lista e a cada arquivo
+  // novo, mostra o último. A gaveta (desktop) e a aba do celular nunca aparecem juntas, então um ref basta.
+  const filesEndRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    filesEndRef.current?.scrollIntoView?.({ behavior: 'smooth' });
+  }, [sharedFiles.length, isFilesOpen, mobileDrawerTab, isChatOpen, isMobile]);
 
   const effectiveFullscreen = isFullscreen || isPseudoFullscreen;
 
@@ -297,10 +328,22 @@ export const Room: React.FC<RoomProps> = ({ token, roomInfo, onLeave }) => {
       const videoEl = videoRef.current;
       if (!videoEl || videoEl.paused || videoEl.ended) return;
 
+      // 1. Compensação ativa de drift de latência do elemento <video> (trava o aluno no 'ao vivo' instantâneo)
+      if (videoEl.buffered && videoEl.buffered.length > 0) {
+        try {
+          const liveEdge = videoEl.buffered.end(videoEl.buffered.length - 1);
+          const latencyLag = liveEdge - videoEl.currentTime;
+          if (latencyLag > 0.35 && Number.isFinite(liveEdge)) {
+            videoEl.currentTime = Math.max(0, liveEdge - 0.04);
+          }
+        } catch {}
+      }
+
+      // 2. Detecção de estagnação de quadros
       const currentTime = videoEl.currentTime;
       if (currentTime === lastTime && currentTime > 0) {
         freezeCount++;
-        // Se a reprodução estagnar por 2 intervalos (1.6s) mesmo sem pausar, solicita Keyframe imediato ao SFU
+        // Se a reprodução estagnar por 2 intervalos (500ms) mesmo sem pausar, solicita Keyframe imediato ao SFU
         if (freezeCount >= 2) {
           if (typeof requestKeyframe === 'function') {
             requestKeyframe();
@@ -311,7 +354,7 @@ export const Room: React.FC<RoomProps> = ({ token, roomInfo, onLeave }) => {
         lastTime = currentTime;
         freezeCount = 0;
       }
-    }, 800);
+    }, 250);
 
     return () => clearInterval(interval);
   }, [stream, isStreamPaused, connectionStatus, requestKeyframe]);
@@ -770,14 +813,18 @@ export const Room: React.FC<RoomProps> = ({ token, roomInfo, onLeave }) => {
               />
               {/* Banner de feedback quando a mão está levantada */}
               {isHandRaised && (
-                <div style={styles.handRaisedBanner} role="status">
+                <div style={styles.handRaisedBanner} role="status" data-testid="hand-raised-banner">
                   <div style={styles.handRaisedBannerContent}>
-                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}>
-                      <Touch_1Filled size={16} />
+                    <span style={styles.handRaisedBannerMessage}>
+                      <span style={styles.handRaisedBannerIcon} data-testid="hand-raised-banner-icon">
+                        <Touch_1Filled size={16} />
+                      </span>
                       <span>Sua mão está levantada. O professor foi notificado.</span>
                     </span>
-                    <button
+                    <Button
                       type="button"
+                      variant="secondary"
+                      size="sm"
                       onClick={(e) => {
                         e.stopPropagation();
                         toggleHand(false);
@@ -785,7 +832,7 @@ export const Room: React.FC<RoomProps> = ({ token, roomInfo, onLeave }) => {
                       style={styles.handRaisedLowerBtn}
                     >
                       Abaixar Mão
-                    </button>
+                    </Button>
                   </div>
                 </div>
               )}
@@ -893,7 +940,7 @@ export const Room: React.FC<RoomProps> = ({ token, roomInfo, onLeave }) => {
                 <Close size={16} />
               </button>
             </div>
-            <div style={styles.filesList}>
+            <div style={styles.filesList} data-testid="files-list">
               {sharedFiles.length === 0 ? (
                 <div style={styles.noFilesBox}>
                   <p style={styles.noFilesText}>Nenhum arquivo compartilhado pelo professor até o momento.</p>
@@ -907,7 +954,7 @@ export const Room: React.FC<RoomProps> = ({ token, roomInfo, onLeave }) => {
                       <span style={styles.fileSize}>{formatFileSize(file.size)}</span>
                     </div>
                     <a
-                      href={file.url}
+                      href={fileDownloadUrl(file.url, token)}
                       download={file.name}
                       target="_blank"
                       rel="noopener noreferrer"
@@ -920,6 +967,7 @@ export const Room: React.FC<RoomProps> = ({ token, roomInfo, onLeave }) => {
                   </div>
                 ))
               )}
+              <div ref={filesEndRef} data-testid="files-end" />
             </div>
           </div>
         )}
@@ -990,8 +1038,8 @@ export const Room: React.FC<RoomProps> = ({ token, roomInfo, onLeave }) => {
           )}
 
           {isMobile && mobileDrawerTab === 'files' ? (
-            <div style={styles.mobileFilesContent}>
-              <div style={styles.filesList}>
+            <div style={styles.mobileFilesContent} data-testid="mobile-files-content">
+              <div style={styles.mobileFilesList} data-testid="mobile-files-list">
                 {sharedFiles.length === 0 ? (
                   <div style={styles.noFilesBox}>
                     <p style={styles.noFilesText}>Nenhum arquivo compartilhado pelo professor até o momento.</p>
@@ -1005,7 +1053,7 @@ export const Room: React.FC<RoomProps> = ({ token, roomInfo, onLeave }) => {
                         <span style={styles.fileSize}>{formatFileSize(file.size)}</span>
                       </div>
                       <a
-                        href={file.url}
+                        href={fileDownloadUrl(file.url, token)}
                         download={file.name}
                         target="_blank"
                         rel="noopener noreferrer"
@@ -1016,6 +1064,7 @@ export const Room: React.FC<RoomProps> = ({ token, roomInfo, onLeave }) => {
                     </div>
                   ))
                 )}
+                <div ref={filesEndRef} data-testid="files-end" />
               </div>
             </div>
           ) : (
@@ -1045,125 +1094,221 @@ export const Room: React.FC<RoomProps> = ({ token, roomInfo, onLeave }) => {
 
               {studentChatTab === 'public' ? (
                 // ── CHAT PÚBLICO DA TURMA ──
-                <>
-                  <div style={styles.messagesList}>
-                    {messages.filter((m) => m.is_private !== true).length === 0 ? (
-                      <div style={styles.noFilesBox}>
-                        <p style={styles.noFilesText}>Nenhuma mensagem pública no momento.</p>
-                      </div>
-                    ) : (
-                      messages.filter((m) => m.is_private !== true).map((m, idx) => {
-                        const isSenderStudent = m.role === 'aluno' || m.sender_role === 'aluno';
-                        const displayName = m.name || m.sender_name || 'Participante';
-                        const studentMatricula = m.student_id ? `(${m.student_id})` : '';
+                (() => {
+                  const publicMsgs = messages.filter((m) => m.is_private !== true);
+                  const pinnedPublic = publicMsgs.filter((m) => m.pinned === true);
 
-                        return (
-                          <div key={m.message_id || idx} style={styles.messageCard}>
-                            <div style={styles.senderHeader}>
-                              <span style={styles.senderInfo}>
-                                {displayName}{' '}
-                                {studentMatricula && (
-                                  <span style={styles.studentIdBadge}>{studentMatricula}</span>
-                                )}
-                                <small style={styles.roleBadge}>
-                                  {' '}[{isSenderStudent ? 'aluno' : 'professor'}]
-                                </small>
-                              </span>
-                              <span style={styles.publicBadge}>TURMA</span>
-                            </div>
-                            <p style={styles.msgContent}>{m.content}</p>
+                  return (
+                    <>
+                      {pinnedPublic.length > 0 && (
+                        <div style={styles.pinnedBannerBox} data-testid="pinned-public-section">
+                          <div style={styles.pinnedBannerHeader}>
+                            <span style={{ display: 'inline-flex', alignItems: 'center', gap: '5px' }}>
+                              <PinFilled size={13} /> Mensagens Fixadas ({pinnedPublic.length}/3)
+                            </span>
                           </div>
-                        );
-                      })
-                    )}
-                    <div ref={publicMessagesEndRef} />
-                  </div>
+                          {pinnedPublic.map((pm, pIdx) => {
+                            const pmId = pm.message_id || pm.id || `pub-pin-${pIdx}`;
+                            const pmSender = pm.name || pm.sender_name || 'Participante';
+                            return (
+                              <div key={`pin-banner-${pmId}`} style={styles.pinnedBannerItem}>
+                                <span style={styles.pinnedBannerText}>
+                                  <strong>{pmSender}:</strong> {decodeChatEntities(pm.content)}
+                                </span>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
 
-                  <form onSubmit={handleSendPublicChat} style={styles.chatForm}>
-                    <div style={styles.chatTargetBannerPublic}>
-                      Enviando mensagem pública para <strong>Toda a Turma</strong>
-                    </div>
-                    <div style={styles.chatInputRow}>
-                      <input
-                        type="text"
-                        value={publicChatInput}
-                        onChange={(e) => setPublicChatInput(e.target.value)}
-                        placeholder="Mensagem para toda a turma..."
-                        style={styles.chatInput}
-                      />
-                      <button type="submit" disabled={!publicChatInput.trim()} style={styles.sendBtn}>
-                        Enviar
-                      </button>
-                    </div>
-                  </form>
-                </>
+                      <div style={styles.messagesList}>
+                        {publicMsgs.length === 0 ? (
+                          <div style={styles.noFilesBox}>
+                            <p style={styles.noFilesText}>Nenhuma mensagem pública no momento.</p>
+                          </div>
+                        ) : (
+                          publicMsgs.map((m, idx) => {
+                            const isSenderStudent = m.role === 'aluno' || m.sender_role === 'aluno';
+                            const displayName = m.name || m.sender_name || 'Participante';
+                            const studentMatricula = m.student_id ? `(${m.student_id})` : '';
+                            const isPinned = m.pinned === true;
+
+                            return (
+                              <div
+                                key={m.message_id || idx}
+                                style={
+                                  isPinned
+                                    ? { ...styles.messageCard, ...styles.pinnedMessageCard }
+                                    : styles.messageCard
+                                }
+                              >
+                                <div style={styles.senderHeader}>
+                                  <span style={styles.senderInfo}>
+                                    {displayName}{' '}
+                                    {studentMatricula && (
+                                      <span style={styles.studentIdBadge}>{studentMatricula}</span>
+                                    )}
+                                    <small style={styles.roleBadge}>
+                                      {' '}[{isSenderStudent ? 'aluno' : 'professor'}]
+                                    </small>
+                                  </span>
+                                  <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                                    {isPinned && (
+                                      <span style={styles.pinnedTag} title="Mensagem fixada pelo professor">
+                                        <PinFilled size={11} /> FIXADA
+                                      </span>
+                                    )}
+                                    <span style={styles.publicBadge}>TURMA</span>
+                                  </div>
+                                </div>
+                                <p style={styles.msgContent}>{decodeChatEntities(m.content)}</p>
+                              </div>
+                            );
+                          })
+                        )}
+                        <div ref={publicMessagesEndRef} />
+                      </div>
+
+                      <form onSubmit={handleSendPublicChat} style={styles.chatForm}>
+                        {chatNoticeAlert}
+                        <div style={styles.chatTargetBannerPublic}>
+                          Enviando mensagem pública para <strong>Toda a Turma</strong>
+                        </div>
+                        <div style={styles.chatInputRow}>
+                          <input
+                            type="text"
+                            value={publicChatInput}
+                            onChange={(e) => setPublicChatInput(e.target.value)}
+                            placeholder={isChatReady ? 'Mensagem para toda a turma...' : chatConnectingPlaceholder}
+                            disabled={!isChatReady}
+                            style={styles.chatInput}
+                          />
+                          <button type="submit" disabled={!isChatReady || !publicChatInput.trim()} style={styles.sendBtn}>
+                            Enviar
+                          </button>
+                        </div>
+                      </form>
+                    </>
+                  );
+                })()
               ) : (
                 // ── CHAT PRIVADO COM O PROFESSOR ──
-                <>
-                  <div style={styles.messagesList}>
-                    {messages.filter((m) => m.is_private === true).length === 0 ? (
-                      <div style={styles.noFilesBox}>
-                        <p style={styles.noFilesText}>Nenhuma dúvida privada com o professor ainda.</p>
-                        <p style={{ ...styles.noFilesText, fontSize: '11px', color: '#64748b' }}>
-                          Envie sua dúvida abaixo. Apenas o professor poderá ler e responder.
-                        </p>
-                      </div>
-                    ) : (
-                      messages.filter((m) => m.is_private === true).map((m, idx) => {
-                        const isSenderStudent = m.role === 'aluno' || m.sender_role === 'aluno';
-                        const displayName = m.name || m.sender_name || 'Participante';
-                        const studentMatricula = m.student_id ? `(${m.student_id})` : '';
+                (() => {
+                  const privateMsgs = messages.filter((m) => m.is_private === true);
+                  const pinnedPrivate = privateMsgs.filter((m) => m.pinned === true);
 
-                        return (
-                          <div
-                            key={m.message_id || idx}
-                            style={{
-                              ...styles.messageCard,
-                              ...styles.privateMessageCard,
-                            }}
-                          >
-                            <div style={styles.senderHeader}>
-                              <span style={styles.senderInfo}>
-                                {displayName}{' '}
-                                {studentMatricula && (
-                                  <span style={styles.studentIdBadge}>{studentMatricula}</span>
-                                )}
-                                <small style={styles.roleBadge}>
-                                  {' '}[{isSenderStudent ? 'aluno' : 'professor'}]
-                                </small>
-                              </span>
-                              <span style={styles.privateBadge}><Locked size={12} style={{ verticalAlign: 'middle', marginRight: '4px' }} />PRIVADO</span>
-                            </div>
-                            <p style={styles.msgContent}>{m.content}</p>
+                  return (
+                    <>
+                      {pinnedPrivate.length > 0 && (
+                        <div style={styles.pinnedBannerBoxPrivate} data-testid="pinned-private-section">
+                          <div style={styles.pinnedBannerHeaderPrivate}>
+                            <span style={{ display: 'inline-flex', alignItems: 'center', gap: '5px' }}>
+                              <PinFilled size={13} /> Mensagens Privadas Fixadas ({pinnedPrivate.length}/3)
+                            </span>
                           </div>
-                        );
-                      })
-                    )}
-                    <div ref={privateMessagesEndRef} />
-                  </div>
+                          {pinnedPrivate.map((pm, pIdx) => {
+                            const pmId = pm.message_id || pm.id || `priv-pin-${pIdx}`;
+                            const pmSender = pm.name || pm.sender_name || 'Participante';
+                            return (
+                              <div key={`pin-priv-banner-${pmId}`} style={styles.pinnedBannerItem}>
+                                <span style={styles.pinnedBannerText}>
+                                  <strong>{pmSender}:</strong> {decodeChatEntities(pm.content)}
+                                </span>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
 
-                  <form onSubmit={handleSendPrivateChat} style={styles.chatForm}>
-                    <div style={styles.chatTargetBanner}>
-                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}><Locked size={14} /> Enviando dúvida privada diretamente ao <strong>Professor</strong></span>
-                    </div>
-                    <div style={styles.chatInputRow}>
-                      <input
-                        type="text"
-                        value={privateChatInput}
-                        onChange={(e) => setPrivateChatInput(e.target.value)}
-                        placeholder="Dúvida privada ao professor..."
-                        style={styles.chatInput}
-                      />
-                      <button
-                        type="submit"
-                        disabled={!privateChatInput.trim()}
-                        style={{ ...styles.sendBtn, backgroundColor: '#6366f1' }}
-                      >
-                        Enviar Privado
-                      </button>
-                    </div>
-                  </form>
-                </>
+                      <div style={styles.messagesList}>
+                        {privateMsgs.length === 0 ? (
+                          <div style={styles.noFilesBox}>
+                            <p style={styles.noFilesText}>Nenhuma dúvida privada com o professor ainda.</p>
+                            <p style={{ ...styles.noFilesText, fontSize: '11px', color: '#64748b' }}>
+                              Envie sua dúvida abaixo. Apenas o professor poderá ler e responder.
+                            </p>
+                          </div>
+                        ) : (
+                          privateMsgs.map((m, idx) => {
+                            const isSenderStudent = m.role === 'aluno' || m.sender_role === 'aluno';
+                            const displayName = m.name || m.sender_name || 'Participante';
+                            const studentMatricula = m.student_id ? `(${m.student_id})` : '';
+                            const isPinned = m.pinned === true;
+
+                            return (
+                              <div
+                                key={m.message_id || idx}
+                                style={
+                                  isPinned
+                                    ? {
+                                        ...styles.messageCard,
+                                        ...styles.privateMessageCard,
+                                        ...styles.pinnedPrivateMessageCard,
+                                      }
+                                    : {
+                                        ...styles.messageCard,
+                                        ...styles.privateMessageCard,
+                                      }
+                                }
+                              >
+                                <div style={styles.senderHeader}>
+                                  <span style={styles.senderInfo}>
+                                    {displayName}{' '}
+                                    {studentMatricula && (
+                                      <span style={styles.studentIdBadge}>{studentMatricula}</span>
+                                    )}
+                                    <small style={styles.roleBadge}>
+                                      {' '}[{isSenderStudent ? 'aluno' : 'professor'}]
+                                    </small>
+                                  </span>
+                                  <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                                    {isPinned && (
+                                      <span style={styles.pinnedPrivateTag} title="Mensagem fixada pelo professor">
+                                        <PinFilled size={11} /> FIXADA
+                                      </span>
+                                    )}
+                                    <span style={styles.privateBadge}>
+                                      <Locked size={12} style={{ verticalAlign: 'middle', marginRight: '4px' }} />
+                                      PRIVADO
+                                    </span>
+                                  </div>
+                                </div>
+                                <p style={styles.msgContent}>{decodeChatEntities(m.content)}</p>
+                              </div>
+                            );
+                          })
+                        )}
+                        <div ref={privateMessagesEndRef} />
+                      </div>
+
+                      <form onSubmit={handleSendPrivateChat} style={styles.chatForm}>
+                        {chatNoticeAlert}
+                        <div style={styles.chatTargetBanner}>
+                          <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                            <Locked size={14} /> Enviando dúvida privada diretamente ao <strong>Professor</strong>
+                          </span>
+                        </div>
+                        <div style={styles.chatInputRow}>
+                          <input
+                            type="text"
+                            value={privateChatInput}
+                            onChange={(e) => setPrivateChatInput(e.target.value)}
+                            placeholder={isChatReady ? 'Dúvida privada ao professor...' : chatConnectingPlaceholder}
+                            disabled={!isChatReady}
+                            style={styles.chatInput}
+                          />
+                          <button
+                            type="submit"
+                            disabled={!isChatReady || !privateChatInput.trim()}
+                            style={{ ...styles.sendBtn, backgroundColor: '#6366f1' }}
+                          >
+                            Enviar Privado
+                          </button>
+                        </div>
+                      </form>
+                    </>
+                  );
+                })()
               )}
             </>
           )}
@@ -1207,25 +1352,6 @@ const styles: { [key: string]: React.CSSProperties } = {
     padding: '12px 24px',
     backgroundColor: '#1e293b',
     borderBottom: '1px solid #334155',
-  },
-  fullscreenTriggerZone: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    height: '18px',
-    zIndex: 60,
-  },
-  headerFullscreen: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    zIndex: 55,
-    backgroundColor: 'rgba(15, 23, 42, 0.94)',
-    backdropFilter: 'blur(12px)',
-    boxShadow: '0 4px 20px rgba(0, 0, 0, 0.6)',
-    transition: 'transform 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
   },
   brandBox: {
     display: 'flex',
@@ -1450,37 +1576,50 @@ const styles: { [key: string]: React.CSSProperties } = {
     boxShadow: '0 4px 12px rgba(15, 98, 254, 0.4)',
     transition: 'opacity 0.25s ease, background-color 0.2s',
   },
+  // Aviso de mão levantada (006): largura do conteúdo, limitada à área do vídeo com 16 px de cada lado (C-601).
   handRaisedBanner: {
     position: 'absolute' as const,
     top: '16px',
     left: '50%',
     transform: 'translateX(-50%)',
+    width: 'max-content',
+    maxWidth: 'calc(100% - 32px)',
+    boxSizing: 'border-box' as const,
     zIndex: 20,
-    backgroundColor: 'rgba(15, 23, 42, 0.92)',
-    border: '1px solid rgba(15, 98, 254, 0.4)',
-    borderRadius: '8px',
-    padding: '8px 16px',
+    backgroundColor: colors.surfaceCardSolid,
+    border: `1px solid ${colors.primary}`,
+    borderRadius: radii.md,
+    padding: '10px 14px',
     boxShadow: '0 4px 16px rgba(0, 0, 0, 0.4)',
-    backdropFilter: 'blur(8px)',
   },
   handRaisedBannerContent: {
     display: 'flex',
+    flexWrap: 'wrap' as const,
     alignItems: 'center',
-    gap: '14px',
+    justifyContent: 'flex-end',
+    gap: '8px 14px',
     fontSize: '13px',
-    color: '#f8fafc',
+    lineHeight: 1.4,
+    color: colors.textPrimary,
     fontWeight: '500',
   },
+  handRaisedBannerMessage: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '8px',
+    flex: '1 1 200px',
+    minWidth: 0,
+  },
+  handRaisedBannerIcon: {
+    display: 'inline-flex',
+    flexShrink: 0,
+    width: '16px',
+    height: '16px',
+    color: colors.accent,
+  },
   handRaisedLowerBtn: {
-    padding: '4px 10px',
-    borderRadius: '4px',
-    border: '1px solid rgba(255, 255, 255, 0.2)',
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
-    color: '#ffffff',
-    fontSize: '12px',
-    fontWeight: '600',
-    cursor: 'pointer',
-    transition: 'background-color 0.2s',
+    whiteSpace: 'nowrap' as const,
+    flexShrink: 0,
   },
   pausedScreen: {
     display: 'flex',
@@ -1651,6 +1790,86 @@ const styles: { [key: string]: React.CSSProperties } = {
     backgroundColor: 'rgba(30, 27, 75, 0.7)',
     border: '1px solid #818cf8',
   },
+  pinnedMessageCard: {
+    border: '1px solid #38bdf8',
+    backgroundColor: 'rgba(56, 189, 248, 0.1)',
+  },
+  pinnedPrivateMessageCard: {
+    border: '1px solid #a855f7',
+    backgroundColor: 'rgba(168, 85, 247, 0.2)',
+  },
+  pinnedBannerBox: {
+    padding: '8px 12px',
+    backgroundColor: 'rgba(14, 116, 144, 0.18)',
+    borderBottom: '1px solid rgba(56, 189, 248, 0.35)',
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '6px',
+  },
+  pinnedBannerBoxPrivate: {
+    padding: '8px 12px',
+    backgroundColor: 'rgba(88, 28, 135, 0.22)',
+    borderBottom: '1px solid rgba(168, 85, 247, 0.4)',
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '6px',
+  },
+  pinnedBannerHeader: {
+    fontSize: '11px',
+    fontWeight: '700',
+    color: '#38bdf8',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  pinnedBannerHeaderPrivate: {
+    fontSize: '11px',
+    fontWeight: '700',
+    color: '#c084fc',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  pinnedBannerItem: {
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: '8px',
+    padding: '5px 8px',
+    borderRadius: '6px',
+    backgroundColor: 'rgba(15, 23, 42, 0.65)',
+    border: '1px solid rgba(148, 163, 184, 0.2)',
+  },
+  pinnedBannerText: {
+    fontSize: '11px',
+    color: '#f1f5f9',
+    flex: 1,
+    wordBreak: 'break-word',
+  },
+  pinnedTag: {
+    fontSize: '10px',
+    fontWeight: '700',
+    color: '#38bdf8',
+    backgroundColor: 'rgba(56, 189, 248, 0.15)',
+    border: '1px solid #38bdf8',
+    padding: '2px 5px',
+    borderRadius: '4px',
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: '3px',
+  },
+  pinnedPrivateTag: {
+    fontSize: '10px',
+    fontWeight: '700',
+    color: '#c084fc',
+    backgroundColor: 'rgba(168, 85, 247, 0.2)',
+    border: '1px solid #a855f7',
+    padding: '2px 5px',
+    borderRadius: '4px',
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: '3px',
+  },
   senderHeader: {
     display: 'flex',
     justifyContent: 'space-between',
@@ -1702,46 +1921,6 @@ const styles: { [key: string]: React.CSSProperties } = {
     display: 'flex',
     flexDirection: 'column',
     gap: '8px',
-  },
-  chatModeSelector: {
-    display: 'flex',
-    gap: '6px',
-  },
-  modeBtn: {
-    flex: 1,
-    padding: '5px 8px',
-    fontSize: '11px',
-    fontWeight: '500',
-    borderRadius: '4px',
-    border: '1px solid #334155',
-    backgroundColor: '#0f172a',
-    color: '#94a3b8',
-    cursor: 'pointer',
-    textAlign: 'center',
-  },
-  modeBtnActive: {
-    flex: 1,
-    padding: '5px 8px',
-    fontSize: '11px',
-    fontWeight: '600',
-    borderRadius: '4px',
-    border: '1px solid #38bdf8',
-    backgroundColor: 'rgba(56, 189, 248, 0.15)',
-    color: '#38bdf8',
-    cursor: 'pointer',
-    textAlign: 'center',
-  },
-  modeBtnPrivateActive: {
-    flex: 1,
-    padding: '5px 8px',
-    fontSize: '11px',
-    fontWeight: '600',
-    borderRadius: '4px',
-    border: '1px solid #818cf8',
-    backgroundColor: 'rgba(99, 102, 241, 0.2)',
-    color: '#c7d2fe',
-    cursor: 'pointer',
-    textAlign: 'center',
   },
   chatInputRow: {
     display: 'flex',
@@ -1888,15 +2067,6 @@ const styles: { [key: string]: React.CSSProperties } = {
     alignItems: 'center',
     gap: '6px',
   },
-  statusLiveBadge: {
-    fontSize: '11px',
-    fontWeight: '700',
-    color: '#ef4444',
-    backgroundColor: 'rgba(239, 68, 68, 0.15)',
-    border: '1px solid rgba(239, 68, 68, 0.3)',
-    padding: '3px 8px',
-    borderRadius: '12px',
-  },
   statusPausedBadge: {
     fontSize: '11px',
     fontWeight: '700',
@@ -1969,12 +2139,22 @@ const styles: { [key: string]: React.CSSProperties } = {
     alignItems: 'center',
     gap: '6px',
   },
+  // Moldura da aba Arquivos do celular: só a lista rola (024, C-2401).
   mobileFilesContent: {
     flex: 1,
+    minHeight: 0,
     display: 'flex',
     flexDirection: 'column',
-    overflowY: 'auto',
     padding: '14px',
+  },
+  // Lista do celular sem o teto de 380px da gaveta do desktop (024, RF-2401).
+  mobileFilesList: {
+    flex: 1,
+    minHeight: 0,
+    overflowY: 'auto',
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '10px',
   },
   fullscreenMenuBtn: {
     position: 'fixed' as const,
@@ -2088,33 +2268,6 @@ const styles: { [key: string]: React.CSSProperties } = {
     display: 'flex',
     flexDirection: 'column' as const,
     gap: '8px',
-  },
-  fullscreenStatusLabel: {
-    fontSize: '12px',
-    fontWeight: '600',
-    color: '#94a3b8',
-    textTransform: 'uppercase' as const,
-    letterSpacing: '0.05em',
-  },
-  fullscreenStatusValueRow: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: '8px',
-    flexWrap: 'wrap' as const,
-  },
-  fullscreenRoomTitle: {
-    fontSize: '12px',
-    color: '#cbd5e1',
-    fontWeight: '500',
-  },
-  statusConnectingBadge: {
-    fontSize: '11px',
-    fontWeight: '700',
-    color: '#38bdf8',
-    backgroundColor: 'rgba(56, 189, 248, 0.15)',
-    border: '1px solid rgba(56, 189, 248, 0.3)',
-    padding: '3px 8px',
-    borderRadius: '12px',
   },
   fullscreenActionsGroup: {
     display: 'flex',

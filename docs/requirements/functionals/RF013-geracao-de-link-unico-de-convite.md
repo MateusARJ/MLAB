@@ -8,7 +8,7 @@
 
 ##  Descrição
 
-O professor deve poder gerar e copiar um link único e permanente de acesso contendo o slug legível fixo associado ao seu login. O link deve estar acessível tanto em redes locais quanto em redes externas (Internet / WAN) via túnel seguro (ngrok) ou IP de rede.
+O professor deve poder gerar e copiar um link único de acesso à sala, com um slug legível derivado do título da sala e do nome do professor. O link funciona na rede local (nome `mlab.local` via mDNS ou IP de rede) e, opcionalmente, fora dela via túnel (ngrok) ou URL pública.
 
 ---
 
@@ -20,10 +20,10 @@ Facilitar o compartilhamento direto da aula via e-mail, grupos de mensagens ou L
 
 ##  Detalhes de Implementação Técnicos
 
-- **Slug Fixo por Login de Professor**: O identificador amigável da sala é derivado deterministicamente do login/email do professor autenticado (ex: `professor@screenshare.local` → `/sala/professor/entrar`). Ao reabrir a sala, o link e o slug permanecem inalterados.
-- **Suporte a Túnel ngrok**: Suporte à variável `NGROK_URL` gerando links públicos com terminação segura HTTPS/WSS (ex: `https://<hash>.ngrok-free.app/sala/<slug>/entrar`), permitindo acesso remoto imediato de alunos em qualquer rede.
-- **Resolução de IP de Rede Local**: Na ausência de túnel ou domínio público, o backend resolve dinamicamente o IP da interface primária de rede da máquina (ex: `http://192.168.X.X:3000/sala/<slug>/entrar`).
-- Formato padrão do link: `https://<domain-ou-ip>/sala/<room-slug>/entrar`.
+- **Slug legível (RN-06)**: o slug tem o formato `{titulo-da-sala}/{nome-do-professor}`, derivado do título informado e do nome com que o professor entrou no app (não há login — ADR 0006). Criar uma nova sala encerra a sala anterior do mesmo professor.
+- **Link na rede local**: `http://mlab.local:8080/<titulo>/<professor>/entrar` (mDNS) e `http://<ip-da-rede>:8080/<titulo>/<professor>/entrar` (IP da interface física, descartando adaptadores virtuais).
+- **Vários professores na mesma rede**: cada backend anuncia o primeiro nome livre entre `mlab.local`, `mlab-2.local` … `mlab-20.local`, e o app mostra o link com o nome realmente anunciado. Sem anúncio mDNS, só o link por IP aparece (012, RF-121 a RF-128).
+- **Fora da rede local (opcional)**: com `NGROK_URL`, `PUBLIC_URL` ou `BASE_URL`, o link principal usa esse endereço (ex.: `https://<hash>.ngrok-free.app/<titulo>/<professor>/entrar`).
 - Botão de atalho "Copiar Link" no painel do professor copia a URL formatada para a área de transferência.
 
 ---
@@ -31,5 +31,6 @@ Facilitar o compartilhamento direto da aula via e-mail, grupos de mensagens ou L
 ##  Relação com Regras de Negócio e Outros Requisitos
 
 - **Documento Principal:** [requirements.md](../../requirements.md)
-- **Regras de Negócio:** [RN006 — Geração de Slug Legível e Único](../business-rules/RN006-geracao-slug-legivel-e-unico.md)
+- **Regras de Negócio:** [RN006 — Geração de Slug Legível e Único](../business-rules/RN006-geracao-de-slug-legivel-e-unico.md)
+- **Link `mlab.local`:** RF-312 (`003-classroom-interaction`); nome único por professor: RF-121 a RF-128 (`012-mdns-nome-unico`)
 - **Tarefas:** T009, T015, T030, T031

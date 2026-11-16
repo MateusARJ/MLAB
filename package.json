@@ -1,6 +1,6 @@
 {
   "name": "mlab",
-  "version": "1.5.6",
+  "version": "1.15.10",
   "private": true,
   "repository": {
     "type": "git",
@@ -13,6 +13,9 @@
   ],
   "scripts": {
     "bump": "node ./scripts/bump-version.mjs",
+    "version:check": "node ./scripts/bump-version.mjs --check",
+    "spec:check": "node ./scripts/spec-check.js",
+    "smoke": "node ./scripts/smoke-report.js",
     "build": "turbo run build",
     "dev": "node ./scripts/dev.js",
     "lint": "turbo run lint",

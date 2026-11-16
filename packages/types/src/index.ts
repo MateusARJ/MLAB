@@ -1,7 +1,7 @@
 /**
  * @mlab/types
- * Pacote compartilhado de tipos TypeScript do monorepo ScreenShare. apps/desktop e apps/web.
- * Populados em T007. Este arquivo serve como ponto de entrada do scaffold.
+ * DTOs, enums e eventos WebSocket compartilhados entre apps/desktop e apps/web.
+ * Fonte dos contratos: spec-kit/specs/<feature>/contracts/.
  */
 
 // ── Roles ────────────────────────────────────────────────────────────────────
@@ -10,7 +10,7 @@ export type Role = 'professor' | 'aluno';
 
 // ── Room ─────────────────────────────────────────────────────────────────────
 
-export type RoomStatus = 'waiting' | 'publishing' | 'closed';
+export type RoomStatus = 'waiting' | 'publishing' | 'reconnecting' | 'closed';
 
 export interface Room {
   id: string;
@@ -37,6 +37,7 @@ export interface CreateRoomResponse {
   slug: string;
   link: string;
   ip_link?: string;
+  /** Link com o nome mDNS anunciado por este backend (mlab.local, mlab-2.local…); ausente sem anúncio. */
   mdns_link?: string;
   short_ip_link?: string;
   short_mdns_link?: string;
@@ -50,6 +51,7 @@ export interface RoomLinkResponse {
   room_id: string;
   link: string;
   ip_link?: string;
+  /** Nome mDNS anunciado no momento; pode mudar durante a sessão após conflito (012, RF-125). */
   mdns_link?: string;
   short_ip_link?: string;
   short_mdns_link?: string;
@@ -81,47 +83,24 @@ export interface ChatMessage {
   role: Role;
   content: string;
   sentAt: string;
+  pinned?: boolean;
 }
 
 // ── Auth ─────────────────────────────────────────────────────────────────────
 
-export interface AuthResponse {
-  token: string;
-  expiresAt: string;
-}
-
-export interface LoginRequest {
-  email?: string;
-  password?: string;
-  name?: string;
-}
-
-export interface LoginResponse {
-  token: string;
-  expiresAt?: string;
-  name?: string;
-  user_id?: string;
-  role?: Role;
-}
-
-export interface JoinRequest {
+/** Payload de POST /auth/session (o professor informa só o nome — ADR 0006). */
+export interface SessionRequest {
   name: string;
-  studentId: string;
-  student_id?: string;
 }
 
-export interface JoinResponse {
+/** Resposta de POST /auth/session (`contracts/auth.md`). */
+export interface SessionResponse {
   token: string;
-  expiresAt: string;
-  participantId: string;
-  roomStatus: RoomStatus;
-  room_id?: string;
-  ws_url?: string;
-  ice_servers?: any[];
-  professor_name?: string;
-  room_title?: string;
+  expires_at?: string;
+  name?: string;
 }
 
+/** Payload de POST /rooms/{id}/join (`001/contracts/room-api.md`). */
 export type JoinRoomRequest = {
   name: string;
   student_id: string;
@@ -154,6 +133,8 @@ export type WsMessageType =
   | 'participant-left'
   | 'room-closed'
   | 'chat-message'
+  | 'pin-message'
+  | 'chat-message-pinned'
   | 'ice-servers'
   | 'raise-hand'
   | 'lower-hand'
@@ -208,6 +189,27 @@ export interface ChatMessagePayload {
   target_id?: string;
   sentAt?: string;
   sent_at?: string;
+  pinned?: boolean;
+}
+
+export interface PinMessagePayload {
+  messageId?: string;
+  message_id?: string;
+  pinned: boolean;
+  isPrivate?: boolean;
+  is_private?: boolean;
+  targetId?: string;
+  target_id?: string;
+}
+
+export interface ChatMessagePinnedPayload {
+  messageId?: string;
+  message_id?: string;
+  pinned: boolean;
+  isPrivate?: boolean;
+  is_private?: boolean;
+  targetId?: string;
+  target_id?: string;
 }
 
 export interface IceServer {
@@ -254,6 +256,10 @@ export interface CursorState {
   visible: boolean;
   /** Retângulo do cursor normalizado [0..1] relativo à fonte capturada; null = fora da fonte */
   rect: { x: number; y: number; w: number; h: number } | null;
+  /** Limites em coordenadas DIP da tela da fonte capturada (monitor ou janela) */
+  targetBounds?: { x: number; y: number; w: number; h: number } | null;
+  /** true quando a janela principal do MLab está em foco ou sob o cursor */
+  mlabFocused?: boolean;
 }
 
 export type RecordingFormat = 'webm';
@@ -269,3 +275,95 @@ export interface SystemMediaPermissions {
   screen: MediaPermissionStatus;
 }
 
+// ── Annotation & Spotlight Tools (PDF-style Editor + Lupa) ───────────────────
+
+export type AnnotationTool = 'cursor' | 'pen' | 'highlighter' | 'arrow' | 'rect' | 'eraser';
+
+export interface AnnotationPoint {
+  x: number;
+  y: number;
+}
+
+export interface AnnotationStroke {
+  id: string;
+  tool: 'pen' | 'highlighter' | 'arrow' | 'rect';
+  color: string;
+  size: number;
+  points: AnnotationPoint[];
+}
+
+export interface SpotlightState {
+  enabled: boolean;
+  /** Coordenada X normalizada [0..1] do centro do foco */
+  x: number;
+  /** Coordenada Y normalizada [0..1] do centro do foco */
+  y: number;
+  /** Raio normalizado [0..1] em relação à menor dimensão do quadro */
+  radius: number;
+  /** Nível de ampliação dentro da lupa (1 = apenas foco luminoso, 1.5x ou 2x = lente de aumento) */
+  zoom: 1 | 1.5 | 2;
+  /** true quando o mouse está sendo movido diretamente sobre o visualizador do MLab */
+  activeInViewer?: boolean;
+}
+
+export interface AnnotationOverlayState {
+  strokes: AnnotationStroke[];
+  activeStroke: AnnotationStroke | null;
+  spotlight: SpotlightState;
+  captureMode?: CaptureSourceType;
+  externalOverlayActive?: boolean;
+}
+
+export type AnnotationShortcutCommand =
+  | 'toggle-collapse'
+  | 'tool-cursor'
+  | 'tool-pen'
+  | 'tool-highlighter'
+  | 'tool-arrow'
+  | 'tool-rect'
+  | 'tool-eraser'
+  | 'toggle-spotlight'
+  | 'cycle-zoom'
+  | 'undo'
+  | 'redo'
+  | 'clear';
+
+export interface AnnotationSessionState {
+  activeTool: AnnotationTool;
+  strokeColor: string;
+  strokeSize: number;
+  strokes: AnnotationStroke[];
+  redoStrokes: AnnotationStroke[];
+  activeStroke: AnnotationStroke | null;
+  spotlight: SpotlightState;
+  collapsed: boolean;
+  toolbarPos?: { x: number; y: number } | null;
+}
+
+/**
+ * Retângulo da barra de marcação (e do popover de cores) em px CSS do overlay (= DIP), relativo ao canto do overlay.
+ * Usado pelo hit-test do main no Linux (009, RF-902).
+ */
+export interface AnnotationToolbarRect {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
+// ── App Info (021) ───────────────────────────────────────────────────────────
+
+/**
+ * Informações do MLab exibidas no rodapé e no diálogo "Sobre" do app desktop (021, RF-2101/RF-2102).
+ * Enviadas pelo main ao renderer pelo canal IPC `get-app-info`.
+ */
+export interface AppInfo {
+  /** Nome do produto (`build.productName`). */
+  name: string;
+  /** Versão `MAJOR.MINOR.PATCH` do app em execução (`app.getVersion()`). */
+  version: string;
+  /** Descrição única do produto (`description` do `package.json` do desktop). */
+  description: string;
+  /** `Copyright © <ano do build> <titular>`. */
+  copyright: string;
+}

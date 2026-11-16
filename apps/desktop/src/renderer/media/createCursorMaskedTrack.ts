@@ -1,4 +1,4 @@
-import type { CursorState } from '@mlab/types';
+import type { AnnotationOverlayState, CursorState } from '@mlab/types';
 
 export interface MaskedVideoTrackResult {
   track: MediaStreamTrack;
@@ -7,10 +7,66 @@ export interface MaskedVideoTrackResult {
   dispose(): void;
 }
 
+const DEFAULT_ANNOTATION_STATE: AnnotationOverlayState = {
+  strokes: [],
+  activeStroke: null,
+  spotlight: {
+    enabled: false,
+    x: 0.5,
+    y: 0.5,
+    radius: 0.14,
+    zoom: 1,
+    activeInViewer: false,
+  },
+  captureMode: 'screen',
+  externalOverlayActive: true,
+};
+
+let currentAnnotationState: AnnotationOverlayState = DEFAULT_ANNOTATION_STATE;
+const activeWorkers = new Set<Worker>();
+
+/**
+ * Atualiza em tempo real o estado das marcações (Pincel, Marcador PDF, Seta, Retângulo)
+ * e da Lupa/Foco luminoso em todas as tracks de vídeo ativas.
+ */
+export function setAnnotationOverlayState(state: AnnotationOverlayState): void {
+  currentAnnotationState = state;
+  activeWorkers.forEach((worker) => {
+    try {
+      worker.postMessage({ type: 'annotations', state });
+    } catch {}
+  });
+}
+
+export function getAnnotationOverlayState(): AnnotationOverlayState {
+  return currentAnnotationState;
+}
+
+/**
+ * Registra no log as mensagens do worker de vídeo (007, RNF-703): suspensão e retomada da máscara do cursor
+ * pela proteção de FPS e falha fatal do pipeline.
+ */
+export function logCursorMaskWorkerMessage(data: unknown): void {
+  if (!data || typeof data !== 'object') return;
+  const msg = data as { type?: string; avgMs?: number; retryInMs?: number; message?: string };
+  if (msg.type === 'mask-suspended') {
+    console.warn(
+      `[CursorMask] Ocultação do cursor suspensa para preservar o FPS (média ${msg.avgMs} ms por quadro); ` +
+        `nova tentativa em ${Math.round((msg.retryInMs ?? 0) / 1000)} s.`
+    );
+  } else if (msg.type === 'mask-resumed') {
+    console.info('[CursorMask] Ocultação do cursor retomada.');
+  } else if (msg.type === 'fatal') {
+    console.error(`[CursorMask] Falha no pipeline de vídeo: ${msg.message ?? 'desconhecida'}`);
+  }
+}
+
 /**
  * Envolve uma MediaStreamTrack de vídeo com um pipeline Insertable Streams (MediaStreamTrackProcessor +
- * MediaStreamTrackGenerator + Web Worker) que apaga o cursor quando o estado enviado pelo processo Main
- * indicar `visible: false`.
+ * MediaStreamTrackGenerator + Web Worker), usado no modo janela específica. O worker apaga o cursor quando o
+ * estado enviado pelo processo Main indica `visible: false` com o cursor dentro da fonte, e desenha as
+ * marcações/Lupa; nos demais quadros repassa o quadro sem cópia. A máscara é suspensa temporariamente quando
+ * passa do orçamento por quadro (007, RF-701 a RF-703).
  *
  * Caso o ambiente não suporte Insertable Streams (ex: testes em JSDOM), o kill-switch esteja ativo
  * (`localStorage.getItem('mlab.cursorMask') === 'off'`) ou a inicialização falhe, retorna a própria
@@ -90,6 +146,9 @@ export function createCursorMaskedTrack(rawVideoTrack: MediaStreamTrack): Masked
       type: 'module',
     });
 
+    activeWorkers.add(worker);
+    worker.onmessage = (evt: MessageEvent) => logCursorMaskWorkerMessage(evt.data);
+
     worker.postMessage(
       {
         type: 'init',
@@ -98,6 +157,10 @@ export function createCursorMaskedTrack(rawVideoTrack: MediaStreamTrack): Masked
       },
       [processor.readable, generator.writable]
     );
+
+    try {
+      worker.postMessage({ type: 'annotations', state: currentAnnotationState });
+    } catch {}
 
     let unsubscribeCursor: (() => void) | null = null;
     if (window.electronAPI && typeof window.electronAPI.onCursorState === 'function') {
@@ -112,6 +175,7 @@ export function createCursorMaskedTrack(rawVideoTrack: MediaStreamTrack): Masked
     const dispose = () => {
       if (disposed) return;
       disposed = true;
+      activeWorkers.delete(worker);
       if (unsubscribeCursor) {
         try {
           unsubscribeCursor();

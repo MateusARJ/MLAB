@@ -17,6 +17,16 @@ const (
 	writeWait  = 10 * time.Second
 	pongWait   = 60 * time.Second
 	pingPeriod = (pongWait * 9) / 10 // deve ser menor que pongWait
+
+	// CloseDuplicateSession é o close code enviado à conexão substituída por uma nova
+	// conexão do mesmo participante, com o mesmo token (RN-04 — 001-screen-share-core).
+	CloseDuplicateSession       = 4001
+	closeDuplicateSessionReason = "Duplicate Session"
+
+	// CloseStudentIDInUse é o close code enviado à conexão recusada porque outro aluno com a
+	// mesma matrícula já está conectado na sala (RN-04, ADR 0010 — 027/RF-2703).
+	CloseStudentIDInUse       = 4002
+	closeStudentIDInUseReason = "Student ID In Use"
 )
 
 // Client representa um participante conectado via WebSocket.
@@ -32,10 +42,20 @@ type Client struct {
 	studentID     string // matrícula do aluno (vazio para professor)
 	handRaised    bool   // indica se o aluno está com a mão levantada
 	handRaisedAt  time.Time
+	keyframeLimit keyframeLimiter // limite de request-keyframe do aluno (002/S9); só o hub acessa
 	closeOnce     sync.Once
+	// sendMu serializa safeSend e closeWithCode: o hub, o handler (ice-servers) e o readPump enviam em goroutines
+	// diferentes, e o envio nunca pode concorrer com close(send) (038/RF-3801). closed só muda sob sendMu.
+	sendMu sync.Mutex
+	closed bool
+	// closeCode/closeReason são definidos por closeWithCode antes de fechar o canal send;
+	// o writePump só os lê depois de observar o canal fechado. Código zero = frame vazio.
+	closeCode   int
+	closeReason string
 }
 
-// newClient cria um Client e inicia os pumps em goroutines separadas.
+// newClient cria um Client e inicia o writePump. O readPump só começa em startReading, depois de o hub processar o
+// registro: assim nenhuma mensagem do cliente chega ao hub antes dele estar em clients (039/RF-3901).
 func newClient(hub *Hub, conn *websocket.Conn, participantID, roomID, name, studentID string, role Role) *Client {
 	c := &Client{
 		hub:           hub,
@@ -48,15 +68,22 @@ func newClient(hub *Hub, conn *websocket.Conn, participantID, roomID, name, stud
 		studentID:     studentID,
 	}
 	go c.writePump()
-	go c.readPump()
 	return c
 }
 
+// startReading inicia o readPump. Deve ser chamado uma vez, depois de o hub receber o cliente por register
+// (039/RF-3901). Cliente recusado no registro também lê: o readPump termina quando a conexão fecha e envia o unregister
+// que o hub ignora.
+func (c *Client) startReading() {
+	go c.readPump()
+}
+
 // readPump lê mensagens do WebSocket e envia ao hub para processamento.
-// Roda numa goroutine dedicada por cliente.
+// Roda numa goroutine dedicada por cliente. Os envios ao hub não bloqueiam depois de a goroutine do hub terminar
+// (041/RF-4103).
 func (c *Client) readPump() {
 	defer func() {
-		c.hub.unregister <- c
+		c.hub.leave(c)
 		c.conn.Close()
 	}()
 
@@ -84,7 +111,9 @@ func (c *Client) readPump() {
 			continue
 		}
 
-		c.hub.inbound <- &envelope{client: c, msg: msg}
+		if !c.hub.deliver(&envelope{client: c, msg: msg}) {
+			return
+		}
 	}
 }
 
@@ -103,8 +132,12 @@ func (c *Client) writePump() {
 		case msg, ok := <-c.send:
 			_ = c.conn.SetWriteDeadline(time.Now().Add(writeWait))
 			if !ok {
-				// Hub fechou o canal.
-				_ = c.conn.WriteMessage(websocket.CloseMessage, []byte{})
+				// Hub fechou o canal. Envia o close code definido por closeWithCode, se houver.
+				payload := []byte{}
+				if c.closeCode != 0 {
+					payload = websocket.FormatCloseMessage(c.closeCode, c.closeReason)
+				}
+				_ = c.conn.WriteMessage(websocket.CloseMessage, payload)
 				return
 			}
 			if err := c.conn.WriteMessage(websocket.TextMessage, msg); err != nil {
@@ -121,11 +154,14 @@ func (c *Client) writePump() {
 	}
 }
 
-// safeSend envia dados para o canal send de forma não-bloqueante e blindada contra panics.
+// safeSend envia dados para o canal send de forma não-bloqueante. Depois do fechamento, descarta a mensagem e
+// devolve false sem tocar no canal; o lock garante que o envio não concorre com close(send) (038/RF-3801).
 func (c *Client) safeSend(data []byte) bool {
-	defer func() {
-		_ = recover()
-	}()
+	c.sendMu.Lock()
+	defer c.sendMu.Unlock()
+	if c.closed {
+		return false
+	}
 	select {
 	case c.send <- data:
 		return true
@@ -147,7 +183,18 @@ func (c *Client) sendError(code, message string) {
 
 // close fecha o canal send, encerrando o writePump de forma idempotente.
 func (c *Client) close() {
+	c.closeWithCode(0, "")
+}
+
+// closeWithCode fecha a conexão enviando o close code informado ao cliente.
+// Só a primeira chamada (de close ou closeWithCode) tem efeito.
+func (c *Client) closeWithCode(code int, reason string) {
 	c.closeOnce.Do(func() {
+		c.sendMu.Lock()
+		defer c.sendMu.Unlock()
+		c.closeCode = code
+		c.closeReason = reason
+		c.closed = true
 		close(c.send)
 	})
 }

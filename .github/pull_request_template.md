@@ -22,9 +22,8 @@ Exemplos:
 - [ ] Web App dos Alunos (`apps/web` — React + Vite)
 - [ ] Backend & SFU (`apps/backend` — Go + Pion WebRTC)
 - [ ] Pacotes Compartilhados (`packages/types`, `packages/ui`)
-- [ ] Banco de dados ou migrations (PostgreSQL)
-- [ ] Documentação ou Especificações (`spec-kit(MLAB)`, `docs/`)
-- [ ] Configuração, deploy ou infraestrutura (Turborepo, coturn, Docker)
+- [ ] Documentação ou Especificações (`spec-kit`, `docs/`)
+- [ ] Configuração, deploy ou infraestrutura (Turborepo, electron-builder, scripts de build)
 
 ## Mudanca sensivel
 
@@ -32,9 +31,9 @@ Exemplos:
 
 - [ ] Arquitetura (exige aprovação prévia de ADR)
 - [ ] WebRTC / SFU Pion (pipeline de mídia ou sinalização)
-- [ ] Autenticação ou autorização (JWT, senhas, tokens de sala)
-- [ ] Banco de dados ou contratos de persistência
-- [ ] Infraestrutura, TURN (coturn) ou portas de rede
+- [ ] Autenticação ou autorização (JWT, chave de host, tokens de sala)
+- [ ] Contratos entre módulos (`contracts/`: API HTTP, WebSocket ou IPC)
+- [ ] Infraestrutura, TURN opcional ou portas de rede (ex.: UDP 5353 do mDNS)
 - [ ] Regra de negócio crítica (RN-01 a RN-020)
 - [ ] Documento oficial do projeto (`AGENTS.md`, `spec.md`, `constitution`)
 - [ ] Não se aplica
@@ -58,15 +57,20 @@ Exemplos:
 <!-- Use Closes, Fixes ou Resolves quando o PR encerrar uma issue ou tarefa do Spec-Kit. -->
 
 Closes #
-- **Task do Spec-Kit:** (ex: `T022`, `T027`)
+- **Task do Spec-Kit (obrigatório):** (ex: `001/T022`, `002/S1`) — PR que altera comportamento sem task é bloqueado (`AGENTS.md` §4, regra anti-deriva)
 - **Requisitos Vinculados:** (ex: `RF-004`, `RF-026`, `RNF-018`)
+- **Desvios encontrados (obrigatório):** issues abertas durante este trabalho (`AGENTS.md` §14), ex: `#35 (não bloqueante)`, ou `nenhum`
+- **Impacto de versão (obrigatório):** `MAJOR` | `MINOR` | `PATCH` | `nenhum` — versão resultante e justificativa pelo escopo de `docs/versionamento.md` §2 (ex: `PATCH → 1.7.2: corrige regressão do RF-310`)
 
 ## Checklist do autor
 
-- [ ] A branch partiu da branch principal atualizada.
+- [ ] Trabalhei em branch dedicada `<tipo>/<descricao>` criada a partir da `development` atualizada (`AGENTS.md` §15).
+- [ ] Desvios encontrados fora do escopo foram abertos como issue com labels, sem correção neste PR (`AGENTS.md` §14).
 - [ ] O título segue rigorosamente `tipo(escopo): mensagem objetiva em português` (com prefixo em inglês: `feat`, `fix`, etc.).
 - [ ] A alteração está coesa e respeita o **Scope Lock** e as tarefas aprovadas do `AGENTS.md`.
 - [ ] Alterou exclusivamente os caminhos autorizados (**Allowed Paths**).
+- [ ] Todo comportamento novo ou alterado possui task em `tasks.md` e `npm run spec:check` passou.
+- [ ] Incrementei a versão no nível certo (`npm run bump -- <nível>`, último commit) e `npm run version:check` passou, ou o PR não tem impacto no app.
 - [ ] Revisei meu próprio diff.
 - [ ] A barra de menus nativa do Electron e layouts essenciais permanecem íntegros.
 - [ ] Atualizei testes e documentação quando necessário.

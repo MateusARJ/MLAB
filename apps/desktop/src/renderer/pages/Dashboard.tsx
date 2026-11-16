@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { createRoom } from '../services/room';
+import { useRoomLinks } from '../hooks/useRoomLinks';
 import mlabLogo from '../assets/MLAB-logo.png';
 import {
   Button,
@@ -15,6 +16,7 @@ import {
   colors,
   typography,
 } from '@mlab/ui';
+import { AppInfoFooter } from '../components/AppInfoFooter';
 
 interface DashboardProps {
   onEnterRoom: (roomData: {
@@ -44,6 +46,21 @@ export const Dashboard: React.FC<DashboardProps> = ({ onEnterRoom, onLogout }) =
     shortMdnsLink?: string;
   } | null>(null);
   const [error, setError] = useState<string | null>(null);
+  // Links com o nome mDNS realmente anunciado, relidos a cada 10 s (012, RF-127/RF-128)
+  const { links, notice: linkNotice, dismissNotice } = useRoomLinks(currentRoom);
+
+  // Permite abrir a sala pressionando Enter assim que os links forem gerados
+  useEffect(() => {
+    if (!currentRoom) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        onEnterRoom({ ...currentRoom, ...links });
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [currentRoom, links, onEnterRoom]);
 
   const handleCreateRoom = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -96,7 +113,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ onEnterRoom, onLogout }) =
   };
 
   const handleCopyMdns = async () => {
-    const link = currentRoom?.mdnsLink || currentRoom?.link;
+    const link = links.mdnsLink;
     if (!link) return;
     await copyToClipboard(link);
     setCopiedMdns(true);
@@ -104,7 +121,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ onEnterRoom, onLogout }) =
   };
 
   const handleCopyIp = async () => {
-    const link = currentRoom?.ipLink || currentRoom?.link;
+    const link = links.ipLink || links.link;
     if (!link) return;
     await copyToClipboard(link);
     setCopiedIp(true);
@@ -149,6 +166,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ onEnterRoom, onLogout }) =
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
                 placeholder="Ex: Algoritmos - Turma 04"
+                autoFocus
                 required
               />
               <Button
@@ -176,7 +194,10 @@ export const Dashboard: React.FC<DashboardProps> = ({ onEnterRoom, onLogout }) =
                   Links de Acesso dos Alunos:
                 </span>
 
-                {/* Link Fixo (mDNS) */}
+                {linkNotice && <Alert variant="warning" message={linkNotice} onClose={dismissNotice} />}
+
+                {/* Link Fixo (mDNS): só com anúncio ativo; o nome varia por professor (mlab.local, mlab-2.local…) */}
+                {links.mdnsLink && (
                 <div style={styles.linkCard}>
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
                     <span style={{ fontSize: '12px', fontWeight: 600, color: colors.textPrimary }}>
@@ -200,7 +221,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ onEnterRoom, onLogout }) =
                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                     <TextInput
                       readOnly
-                      value={currentRoom.mdnsLink || currentRoom.link}
+                      value={links.mdnsLink}
                       style={{ flex: 1 }}
                     />
                     <IconButton
@@ -215,6 +236,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ onEnterRoom, onLogout }) =
                     </IconButton>
                   </div>
                 </div>
+                )}
 
                 {/* Link Direto (IP) */}
                 <div style={styles.linkCard}>
@@ -240,7 +262,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ onEnterRoom, onLogout }) =
                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                     <TextInput
                       readOnly
-                      value={currentRoom.ipLink || currentRoom.link}
+                      value={links.ipLink || links.link}
                       style={{ flex: 1 }}
                     />
                     <IconButton
@@ -262,16 +284,18 @@ export const Dashboard: React.FC<DashboardProps> = ({ onEnterRoom, onLogout }) =
                 variant="success"
                 size="lg"
                 fullWidth
-                onClick={() => onEnterRoom(currentRoom)}
+                onClick={() => onEnterRoom({ ...currentRoom, ...links })}
                 icon={<Play size={20} />}
                 style={{ marginTop: '12px' }}
+                autoFocus
               >
-                Abrir Sala de Transmissão
+                Abrir Sala de Transmissão (Enter)
               </Button>
             </div>
           )}
         </Card>
       </main>
+      <AppInfoFooter />
     </div>
   );
 };

@@ -8,9 +8,10 @@ import (
 	"html"
 	"log"
 	"strings"
+	"sync"
 	"time"
 
-	"github.com/screenshare/classroom/internal/chat"
+	"github.com/MateusARJ/MLAB/apps/backend/internal/chat"
 	"golang.org/x/text/unicode/norm"
 )
 
@@ -23,6 +24,9 @@ const (
 	chatWindowShortMax = 5
 	chatWindowLong     = 60 * time.Second
 	chatWindowLongMax  = 30
+
+	// Limite máximo de mensagens fixadas pelo professor por escopo (público ou privado).
+	maxPinnedMessages = 3
 )
 
 // envelope empacota uma mensagem recebida com seu remetente.
@@ -89,17 +93,25 @@ type SFU interface {
 }
 
 // Hub gerencia todos os clientes WebSocket de uma sala.
-// Todo estado interno é acessado exclusivamente pela goroutine run().
+// Todo estado interno é escrito exclusivamente pela goroutine run(). As exceções lidas de outras goroutines são
+// status (statusMu) e connectedStudents (studentsMu).
 type Hub struct {
-	roomID       string
-	clients      map[string]*Client
-	publisherID  string
-	status       SessionStatus
+	roomID      string
+	clients     map[string]*Client
+	publisherID string
+
+	// status é o estado da sessão. Só a goroutine run() escreve, sempre por writeStatus, e lê sem lock; o handler
+	// lê por isClosed, de outra goroutine, por isso o mutex próprio (036/RF-3601).
+	statusMu sync.RWMutex
+	status   SessionStatus
+
 	chatLimits   map[string]*chatTracker
 	streamPaused bool // indica se a transmissão está pausada pelo professor
 
-	chatHistory []ChatRecvPayload   // mensagens públicas da turma mantidas em memória na sessão
-	sharedFiles []FileSharedPayload // arquivos compartilhados pelo professor mantidos em memória na sessão
+	chatHistory   []ChatRecvPayload          // mensagens públicas da turma mantidas em memória na sessão
+	sharedFiles   []FileSharedPayload        // arquivos compartilhados pelo professor mantidos em memória na sessão
+	pinnedPublic  map[string]bool            // IDs de mensagens públicas fixadas pelo professor (máx 3)
+	pinnedPrivate map[string]map[string]bool // targetID -> IDs de mensagens privadas fixadas pelo professor (máx 3)
 
 	register   chan *Client
 	unregister chan *Client
@@ -107,31 +119,105 @@ type Hub struct {
 	internal   chan signal // sinais internos (timeouts, fechamentos, streamStarted)
 	fileShared chan FileSharedPayload
 
+	// done é fechado pela goroutine run() quando ela termina, depois do encerramento da sessão (041/RF-4101). Todo
+	// envio aos canais do hub também escuta done, para nunca bloquear depois disso (041/RF-4103).
+	done chan struct{}
+
 	publisherTimer *time.Timer
 	sfu            SFU // nil até T011
+
+	// connectedStudents mapeia a matrícula normalizada (studentKey) ao participant_id do aluno
+	// registrado (RN-04, ADR 0010). Só a goroutine run() escreve; o join lê por
+	// HasConnectedStudent, de outra goroutine, por isso o mutex próprio (027/RNF-2702).
+	studentsMu        sync.RWMutex
+	connectedStudents map[string]string
+
+	// onClosed é chamado (na goroutine do hub) quando a sala é encerrada pelo WebSocket
+	// (end-session ou timeout de reconexão), para liberar recursos fora do hub, como arquivos.
+	onClosed func(roomID string)
+
+	// onStatusChanged é chamado (na goroutine do hub) quando o status da sessão muda para `publishing` ou
+	// `reconnecting`, para que o store da sala acompanhe a transmissão (035/RF-3501). O `closed` segue por onClosed.
+	onStatusChanged func(roomID string, status SessionStatus)
+}
+
+// hubCallbacks reúne os avisos opcionais que o hub dá para fora, sempre na sua goroutine.
+type hubCallbacks struct {
+	onClosed        func(roomID string)
+	onStatusChanged func(roomID string, status SessionStatus)
 }
 
 // newHub cria e inicia um Hub para a sala especificada.
-func newHub(roomID string, sfu SFU) *Hub {
+// onClosed é opcional e recebe o roomID quando a sala é encerrada pelo hub.
+func newHub(roomID string, sfu SFU, onClosed ...func(roomID string)) *Hub {
+	var cb hubCallbacks
+	if len(onClosed) > 0 {
+		cb.onClosed = onClosed[0]
+	}
+	return newHubWithCallbacks(roomID, sfu, cb)
+}
+
+// newHubWithCallbacks cria e inicia um Hub com os avisos de encerramento e de mudança de status.
+// Os callbacks são fixados antes de a goroutine run() começar.
+func newHubWithCallbacks(roomID string, sfu SFU, cb hubCallbacks) *Hub {
 	h := &Hub{
-		roomID:      roomID,
-		clients:     make(map[string]*Client),
-		chatLimits:  make(map[string]*chatTracker),
-		chatHistory: make([]ChatRecvPayload, 0, 50),
-		sharedFiles: make([]FileSharedPayload, 0, 10),
-		status:      SessionWaiting,
-		register:    make(chan *Client),
-		unregister:  make(chan *Client),
-		inbound:     make(chan *envelope, 256),
-		internal:    make(chan signal, 8),
-		fileShared:  make(chan FileSharedPayload, 16),
-		sfu:         sfu,
+		roomID:        roomID,
+		clients:       make(map[string]*Client),
+		chatLimits:    make(map[string]*chatTracker),
+		chatHistory:   make([]ChatRecvPayload, 0, 50),
+		sharedFiles:   make([]FileSharedPayload, 0, 10),
+		pinnedPublic:  make(map[string]bool),
+		pinnedPrivate: make(map[string]map[string]bool),
+		status:        SessionWaiting,
+		register:      make(chan *Client),
+		unregister:    make(chan *Client),
+		inbound:       make(chan *envelope, 256),
+		internal:      make(chan signal, 8),
+		fileShared:    make(chan FileSharedPayload, 16),
+		done:          make(chan struct{}),
+		sfu:           sfu,
+
+		connectedStudents: make(map[string]string),
+
+		onClosed:        cb.onClosed,
+		onStatusChanged: cb.onStatusChanged,
 	}
 	go h.run()
 	return h
 }
 
-// run é o loop central do Hub — única goroutine que toca o estado.
+// setStatus muda o status da sessão e, se ele mudou, avisa onStatusChanged (035/RF-3501). O encerramento não passa
+// por aqui: onRoomClose e onPublisherTimeout gravam `closed` direto e avisam por onClosed (033).
+// Só pode ser chamado na goroutine run().
+func (h *Hub) setStatus(s SessionStatus) {
+	if h.status == s {
+		return
+	}
+	h.writeStatus(s)
+	if h.onStatusChanged != nil && s != SessionClosed {
+		h.onStatusChanged(h.roomID, s)
+	}
+}
+
+// writeStatus é o único ponto que atribui o status, sob statusMu, sem chamar callbacks com o lock tomado
+// (036/RNF-3602). Só pode ser chamado na goroutine run().
+func (h *Hub) writeStatus(s SessionStatus) {
+	h.statusMu.Lock()
+	h.status = s
+	h.statusMu.Unlock()
+}
+
+// isClosed informa se a sessão do hub foi encerrada. Seguro para chamar de qualquer goroutine (036/RF-3601).
+func (h *Hub) isClosed() bool {
+	h.statusMu.RLock()
+	defer h.statusMu.RUnlock()
+	return h.status == SessionClosed
+}
+
+// run é o loop central do Hub — única goroutine que toca o estado. Termina quando a sessão encerra (end-session,
+// encerramento pelo REST ou timeout de reconexão): libera o estado da sala e fecha done (041/RF-4101 e RF-4102).
+// O término é conferido depois de cada evento, pois os três encerramentos chegam por aqui (route, sigRoomClose e
+// sigPublisherTimeout).
 func (h *Hub) run() {
 	for {
 		select {
@@ -158,16 +244,80 @@ func (h *Hub) run() {
 			h.sharedFiles = append(h.sharedFiles, f)
 			h.broadcastAll(TypeFileShared, f)
 		}
+
+		if h.isClosed() {
+			h.release()
+			close(h.done)
+			return
+		}
 	}
 }
 
 // ── Registro / Desregistro ────────────────────────────────────────────────────
 
+// normalizeStudentID é a chave da regra de sessão única: ignora espaços nas pontas e
+// maiúsculas (005/C-501). A matrícula só aceita letras ASCII, então equivale a EqualFold.
+func normalizeStudentID(studentID string) string {
+	return strings.ToUpper(strings.TrimSpace(studentID))
+}
+
+// studentKey devolve a chave da matrícula de um aluno, ou "" para professor e aluno sem matrícula.
+func studentKey(c *Client) string {
+	if c.role != RoleAluno {
+		return ""
+	}
+	return normalizeStudentID(c.studentID)
+}
+
+// HasConnectedStudent informa se há aluno registrado na sala com a matrícula informada
+// (RN-04, ADR 0010). Seguro para chamar de qualquer goroutine (027/RNF-2702).
+func (h *Hub) HasConnectedStudent(studentID string) bool {
+	key := normalizeStudentID(studentID)
+	if key == "" {
+		return false
+	}
+	h.studentsMu.RLock()
+	defer h.studentsMu.RUnlock()
+	_, ok := h.connectedStudents[key]
+	return ok
+}
+
 func (h *Hub) onRegister(c *Client) {
-	// Se já existe uma conexão anterior ativa para este participante, encerra a anterior
+	// Sessão encerrada (037/RF-3701): o cliente que chega depois do encerramento recebe room-closed e é fechado, como
+	// quem estava na sala; não entra em clients, não reserva matrícula e não muda status, publisher nem SFU. O
+	// unregister que o readPump envia em seguida é ignorado, pois o cliente não está em clients.
+	if h.status == SessionClosed {
+		log.Printf("hub[%s]: sessão encerrada; recusando %s %s", h.roomID, c.role, c.participantID)
+		c.sendJSON(TypeRoomClosed, struct{}{})
+		c.close()
+		return
+	}
+
+	// Sessão única (RN-04, ADR 0010): se outro aluno com a mesma matrícula já está conectado,
+	// a conexão nova é recusada com 4002 e não entra na sala; a conexão existente não muda
+	// (027/RF-2703). O unregister da conexão recusada é ignorado, pois ela não está em clients.
+	key := studentKey(c)
+	if key != "" {
+		h.studentsMu.RLock()
+		ownerID, inUse := h.connectedStudents[key]
+		h.studentsMu.RUnlock()
+		if inUse && ownerID != c.participantID {
+			log.Printf("hub[%s]: matrícula já conectada por %s; recusando a conexão de %s", h.roomID, ownerID, c.participantID)
+			c.closeWithCode(CloseStudentIDInUse, closeStudentIDInUseReason)
+			return
+		}
+	}
+
+	// Uma conexão anterior do mesmo participante (mesmo token) é encerrada com 4001 Duplicate
+	// Session (027/RF-2704). A limpeza do registro antigo acontece no onUnregister dela.
 	if oldClient, exists := h.clients[c.participantID]; exists && oldClient != c {
 		log.Printf("hub[%s]: substituindo conexão anterior do participante %s (%s)", h.roomID, c.role, c.participantID)
-		oldClient.close()
+		oldClient.closeWithCode(CloseDuplicateSession, closeDuplicateSessionReason)
+	}
+	if key != "" {
+		h.studentsMu.Lock()
+		h.connectedStudents[key] = c.participantID
+		h.studentsMu.Unlock()
 	}
 
 	// Se o professor está se conectando ou reconectando, cancela timer de timeout se ativo
@@ -178,7 +328,7 @@ func (h *Hub) onRegister(c *Client) {
 		}
 		h.publisherID = c.participantID
 		if h.status == SessionReconnecting || h.status == SessionWaiting {
-			h.status = SessionPublishing
+			h.setStatus(SessionPublishing)
 		}
 		log.Printf("hub[%s]: professor ativo na sala (status=%s)", h.roomID, h.status)
 	}
@@ -245,6 +395,15 @@ func (h *Hub) onUnregister(c *Client) {
 	delete(h.chatLimits, c.participantID)
 	c.close()
 
+	// Libera a matrícula do aluno que saiu (027/RF-2705).
+	if key := studentKey(c); key != "" {
+		h.studentsMu.Lock()
+		if h.connectedStudents[key] == c.participantID {
+			delete(h.connectedStudents, key)
+		}
+		h.studentsMu.Unlock()
+	}
+
 	h.broadcastExcept(c.participantID, TypeParticipantLeft, ParticipantLeftPayload{
 		ParticipantID: c.participantID,
 	})
@@ -257,7 +416,7 @@ func (h *Hub) onUnregister(c *Client) {
 
 	// Se era o publisher, inicia o timer de reconexão (§10a).
 	if c.participantID == h.publisherID && h.status == SessionPublishing {
-		h.status = SessionReconnecting
+		h.setStatus(SessionReconnecting)
 		h.broadcastAll(TypeSessionState, SessionStatePayload{
 			Status:            SessionReconnecting,
 			ParticipantsCount: len(h.clients),
@@ -265,7 +424,7 @@ func (h *Hub) onUnregister(c *Client) {
 		log.Printf("hub[%s]: publisher desconectado, reconexão em %s", h.roomID, publisherReconnectTimeout)
 
 		h.publisherTimer = time.AfterFunc(publisherReconnectTimeout, func() {
-			h.internal <- sigPublisherTimeout
+			h.sendSignal(sigPublisherTimeout)
 		})
 
 		if h.sfu != nil {
@@ -299,13 +458,13 @@ func (h *Hub) route(env *envelope) {
 	case TypeStreamPause:
 		h.onStreamPause(c, env.msg)
 	case TypeRequestKeyFrame:
-		if h.sfu != nil {
-			_ = h.sfu.RequestKeyFrame(h.roomID)
-		}
+		h.onRequestKeyFrame(c, time.Now())
 	case TypeRaiseHand:
 		h.onRaiseHand(c, env.msg)
 	case TypeLowerHand:
 		h.onLowerHand(c, env.msg)
+	case TypePinMessage:
+		h.onPinMessage(c, env.msg)
 	case TypeEndSession:
 		h.onEndSession(c)
 	default:
@@ -328,7 +487,7 @@ func (h *Hub) onPublishRequest(c *Client) {
 	}
 
 	h.publisherID = c.participantID
-	h.status = SessionPublishing
+	h.setStatus(SessionPublishing)
 
 	c.sendJSON(TypePublishApproved, PublishApprovedPayload{PublisherID: c.participantID})
 	h.broadcastExcept(c.participantID, TypeSessionState, SessionStatePayload{
@@ -384,7 +543,7 @@ func (h *Hub) onOffer(c *Client, msg WsMessage) {
 		return
 	}
 	if h.sfu == nil {
-		c.sendError("SFU_UNAVAILABLE", "SFU não inicializado (pendente T011)")
+		c.sendError("SFU_UNAVAILABLE", "SFU não inicializado")
 		return
 	}
 	answerSDP, err := h.sfu.HandlePublisherOffer(h.roomID, c.participantID, p.SDP)
@@ -535,32 +694,36 @@ func (h *Hub) onPublisherTimeout() {
 		return // professor reconectou a tempo
 	}
 	log.Printf("hub[%s]: timeout de reconexão — encerrando sala", h.roomID)
-	h.status = SessionClosed
-	h.broadcastAll(TypeRoomClosed, struct{}{})
-	for _, c := range h.clients {
-		c.close()
-	}
-	h.clients = make(map[string]*Client)
-	if h.sfu != nil {
-		_ = h.sfu.RoomClosed(h.roomID)
-	}
+	h.closeSession()
 }
 
 func (h *Hub) onRoomClose() {
 	log.Printf("hub[%s]: sala encerrada pelo professor", h.roomID)
-	h.status = SessionClosed
+	h.closeSession()
+}
+
+// closeSession encerra a sessão: avisa e fecha todos os clientes, libera as matrículas, a SFU e os recursos de fora
+// (onClosed). Depois dela, run() termina (041/RF-4101).
+func (h *Hub) closeSession() {
+	h.writeStatus(SessionClosed)
 	h.broadcastAll(TypeRoomClosed, struct{}{})
 	for _, c := range h.clients {
 		c.close()
 	}
 	h.clients = make(map[string]*Client)
+	h.studentsMu.Lock()
+	h.connectedStudents = make(map[string]string)
+	h.studentsMu.Unlock()
 	if h.sfu != nil {
 		_ = h.sfu.RoomClosed(h.roomID)
+	}
+	if h.onClosed != nil {
+		h.onClosed(h.roomID)
 	}
 }
 
 func (h *Hub) onStreamStarted() {
-	h.status = SessionPublishing
+	h.setStatus(SessionPublishing)
 	log.Printf("hub[%s]: faixa de vídeo ativa — disparando stream-started para todos os participantes", h.roomID)
 	h.broadcastAll(TypeStreamStarted, StreamStartedPayload{
 		PublisherID: h.publisherID,
@@ -574,18 +737,95 @@ func (h *Hub) onStreamStarted() {
 	}
 }
 
+// release libera o estado que a sala encerrada não usa mais: chat, arquivos, fixados, limites de chat e o timer de
+// reconexão. O hub fica no mapa do handler só como marcador para recusar conexões (037/RF-3702, 041/RF-4102).
+// Só pode ser chamado na goroutine run(), depois do encerramento.
+func (h *Hub) release() {
+	if h.publisherTimer != nil {
+		h.publisherTimer.Stop()
+		h.publisherTimer = nil
+	}
+	h.clients = make(map[string]*Client)
+	h.chatLimits = nil
+	h.chatHistory = nil
+	h.sharedFiles = nil
+	h.pinnedPublic = nil
+	h.pinnedPrivate = nil
+}
+
+// terminated informa, sem bloquear, se a goroutine run() já terminou. Os canais com buffer (internal, inbound,
+// fileShared) aceitam envio mesmo sem leitor, e o select escolhe ao acaso entre casos prontos; por isso o término é
+// conferido antes do envio.
+func (h *Hub) terminated() bool {
+	select {
+	case <-h.done:
+		return true
+	default:
+		return false
+	}
+}
+
+// sendSignal entrega um sinal interno à goroutine run(), ou o descarta se ela já terminou (041/RF-4103).
+func (h *Hub) sendSignal(sig signal) {
+	if h.terminated() {
+		return
+	}
+	select {
+	case h.internal <- sig:
+	case <-h.done:
+	}
+}
+
+// enroll entrega o cliente ao hub para registro. Se a goroutine run() já terminou, o cliente recebe room-closed e é
+// fechado, como no registro em sessão encerrada (037/RF-3701), e enroll devolve false (041/RF-4103).
+func (h *Hub) enroll(c *Client) bool {
+	select {
+	case h.register <- c:
+		return true
+	case <-h.done:
+		c.sendJSON(TypeRoomClosed, struct{}{})
+		c.close()
+		return false
+	}
+}
+
+// deliver entrega ao hub uma mensagem lida do cliente. Devolve false se a goroutine run() já terminou (041/RF-4103).
+func (h *Hub) deliver(env *envelope) bool {
+	if h.terminated() {
+		return false
+	}
+	select {
+	case h.inbound <- env:
+		return true
+	case <-h.done:
+		return false
+	}
+}
+
+// leave avisa o hub de que a conexão do cliente terminou; sem efeito se a goroutine run() já terminou (041/RF-4103).
+func (h *Hub) leave(c *Client) {
+	select {
+	case h.unregister <- c:
+	case <-h.done:
+	}
+}
+
 // BroadcastStreamStarted é chamado externamente quando o SFU inicializa a track de vídeo do professor.
 func (h *Hub) BroadcastStreamStarted() {
-	h.internal <- sigStreamStarted
+	h.sendSignal(sigStreamStarted)
 }
 
-// BroadcastRoomClosed é chamado externamente (ex: pelo handler REST de close).
+// BroadcastRoomClosed é chamado externamente (ex: pelo handler REST de close). Sem efeito se o hub já terminou.
 func (h *Hub) BroadcastRoomClosed() {
-	h.internal <- sigRoomClose
+	h.sendSignal(sigRoomClose)
 }
 
-// BroadcastFileShared é chamado externamente quando o professor faz upload de arquivo na sala.
+// BroadcastFileShared é chamado externamente quando o professor faz upload de arquivo na sala. Sem efeito se o hub já
+// terminou.
 func (h *Hub) BroadcastFileShared(payload FileSharedPayload) {
+	if h.terminated() {
+		return
+	}
 	select {
 	case h.fileShared <- payload:
 	default:
@@ -698,6 +938,83 @@ func (h *Hub) onLowerHand(c *Client, msg WsMessage) {
 	}
 
 	c.sendError("FORBIDDEN", "operação não permitida")
+}
+
+func (h *Hub) onPinMessage(c *Client, msg WsMessage) {
+	if c.role != RoleProfessor {
+		c.sendError("FORBIDDEN", "apenas o professor pode fixar mensagens")
+		return
+	}
+
+	var p PinMessageSendPayload
+	if err := json.Unmarshal(msg.Payload, &p); err != nil || strings.TrimSpace(p.MessageID) == "" {
+		c.sendError("INVALID_PAYLOAD", "payload de pin-message inválido")
+		return
+	}
+
+	if !p.IsPrivate {
+		if h.pinnedPublic == nil {
+			h.pinnedPublic = make(map[string]bool)
+		}
+		if p.Pinned {
+			if !h.pinnedPublic[p.MessageID] && len(h.pinnedPublic) >= maxPinnedMessages {
+				c.sendError("PIN_LIMIT_REACHED", "limite máximo de 3 mensagens fixadas atingido")
+				return
+			}
+			h.pinnedPublic[p.MessageID] = true
+		} else {
+			delete(h.pinnedPublic, p.MessageID)
+		}
+
+		for i := range h.chatHistory {
+			if h.chatHistory[i].MessageID == p.MessageID {
+				h.chatHistory[i].Pinned = p.Pinned
+				break
+			}
+		}
+
+		h.broadcastAll(TypeChatMessagePinned, ChatMessagePinnedPayload{
+			MessageID: p.MessageID,
+			Pinned:    p.Pinned,
+			IsPrivate: false,
+		})
+		return
+	}
+
+	// Mensagem privada: escopo por conversa privada (target_id do aluno ou geral)
+	if h.pinnedPrivate == nil {
+		h.pinnedPrivate = make(map[string]map[string]bool)
+	}
+	scopeKey := p.TargetID
+	if scopeKey == "" {
+		scopeKey = "__private__"
+	}
+	if h.pinnedPrivate[scopeKey] == nil {
+		h.pinnedPrivate[scopeKey] = make(map[string]bool)
+	}
+
+	if p.Pinned {
+		if !h.pinnedPrivate[scopeKey][p.MessageID] && len(h.pinnedPrivate[scopeKey]) >= maxPinnedMessages {
+			c.sendError("PIN_LIMIT_REACHED", "limite máximo de 3 mensagens fixadas atingido")
+			return
+		}
+		h.pinnedPrivate[scopeKey][p.MessageID] = true
+	} else {
+		delete(h.pinnedPrivate[scopeKey], p.MessageID)
+	}
+
+	pinnedEvent := buildMsg(TypeChatMessagePinned, ChatMessagePinnedPayload{
+		MessageID: p.MessageID,
+		Pinned:    p.Pinned,
+		IsPrivate: true,
+		TargetID:  p.TargetID,
+	})
+
+	for _, client := range h.clients {
+		if client.role == RoleProfessor || (p.TargetID != "" && client.participantID == p.TargetID) {
+			client.safeSend(pinnedEvent)
+		}
+	}
 }
 
 // ── Broadcast helpers ─────────────────────────────────────────────────────────

@@ -1,5 +1,14 @@
-import { contextBridge, ipcRenderer, clipboard } from 'electron'
-import type { CaptureSource, CaptureSourceType, CursorState, RecordingFormat } from '@mlab/types'
+import { contextBridge, ipcRenderer } from 'electron'
+import type {
+  AnnotationSessionState,
+  AnnotationShortcutCommand,
+  AnnotationToolbarRect,
+  AppInfo,
+  CaptureSource,
+  CaptureSourceType,
+  CursorState,
+  RecordingFormat
+} from '@mlab/types'
 
 /**
  * Preload script — expõe APIs do Electron ao renderer de forma segura.
@@ -34,19 +43,20 @@ export interface ElectronAPI {
   ) => Promise<SaveRecordingResult>
 
   /**
-   * Verifica o status atual de permissões de mídia (microfone e tela) no SO.
-   */
-  checkMediaPermissions: () => Promise<{ microphone: string; screen: string }>
-
-  /**
-   * Solicita autorização de mídia ao Sistema Operacional.
-   */
-  requestMediaPermissions: () => Promise<{ microphone: boolean; screen: boolean }>
-
-  /**
    * Copia texto para a área de transferência do SO de forma nativa.
    */
   copyToClipboard: (text: string) => Promise<boolean>
+
+  /**
+   * Retorna a chave de host desta execução, usada somente no header X-MLab-Host-Key
+   * de POST /auth/session ao backend local (ADR 0006).
+   */
+  getHostKey: () => Promise<string>
+
+  /**
+   * Retorna nome, versão, descrição e copyright do MLab para o rodapé e o diálogo "Sobre" (021).
+   */
+  getAppInfo: () => Promise<AppInfo>
 
   /**
    * Registra ou desregistra a sala ativa atual no processo principal para encerramento automático ao fechar a janela.
@@ -65,38 +75,93 @@ export interface ElectronAPI {
 
   /**
    * Inicia o rastreamento de presença e posição do cursor para ocultação contextual na transmissão.
+   * Suporta também modo de múltiplas janelas via `allowedSourceIds`.
    */
   startCursorTracking: (target: {
     sourceId: string
     type: CaptureSourceType
     displayId?: string
+    allowedSourceIds?: string[]
   }) => Promise<boolean>
 
   /**
-   * Encerra o rastreamento de presença do cursor.
+   * Encerra o rastreamento de presença do cursor e de múltiplas janelas.
    */
   stopCursorTracking: () => Promise<void>
+
+  /**
+   * Inscreve um callback para ser notificado quando a janela ativa mudar entre as janelas autorizadas pelo professor.
+   */
+  onActiveWindowChanged: (cb: (data: { sourceId: string }) => void) => () => void
+
+  /**
+   * Inscreve um callback para ser notificado quando uma janela não autorizada estiver em primeiro plano.
+   */
+  onActiveWindowUnauthorized: (cb: (data: { isUnauthorized: boolean }) => void) => () => void
 
   /**
    * Inscreve um callback para receber atualizações de visibilidade e posição do cursor.
    */
   onCursorState: (cb: (state: CursorState) => void) => () => void
+
+  /**
+   * Inicia a janela de overlay transparente externa de marcação e lupa.
+   * Em tela cheia, a janela é capturada pelo sistema (sem proteção de conteúdo): marcações, Lupa e a barra
+   * flutuante aparecem para os alunos. Em janela específica, a janela do overlay não é capturada: o worker de
+   * vídeo desenha marcações e Lupa no quadro e a barra não aparece.
+   */
+  startAnnotationOverlay: () => Promise<boolean>
+
+  /**
+   * Encerra a janela de overlay transparente externa de marcação e lupa.
+   */
+  stopAnnotationOverlay: () => Promise<void>
+
+  /**
+   * Sincroniza o estado das marcações e da lupa entre a janela do MLab e o overlay externo.
+   */
+  syncAnnotationState: (state: AnnotationSessionState) => Promise<void>
+
+  /**
+   * Controla se os cliques de mouse devem atravessar o overlay externo (click-through) ou ser capturados para desenho/barra.
+   */
+  setAnnotationOverlayIgnoreMouse: (ignore: boolean) => Promise<void>
+
+  /**
+   * Informa ao main o retângulo da barra de marcação no overlay (ou null quando não deve capturar o mouse).
+   * No Linux o main usa esse retângulo para tirar o overlay do click-through sob o ponteiro (009, RF-901/RF-902).
+   */
+  setAnnotationToolbarRect: (rect: AnnotationToolbarRect | null) => Promise<void>
+
+  /**
+   * Inscreve um callback para receber atualizações de estado da sessão de marcação e lupa.
+   */
+  onAnnotationStateSync: (cb: (state: AnnotationSessionState) => void) => () => void
+
+  /**
+   * Inscreve um callback para receber comandos de atalhos globais do SO (Alt+Shift+...).
+   */
+  onAnnotationShortcutCommand: (cb: (command: AnnotationShortcutCommand) => void) => () => void
+
+  /**
+   * Informa ao main a quantidade de mãos levantadas da sala (só o número), para a barra de marcação (017, RF-179).
+   */
+  setAnnotationRaisedHands: (count: number) => Promise<void>
+
+  /**
+   * Inscreve o overlay para receber a quantidade de mãos levantadas (017, RF-171).
+   */
+  onAnnotationRaisedHands: (cb: (count: number) => void) => () => void
 }
 
 const api: ElectronAPI = {
   getScreenSources: (type) => ipcRenderer.invoke('get-screen-sources', type),
   saveRecordedVideo: (buffer, defaultName, format) =>
     ipcRenderer.invoke('save-recorded-video', { buffer, defaultName, format }),
-  checkMediaPermissions: () => ipcRenderer.invoke('check-media-permissions'),
-  requestMediaPermissions: () => ipcRenderer.invoke('request-media-permissions'),
-  copyToClipboard: (text: string) => {
-    try {
-      clipboard.writeText(text)
-      return Promise.resolve(true)
-    } catch {
-      return Promise.resolve(false)
-    }
-  },
+  getHostKey: () => ipcRenderer.invoke('get-host-key'),
+  getAppInfo: () => ipcRenderer.invoke('get-app-info'),
+  // A escrita é feita no processo principal: `clipboard` não existe em preload com sandbox (002/S7).
+  copyToClipboard: (text: string) => ipcRenderer.invoke('write-clipboard-text', text),
   setActiveRoom: (room) => ipcRenderer.invoke('set-active-room', room),
   setContentProtection: (enabled: boolean) => ipcRenderer.invoke('set-content-protection', enabled),
   captureWindowToClipboard: () => ipcRenderer.invoke('capture-window-to-clipboard'),
@@ -112,6 +177,68 @@ const api: ElectronAPI = {
     return () => {
       ipcRenderer.removeListener('cursor-state', listener)
     }
+  },
+  startAnnotationOverlay: () => ipcRenderer.invoke('annotation-overlay:start'),
+  stopAnnotationOverlay: () => ipcRenderer.invoke('annotation-overlay:stop'),
+  syncAnnotationState: (state) => ipcRenderer.invoke('annotation-overlay:sync-state', state),
+  setAnnotationOverlayIgnoreMouse: (ignore) =>
+    ipcRenderer.invoke('annotation-overlay:set-ignore-mouse', ignore),
+  setAnnotationToolbarRect: (rect) => ipcRenderer.invoke('annotation-overlay:toolbar-rect', rect),
+  onAnnotationStateSync: (cb) => {
+    const listener = (_event: unknown, state: AnnotationSessionState) => {
+      if (state && typeof cb === 'function') {
+        cb(state)
+      }
+    }
+    ipcRenderer.on('annotation-overlay:state', listener)
+    return () => {
+      ipcRenderer.removeListener('annotation-overlay:state', listener)
+    }
+  },
+  onAnnotationShortcutCommand: (cb) => {
+    const listener = (_event: unknown, command: AnnotationShortcutCommand) => {
+      if (command && typeof cb === 'function') {
+        cb(command)
+      }
+    }
+    ipcRenderer.on('annotation-overlay:shortcut', listener)
+    return () => {
+      ipcRenderer.removeListener('annotation-overlay:shortcut', listener)
+    }
+  },
+  setAnnotationRaisedHands: (count) => ipcRenderer.invoke('annotation-overlay:raised-hands', count),
+  onAnnotationRaisedHands: (cb) => {
+    const listener = (_event: unknown, count: unknown) => {
+      if (typeof count === 'number' && typeof cb === 'function') {
+        cb(count)
+      }
+    }
+    ipcRenderer.on('annotation-overlay:raised-hands', listener)
+    return () => {
+      ipcRenderer.removeListener('annotation-overlay:raised-hands', listener)
+    }
+  },
+  onActiveWindowChanged: (cb) => {
+    const listener = (_event: unknown, data: { sourceId: string }) => {
+      if (data && typeof cb === 'function') {
+        cb(data)
+      }
+    }
+    ipcRenderer.on('active-window-changed', listener)
+    return () => {
+      ipcRenderer.removeListener('active-window-changed', listener)
+    }
+  },
+  onActiveWindowUnauthorized: (cb) => {
+    const listener = (_event: unknown, data: { isUnauthorized: boolean }) => {
+      if (data && typeof cb === 'function') {
+        cb(data)
+      }
+    }
+    ipcRenderer.on('active-window-unauthorized', listener)
+    return () => {
+      ipcRenderer.removeListener('active-window-unauthorized', listener)
+    }
   }
 }
 
@@ -123,4 +250,3 @@ declare global {
     electronAPI: ElectronAPI
   }
 }
-

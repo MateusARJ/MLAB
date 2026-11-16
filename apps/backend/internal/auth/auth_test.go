@@ -1,7 +1,6 @@
 package auth
 
 import (
-	"context"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -10,16 +9,15 @@ import (
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
-	"golang.org/x/crypto/bcrypt"
 )
 
 func TestSignAndParseProfessorToken(t *testing.T) {
 	t.Setenv("JWT_SECRET", "super-secret-key-for-testing-12345")
 
 	profID := "prof-001"
-	email := "professor@screenshare.local"
+	name := "Prof. Ana"
 
-	tokenStr, exp, err := SignProfessorToken(profID, email)
+	tokenStr, exp, err := SignProfessorToken(profID, name)
 	if err != nil {
 		t.Fatalf("SignProfessorToken failed: %v", err)
 	}
@@ -41,8 +39,12 @@ func TestSignAndParseProfessorToken(t *testing.T) {
 	if ClaimRole(claims) != RoleProfessor {
 		t.Errorf("expected role %s, got %s", RoleProfessor, ClaimRole(claims))
 	}
-	if claims["email"] != email {
-		t.Errorf("expected email %s, got %v", email, claims["email"])
+	if claims["name"] != name {
+		t.Errorf("expected name %s, got %v", name, claims["name"])
+	}
+	// ADR 0009: o token do professor não tem claim email.
+	if _, ok := claims["email"]; ok {
+		t.Errorf("expected no email claim, got %v", claims["email"])
 	}
 }
 
@@ -104,32 +106,25 @@ func TestParseToken_Expired(t *testing.T) {
 	}
 }
 
-func TestInMemoryStore_FindProfessorByEmail(t *testing.T) {
-	store := NewInMemoryStore()
+func TestLoginEndpointRemoved(t *testing.T) {
+	mux := http.NewServeMux()
+	NewHandler().RegisterRoutes(mux)
 
-	prof, err := store.FindProfessorByEmail(context.Background(), "professor@screenshare.local")
-	if err != nil {
-		t.Fatalf("expected to find default professor, got err: %v", err)
-	}
-	if prof.Email != "professor@screenshare.local" {
-		t.Errorf("expected email professor@screenshare.local, got %s", prof.Email)
-	}
+	body := strings.NewReader(`{"email":"professor@screenshare.local","password":"professor123"}`)
+	req := httptest.NewRequest("POST", "/auth/login", body)
+	req.Header.Set("Content-Type", "application/json")
+	rec := httptest.NewRecorder()
+	mux.ServeHTTP(rec, req)
 
-	err = bcrypt.CompareHashAndPassword([]byte(prof.PasswordHash), []byte("professor123"))
-	if err != nil {
-		t.Errorf("expected password professor123 to match bcrypt hash, got %v", err)
-	}
-
-	_, err = store.FindProfessorByEmail(context.Background(), "inexistente@screenshare.local")
-	if err != ErrProfessorNotFound {
-		t.Errorf("expected ErrProfessorNotFound, got: %v", err)
+	if rec.Code != http.StatusNotFound {
+		t.Fatalf("expected 404 for removed POST /auth/login, got %d: %s", rec.Code, rec.Body.String())
 	}
 }
 
 func TestMiddleware_ValidAndInvalid(t *testing.T) {
 	t.Setenv("JWT_SECRET", "super-secret-key-for-testing-12345")
 
-	tokenStr, _, err := SignProfessorToken("prof-test", "prof@test.com")
+	tokenStr, _, err := SignProfessorToken("prof-test")
 	if err != nil {
 		t.Fatalf("SignProfessorToken failed: %v", err)
 	}
@@ -180,7 +175,7 @@ func TestMiddleware_ValidAndInvalid(t *testing.T) {
 func TestRequireRole(t *testing.T) {
 	t.Setenv("JWT_SECRET", "super-secret-key-for-testing-12345")
 
-	profToken, _, _ := SignProfessorToken("prof-1", "prof@test.com")
+	profToken, _, _ := SignProfessorToken("prof-1")
 	studClaims := StudentMapClaims("stud-1", "Aluno", "RA123", "room-1")
 	studToken, _ := SignToken(studClaims)
 
@@ -211,9 +206,9 @@ func TestRequireRole(t *testing.T) {
 
 func TestSessionEndpoint(t *testing.T) {
 	t.Setenv("JWT_SECRET", "super-secret-key-for-testing-12345")
+	t.Setenv(HostKeyEnv, "chave-de-host-de-teste")
 
-	store := NewInMemoryStore()
-	handler := NewHandler(store)
+	handler := NewHandler()
 	mux := http.NewServeMux()
 	handler.RegisterRoutes(mux)
 
@@ -221,6 +216,7 @@ func TestSessionEndpoint(t *testing.T) {
 	body := strings.NewReader(`{"name":"Prof. Carlos Eduardo"}`)
 	req := httptest.NewRequest("POST", "/auth/session", body)
 	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set(HostKeyHeader, "chave-de-host-de-teste")
 	rec := httptest.NewRecorder()
 
 	mux.ServeHTTP(rec, req)
@@ -229,7 +225,7 @@ func TestSessionEndpoint(t *testing.T) {
 		t.Fatalf("expected 200 OK, got %d: %s", rec.Code, rec.Body.String())
 	}
 
-	var resp LoginResponse
+	var resp SessionResponse
 	if err := json.NewDecoder(rec.Body).Decode(&resp); err != nil {
 		t.Fatalf("failed to decode response: %v", err)
 	}
@@ -252,5 +248,47 @@ func TestSessionEndpoint(t *testing.T) {
 	if claims["name"] != "Prof. Carlos Eduardo" {
 		t.Errorf("expected claim name 'Prof. Carlos Eduardo', got '%v'", claims["name"])
 	}
+	// RF-151 / ADR 0009: claims do professor sem email.
+	if _, ok := claims["email"]; ok {
+		t.Errorf("expected no email claim in session token, got %v", claims["email"])
+	}
 }
 
+func TestSessionEndpoint_RejectsWithoutValidHostKey(t *testing.T) {
+	t.Setenv("JWT_SECRET", "super-secret-key-for-testing-12345")
+
+	mux := http.NewServeMux()
+	NewHandler().RegisterRoutes(mux)
+
+	cases := []struct {
+		name       string
+		configured string
+		header     string
+	}{
+		{name: "sem header", configured: "chave-correta", header: ""},
+		{name: "header errado", configured: "chave-correta", header: "chave-errada"},
+		{name: "prefixo da chave", configured: "chave-correta", header: "chave-corre"},
+		{name: "backend sem chave configurada", configured: "", header: "qualquer-valor"},
+		{name: "backend sem chave e sem header", configured: "", header: ""},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Setenv(HostKeyEnv, tc.configured)
+			req := httptest.NewRequest("POST", "/auth/session", strings.NewReader(`{"name":"Intruso"}`))
+			req.Header.Set("Content-Type", "application/json")
+			if tc.header != "" {
+				req.Header.Set(HostKeyHeader, tc.header)
+			}
+			rec := httptest.NewRecorder()
+			mux.ServeHTTP(rec, req)
+
+			if rec.Code != http.StatusForbidden {
+				t.Fatalf("expected 403, got %d: %s", rec.Code, rec.Body.String())
+			}
+			if strings.Contains(rec.Body.String(), `"token"`) {
+				t.Fatal("no token must be returned when the host key is invalid")
+			}
+		})
+	}
+}

@@ -1,13 +1,20 @@
-import { render, screen, fireEvent } from '@testing-library/react';
-import { describe, it, expect, vi, afterEach } from 'vitest';
+import { render, screen, fireEvent, createEvent } from '@testing-library/react';
+import { describe, it, expect, vi, afterEach, beforeEach } from 'vitest';
 import { Room } from './Room';
 
 const { mockSendChatMessage, mockToggleHand, mockSubscriberState } = vi.hoisted(() => ({
   mockSendChatMessage: vi.fn(),
   mockToggleHand: vi.fn(),
   mockSubscriberState: {
-    connectionStatus: 'connected' as 'connecting' | 'connected' | 'reconnecting' | 'closed',
+    connectionStatus: 'connected' as 'connecting' | 'connected' | 'reconnecting' | 'closed' | 'duplicate' | 'student-id-in-use',
     isHandRaised: false,
+    chatNotice: null as string | null,
+    isChatReady: true,
+    messages: [
+      { id: 'pub-1', sender_name: 'Professor Girafales', sender_role: 'professor', content: 'Bem-vindos a aula!', is_private: false, pinned: false },
+      { id: 'priv-1', sender_name: 'Professor Girafales', sender_role: 'professor', content: 'Sua nota da prova é 10', is_private: true, pinned: false },
+    ] as any[],
+    sharedFiles: [] as any[],
   },
 }));
 
@@ -18,14 +25,14 @@ vi.mock('../hooks/useWebRTCSubscriber', () => ({
     setAutoplayBlocked: vi.fn(),
     connectionStatus: mockSubscriberState.connectionStatus,
     isStreamPaused: false,
-    sharedFiles: [],
-    messages: [
-      { sender_name: 'Professor Girafales', sender_role: 'professor', content: 'Bem-vindos a aula!', is_private: false },
-      { sender_name: 'Professor Girafales', sender_role: 'professor', content: 'Sua nota da prova é 10', is_private: true },
-    ],
+    sharedFiles: mockSubscriberState.sharedFiles,
+    messages: mockSubscriberState.messages,
     sendChatMessage: mockSendChatMessage,
     isHandRaised: mockSubscriberState.isHandRaised,
     toggleHand: mockToggleHand,
+    chatNotice: mockSubscriberState.chatNotice,
+    dismissChatNotice: vi.fn(),
+    isChatReady: mockSubscriberState.isChatReady,
   }),
 }));
 
@@ -34,6 +41,12 @@ describe('Room Component (Web Subscriber)', () => {
     window.innerWidth = 1024;
     mockSubscriberState.connectionStatus = 'connected';
     mockSubscriberState.isHandRaised = false;
+    mockSubscriberState.chatNotice = null;
+    mockSubscriberState.isChatReady = true;
+    mockSubscriberState.messages = [
+      { id: 'pub-1', sender_name: 'Professor Girafales', sender_role: 'professor', content: 'Bem-vindos a aula!', is_private: false, pinned: false },
+      { id: 'priv-1', sender_name: 'Professor Girafales', sender_role: 'professor', content: 'Sua nota da prova é 10', is_private: true, pinned: false },
+    ];
     fireEvent(window, new Event('resize'));
     try {
       Object.defineProperty(document, 'fullscreenElement', {
@@ -239,6 +252,62 @@ describe('Room Component (Web Subscriber)', () => {
     );
   });
 
+  it('deve exibir o aviso de limite do chat acima do formulario', () => {
+    mockSubscriberState.chatNotice = 'muitas mensagens, aguarde';
+    render(<Room token={dummyToken} roomInfo={dummyRoomInfo} onLeave={vi.fn()} />);
+
+    expect(screen.getAllByText('muitas mensagens, aguarde').length).toBeGreaterThan(0);
+    expect(screen.getByPlaceholderText(/Mensagem para toda a turma/i)).toBeInTheDocument();
+  });
+
+  it('deve desabilitar o chat publico e o privado enquanto o WebSocket nao conecta (005/RF-506)', () => {
+    mockSubscriberState.isChatReady = false;
+    const { rerender } = render(<Room token={dummyToken} roomInfo={dummyRoomInfo} onLeave={vi.fn()} />);
+
+    const publicInput = screen.getByPlaceholderText('Conectando ao chat...');
+    expect(publicInput).toBeDisabled();
+    expect(screen.getByRole('button', { name: /^Enviar$/i })).toBeDisabled();
+
+    fireEvent.click(screen.getByRole('button', { name: /Privado com Professor/i }));
+    expect(screen.getByPlaceholderText('Conectando ao chat...')).toBeDisabled();
+    expect(screen.getByRole('button', { name: /Enviar Privado/i })).toBeDisabled();
+
+    // Ao conectar, o chat volta a aceitar mensagens.
+    mockSubscriberState.isChatReady = true;
+    rerender(<Room token={dummyToken} roomInfo={dummyRoomInfo} onLeave={vi.fn()} />);
+    expect(screen.getByPlaceholderText(/Dúvida privada ao professor/i)).toBeEnabled();
+  });
+
+  it('deve preservar o texto digitado quando o chat e bloqueado e liberado (005/C-506)', () => {
+    const { rerender } = render(<Room token={dummyToken} roomInfo={dummyRoomInfo} onLeave={vi.fn()} />);
+    fireEvent.change(screen.getByPlaceholderText(/Mensagem para toda a turma/i), { target: { value: 'rascunho' } });
+
+    mockSubscriberState.isChatReady = false;
+    rerender(<Room token={dummyToken} roomInfo={dummyRoomInfo} onLeave={vi.fn()} />);
+    expect(screen.getByPlaceholderText('Conectando ao chat...')).toHaveValue('rascunho');
+
+    mockSubscriberState.isChatReady = true;
+    rerender(<Room token={dummyToken} roomInfo={dummyRoomInfo} onLeave={vi.fn()} />);
+    expect(screen.getByPlaceholderText(/Mensagem para toda a turma/i)).toHaveValue('rascunho');
+  });
+
+  it('deve informar sessao aberta em outra aba quando a conexao cair com 4001', () => {
+    mockSubscriberState.connectionStatus = 'duplicate';
+    const mockLeave = vi.fn();
+    render(<Room token={dummyToken} roomInfo={dummyRoomInfo} onLeave={mockLeave} />);
+
+    expect(mockLeave).toHaveBeenCalledWith('Sua sessão foi aberta em outra aba ou dispositivo.');
+    expect(mockLeave).not.toHaveBeenCalledWith(expect.stringMatching(/encerrada pelo professor/i));
+  });
+
+  it('deve informar matricula ja conectada quando a conexao for recusada com 4002 (027)', () => {
+    mockSubscriberState.connectionStatus = 'student-id-in-use';
+    const mockLeave = vi.fn();
+    render(<Room token={dummyToken} roomInfo={dummyRoomInfo} onLeave={mockLeave} />);
+
+    expect(mockLeave).toHaveBeenCalledWith('Esta matrícula já está conectada nesta transmissão.');
+  });
+
   it('deve ocultar o botao de menu da sidebar retratil quando arquivos estiver aberto em tela cheia e exibir o botao de x', () => {
     window.innerWidth = 1024;
     fireEvent(window, new Event('resize'));
@@ -361,6 +430,179 @@ describe('Room Component (Web Subscriber)', () => {
     fireEvent.click(lowerBtns[0]);
     expect(mockToggleHand).toHaveBeenCalledWith(false);
   });
+
+  it('deve manter o aviso de mao levantada legivel no celular, sem comprimir texto, icone ou botao (006/RF-601, RF-602)', () => {
+    window.innerWidth = 360;
+    fireEvent(window, new Event('resize'));
+    mockSubscriberState.isHandRaised = true;
+    render(<Room token={dummyToken} roomInfo={dummyRoomInfo} onLeave={vi.fn()} />);
+
+    const banner = screen.getByTestId('hand-raised-banner');
+    expect(banner).toHaveAttribute('role', 'status');
+    // Largura do conteúdo limitada à área do vídeo (antes ficava presa a metade dela).
+    expect(banner.style.width).toBe('max-content');
+    expect(banner.style.maxWidth).toBe('calc(100% - 32px)');
+
+    const icon = screen.getByTestId('hand-raised-banner-icon');
+    expect(icon.style.flexShrink).toBe('0');
+    expect(icon.style.width).toBe('16px');
+
+    const lowerBtn = screen.getByRole('button', { name: 'Abaixar Mão' });
+    expect(lowerBtn.style.whiteSpace).toBe('nowrap');
+    expect(banner).toContainElement(lowerBtn);
+  });
+
+  it('deve abaixar a mao pelo aviso sem propagar o clique para o video (006/RNF-601)', () => {
+    mockSubscriberState.isHandRaised = true;
+    mockToggleHand.mockClear();
+    render(<Room token={dummyToken} roomInfo={dummyRoomInfo} onLeave={vi.fn()} />);
+
+    const lowerBtn = screen.getByRole('button', { name: 'Abaixar Mão' });
+    const clickEvent = createEvent.click(lowerBtn);
+    const stopSpy = vi.spyOn(clickEvent, 'stopPropagation');
+
+    fireEvent(lowerBtn, clickEvent);
+    expect(mockToggleHand).toHaveBeenCalledWith(false);
+    expect(stopSpy).toHaveBeenCalled();
+  });
+
+  it('deve exibir banner de mensagens fixadas somente-leitura, decodificar caracteres especiais e nunca exibir botão de fixar para o aluno', () => {
+    mockSubscriberState.messages = [
+      {
+        id: 'pub-pinned-1',
+        sender_name: 'Professor Girafales',
+        sender_role: 'professor',
+        content: 'Prova sobre &lt;html&gt;, &#34;strings&#34; e &#39;chars&#39; &amp; lógica',
+        is_private: false,
+        pinned: true,
+      },
+      {
+        id: 'pub-normal-2',
+        sender_name: 'Chaves',
+        sender_role: 'aluno',
+        content: 'Entendido professor!',
+        is_private: false,
+        pinned: false,
+      },
+    ];
+
+    render(<Room token={dummyToken} roomInfo={dummyRoomInfo} onLeave={vi.fn()} />);
+
+    // Deve exibir o banner de mensagens fixadas (1/3) e o selo FIXADA
+    expect(screen.getByTestId('pinned-public-section')).toBeInTheDocument();
+    expect(screen.getByText(/Mensagens Fixadas \(1\/3\)/i)).toBeInTheDocument();
+    expect(screen.getByText('FIXADA')).toBeInTheDocument();
+
+    // Deve decodificar entidades HTML enviadas pelo backend (', ", <>, &)
+    expect(
+      screen.getAllByText(`Prova sobre <html>, "strings" e 'chars' & lógica`).length
+    ).toBeGreaterThanOrEqual(1);
+
+    // O aluno NUNCA deve ver botões de Fixar ou Desafixar mensagem
+    expect(screen.queryByRole('button', { name: /Fixar mensagem/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /Desafixar mensagem/i })).not.toBeInTheDocument();
+  });
 });
 
+describe('Room — rolagem automática da lista de arquivos (018/RF-191)', () => {
+  const token = 'student-jwt-123';
+  const roomInfo = { room_id: 'room-101', ws_url: 'ws://localhost:8080/ws/rooms/room-101/signal', ice_servers: [] };
+  let scrolled: Element[];
+  const original = (Element.prototype as any).scrollIntoView;
 
+  function sharedFile(n: number) {
+    return { id: `f${n}`, name: `material-${n}.pdf`, size: 1024, url: `/rooms/room-101/files/f${n}/download` };
+  }
+
+  beforeEach(() => {
+    scrolled = [];
+    (Element.prototype as any).scrollIntoView = function (this: Element) {
+      scrolled.push(this);
+    };
+    mockSubscriberState.sharedFiles = [sharedFile(1)];
+  });
+
+  afterEach(() => {
+    (Element.prototype as any).scrollIntoView = original;
+    mockSubscriberState.sharedFiles = [];
+    window.innerWidth = 1024;
+    fireEvent(window, new Event('resize'));
+  });
+
+  function scrolledToFilesEnd() {
+    return scrolled.filter((el) => el === screen.queryByTestId('files-end')).length;
+  }
+
+  it('rola a gaveta Arquivos da Aula até o último arquivo ao abrir e quando chega um arquivo novo', () => {
+    window.innerWidth = 1024;
+    fireEvent(window, new Event('resize'));
+    const { rerender } = render(<Room token={token} roomInfo={roomInfo} onLeave={vi.fn()} />);
+
+    fireEvent.click(screen.getAllByTitle('Arquivos da Aula')[0]);
+    const end = screen.getByTestId('files-end');
+    expect(scrolledToFilesEnd()).toBeGreaterThan(0);
+
+    const before = scrolledToFilesEnd();
+    mockSubscriberState.sharedFiles = [sharedFile(1), sharedFile(2)];
+    rerender(<Room token={token} roomInfo={roomInfo} onLeave={vi.fn()} />);
+
+    expect(scrolledToFilesEnd()).toBeGreaterThan(before);
+    const last = screen.getByText('material-2.pdf');
+    expect(last.compareDocumentPosition(end) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
+  it('rola a aba Arquivos do celular até o último arquivo quando chega um arquivo novo', () => {
+    window.innerWidth = 400;
+    fireEvent(window, new Event('resize'));
+    const { rerender } = render(<Room token={token} roomInfo={roomInfo} onLeave={vi.fn()} />);
+
+    fireEvent.click(screen.getByRole('button', { name: /^Arquivos/i }));
+    expect(screen.getByTestId('files-end')).toBeInTheDocument();
+    const before = scrolledToFilesEnd();
+    expect(before).toBeGreaterThan(0);
+
+    mockSubscriberState.sharedFiles = [sharedFile(1), sharedFile(2)];
+    rerender(<Room token={token} roomInfo={roomInfo} onLeave={vi.fn()} />);
+
+    expect(scrolledToFilesEnd()).toBeGreaterThan(before);
+  });
+});
+
+describe('Room — altura da lista de arquivos (024)', () => {
+  const token = 'student-jwt-123';
+  const roomInfo = { room_id: 'room-101', ws_url: 'ws://localhost:8080/ws/rooms/room-101/signal', ice_servers: [] };
+
+  beforeEach(() => {
+    mockSubscriberState.sharedFiles = [
+      { id: 'f1', name: 'material-1.pdf', size: 1024, url: '/rooms/room-101/files/f1/download' },
+    ];
+  });
+
+  afterEach(() => {
+    mockSubscriberState.sharedFiles = [];
+    window.innerWidth = 1024;
+    fireEvent(window, new Event('resize'));
+  });
+
+  it('no celular, a lista da aba Arquivos ocupa a altura da gaveta e é o único contêiner que rola (RF-2401)', () => {
+    window.innerWidth = 400;
+    fireEvent(window, new Event('resize'));
+    render(<Room token={token} roomInfo={roomInfo} onLeave={vi.fn()} />);
+
+    fireEvent.click(screen.getByRole('button', { name: /^Arquivos/i }));
+    const list = screen.getByTestId('mobile-files-list');
+    expect(list).toHaveStyle({ flex: '1', overflowY: 'auto' });
+    expect(list.style.maxHeight).toBe('');
+    expect(list).toContainElement(screen.getByTestId('files-end'));
+    expect(screen.getByTestId('mobile-files-content').style.overflowY).toBe('');
+  });
+
+  it('no desktop, a gaveta Arquivos da Aula mantém a altura máxima de 380px (RF-2402)', () => {
+    window.innerWidth = 1024;
+    fireEvent(window, new Event('resize'));
+    render(<Room token={token} roomInfo={roomInfo} onLeave={vi.fn()} />);
+
+    fireEvent.click(screen.getAllByTitle('Arquivos da Aula')[0]);
+    expect(screen.getByTestId('files-list')).toHaveStyle({ maxHeight: '380px' });
+  });
+});

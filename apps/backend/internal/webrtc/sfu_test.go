@@ -1,6 +1,7 @@
 package webrtc
 
 import (
+	"errors"
 	"testing"
 
 	"github.com/pion/webrtc/v3"
@@ -46,8 +47,17 @@ func TestSFUService_Lifecycle(t *testing.T) {
 		t.Errorf("Answer SDP nao deveria ser vazia")
 	}
 
-	// Testar criacao de subscriber offer
+	// Sem a track de vídeo do professor não há oferta (023/RF-2302)
 	subscriberID := "student-01"
+	if _, err := sfu.CreateSubscriberOffer(roomID, subscriberID, publisherID); !errors.Is(err, ErrMediaNotReady) {
+		t.Fatalf("Esperado ErrMediaNotReady antes da track de vídeo, recebeu: %v", err)
+	}
+
+	// Simula a track de vídeo criada pelo OnTrack e testa a criacao de subscriber offer
+	room, _ := sfu.getRoom(roomID)
+	if _, _, err := room.ensureLocalTrack(webrtc.RTPCodecTypeVideo, webrtc.RTPCodecCapability{MimeType: webrtc.MimeTypeVP8, ClockRate: 90000}); err != nil {
+		t.Fatalf("Erro ao criar track de vídeo: %v", err)
+	}
 	subOfferSDP, err := sfu.CreateSubscriberOffer(roomID, subscriberID, publisherID)
 	if err != nil {
 		t.Fatalf("Erro ao criar SubscriberOffer: %v", err)

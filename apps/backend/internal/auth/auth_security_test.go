@@ -1,8 +1,11 @@
 package auth
 
 import (
+	"encoding/base64"
+	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 
@@ -62,8 +65,32 @@ func TestAuthSecurity_ClaimManipulation(t *testing.T) {
 		t.Fatalf("SignToken failed: %v", err)
 	}
 
-	// Altera um caractere no payload do token JWT (segmento central base64)
-	tamperedToken := tokenStr[:len(tokenStr)-5] + "A" + tokenStr[len(tokenStr)-4:]
+	// Eleva o aluno a professor no payload (segmento central) e mantém o header e a assinatura originais. A troca é
+	// determinística: o token adulterado sempre difere do original (issue #116).
+	parts := strings.Split(tokenStr, ".")
+	if len(parts) != 3 {
+		t.Fatalf("JWT com %d segmentos; esperado 3", len(parts))
+	}
+	rawPayload, err := base64.RawURLEncoding.DecodeString(parts[1])
+	if err != nil {
+		t.Fatalf("payload do JWT inválido: %v", err)
+	}
+	var payload map[string]any
+	if err := json.Unmarshal(rawPayload, &payload); err != nil {
+		t.Fatalf("payload do JWT inválido: %v", err)
+	}
+	if payload["role"] != string(RoleAluno) {
+		t.Fatalf("role = %v; esperado %s no token legítimo", payload["role"], RoleAluno)
+	}
+	payload["role"] = string(RoleProfessor)
+	tamperedPayload, err := json.Marshal(payload)
+	if err != nil {
+		t.Fatalf("json.Marshal: %v", err)
+	}
+	tamperedToken := parts[0] + "." + base64.RawURLEncoding.EncodeToString(tamperedPayload) + "." + parts[2]
+	if tamperedToken == tokenStr {
+		t.Fatal("o token adulterado deveria diferir do original")
+	}
 
 	_, err = ParseToken(tamperedToken)
 	if err == nil {
@@ -99,7 +126,7 @@ func TestAuthSecurity_AlgorithmNoneAttack(t *testing.T) {
 func TestAuthSecurity_MissingSecret(t *testing.T) {
 	t.Setenv("JWT_SECRET", "")
 
-	_, _, err := SignProfessorToken("prof", "prof@test.com")
+	_, _, err := SignProfessorToken("prof")
 	if err != ErrMissingSecret {
 		t.Errorf("expected ErrMissingSecret on sign without JWT_SECRET, got: %v", err)
 	}

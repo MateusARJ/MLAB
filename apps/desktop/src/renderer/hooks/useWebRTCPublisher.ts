@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
+import { clearHandToastOnLower, clearHandToastOnParticipants, type HandToast } from './handToast';
 
 export interface UseWebRTCPublisherProps {
   roomId: string;
@@ -15,10 +16,11 @@ export interface UseWebRTCPublisherProps {
 export function enforceHighBitrateSDP(
   sdp: string,
   bitrateKbps: number = 4000,
-  _maxFramerate: number = 30
+  maxFramerate: number = 30
 ): string {
-  // Concede headroom de burst dinâmico para cenas complexas com alta variação de cores/partículas
-  const burstBitrateKbps = Math.max(bitrateKbps * 1.5, bitrateKbps + 2000);
+  // Headroom controlado para burst sem sobrecarregar buffers intermediários de rede/Wi-Fi
+  const burstBitrateKbps = maxFramerate === 60 ? 7500 : 5500;
+  const minBitrateKbps = maxFramerate === 60 ? 4500 : 3200;
   let result = sdp.replace(/m=video ([^\r\n]+)\r\n/g, (match) => {
     return `${match}b=AS:${bitrateKbps}\r\nb=TIAS:${bitrateKbps * 1000}\r\n`;
   });
@@ -29,7 +31,7 @@ export function enforceHighBitrateSDP(
     const pt = match[1];
     const codec = match[2];
     const fmtpRegex = new RegExp(`a=fmtp:${pt} (.*)\r\n`);
-    const params = `x-google-min-bitrate=${Math.max(1000, bitrateKbps - 1500)};x-google-start-bitrate=${bitrateKbps};x-google-max-bitrate=${burstBitrateKbps}`;
+    const params = `x-google-min-bitrate=${minBitrateKbps};x-google-start-bitrate=${bitrateKbps};x-google-max-bitrate=${burstBitrateKbps};max-fr=${maxFramerate}`;
     if (fmtpRegex.test(result)) {
       result = result.replace(fmtpRegex, `a=fmtp:${pt} $1;${params}\r\n`);
     } else {
@@ -80,12 +82,7 @@ export function useWebRTCPublisher({
   const [error, setError] = useState<string | null>(null);
   const [messages, setMessages] = useState<any[]>([]);
   const [participants, setParticipants] = useState<any[]>([]);
-  const [lastHandRaised, setLastHandRaised] = useState<{
-    participant_id: string;
-    name: string;
-    student_id?: string;
-    timestamp: number;
-  } | null>(null);
+  const [lastHandRaised, setLastHandRaised] = useState<HandToast | null>(null);
 
   const pcRef = useRef<RTCPeerConnection | null>(null);
   const wsRef = useRef<WebSocket | null>(null);
@@ -95,7 +92,7 @@ export function useWebRTCPublisher({
   const targetFpsRef = useRef<30 | 60>(targetFps);
   targetFpsRef.current = targetFps;
 
-  const currentBitrateKbps = targetFps === 60 ? 8000 : 5000;
+  const currentBitrateKbps = targetFps === 60 ? 6000 : 4000;
   const currentFramerate = targetFps === 60 ? 60 : 30;
 
   const stopPublishing = useCallback(() => {
@@ -164,7 +161,7 @@ export function useWebRTCPublisher({
             params.encodings = [{}];
           }
           const fps = overrideFps || targetFpsRef.current || 30;
-          const bitrate = fps === 60 ? 8000000 : 5000000;
+          const bitrate = fps === 60 ? 6000000 : 4000000;
           params.encodings[0].maxBitrate = bitrate;
           params.encodings[0].maxFramerate = fps;
           params.encodings[0].scaleResolutionDownBy = 1.0;
@@ -173,7 +170,7 @@ export function useWebRTCPublisher({
           // @ts-ignore
           params.encodings[0].priority = 'high';
           // @ts-ignore
-          params.degradationPreference = 'balanced';
+          params.degradationPreference = 'maintain-resolution';
           try {
             await videoSender.setParameters(params);
             console.log(`[WebRTC Publisher] 1080p@${fps}fps ${bitrate / 1000000}Mbps balanced aplicado ao videoSender.`);
@@ -286,6 +283,17 @@ export function useWebRTCPublisher({
             }
           } else if (msg.type === 'chat-message') {
             setMessages((prev) => [...prev, msg.payload]);
+          } else if (msg.type === 'chat-message-pinned') {
+            const pinUpdate = msg.payload;
+            if (pinUpdate && pinUpdate.message_id) {
+              setMessages((prev) =>
+                prev.map((m) =>
+                  (m.message_id || m.id) === pinUpdate.message_id
+                    ? { ...m, pinned: !!pinUpdate.pinned }
+                    : m
+                )
+              );
+            }
           } else if (msg.type === 'chat-history') {
             if (msg.payload && Array.isArray(msg.payload.messages)) {
               setMessages(msg.payload.messages);
@@ -293,6 +301,8 @@ export function useWebRTCPublisher({
           } else if (msg.type === 'participants-update') {
             if (msg.payload && Array.isArray(msg.payload.participants)) {
               setParticipants(msg.payload.participants);
+              // 031, RF-3105: o aluno do aviso saiu ou está de mão abaixada.
+              setLastHandRaised((prev) => clearHandToastOnParticipants(prev, msg.payload.participants));
             }
           } else if (msg.type === 'hand-updated') {
             const update = msg.payload;
@@ -315,6 +325,9 @@ export function useWebRTCPublisher({
                   student_id: update.student_id,
                   timestamp: Date.now(),
                 });
+              } else {
+                // 031, RF-3103: mão abaixada pelo aluno ou pelo professor (confirmada pelo servidor).
+                setLastHandRaised((prev) => clearHandToastOnLower(prev, update.participant_id));
               }
             }
           } else if (msg.type === 'error') {
@@ -374,7 +387,7 @@ export function useWebRTCPublisher({
             params.encodings = [{}];
           }
           const fps = targetFpsRef.current || 30;
-          const bitrate = fps === 60 ? 8000000 : 5000000;
+          const bitrate = fps === 60 ? 6000000 : 4000000;
           params.encodings[0].maxBitrate = bitrate;
           params.encodings[0].maxFramerate = fps;
           params.encodings[0].scaleResolutionDownBy = 1.0;
@@ -383,7 +396,7 @@ export function useWebRTCPublisher({
           // @ts-ignore
           params.encodings[0].priority = 'high';
           // @ts-ignore
-          params.degradationPreference = 'balanced';
+          params.degradationPreference = 'maintain-resolution';
           await videoSender.setParameters(params).catch(() => {});
           videoReplaced = true;
           console.log(`[WebRTC Publisher] Track de vídeo substituído com sucesso via changeStream (1080p@${fps}fps ${bitrate / 1000000}Mbps balanced).`);
@@ -433,7 +446,7 @@ export function useWebRTCPublisher({
 
     if (videoSender && newVideoTrack && videoSender.track !== newVideoTrack) {
       // @ts-ignore
-      newVideoTrack.contentHint = 'motion';
+      newVideoTrack.contentHint = 'detail';
       videoSender
         .replaceTrack(newVideoTrack)
         .then(async () => {
@@ -442,7 +455,7 @@ export function useWebRTCPublisher({
             params.encodings = [{}];
           }
           const fps = targetFpsRef.current || 30;
-          const bitrate = fps === 60 ? 8000000 : 5000000;
+          const bitrate = fps === 60 ? 6000000 : 4000000;
           params.encodings[0].maxBitrate = bitrate;
           params.encodings[0].maxFramerate = fps;
           params.encodings[0].scaleResolutionDownBy = 1.0;
@@ -451,7 +464,7 @@ export function useWebRTCPublisher({
           // @ts-ignore
           params.encodings[0].priority = 'high';
           // @ts-ignore
-          params.degradationPreference = 'balanced';
+          params.degradationPreference = 'maintain-resolution';
           await videoSender.setParameters(params).catch(() => {});
         })
         .catch((err) => {
@@ -478,7 +491,7 @@ export function useWebRTCPublisher({
         params.encodings = [{}];
       }
       const fps = targetFps;
-      const bitrate = fps === 60 ? 8000000 : 5000000;
+      const bitrate = fps === 60 ? 6000000 : 4000000;
       params.encodings[0].maxBitrate = bitrate;
       params.encodings[0].maxFramerate = fps;
       params.encodings[0].scaleResolutionDownBy = 1.0;
@@ -487,7 +500,7 @@ export function useWebRTCPublisher({
       // @ts-ignore
       params.encodings[0].priority = 'high';
       // @ts-ignore
-      params.degradationPreference = 'balanced';
+      params.degradationPreference = 'maintain-resolution';
       videoSender.setParameters(params).catch((err) => {
         console.warn('[WebRTC Publisher] Erro ao atualizar parâmetros de vídeo para targetFps:', err);
       });
@@ -510,6 +523,46 @@ export function useWebRTCPublisher({
       );
     }
   }, []);
+
+  const pinChatMessage = useCallback(
+    (messageId: string, pinned: boolean, isPrivate: boolean = false, targetId?: string) => {
+      if (!messageId) return;
+      setMessages((prev) => {
+        if (pinned) {
+          const currentPinnedCount = prev.filter((m) => {
+            if (!m.pinned) return false;
+            if ((m.message_id || m.id) === messageId) return false;
+            if (!isPrivate) return m.is_private !== true;
+            return (
+              m.is_private === true &&
+              (!targetId || m.participant_id === targetId || m.target_id === targetId)
+            );
+          }).length;
+          if (currentPinnedCount >= 3) {
+            return prev;
+          }
+        }
+        return prev.map((m) =>
+          (m.message_id || m.id) === messageId ? { ...m, pinned } : m
+        );
+      });
+
+      if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+        wsRef.current.send(
+          JSON.stringify({
+            type: 'pin-message',
+            payload: {
+              message_id: messageId,
+              pinned,
+              is_private: isPrivate,
+              target_id: targetId,
+            },
+          })
+        );
+      }
+    },
+    []
+  );
 
   const sendStreamPause = useCallback((paused: boolean) => {
     if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
@@ -536,6 +589,8 @@ export function useWebRTCPublisher({
             p.participant_id === participantId ? { ...p, hand_raised: false } : p
           )
         );
+        // 031, RF-3104: o professor abaixou a mão do aluno do aviso.
+        setLastHandRaised((prev) => clearHandToastOnLower(prev, participantId));
       } catch (err) {
         console.warn('Erro ao enviar sinal de lower-hand:', err);
       }
@@ -556,6 +611,7 @@ export function useWebRTCPublisher({
     dismissHandToast,
     lowerStudentHand,
     sendChatMessage,
+    pinChatMessage,
     sendStreamPause,
     startPublishing,
     changeStream,

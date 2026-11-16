@@ -1,7 +1,7 @@
 {
   "name": "@mlab/desktop",
-  "version": "1.5.6",
-  "description": "MLab - App Desktop do Professor",
+  "version": "1.15.10",
+  "description": "Plataforma de transmissão de tela e interação para aulas ao vivo",
   "homepage": "https://mlab.com",
   "author": {
     "name": "MLab",
@@ -23,7 +23,6 @@
     "build": "electron-vite build",
     "preview": "electron-vite preview",
     "start": "electron .",
-    "premake": "npm version patch --no-git-tag-version && node ../../scripts/sync-version.js",
     "make": "npm run build:web && npm run build:backend && npm run build && electron-builder --win --publish never && node ../../scripts/build-linux-wsl.js all",
     "make:win": "npm run build:web && npm run build:backend:win && npm run build && electron-builder --win --publish never",
     "make:linux": "npm run build:web && npm run build:backend:linux && npm run build && node ../../scripts/build-linux-wsl.js all",
@@ -61,7 +60,7 @@
     "appId": "com.mlab.classroom",
     "productName": "MLab",
     "electronVersion": "31.7.7",
-    "copyright": "Copyright © 2024 MLab",
+    "copyright": "Copyright © 2026 Mateus de Araujo",
     "publish": {
       "provider": "github",
       "owner": "MateusARJ",
@@ -91,13 +90,14 @@
       "requestedExecutionLevel": "asInvoker",
       "extraResources": [
         {
-          "from": "../backend/bin/server.exe",
-          "to": "bin/server.exe"
+          "from": "../backend/bin/mlab-backend.exe",
+          "to": "bin/mlab-backend.exe"
         }
       ]
     },
     "nsis": {
       "oneClick": false,
+      "include": "installer/installer.nsh",
       "perMachine": true,
       "allowToChangeInstallationDirectory": true,
       "shortcutName": "MLab",
@@ -116,8 +116,8 @@
       "artifactName": "${productName}-Mac-${version}.${ext}",
       "extraResources": [
         {
-          "from": "../backend/bin/server-darwin",
-          "to": "bin/server"
+          "from": "../backend/bin/mlab-backend-darwin",
+          "to": "bin/mlab-backend"
         }
       ]
     },
@@ -132,7 +132,7 @@
       "artifactName": "${productName}-Linux-${version}.${ext}",
       "maintainer": "MLab Team <contato@mlab.com>",
       "synopsis": "MLab Classroom - Aplicativo Desktop do Professor",
-      "description": "Sistema de Transmissão e Interação de Salas de Aula MLab",
+      "description": "Plataforma de transmissão de tela e interação para aulas ao vivo",
       "desktop": {
         "Name": "MLab",
         "Type": "Application",
@@ -140,8 +140,8 @@
       },
       "extraResources": [
         {
-          "from": "../backend/bin/server-linux",
-          "to": "bin/server"
+          "from": "../backend/bin/mlab-backend-linux",
+          "to": "bin/mlab-backend"
         }
       ]
     }

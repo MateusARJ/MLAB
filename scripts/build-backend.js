@@ -95,27 +95,27 @@ if (!buildWin && !buildLinux && !buildMacTarget) {
 }
 
 if (buildWin) {
-  build('windows', 'server.exe', 'amd64');
+  build('windows', 'mlab-backend.exe', 'amd64');
 }
 
 if (buildLinux) {
-  // Gera binário dedicado server-linux para evitar sobrescrita pela compilação Darwin
-  build('linux', 'server-linux', 'amd64');
+  // Gera binário dedicado mlab-backend-linux para evitar sobrescrita pela compilação Darwin
+  build('linux', 'mlab-backend-linux', 'amd64');
   if (target === 'linux') {
     try {
-      fs.copyFileSync(path.join(binDir, 'server-linux'), path.join(binDir, 'server'));
-      fs.chmodSync(path.join(binDir, 'server'), 0o755);
+      fs.copyFileSync(path.join(binDir, 'mlab-backend-linux'), path.join(binDir, 'mlab-backend'));
+      fs.chmodSync(path.join(binDir, 'mlab-backend'), 0o755);
     } catch {}
   }
 }
 
 if (buildMacTarget) {
-  // Gera binário dedicado server-darwin para evitar sobrescrita da compilação Linux
-  buildMac('server-darwin');
+  // Gera binário dedicado mlab-backend-darwin para evitar sobrescrita da compilação Linux
+  buildMac('mlab-backend-darwin');
   if (target === 'mac' || target === 'darwin') {
     try {
-      fs.copyFileSync(path.join(binDir, 'server-darwin'), path.join(binDir, 'server'));
-      fs.chmodSync(path.join(binDir, 'server'), 0o755);
+      fs.copyFileSync(path.join(binDir, 'mlab-backend-darwin'), path.join(binDir, 'mlab-backend'));
+      fs.chmodSync(path.join(binDir, 'mlab-backend'), 0o755);
     } catch {}
   }
 }

@@ -12,8 +12,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/screenshare/classroom/internal/auth"
-	"github.com/screenshare/classroom/internal/room"
+	"github.com/MateusARJ/MLAB/apps/backend/internal/auth"
+	"github.com/MateusARJ/MLAB/apps/backend/internal/room"
 )
 
 // TestSignalingSecurity_ChatRateLimit valida que o limite de 5 msgs / 5s
@@ -165,5 +165,31 @@ func TestSignalingSecurity_WSUpgradeAuth(t *testing.T) {
 	mux.ServeHTTP(recNotFound, reqNotFound)
 	if recNotFound.Code != http.StatusNotFound {
 		t.Errorf("expected 404 Not Found for non-existent room, got %d", recNotFound.Code)
+	}
+}
+
+func TestSignalingSecurity_CheckOriginAllowlist(t *testing.T) {
+	t.Setenv("NAT_1TO1_IP", "192.168.0.50")
+	h := NewHandler(room.NewInMemoryStore(), nil)
+
+	allowed := httptest.NewRequest("GET", "/ws/rooms/x/signal", nil)
+	allowed.Host = "192.168.0.50:8080"
+	allowed.Header.Set("Origin", "http://192.168.0.50:8080")
+	if !h.upgrader.CheckOrigin(allowed) {
+		t.Fatal("expected same-host origin to be allowed")
+	}
+
+	electron := httptest.NewRequest("GET", "/ws/rooms/x/signal", nil)
+	electron.Host = "localhost:8080"
+	electron.Header.Set("Origin", "file://")
+	if !h.upgrader.CheckOrigin(electron) {
+		t.Fatal("expected Electron file:// origin to be allowed")
+	}
+
+	evil := httptest.NewRequest("GET", "/ws/rooms/x/signal", nil)
+	evil.Host = "192.168.0.50:8080"
+	evil.Header.Set("Origin", "https://site-malicioso.example")
+	if h.upgrader.CheckOrigin(evil) {
+		t.Fatal("expected unknown origin to be rejected")
 	}
 }

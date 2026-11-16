@@ -4,14 +4,138 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"strings"
 	"testing"
 	"time"
 
-	"github.com/screenshare/classroom/internal/auth"
+	"github.com/MateusARJ/MLAB/apps/backend/internal/auth"
 )
+
+// anuncioFalso é o nome mDNS "anunciado" nos testes do handler; vazio simula a falta de anúncio.
+var anuncioFalso = "mlab.local"
+
+// TestMain impede que o POST /rooms dos testes sonde a rede e ocupe a porta 5353: o claim e a leitura do nome usam
+// anuncioFalso. Os testes de mDNS chamam ClaimMDNSName diretamente e não são afetados.
+func TestMain(m *testing.M) {
+	mdnsClaim = func(string) (string, error) {
+		if anuncioFalso == "" {
+			return "", errors.New("sem anúncio (teste)")
+		}
+		return anuncioFalso, nil
+	}
+	mdnsHost = func() string { return anuncioFalso }
+	os.Exit(m.Run())
+}
+
+// comAnuncio troca o nome anunciado até o fim do teste.
+func comAnuncio(t *testing.T, host string) {
+	t.Helper()
+	original := anuncioFalso
+	anuncioFalso = host
+	t.Cleanup(func() { anuncioFalso = original })
+}
+
+// TestBuildRoomLinksUsaNomeAnunciado cobre RF-123 e RF-126 da feature 012.
+func TestBuildRoomLinksUsaNomeAnunciado(t *testing.T) {
+	t.Setenv("NGROK_URL", "")
+	t.Setenv("PUBLIC_URL", "")
+	t.Setenv("BASE_URL", "")
+	t.Setenv("WEB_PORT", "8080")
+
+	h := NewHandler(NewInMemoryStore())
+	room := &Room{ProfessorSlug: "silva"}
+	ip := getOutboundIP()
+	if ip == "" || ip == "127.0.0.1" {
+		ip = "localhost"
+	}
+	ipLink := "http://" + ip + ":8080"
+
+	cases := []struct {
+		name, host, wantMDNS, wantLink string
+	}{
+		{"primeiro professor", "mlab.local", "http://mlab.local:8080", "http://mlab.local:8080"},
+		{"segundo professor", "mlab-2.local", "http://mlab-2.local:8080", "http://mlab-2.local:8080"},
+		{"sem anúncio", "", "", ipLink},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			comAnuncio(t, tc.host)
+			got := h.buildRoomLinks(nil, room)
+			if got.MDNSLink != tc.wantMDNS || got.ShortMDNSLink != tc.wantMDNS {
+				t.Errorf("mdns_link = %q / short = %q, esperado %q", got.MDNSLink, got.ShortMDNSLink, tc.wantMDNS)
+			}
+			if got.Link != tc.wantLink {
+				t.Errorf("link = %q, esperado %q", got.Link, tc.wantLink)
+			}
+			if got.IPLink != ipLink {
+				t.Errorf("ip_link = %q, esperado %q", got.IPLink, ipLink)
+			}
+		})
+	}
+
+	t.Run("BASE_URL tem precedência no link", func(t *testing.T) {
+		comAnuncio(t, "mlab-2.local")
+		t.Setenv("BASE_URL", "https://aula.example.com/")
+		got := h.buildRoomLinks(nil, room)
+		if got.Link != "https://aula.example.com" || got.MDNSLink != "http://mlab-2.local:8080" {
+			t.Errorf("link = %q, mdns_link = %q", got.Link, got.MDNSLink)
+		}
+	})
+}
+
+// TestCreateRoomDevolveNomeAnunciado cobre RF-123 e RF-126: a resposta do POST /rooms usa o nome escolhido no
+// claim, e sem anúncio não traz mdns_link.
+func TestCreateRoomDevolveNomeAnunciado(t *testing.T) {
+	t.Setenv("JWT_SECRET", "test-secret-12345")
+	t.Setenv("NGROK_URL", "")
+	t.Setenv("PUBLIC_URL", "")
+	t.Setenv("BASE_URL", "")
+	if ip := getOutboundIP(); ip == "" || ip == "127.0.0.1" || ip == "localhost" {
+		t.Skip("sem IP de LAN: o claim não é chamado")
+	}
+
+	for _, host := range []string{"mlab-2.local", ""} {
+		t.Run("anúncio="+host, func(t *testing.T) {
+			comAnuncio(t, host)
+			mux := http.NewServeMux()
+			h := NewHandler(NewInMemoryStore())
+			h.RegisterRoutes(mux)
+			h.RegisterProtectedRoutes(mux, auth.Middleware)
+			token, _, err := auth.SignProfessorToken("prof-mdns", "Professor Silva")
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			req := httptest.NewRequest("POST", "/rooms", bytes.NewReader([]byte(`{"title":"Turma"}`)))
+			req.Header.Set("Authorization", "Bearer "+token)
+			rec := httptest.NewRecorder()
+			mux.ServeHTTP(rec, req)
+			if rec.Code != http.StatusCreated {
+				t.Fatalf("esperava 201, obteve %d: %s", rec.Code, rec.Body.String())
+			}
+
+			var raw map[string]any
+			_ = json.Unmarshal(rec.Body.Bytes(), &raw)
+			if host == "" {
+				if _, ok := raw["mdns_link"]; ok {
+					t.Errorf("sem anúncio, mdns_link não deveria vir: %v", raw)
+				}
+				if link, _ := raw["link"].(string); link != raw["ip_link"] {
+					t.Errorf("sem anúncio, link deveria ser o link por IP: link=%v ip_link=%v", raw["link"], raw["ip_link"])
+				}
+				return
+			}
+			if raw["mdns_link"] != "http://"+host+":"+getWebPort() {
+				t.Errorf("mdns_link = %v, esperado o nome anunciado %s", raw["mdns_link"], host)
+			}
+		})
+	}
+}
 
 func TestSlugify(t *testing.T) {
 	cases := []struct {
@@ -33,21 +157,6 @@ func TestSlugify(t *testing.T) {
 	}
 }
 
-func TestBuildLink(t *testing.T) {
-	link := buildLink("http://localhost:5173", "algoritmos-turma-04/professor")
-	expected := "http://localhost:5173/algoritmos-turma-04/professor/entrar"
-	if link != expected {
-		t.Errorf("expected %q, got %q", expected, link)
-	}
-
-	// Test trailing slash removal
-	link2 := buildLink("https://mlab.edu.br/", "matematica/prof-carlos")
-	expected2 := "https://mlab.edu.br/matematica/prof-carlos/entrar"
-	if link2 != expected2 {
-		t.Errorf("expected %q, got %q", expected2, link2)
-	}
-}
-
 func TestRoomLifecycle(t *testing.T) {
 	t.Setenv("JWT_SECRET", "test-secret-12345")
 
@@ -58,7 +167,7 @@ func TestRoomLifecycle(t *testing.T) {
 	handler.RegisterRoutes(mux)
 	handler.RegisterProtectedRoutes(mux, auth.Middleware)
 
-	profToken, _, err := auth.SignProfessorToken("prof-owner", "prof@test.com", "Professor Silva")
+	profToken, _, err := auth.SignProfessorToken("prof-owner", "Professor Silva")
 	if err != nil {
 		t.Fatalf("failed to sign professor token: %v", err)
 	}
@@ -101,8 +210,8 @@ func TestRoomLifecycle(t *testing.T) {
 	if linkResp.Link == "" {
 		t.Error("expected non-empty link in LinkResponse")
 	}
-	if linkResp.IPLink == "" || linkResp.MDNSLink == "" {
-		t.Errorf("expected non-empty ip_link and mdns_link in LinkResponse: %+v", linkResp)
+	if linkResp.IPLink == "" || linkResp.MDNSLink != "http://mlab.local:"+getWebPort() {
+		t.Errorf("expected ip_link and mdns_link with the announced name in LinkResponse: %+v", linkResp)
 	}
 	if strings.Contains(linkResp.IPLink, "/entrar") || strings.Contains(linkResp.MDNSLink, "/entrar") {
 		t.Errorf("expected short root URLs without /entrar, got ip=%q mdns=%q", linkResp.IPLink, linkResp.MDNSLink)
@@ -155,6 +264,18 @@ func TestRoomLifecycle(t *testing.T) {
 	mux.ServeHTTP(joinRec3, joinReq3)
 	if joinRec3.Code != http.StatusTooManyRequests {
 		t.Errorf("expected 429 TooManyRequests when exceeding max_participants, got %d", joinRec3.Code)
+	}
+
+	// 5.1 Student 1 rejoins with the same matrícula (other case) on a full room -> 200 (RN-04, 005/T501)
+	rejoinBody := []byte(`{"name": "Aluno 1", "student_id": "2025116tads0001"}`)
+	rejoinReq := httptest.NewRequest("POST", "/rooms/"+roomID+"/join", bytes.NewReader(rejoinBody))
+	rejoinRec := httptest.NewRecorder()
+	mux.ServeHTTP(rejoinRec, rejoinReq)
+	if rejoinRec.Code != http.StatusOK {
+		t.Errorf("expected 200 OK for a rejoin with the same matrícula on a full room, got %d: %s", rejoinRec.Code, rejoinRec.Body.String())
+	}
+	if n, _ := store.CountParticipants(context.Background(), roomID); n != 2 {
+		t.Errorf("expected the rejoin to replace the previous participant (count 2), got %d", n)
 	}
 
 	// 6. Close Room (POST /rooms/{roomId}/close)
@@ -233,7 +354,25 @@ func TestJoinValidation(t *testing.T) {
 	}
 }
 
-func TestJoinRoomBySlug(t *testing.T) {
+// forceInternet fixa o resultado de IsInternetAvailable() até o fim do teste, sem acessar a rede: preenche o cache
+// de conectividade (válido por 5 s) e restaura os valores anteriores no Cleanup (013, RF-131).
+func forceInternet(t *testing.T, online bool) {
+	t.Helper()
+	connectivityMu.Lock()
+	prevOnline, prevCheck := cachedIsOnline, lastConnectivityCheck
+	cachedIsOnline, lastConnectivityCheck = online, time.Now()
+	connectivityMu.Unlock()
+	t.Cleanup(func() {
+		connectivityMu.Lock()
+		cachedIsOnline, lastConnectivityCheck = prevOnline, prevCheck
+		connectivityMu.Unlock()
+	})
+}
+
+// joinBySlug cria a sala "uniform-lima-4770/prof-1" no store e faz o join do aluno pelo slug composto. Devolve a
+// resposta decodificada e o corpo bruto.
+func joinBySlug(t *testing.T) (JoinResponse, string) {
+	t.Helper()
 	t.Setenv("JWT_SECRET", "test-secret-12345")
 	t.Setenv("WS_URL", "ws://localhost:8080")
 
@@ -267,10 +406,19 @@ func TestJoinRoomBySlug(t *testing.T) {
 		t.Fatalf("expected 200 OK for join via slug, got %d: %s", rec.Code, rec.Body.String())
 	}
 
+	raw := rec.Body.String()
 	var resp JoinResponse
-	if err := json.NewDecoder(rec.Body).Decode(&resp); err != nil {
+	if err := json.Unmarshal([]byte(raw), &resp); err != nil {
 		t.Fatalf("falha ao decodificar JoinResponse: %v", err)
 	}
+	return resp, raw
+}
+
+func TestJoinRoomBySlug(t *testing.T) {
+	t.Setenv("STUN_URL", "")
+	forceInternet(t, true)
+
+	resp, _ := joinBySlug(t)
 
 	if resp.Token == "" {
 		t.Error("esperava token JWT gerado para o aluno")
@@ -282,27 +430,49 @@ func TestJoinRoomBySlug(t *testing.T) {
 	if resp.WsURL != expectedWs {
 		t.Errorf("esperava WsURL %s, obteve %s", expectedWs, resp.WsURL)
 	}
-	if len(resp.IceServers) == 0 {
-		t.Error("esperava IceServers configurados")
+	if len(resp.IceServers) != 1 || len(resp.IceServers[0].URLs) != 1 ||
+		resp.IceServers[0].URLs[0] != "stun:stun.l.google.com:19302" {
+		t.Errorf("esperava o STUN padrão com internet, obteve %+v", resp.IceServers)
 	}
 }
 
-func TestSlugFromEmail(t *testing.T) {
+// TestJoinIceServers cobre os três ramos de ice_servers no join, sem acessar a rede (013, RF-132; ADR 0005).
+func TestJoinIceServers(t *testing.T) {
 	cases := []struct {
-		email    string
-		expected string
+		name     string
+		stunURL  string
+		online   bool
+		expected []string
 	}{
-		{"professor@screenshare.local", "professor"},
-		{"carlos.silva@escola.com", "carlos-silva"},
-		{"maria_oliveira@univ.edu.br", "maria-oliveira"},
-		{"prof+test@domain.com", "prof-test"},
+		{"STUN_URL configurada sem internet", "stun:192.168.0.10:3478", false, []string{"stun:192.168.0.10:3478"}},
+		{"sem STUN_URL com internet", "", true, []string{"stun:stun.l.google.com:19302"}},
+		{"sem STUN_URL sem internet (LAN offline)", "", false, nil},
 	}
 
 	for _, c := range cases {
-		got := slugFromEmail(c.email)
-		if got != c.expected {
-			t.Errorf("slugFromEmail(%q) = %q; want %q", c.email, got, c.expected)
-		}
+		t.Run(c.name, func(t *testing.T) {
+			t.Setenv("STUN_URL", c.stunURL)
+			forceInternet(t, c.online)
+
+			resp, raw := joinBySlug(t)
+
+			if c.expected == nil {
+				if len(resp.IceServers) != 0 {
+					t.Errorf("esperava ice_servers vazio sem internet, obteve %+v", resp.IceServers)
+				}
+				if !strings.Contains(raw, `"ice_servers":[]`) {
+					t.Errorf("esperava \"ice_servers\":[] no JSON, corpo: %s", raw)
+				}
+				return
+			}
+			if len(resp.IceServers) != 1 {
+				t.Fatalf("esperava 1 servidor ICE, obteve %+v", resp.IceServers)
+			}
+			got := resp.IceServers[0].URLs
+			if len(got) != len(c.expected) || got[0] != c.expected[0] {
+				t.Errorf("esperava urls %v, obteve %v", c.expected, got)
+			}
+		})
 	}
 }
 
@@ -315,8 +485,8 @@ func TestCreateRoomFixedSlug(t *testing.T) {
 	mux := http.NewServeMux()
 	handler.RegisterProtectedRoutes(mux, auth.Middleware)
 
-	// Gera token de professor com email
-	profClaims := auth.ProfessorMapClaims("prof-123", "professor@screenshare.local")
+	// Gera token de professor sem nome (o slug cai no fallback "professor")
+	profClaims := auth.ProfessorMapClaims("prof-123")
 	profToken, err := auth.SignToken(profClaims)
 	if err != nil {
 		t.Fatalf("falha ao assinar token: %v", err)
@@ -384,7 +554,7 @@ func TestCreateRoomNgrok(t *testing.T) {
 	mux := http.NewServeMux()
 	handler.RegisterProtectedRoutes(mux, auth.Middleware)
 
-	profClaims := auth.ProfessorMapClaims("prof-ngrok", "professor.silva@screenshare.local")
+	profClaims := auth.ProfessorMapClaims("prof-ngrok")
 	profToken, err := auth.SignToken(profClaims)
 	if err != nil {
 		t.Fatalf("falha ao assinar token: %v", err)
@@ -407,5 +577,344 @@ func TestCreateRoomNgrok(t *testing.T) {
 	expectedLink := "https://mlab-live.ngrok-free.app"
 	if resp.Link != expectedLink {
 		t.Errorf("esperava Link com ngrok e link %q, obteve %q", expectedLink, resp.Link)
+	}
+}
+
+func TestGetActiveRoom_Deterministic(t *testing.T) {
+	ctx := context.Background()
+	base := time.Date(2026, 11, 1, 10, 0, 0, 0, time.UTC)
+
+	// Repete várias vezes para expor a ordem aleatória de iteração do map.
+	for i := 0; i < 50; i++ {
+		store := NewInMemoryStore()
+		_ = store.CreateRoom(ctx, &Room{ID: "antiga-waiting", Slug: "a/p", Status: StatusWaiting, CreatedAt: base})
+		_ = store.CreateRoom(ctx, &Room{ID: "nova-waiting", Slug: "b/p", Status: StatusWaiting, CreatedAt: base.Add(time.Minute)})
+		_ = store.CreateRoom(ctx, &Room{ID: "fechada", Slug: "c/p", Status: StatusClosed, CreatedAt: base.Add(2 * time.Minute)})
+
+		got, err := store.GetActiveRoom(ctx)
+		if err != nil || got.ID != "nova-waiting" {
+			t.Fatalf("iteração %d: esperado nova-waiting, obtido %+v (err=%v)", i, got, err)
+		}
+
+		// 035/RF-3503: reconnecting fica à frente de waiting, mesmo criada antes.
+		_ = store.CreateRoom(ctx, &Room{ID: "reconectando", Slug: "e/p", Status: StatusReconnecting, CreatedAt: base.Add(-2 * time.Hour)})
+		got, err = store.GetActiveRoom(ctx)
+		if err != nil || got.ID != "reconectando" {
+			t.Fatalf("iteração %d: esperado reconectando (reconnecting > waiting), obtido %+v (err=%v)", i, got, err)
+		}
+
+		_ = store.CreateRoom(ctx, &Room{ID: "transmitindo", Slug: "d/p", Status: StatusPublishing, CreatedAt: base.Add(-time.Hour)})
+		got, err = store.GetActiveRoom(ctx)
+		if err != nil || got.ID != "transmitindo" {
+			t.Fatalf("iteração %d: esperado transmitindo (publishing tem prioridade), obtido %+v (err=%v)", i, got, err)
+		}
+	}
+}
+
+// TestSetSessionStatus cobre RF-3501 e RNF-3501 (035, issue #101): o store registra o status da sessão vindo do hub
+// e nunca reabre sala encerrada ou removida.
+func TestSetSessionStatus(t *testing.T) {
+	ctx := context.Background()
+	store := NewInMemoryStore()
+	_ = store.CreateRoom(ctx, &Room{ID: "sala", Slug: "aula/prof", RoomSlug: "aula", ProfessorSlug: "prof", Status: StatusWaiting, CreatedAt: time.Now()})
+
+	for _, status := range []Status{StatusPublishing, StatusReconnecting, StatusPublishing, StatusWaiting} {
+		if err := store.SetSessionStatus(ctx, "sala", status); err != nil {
+			t.Fatalf("SetSessionStatus(%s): %v", status, err)
+		}
+		got, _ := store.GetRoomByID(ctx, "sala")
+		if got.Status != status {
+			t.Fatalf("status esperado %s, obtido %s", status, got.Status)
+		}
+		if got.ClosedAt != nil {
+			t.Fatalf("SetSessionStatus não deveria preencher closed_at")
+		}
+	}
+
+	if err := store.SetSessionStatus(ctx, "sala", StatusClosed); err == nil {
+		t.Fatal("SetSessionStatus não deveria aceitar closed")
+	}
+	if got, _ := store.GetRoomByID(ctx, "sala"); got.Status != StatusWaiting {
+		t.Fatalf("closed recusado não deveria alterar a sala, obtido %s", got.Status)
+	}
+
+	if err := store.SetSessionStatus(ctx, "inexistente", StatusPublishing); !errors.Is(err, ErrRoomNotFound) {
+		t.Fatalf("sala inexistente: esperado ErrRoomNotFound, obtido %v", err)
+	}
+
+	// Sala encerrada: o aviso tardio não a reabre nem recria o índice de slug.
+	now := time.Now()
+	_ = store.UpdateRoomStatus(ctx, "sala", StatusClosed, &now)
+	if err := store.SetSessionStatus(ctx, "sala", StatusPublishing); !errors.Is(err, ErrRoomClosed) {
+		t.Fatalf("sala encerrada: esperado ErrRoomClosed, obtido %v", err)
+	}
+	if got, _ := store.GetRoomByID(ctx, "sala"); got.Status != StatusClosed || got.ClosedAt == nil {
+		t.Fatalf("sala encerrada não deveria mudar, obtido %+v", got)
+	}
+	if _, ok := store.(*inMemoryStore).slugIndex["aula/prof"]; ok {
+		t.Fatal("o slug da sala encerrada não deveria voltar ao índice")
+	}
+	if _, err := store.GetActiveRoom(ctx); !errors.Is(err, ErrRoomNotFound) {
+		t.Fatalf("sala encerrada não deveria ser ativa, obtido err=%v", err)
+	}
+}
+
+func TestGetActiveRoom_NoneActive(t *testing.T) {
+	store := NewInMemoryStore()
+	_ = store.CreateRoom(context.Background(), &Room{ID: "fechada", Slug: "c/p", Status: StatusClosed, CreatedAt: time.Now()})
+	if _, err := store.GetActiveRoom(context.Background()); err != ErrRoomNotFound {
+		t.Fatalf("expected ErrRoomNotFound, got %v", err)
+	}
+}
+
+// TestJoinMatriculaConectada cobre RF-2701 e RF-2702 (027, ADR 0010): a matrícula com WebSocket ativo recusa a nova
+// entrada com 409, inclusive com a sala cheia; a matrícula só registrada no store (aluno já saiu) entra.
+func TestJoinMatriculaConectada(t *testing.T) {
+	t.Setenv("JWT_SECRET", "test-secret-12345")
+
+	store := NewInMemoryStore()
+	handler := NewHandler(store)
+	mux := http.NewServeMux()
+	handler.RegisterRoutes(mux)
+
+	conectadas := map[string]bool{}
+	handler.SetStudentConnectedChecker(func(roomID, studentID string) bool {
+		return roomID == "sala-027" && conectadas[strings.ToUpper(studentID)]
+	})
+
+	sala := &Room{ID: "sala-027", Slug: "sala-027", Status: StatusPublishing, MaxParticipants: 1, CreatedAt: time.Now().UTC()}
+	if err := store.CreateRoom(context.Background(), sala); err != nil {
+		t.Fatalf("falha ao criar sala: %v", err)
+	}
+
+	join := func(studentID string) *httptest.ResponseRecorder {
+		body := []byte(`{"name": "Aluno", "student_id": "` + studentID + `"}`)
+		rec := httptest.NewRecorder()
+		mux.ServeHTTP(rec, httptest.NewRequest("POST", "/rooms/sala-027/join", bytes.NewReader(body)))
+		return rec
+	}
+
+	// 1. Primeira entrada: matrícula livre.
+	if rec := join("2025116TADS0001"); rec.Code != http.StatusOK {
+		t.Fatalf("primeira entrada: esperado 200, obtido %d: %s", rec.Code, rec.Body.String())
+	}
+
+	// 2. Matrícula conectada (outra caixa) com a sala cheia: 409 com a mensagem, antes do 429.
+	conectadas["2025116TADS0001"] = true
+	rec := join("2025116tads0001")
+	if rec.Code != http.StatusConflict {
+		t.Fatalf("matrícula conectada: esperado 409, obtido %d: %s", rec.Code, rec.Body.String())
+	}
+	var body map[string]string
+	_ = json.Unmarshal(rec.Body.Bytes(), &body)
+	if body["error"] != "Esta matrícula já está conectada nesta transmissão." {
+		t.Errorf("mensagem do 409 inesperada: %q", body["error"])
+	}
+	if n, _ := store.CountParticipants(context.Background(), "sala-027"); n != 1 {
+		t.Errorf("o 409 não deveria registrar participante (count %d)", n)
+	}
+
+	// 3. Aluno saiu (sem WebSocket): a mesma matrícula entra de novo, mesmo com a sala cheia.
+	conectadas["2025116TADS0001"] = false
+	if rec := join("2025116TADS0001"); rec.Code != http.StatusOK {
+		t.Fatalf("matrícula desconectada: esperado 200, obtido %d: %s", rec.Code, rec.Body.String())
+	}
+}
+
+// TestJoinSalaEncerrada cobre RF-2901 a RF-2903 (029, RN-08 da 001): sala encerrada recusa o join com 409, antes da
+// matrícula conectada, sem registrar participante; sala inexistente segue com 404.
+func TestJoinSalaEncerrada(t *testing.T) {
+	t.Setenv("JWT_SECRET", "test-secret-12345")
+
+	store := NewInMemoryStore()
+	handler := NewHandler(store)
+	mux := http.NewServeMux()
+	handler.RegisterRoutes(mux)
+
+	// A matrícula consta como conectada: o 409 tem de ser o de sala encerrada (RF-2902).
+	handler.SetStudentConnectedChecker(func(string, string) bool { return true })
+
+	sala := &Room{ID: "sala-029", Slug: "sala-029", Status: StatusClosed, MaxParticipants: 50, CreatedAt: time.Now().UTC()}
+	if err := store.CreateRoom(context.Background(), sala); err != nil {
+		t.Fatalf("falha ao criar sala: %v", err)
+	}
+
+	join := func(roomID string) *httptest.ResponseRecorder {
+		body := []byte(`{"name": "Aluno", "student_id": "2025116TADS0001"}`)
+		rec := httptest.NewRecorder()
+		mux.ServeHTTP(rec, httptest.NewRequest("POST", "/rooms/"+roomID+"/join", bytes.NewReader(body)))
+		return rec
+	}
+
+	rec := join("sala-029")
+	if rec.Code != http.StatusConflict {
+		t.Fatalf("sala encerrada: esperado 409, obtido %d: %s", rec.Code, rec.Body.String())
+	}
+	var body map[string]string
+	_ = json.Unmarshal(rec.Body.Bytes(), &body)
+	if body["error"] != "esta transmissão já foi encerrada e o link não está mais disponível" {
+		t.Errorf("mensagem do 409 inesperada: %q", body["error"])
+	}
+	if _, ok := body["token"]; ok {
+		t.Error("o 409 não deveria emitir token")
+	}
+	if n, _ := store.CountParticipants(context.Background(), "sala-029"); n != 0 {
+		t.Errorf("o 409 não deveria registrar participante (count %d)", n)
+	}
+
+	if rec := join("sala-inexistente"); rec.Code != http.StatusNotFound {
+		t.Fatalf("sala inexistente: esperado 404, obtido %d: %s", rec.Code, rec.Body.String())
+	}
+}
+
+// TestSyncStatusFromSession cobre RF-3501, RF-3502 e RNF-3501 (035, issue #101): o status que o hub muda aparece em
+// /info, no join e em /rooms/active; o aviso sobre sala removida não a traz de volta.
+func TestSyncStatusFromSession(t *testing.T) {
+	t.Setenv("JWT_SECRET", "test-secret-12345")
+
+	originalStop := mdnsStop
+	mdnsStop = func() {}
+	t.Cleanup(func() { mdnsStop = originalStop })
+
+	store := NewInMemoryStore()
+	handler := NewHandler(store)
+	mux := http.NewServeMux()
+	handler.RegisterRoutes(mux)
+
+	sala := &Room{
+		ID: "sala-035", Slug: "aula/prof", RoomSlug: "aula", ProfessorSlug: "prof", OwnerID: "prof-1",
+		Status: StatusWaiting, MaxParticipants: 50, CreatedAt: time.Now().UTC(),
+	}
+	if err := store.CreateRoom(context.Background(), sala); err != nil {
+		t.Fatalf("falha ao criar sala: %v", err)
+	}
+
+	request := func(method, path string, body []byte) map[string]any {
+		t.Helper()
+		rec := httptest.NewRecorder()
+		mux.ServeHTTP(rec, httptest.NewRequest(method, path, bytes.NewReader(body)))
+		if rec.Code != http.StatusOK {
+			t.Fatalf("%s %s: esperado 200, obtido %d: %s", method, path, rec.Code, rec.Body.String())
+		}
+		var out map[string]any
+		_ = json.Unmarshal(rec.Body.Bytes(), &out)
+		return out
+	}
+
+	for i, status := range []Status{StatusPublishing, StatusReconnecting, StatusPublishing} {
+		handler.SyncStatusFromSession("sala-035", status)
+
+		if got := request("GET", "/rooms/sala-035/info", nil)["status"]; got != string(status) {
+			t.Errorf("info após %s: status %v", status, got)
+		}
+		if got := request("GET", "/rooms/aula/prof/info", nil)["status"]; got != string(status) {
+			t.Errorf("info por slug após %s: status %v", status, got)
+		}
+		if got := request("GET", "/rooms/active", nil)["status"]; got != string(status) {
+			t.Errorf("rooms/active após %s: status %v", status, got)
+		}
+		body := fmt.Appendf(nil, `{"name": "Aluno", "student_id": "2025116TADS000%d"}`, i+1)
+		if got := request("POST", "/rooms/sala-035/join", body)["room_status"]; got != string(status) {
+			t.Errorf("join após %s: room_status %v", status, got)
+		}
+	}
+
+	// Sala removida (REST close ou hub) e sala inexistente: o aviso tardio é ignorado e o link segue 404.
+	handler.CloseRoomFromSession("sala-035")
+	handler.SyncStatusFromSession("sala-035", StatusPublishing)
+	handler.SyncStatusFromSession("sala-inexistente", StatusReconnecting)
+	if _, err := store.GetRoomByID(context.Background(), "sala-035"); !errors.Is(err, ErrRoomNotFound) {
+		t.Fatalf("a sala removida não deveria voltar ao store, obtido err=%v", err)
+	}
+	rec := httptest.NewRecorder()
+	mux.ServeHTTP(rec, httptest.NewRequest("GET", "/rooms/sala-035/info", nil))
+	if rec.Code != http.StatusNotFound {
+		t.Errorf("info da sala removida: esperado 404, obtido %d", rec.Code)
+	}
+}
+
+// TestCloseRoomFromSession cobre RF-3301, RF-3302, RNF-3301 e RNF-3302 (033, issue #94): a sala encerrada pelo hub
+// de sinalização sai do store e o link deixa de aceitar entradas; o aviso do hub sobre sala já removida pela REST close
+// só libera arquivos e não encerra o anúncio mDNS.
+func TestCloseRoomFromSession(t *testing.T) {
+	t.Setenv("JWT_SECRET", "test-secret-12345")
+
+	paradas := 0
+	originalStop := mdnsStop
+	mdnsStop = func() { paradas++ }
+	t.Cleanup(func() { mdnsStop = originalStop })
+
+	store := NewInMemoryStore()
+	handler := NewHandler(store)
+	mux := http.NewServeMux()
+	handler.RegisterRoutes(mux)
+
+	sala := &Room{
+		ID: "sala-033", Slug: "aula/prof", RoomSlug: "aula", ProfessorSlug: "prof", OwnerID: "prof-1",
+		Status: StatusWaiting, MaxParticipants: 50, CreatedAt: time.Now().UTC(),
+	}
+	if err := store.CreateRoom(context.Background(), sala); err != nil {
+		t.Fatalf("falha ao criar sala: %v", err)
+	}
+	if err := handler.fileStore.Add(&RoomFile{ID: "arq-1", RoomID: "sala-033", Name: "a.pdf", Size: 3, Data: []byte("abc")}); err != nil {
+		t.Fatalf("falha ao adicionar arquivo: %v", err)
+	}
+
+	request := func(method, path string, body []byte) *httptest.ResponseRecorder {
+		rec := httptest.NewRecorder()
+		mux.ServeHTTP(rec, httptest.NewRequest(method, path, bytes.NewReader(body)))
+		return rec
+	}
+	joinBody := []byte(`{"name": "Aluno", "student_id": "2025116TADS0001"}`)
+
+	// Antes do encerramento a sala aceita entradas.
+	if rec := request("POST", "/rooms/sala-033/join", joinBody); rec.Code != http.StatusOK {
+		t.Fatalf("antes do encerramento: esperado 200 no join, obtido %d: %s", rec.Code, rec.Body.String())
+	}
+
+	handler.CloseRoomFromSession("sala-033")
+
+	if _, err := store.GetRoomByID(context.Background(), "sala-033"); !errors.Is(err, ErrRoomNotFound) {
+		t.Fatalf("a sala deveria ter saído do store, obtido err=%v", err)
+	}
+	if n := len(handler.fileStore.List("sala-033")); n != 0 {
+		t.Errorf("os arquivos da sala deveriam ter sido liberados, restam %d", n)
+	}
+	if paradas != 1 {
+		t.Errorf("o anúncio mDNS deveria ter sido encerrado uma vez, obtido %d", paradas)
+	}
+
+	casos := []struct {
+		nome, method, path string
+		body               []byte
+	}{
+		{"join por id", "POST", "/rooms/sala-033/join", joinBody},
+		{"join por slug", "POST", "/rooms/aula/prof/join", joinBody},
+		{"info por id", "GET", "/rooms/sala-033/info", nil},
+		{"info por slug", "GET", "/rooms/aula/prof/info", nil},
+		{"sala ativa", "GET", "/rooms/active", nil},
+	}
+	for _, c := range casos {
+		if rec := request(c.method, c.path, c.body); rec.Code != http.StatusNotFound {
+			t.Errorf("%s após o encerramento pelo hub: esperado 404, obtido %d: %s", c.nome, rec.Code, rec.Body.String())
+		}
+	}
+
+	// Repetição (aviso do hub depois da REST close) e sala inexistente: sem falha e sem encerrar o mDNS de novo.
+	handler.CloseRoomFromSession("sala-033")
+	handler.CloseRoomFromSession("sala-inexistente")
+	if paradas != 1 {
+		t.Errorf("sala já removida não deveria encerrar o anúncio mDNS (paradas=%d)", paradas)
+	}
+
+	// Sala nova aberta depois não é afetada pelo aviso atrasado da sala antiga.
+	nova := &Room{ID: "sala-nova", Slug: "outra/prof", Status: StatusWaiting, MaxParticipants: 50, CreatedAt: time.Now().UTC()}
+	_ = store.CreateRoom(context.Background(), nova)
+	handler.CloseRoomFromSession("sala-033")
+	if got, err := store.GetRoomByID(context.Background(), "sala-nova"); err != nil || got.Status != StatusWaiting {
+		t.Errorf("a sala nova não deveria ser afetada, obtido %+v (err=%v)", got, err)
+	}
+	if paradas != 1 {
+		t.Errorf("o aviso atrasado não deveria encerrar o mDNS da sala nova (paradas=%d)", paradas)
 	}
 }

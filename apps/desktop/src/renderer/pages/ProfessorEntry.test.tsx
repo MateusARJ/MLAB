@@ -56,4 +56,11 @@ describe('ProfessorEntry Component (Desktop)', () => {
       expect(handleSuccess).toHaveBeenCalledTimes(1);
     });
   });
+
+  it('mostra a versão do MLab no rodapé, com acesso ao Sobre (021, RF-2101)', async () => {
+    render(<ProfessorEntry onSuccess={handleSuccess} />);
+
+    expect(await screen.findByText('MLab v9.8.7')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Sobre' })).toBeInTheDocument();
+  });
 });

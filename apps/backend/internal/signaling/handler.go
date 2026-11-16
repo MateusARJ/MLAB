@@ -1,6 +1,7 @@
 package signaling
 
 import (
+	"context"
 	"crypto/hmac"
 	"crypto/sha1"
 	"encoding/base64"
@@ -12,9 +13,9 @@ import (
 	"sync"
 	"time"
 
+	"github.com/MateusARJ/MLAB/apps/backend/internal/auth"
+	"github.com/MateusARJ/MLAB/apps/backend/internal/room"
 	"github.com/gorilla/websocket"
-	"github.com/screenshare/classroom/internal/auth"
-	"github.com/screenshare/classroom/internal/room"
 )
 
 // Handler gerencia o ciclo de vida dos Hubs e faz upgrade HTTP → WebSocket.
@@ -25,6 +26,14 @@ type Handler struct {
 
 	mu   sync.RWMutex
 	hubs map[string]*Hub // roomID → Hub
+
+	// roomClosedListener é notificado quando um hub encerra a sala pelo WebSocket.
+	// Configurado uma única vez na inicialização, antes de servir requisições.
+	roomClosedListener func(roomID string)
+
+	// roomStatusListener é notificado quando o status da sessão de um hub muda para `publishing` ou `reconnecting`
+	// (035/RF-3501). Configurado uma única vez na inicialização, antes de servir requisições.
+	roomStatusListener func(roomID string, status SessionStatus)
 }
 
 // NewHandler cria um Handler de sinalização.
@@ -34,10 +43,9 @@ func NewHandler(roomStore room.Store, sfu SFU) *Handler {
 		upgrader: websocket.Upgrader{
 			ReadBufferSize:  4096,
 			WriteBufferSize: 4096,
+			// Allowlist de origem (002-security-hardening/S6): mesma regra do CORS.
 			CheckOrigin: func(r *http.Request) bool {
-				// Em produção: verificar r.Header.Get("Origin") contra allowlist.
-				// Em desenvolvimento: aceita qualquer origem.
-				return true
+				return room.IsAllowedOrigin(r.Header.Get("Origin"), r)
 			},
 		},
 		roomStore: roomStore,
@@ -100,19 +108,28 @@ func (h *Handler) serveWS(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	// 5. Upgrade para WebSocket.
+	// 5. Obtém ou cria o Hub da sala antes do upgrade: sala com a sessão encerrada, ou que saiu do store depois da
+	// consulta acima, não ganha hub novo e recebe 410 (037/RF-3704).
+	hub, ok := h.getOrCreateHub(roomID)
+	if !ok {
+		http.Error(w, "sala encerrada", http.StatusGone)
+		return
+	}
+
+	// 6. Upgrade para WebSocket.
 	conn, err := h.upgrader.Upgrade(w, r, nil)
 	if err != nil {
 		log.Printf("signaling: upgrade error para room %s: %v", roomID, err)
 		return
 	}
 
-	// 6. Obtém ou cria o Hub da sala.
-	hub := h.getOrCreateHub(roomID)
-
-	// 7. Cria o cliente e o registra no hub.
+	// 7. Cria o cliente e o registra no hub. A leitura só começa depois do register: o envio é síncrono e o hub
+	// processa o registro antes de ler inbound de novo, então a primeira mensagem do cliente (publish-request,
+	// subscribe-request, end-session) nunca chega antes do registro (039/RF-3901). Se a goroutine do hub já terminou,
+	// enroll entrega room-closed e fecha o cliente sem bloquear (041/RF-4103).
 	client := newClient(hub, conn, participantID, roomID, name, studentID, Role(role))
-	hub.register <- client
+	hub.enroll(client)
+	client.startReading()
 
 	// 8. Envia configuração de ICE servers ao novo cliente.
 	client.sendJSON(TypeIceServers, h.buildIceServers(participantID))
@@ -120,23 +137,61 @@ func (h *Handler) serveWS(w http.ResponseWriter, r *http.Request) {
 	log.Printf("signaling: %s %s conectado à sala %s", role, participantID, roomID)
 }
 
-// getOrCreateHub retorna o Hub existente ou cria um novo para a sala.
-func (h *Handler) getOrCreateHub(roomID string) *Hub {
+// getOrCreateHub retorna o Hub da sala, criando-o se preciso. ok=false quando a sala não aceita mais conexões:
+//   - o hub da sala está encerrado. Ele fica no mapa como marcador e não é recriado, pois IDs de sala não se
+//     repetem (037/RF-3702);
+//   - não há hub e a sala está ausente ou closed no store. A consulta roda sob h.mu: a REST close marca a sala
+//     closed antes de procurar o hub (GetHub, também sob h.mu), então ou a sala é vista closed aqui, ou o hub criado
+//     é encontrado e encerrado (037/RF-3703). Ordem de locks: h.mu e depois o store, nunca o inverso (RNF-3701).
+func (h *Handler) getOrCreateHub(roomID string) (*Hub, bool) {
 	h.mu.Lock()
 	defer h.mu.Unlock()
 
 	if hub, ok := h.hubs[roomID]; ok {
-		if hub.status == SessionClosed {
-			delete(h.hubs, roomID)
-		} else {
-			return hub
+		if hub.isClosed() {
+			return nil, false
+		}
+		return hub, true
+	}
+
+	if h.roomStore != nil {
+		rm, err := h.roomStore.GetRoomByID(context.Background(), roomID)
+		if err != nil || rm.Status == room.StatusClosed {
+			return nil, false
 		}
 	}
 
-	hub := newHub(roomID, h.sfu)
+	hub := newHubWithCallbacks(roomID, h.sfu, hubCallbacks{
+		onClosed:        h.notifyRoomClosed,
+		onStatusChanged: h.notifyRoomStatus,
+	})
 	h.hubs[roomID] = hub
 	log.Printf("signaling: hub criado para sala %s", roomID)
-	return hub
+	return hub, true
+}
+
+// SetRoomClosedListener registra quem deve ser avisado quando um hub encerra a sala
+// (end-session ou timeout de reconexão). Deve ser chamado antes de servir requisições.
+func (h *Handler) SetRoomClosedListener(fn func(roomID string)) {
+	h.roomClosedListener = fn
+}
+
+func (h *Handler) notifyRoomClosed(roomID string) {
+	if h.roomClosedListener != nil {
+		h.roomClosedListener(roomID)
+	}
+}
+
+// SetRoomStatusListener registra quem deve ser avisado quando o status da sessão de um hub muda para `publishing`
+// ou `reconnecting` (035/RF-3501). Deve ser chamado antes de servir requisições.
+func (h *Handler) SetRoomStatusListener(fn func(roomID string, status SessionStatus)) {
+	h.roomStatusListener = fn
+}
+
+func (h *Handler) notifyRoomStatus(roomID string, status SessionStatus) {
+	if h.roomStatusListener != nil {
+		h.roomStatusListener(roomID, status)
+	}
 }
 
 // GetHub retorna o Hub de uma sala (nil se não existir).
@@ -145,6 +200,13 @@ func (h *Handler) GetHub(roomID string) *Hub {
 	h.mu.RLock()
 	defer h.mu.RUnlock()
 	return h.hubs[roomID]
+}
+
+// HasConnectedStudent informa se há aluno conectado por WebSocket na sala com a matrícula
+// informada (RN-04, ADR 0010). Usado pelo join para recusar a matrícula em uso (027/RF-2701).
+func (h *Handler) HasConnectedStudent(roomID, studentID string) bool {
+	hub := h.GetHub(roomID)
+	return hub != nil && hub.HasConnectedStudent(studentID)
 }
 
 // OnTrackReady é invocado quando a primeira track de vídeo do professor fica pronta no SFU.
@@ -201,13 +263,10 @@ func turnCredentials(participantID, secret string) (username, credential string)
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-// extractName obtém o nome do participante dos claims JWT.
+// extractName obtém o nome do participante da claim "name" do JWT, ou "Participante" sem ela (ADR 0009).
 func extractName(claims map[string]interface{}, role auth.Role) string {
 	if n, ok := claims["name"].(string); ok && n != "" {
 		return n
-	}
-	if e, ok := claims["email"].(string); ok && e != "" {
-		return e
 	}
 	return "Participante"
 }

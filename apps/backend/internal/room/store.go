@@ -5,8 +5,6 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"errors"
-	"fmt"
-	"math/big"
 	"strings"
 	"sync"
 	"time"
@@ -14,14 +12,15 @@ import (
 
 // Erros do store.
 var (
-	ErrRoomNotFound       = errors.New("sala não encontrada")
-	ErrRoomClosed         = errors.New("sala já encerrada")
-	ErrParticipantLimit   = errors.New("sala cheia")
-	ErrNotOwner           = errors.New("professor não é dono desta sala")
+	ErrRoomNotFound     = errors.New("sala não encontrada")
+	ErrRoomClosed       = errors.New("sala já encerrada")
+	ErrParticipantLimit = errors.New("sala cheia")
+	ErrNotOwner         = errors.New("professor não é dono desta sala")
 )
 
-// Store é a interface de persistência do módulo room.
-// Implementação concreta: inMemoryStore (dev) → PostgreSQL store (produção).
+// Store é a interface de armazenamento do módulo room.
+// Implementação única: inMemoryStore. O MLab não tem banco de dados; o estado vive em memória durante a
+// execução do backend embarcado (ADR 0005).
 type Store interface {
 	// Sala
 	CreateRoom(ctx context.Context, room *Room) error
@@ -30,19 +29,24 @@ type Store interface {
 	GetRoomByOwnerID(ctx context.Context, ownerID string) (*Room, error)
 	GetActiveRoom(ctx context.Context) (*Room, error)
 	UpdateRoomStatus(ctx context.Context, roomID string, status Status, closedAt *time.Time) error
+	// SetSessionStatus registra o status da sessão vindo do hub (waiting, publishing, reconnecting) sem reabrir sala
+	// encerrada (035/RF-3501, RNF-3501).
+	SetSessionStatus(ctx context.Context, roomID string, status Status) error
 	DeleteRoom(ctx context.Context, roomID string) error
 
 	// Participantes
 	AddParticipant(ctx context.Context, p *Participant) error
 	CountParticipants(ctx context.Context, roomID string) (int, error)
+	// HasStudent indica se a matrícula já tem participante registrado na sala (RN-04).
+	HasStudent(ctx context.Context, roomID, studentID string) (bool, error)
 }
 
 // ── InMemoryStore ─────────────────────────────────────────────────────────────
 
 type inMemoryStore struct {
 	mu           sync.RWMutex
-	rooms        map[string]*Room        // por ID
-	slugIndex    map[string]string       // slug → roomID
+	rooms        map[string]*Room          // por ID
+	slugIndex    map[string]string         // slug → roomID
 	participants map[string][]*Participant // roomID → lista
 }
 
@@ -122,16 +126,64 @@ func (s *inMemoryStore) GetRoomByOwnerID(_ context.Context, ownerID string) (*Ro
 	return nil, ErrRoomNotFound
 }
 
+// GetActiveRoom retorna a sala ativa de forma determinística (002-security-hardening/S5, 035/RF-3503):
+// `publishing` > `reconnecting` > `waiting`; entre salas do mesmo status, vence a criada mais recentemente.
 func (s *inMemoryStore) GetActiveRoom(_ context.Context) (*Room, error) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
+	var best *Room
 	for _, r := range s.rooms {
-		if r.Status == StatusWaiting || r.Status == StatusPublishing {
-			copy := *r
-			return &copy, nil
+		if activeRoomRank(r) == 0 {
+			continue
+		}
+		if best == nil || activeRoomRank(r) > activeRoomRank(best) ||
+			(activeRoomRank(r) == activeRoomRank(best) && r.CreatedAt.After(best.CreatedAt)) {
+			best = r
 		}
 	}
-	return nil, ErrRoomNotFound
+	if best == nil {
+		return nil, ErrRoomNotFound
+	}
+	copy := *best
+	return &copy, nil
+}
+
+// activeRoomRank define a prioridade de uma sala ativa: publishing > reconnecting > waiting. Sala em outro status
+// (closed) não é ativa e recebe 0.
+func activeRoomRank(r *Room) int {
+	switch r.Status {
+	case StatusPublishing:
+		return 3
+	case StatusReconnecting:
+		return 2
+	case StatusWaiting:
+		return 1
+	default:
+		return 0
+	}
+}
+
+// errSessionStatusClosed recusa o encerramento por SetSessionStatus, que só registra o status da sessão.
+var errSessionStatusClosed = errors.New("SetSessionStatus não encerra salas; use UpdateRoomStatus")
+
+// SetSessionStatus troca só o status da sala. Sala inexistente devolve ErrRoomNotFound; sala closed devolve
+// ErrRoomClosed sem alterar nada, para que um aviso tardio do hub não reabra a sala nem recrie os índices de slug
+// (035/RNF-3501). O encerramento continua por UpdateRoomStatus.
+func (s *inMemoryStore) SetSessionStatus(_ context.Context, roomID string, status Status) error {
+	if status == StatusClosed {
+		return errSessionStatusClosed
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	r, ok := s.rooms[roomID]
+	if !ok {
+		return ErrRoomNotFound
+	}
+	if r.Status == StatusClosed {
+		return ErrRoomClosed
+	}
+	r.Status = status
+	return nil
 }
 
 func (s *inMemoryStore) UpdateRoomStatus(_ context.Context, roomID string, status Status, closedAt *time.Time) error {
@@ -180,11 +232,37 @@ func (s *inMemoryStore) DeleteRoom(_ context.Context, roomID string) error {
 	return nil
 }
 
+// AddParticipant registra o participante na sala. Se já existe um participante da mesma sala
+// com a mesma matrícula (sem diferenciar maiúsculas), ele é substituído: é o mesmo aluno
+// entrando de novo (RN-04), e não deve ocupar duas vagas.
 func (s *inMemoryStore) AddParticipant(_ context.Context, p *Participant) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	s.participants[p.RoomID] = append(s.participants[p.RoomID], p)
+	list := s.participants[p.RoomID]
+	if p.StudentID != "" {
+		for i, existing := range list {
+			if strings.EqualFold(existing.StudentID, p.StudentID) {
+				list[i] = p
+				return nil
+			}
+		}
+	}
+	s.participants[p.RoomID] = append(list, p)
 	return nil
+}
+
+func (s *inMemoryStore) HasStudent(_ context.Context, roomID, studentID string) (bool, error) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	if studentID == "" {
+		return false, nil
+	}
+	for _, existing := range s.participants[roomID] {
+		if strings.EqualFold(existing.StudentID, studentID) {
+			return true, nil
+		}
+	}
+	return false, nil
 }
 
 func (s *inMemoryStore) CountParticipants(_ context.Context, roomID string) (int, error) {
@@ -195,15 +273,6 @@ func (s *inMemoryStore) CountParticipants(_ context.Context, roomID string) (int
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-// newShortSuffix gera um sufixo curto aleatório de 4 caracteres para links descartáveis.
-func newShortSuffix() string {
-	b := make([]byte, 2)
-	if _, err := rand.Read(b); err != nil {
-		return "101"
-	}
-	return hex.EncodeToString(b)
-}
-
 // newID gera um ID hexadecimal aleatório de 16 bytes.
 func newID() string {
 	b := make([]byte, 16)
@@ -211,26 +280,6 @@ func newID() string {
 		panic("room: falha ao gerar ID: " + err.Error())
 	}
 	return hex.EncodeToString(b)
-}
-
-// slugWords é o vocabulário para geração de slugs legíveis.
-var slugWords = []string{
-	"alpha", "bravo", "charlie", "delta", "echo", "foxtrot",
-	"golf", "hotel", "india", "juliet", "kilo", "lima",
-	"mango", "nova", "oscar", "papa", "quebec", "romeo",
-	"sierra", "tango", "uniform", "victor", "whiskey", "xray",
-	"yankee", "zulu",
-}
-
-// newSlug gera um slug legível do tipo "charlie-delta-7342".
-func newSlug() string {
-	pick := func() string {
-		n, _ := rand.Int(rand.Reader, big.NewInt(int64(len(slugWords))))
-		return slugWords[n.Int64()]
-	}
-	suffix, _ := rand.Int(rand.Reader, big.NewInt(9000))
-	suffix = new(big.Int).Add(suffix, big.NewInt(1000))
-	return fmt.Sprintf("%s-%s-%s", pick(), pick(), suffix.String())
 }
 
 // removeAccents normaliza caracteres acentuados comuns.
@@ -281,29 +330,4 @@ func slugify(input string) string {
 		}
 	}
 	return strings.Trim(b.String(), "-")
-}
-
-// slugFromEmail gera um slug fixo e amigável baseado no login/email do professor.
-func slugFromEmail(email string) string {
-	email = strings.TrimSpace(strings.ToLower(email))
-	if email == "" {
-		return "professor"
-	}
-	parts := strings.Split(email, "@")
-	clean := slugify(parts[0])
-	if clean == "" {
-		return "professor"
-	}
-	return clean
-}
-
-// buildLink constrói a URL pública da sala.
-// Formato esperado: http://<ip>:5173/<nome-da-sala>/<nome-do-professor>/entrar
-func buildLink(baseURL, slug string) string {
-	base := strings.TrimRight(baseURL, "/")
-	cleanSlug := strings.Trim(slug, "/")
-	if cleanSlug == "" {
-		return fmt.Sprintf("%s/sala/entrar", base)
-	}
-	return fmt.Sprintf("%s/%s/entrar", base, cleanSlug)
 }

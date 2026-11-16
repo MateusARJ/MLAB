@@ -4,19 +4,19 @@ on:
   workflow_dispatch: # Permite disparar manualmente na aba Actions do GitHub
     inputs:
       tag_name:
-        description: 'Tag/Versão da Release (ex: v1.4.8)'
+        description: 'Tag da Release (vazio = versão do package.json, ex: v1.7.1)'
         required: false
-        default: 'v1.5.0'
+        default: ''
       release_title:
-        description: 'Título da Release'
+        description: 'Título da Release (vazio = MLab v<versão>)'
         required: false
-        default: 'MLab v1.5.0'
-  push:
+        default: ''
+  pull_request: # Validação automática apenas em Pull Requests destinados à main
     branches:
-      - master
       - main
+  push:
     tags:
-      - 'v*' # Dispara automaticamente ao criar uma tag de versão (ex: v1.4.6)
+      - 'v*' # Dispara automaticamente ao criar uma tag de versão (ex: v1.7.1)
 
 jobs:
   build:
@@ -57,11 +57,10 @@ jobs:
           node-version: 20
           cache: 'npm'
 
-      - name: Configurar Go 1.23
+      - name: Configurar Go (versão do go.mod)
         uses: actions/setup-go@v5
         with:
-          go-version: '1.23'
-          check-latest: true
+          go-version-file: apps/backend/go.mod
           cache-dependency-path: apps/backend/go.sum
 
       - name: Instalar dependências do monorepo
@@ -76,20 +75,33 @@ jobs:
       - name: Compilar pacotes compartilhados (@mlab/types)
         run: npm run build
 
+      - name: Verificar tipos e go vet (lint)
+        run: npm run lint
+
       - name: Executar testes automatizados
         run: npm run test
+
+      # O detector de race exige cgo (indisponível no runner Windows); roda uma vez, na perna Linux (036/C-3603).
+      - name: Testes da sinalização com detector de race (Linux)
+        if: matrix.os == 'ubuntu-latest'
+        working-directory: apps/backend
+        run: go test -race ./internal/signaling/ ./cmd/server/
 
       - name: Build do instalador nativo (${{ matrix.platform }})
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: ${{ matrix.build_cmd }}
 
+      # Em PR o build só valida: os instaladores (~510 MB por run) esgotavam a cota de armazenamento da conta (#80, #112).
+      # Na tag/dispatch o job release baixa os artefatos neste mesmo run, então 1 dia de retenção basta.
       - name: Fazer upload dos instaladores (Artifacts)
+        if: github.event_name != 'pull_request'
         uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.artifact_name }}
           path: ${{ matrix.artifact_path }}
           if-no-files-found: error
+          retention-days: 1
 
   release:
     name: Criar GitHub Release
@@ -112,58 +124,36 @@ jobs:
         run: |
           if [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ -n "${{ github.event.inputs.tag_name }}" ]; then
             echo "tag=${{ github.event.inputs.tag_name }}" >> $GITHUB_OUTPUT
-            echo "title=${{ github.event.inputs.release_title }}" >> $GITHUB_OUTPUT
+            echo "title=${{ github.event.inputs.release_title || format('MLab {0}', github.event.inputs.tag_name) }}" >> $GITHUB_OUTPUT
           elif [[ "${{ github.ref }}" == refs/tags/* ]]; then
             TAG_NAME="${GITHUB_REF#refs/tags/}"
             echo "tag=$TAG_NAME" >> $GITHUB_OUTPUT
             echo "title=MLab $TAG_NAME" >> $GITHUB_OUTPUT
           else
-            PKG_VER=$(node -p "require('./package.json').version" 2>/dev/null || echo "1.4.8")
+            PKG_VER=$(node -p "require('./package.json').version") || { echo "Versão do package.json não encontrada"; exit 1; }
             echo "tag=v$PKG_VER" >> $GITHUB_OUTPUT
             echo "title=MLab v$PKG_VER" >> $GITHUB_OUTPUT
           fi
 
-      - name: Preparar Tag Limpa (Ocultar Código-Fonte da Release)
+      - name: Localizar as notas da release
+        id: release_notes
         run: |
-          TAG="${{ steps.release_vars.outputs.tag }}"
-          
-          # Salva os artefatos compilados fora da árvore git
-          mkdir -p /tmp/mlab-dist-release
-          cp -r dist-release/* /tmp/mlab-dist-release/
-          
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          
-          # Cria um commit órfão limpo sem arquivos de código
-          git checkout --orphan release-clean-tree
-          git rm -rf .
-          
-          cat << 'EOF' > README.md
-          # MLab - Downloads Oficiais da Versão
-
-          Esta release disponibiliza exclusivamente os instaladores executáveis compilados do MLab.
-          Por favor, baixe o instalador correspondente ao seu sistema operacional na seção Assets desta Release abaixo:
-          - Windows: instalador executável (.exe)
-          - Linux: pacote (.AppImage ou .deb)
-          - macOS: pacote (.dmg ou .zip)
-          EOF
-
-          git add README.md
-          git commit -m "release: ${TAG} (distribuicao oficial de binarios)"
-          
-          # Aponta a tag para este commit limpo (zero codigo-fonte)
-          git tag -a "${TAG}" -m "Release ${TAG}" -f
-          git push origin "${TAG}" --force
-          
-          # Restaura os artefatos para upload nos assets
-          mkdir -p dist-release
-          cp -r /tmp/mlab-dist-release/* dist-release/
+          NOTES="docs/releases/${{ steps.release_vars.outputs.tag }}.md"
+          if [ -f "$NOTES" ]; then
+            echo "Notas da release: $NOTES"
+            echo "path=$NOTES" >> $GITHUB_OUTPUT
+          else
+            echo "::warning::$NOTES não existe; a release sai só com as notas automáticas."
+            echo "path=" >> $GITHUB_OUTPUT
+          fi
 
       - name: Publicar Release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ steps.release_vars.outputs.tag }}
+          target_commitish: ${{ github.sha }}
           name: ${{ steps.release_vars.outputs.title }}
+          body_path: ${{ steps.release_notes.outputs.path }}
           draft: false
           prerelease: false
           files: |
