@@ -82,6 +82,8 @@ export interface ElectronAPI {
     type: CaptureSourceType
     displayId?: string
     allowedSourceIds?: string[]
+    /** Janela fixada (032): alvo do cursor preso a ela; só vale se estiver em `allowedSourceIds`. */
+    pinnedSourceId?: string
   }) => Promise<boolean>
 
   /**

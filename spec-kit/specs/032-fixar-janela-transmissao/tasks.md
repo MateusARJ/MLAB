@@ -10,22 +10,22 @@ Regras:
 - antes da T3203, revalidar este arquivo e o `analyze.md` contra o `Room.tsx` da `development` com o #93.
 
 ### T3201 — Main: alvo do cursor preso à janela fixada
-[ ] T3201
+[x] T3201
 Allowed Paths: `apps/desktop/src/main/cursorPresence.ts`, `apps/desktop/src/main/cursorPresence.test.ts`,
 `apps/desktop/src/main/preload.ts`, `spec-kit/specs/003-classroom-interaction/contracts/desktop-ipc.md`
 Prohibited Paths: `apps/desktop/src/main/main.ts`, `apps/desktop/src/main/nativeWindowTracker.ts`,
 `apps/desktop/src/renderer/**`, `apps/backend/**`, `apps/web/**`, `packages/**`, `package.json`
 Checks:
-- [ ] `CursorTrackingTarget` e o tipo de `startCursorTracking` no preload ganham `pinnedSourceId?: string`
+- [x] `CursorTrackingTarget` e o tipo de `startCursorTracking` no preload ganham `pinnedSourceId?: string`
   (RNF-3201).
-- [ ] `pinnedSourceId` só vale quando está em `allowedSourceIds`; senão é ignorado (RF-3211).
-- [ ] Com uma janela fixada, `currentTargetWindowId` começa na fixada e não muda quando o foco vai para outra janela
+- [x] `pinnedSourceId` só vale quando está em `allowedSourceIds`; senão é ignorado (RF-3211).
+- [x] Com uma janela fixada, `currentTargetWindowId` começa na fixada e não muda quando o foco vai para outra janela
   autorizada; `active-window-changed` continua sendo emitido uma vez por mudança de foco (RF-3203, RF-3208).
-- [ ] `stopTimerOnly()` limpa a fixação.
-- [ ] `cursorPresence.test.ts` (novo, `electron` e rastreador nativo simulados): com fixada, o foco em B emite o evento
+- [x] `stopTimerOnly()` limpa a fixação.
+- [x] `cursorPresence.test.ts` (novo, `electron` e rastreador nativo simulados): com fixada, o foco em B emite o evento
   e o `CursorState` é calculado sobre a fixada; sem fixada, o alvo segue o foco como hoje; `pinnedSourceId` fora dos
-  autorizados é ignorado.
-- [ ] Linha de `startCursorTracking` em `003/contracts/desktop-ipc.md` passa a "Em vigor desde 032 (T3201)".
+  autorizados é ignorado. O teste da fixada falha no código anterior.
+- [x] Linha de `startCursorTracking` em `003/contracts/desktop-ipc.md` passa a "Em vigor desde 032 (T3201)".
 
 ### T3202 — Hook: repassar a fixação, reiniciar o rastreamento e avisar o fim da captura
 [ ] T3202

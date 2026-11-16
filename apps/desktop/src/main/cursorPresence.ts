@@ -16,6 +16,11 @@ export interface CursorTrackingTarget {
   type: CaptureSourceType;
   displayId?: string;
   allowedSourceIds?: string[];
+  /**
+   * Janela fixada (032/RF-3208): o alvo do cursor fica nela mesmo com o foco em outra janela autorizada, e
+   * `active-window-changed` continua sendo emitido. Ignorada se não estiver em `allowedSourceIds` (RF-3211).
+   */
+  pinnedSourceId?: string;
 }
 
 export class CursorPresenceTracker {
@@ -28,6 +33,7 @@ export class CursorPresenceTracker {
   private allowedWindowMap: Map<bigint, string> = new Map();
   private currentActiveSourceId: string | null = null;
   private currentTargetWindowId: bigint | null = null;
+  private pinnedWindowId: bigint | null = null;
   private lastUnauthorizedState = false;
 
   public setStateListener(cb: ((state: CursorState) => void) | null): void {
@@ -66,6 +72,16 @@ export class CursorPresenceTracker {
       }
     }
 
+    // 032/RF-3211: a fixação só vale para uma janela autorizada; fora disso, comportamento sem fixação.
+    this.pinnedWindowId = null;
+    if (target.type === 'window' && target.pinnedSourceId && target.allowedSourceIds?.includes(target.pinnedSourceId)) {
+      const pinned = parseWindowHandle(target.pinnedSourceId);
+      if (pinned !== null && this.allowedWindowMap.has(pinned)) {
+        this.pinnedWindowId = pinned;
+        this.currentTargetWindowId = pinned;
+      }
+    }
+
     let mlabWindowId: bigint | null = null;
     try {
       if (!win.isDestroyed() && typeof win.getMediaSourceId === 'function') {
@@ -97,7 +113,11 @@ export class CursorPresenceTracker {
               const matchedSourceId = this.allowedWindowMap.get(fg)!;
               if (matchedSourceId !== this.currentActiveSourceId) {
                 this.currentActiveSourceId = matchedSourceId;
-                this.currentTargetWindowId = fg;
+                // 032/RF-3208: com uma janela fixada, o alvo do cursor continua nela; o evento de foco segue sendo
+                // emitido para o renderer registrar a última janela autorizada em foco (RF-3203).
+                if (this.pinnedWindowId === null) {
+                  this.currentTargetWindowId = fg;
+                }
                 win.webContents.send('active-window-changed', { sourceId: matchedSourceId });
               }
             } else if (mlabWindowId === null || fg !== mlabWindowId) {
@@ -278,6 +298,7 @@ export class CursorPresenceTracker {
     this.allowedWindowMap.clear();
     this.currentActiveSourceId = null;
     this.currentTargetWindowId = null;
+    this.pinnedWindowId = null;
     this.lastUnauthorizedState = false;
   }
 
