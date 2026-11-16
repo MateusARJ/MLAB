@@ -543,8 +543,8 @@ npm run version:check
 | Desktop | Vitest | Processo principal (overlay, atalhos, hit-test, guarda de navegação) e renderer |
 
 A estratégia está na [ADR 0003](spec-kit/docs/adrs/0003-estrategia-de-testes-automatizados.md). As medições ficam em
-[`docs/metrics/`](docs/metrics/). O CI (`.github/workflows/build-all.yml`) roda os testes e gera os instaladores nos três
-sistemas em todo PR para a `main`.
+[`docs/metrics/`](docs/metrics/). O CI (`.github/workflows/build-all.yml`) roda os testes e valida o build nos três
+sistemas em todo PR para a `main`; os instaladores são publicados só na release.
 
 ---
 
@@ -621,6 +621,10 @@ Cada feature tem a sua pasta em [`spec-kit/specs/`](spec-kit/specs/), com `spec.
 | 035 | [status-sala-pelo-hub](spec-kit/specs/035-status-sala-pelo-hub/) | Status da sala acompanha a sessão do hub |
 | 036 | [status-hub-sincronizado](spec-kit/specs/036-status-hub-sincronizado/) | Leitura sincronizada do status do hub |
 | 037 | [registro-em-hub-encerrado](spec-kit/specs/037-registro-em-hub-encerrado/) | Conexão recusada em sala encerrada pelo hub |
+| 038 | [envio-e-fechamento-do-cliente](spec-kit/specs/038-envio-e-fechamento-do-cliente/) | Envio e fechamento do canal do cliente sem corrida |
+| 039 | [registro-antes-da-leitura](spec-kit/specs/039-registro-antes-da-leitura/) | Leitura do cliente só depois do registro no hub |
+| 040 | [adulteracao-deterministica-do-jwt](spec-kit/specs/040-adulteracao-deterministica-do-jwt/) | Teste de adulteração do JWT determinístico |
+| 041 | [termino-do-hub-encerrado](spec-kit/specs/041-termino-do-hub-encerrado/) | Goroutine do hub termina e libera a sala encerrada |
 
 Os números 011 e 028 não foram usados.
 
