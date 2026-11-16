@@ -2,7 +2,7 @@
 
 Feature: `041-termino-do-hub-encerrado`
 Prerequisites: spec/clarify/plan/checklist/analyze aprovados
-Status: IN PROGRESS
+Status: DONE
 
 Regras:
 - antes de marcar `[x]`: `go test ./...` e `go vet ./...` em `apps/backend`, e `gofmt -l` vazio nos arquivos Go
@@ -36,10 +36,10 @@ Checks:
 - [x] `npm run spec:check -- spec-kit/specs/041-termino-do-hub-encerrado` com PASS.
 
 ### T4103 — Versão
-[ ] T4103
+[x] T4103
 Depends On: T4102
 Allowed Paths: `package.json`, `package-lock.json`, `apps/*/package.json`, `packages/*/package.json`,
 `spec-kit/specs/041-termino-do-hub-encerrado/tasks.md`
 Prohibited Paths: `apps/**/src/**`, `apps/backend/internal/**`, `packages/**/src/**`, `.github/**`
 Checks:
-- [ ] `npm run bump -- patch` e `npm run version:check`; commit `chore(release): versao X.Y.Z`.
+- [x] `npm run bump -- patch` e `npm run version:check`; commit `chore(release): versao X.Y.Z`.
