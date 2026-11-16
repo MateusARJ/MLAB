@@ -127,8 +127,8 @@ Pré-requisitos: tudo o que vai sair na release está mergeado na `development`,
 
 2. **Levar à `main`**: PR `development → main`. O CI gera os instaladores nos três sistemas
    (`.github/workflows/build-all.yml`); faça o merge com **merge commit** (sem squash) depois dos três builds verdes.
-   No PR o build só valida: os instaladores não são publicados como artefato do Actions (cota de armazenamento da
-   conta, #112). Eles saem apenas pela release do passo 3.
+   No PR o build só valida: os instaladores não são publicados (cota de armazenamento da conta, #112). Eles saem
+   apenas pela release do passo 3.
 
 3. **Publicar** com a tag, a partir da `main` atualizada:
 
@@ -139,8 +139,11 @@ Pré-requisitos: tudo o que vai sair na release está mergeado na `development`,
    git push mlab v1.8.0
    ```
 
-   O push da tag dispara o workflow, que gera os instaladores e cria a release `MLab v1.8.0` com o texto de
-   `docs/releases/v1.8.0.md` seguido das notas automáticas.
+   O push da tag dispara o workflow. Ele cria a release `MLab v1.8.0` em **rascunho**, com o texto de
+   `docs/releases/v1.8.0.md` seguido das notas automáticas. Cada build envia os próprios instaladores direto para a
+   release, sem passar por artefatos do Actions (a cota da conta é menor que um run, #123). A release só é publicada
+   quando os três builds passam. Se um build falhar, use **Re-run failed jobs**: o rascunho é reaproveitado e os
+   arquivos são substituídos.
 
    Alternativa sem tag local: na aba **Actions**, rode o workflow manualmente com os campos em branco; a release usa a
    versão do `package.json`.
