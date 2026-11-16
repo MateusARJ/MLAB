@@ -26,13 +26,13 @@ Checks:
 - [x] `go vet ./...` e `go test -count=1 ./...` verdes.
 
 ### T3902 — Converge
-[ ] T3902
+[x] T3902
 Depends On: T3901
 Allowed Paths: `spec-kit/specs/039-registro-antes-da-leitura/**`
 Prohibited Paths: `apps/**`, `packages/**`, `.github/**`, `spec-kit/docs/adrs/**`
 Checks:
-- [ ] `converge.md` com evidências, desvios e impacto de versão (PATCH, C-3902).
-- [ ] `npm run spec:check -- spec-kit/specs/039-registro-antes-da-leitura` com PASS.
+- [x] `converge.md` com evidências, desvios e impacto de versão (PATCH, C-3902).
+- [x] `npm run spec:check -- spec-kit/specs/039-registro-antes-da-leitura` com PASS.
 
 ### T3903 — Versão
 [ ] T3903
