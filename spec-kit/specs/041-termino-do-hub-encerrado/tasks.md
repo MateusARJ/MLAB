@@ -10,7 +10,7 @@ Regras:
 - um commit atômico por task, com `Ref: T410x` e `Refs #109`.
 
 ### T4101 — Término do hub e envios que não bloqueiam
-[ ] T4101
+[x] T4101
 Allowed Paths: `apps/backend/internal/signaling/hub.go`, `apps/backend/internal/signaling/client.go`,
 `apps/backend/internal/signaling/handler.go`, `apps/backend/internal/signaling/hub_lifecycle_test.go`,
 `spec-kit/specs/041-termino-do-hub-encerrado/tasks.md`
@@ -18,13 +18,13 @@ Prohibited Paths: `apps/backend/internal/signaling/message.go`, `apps/backend/in
 `apps/backend/internal/webrtc/**`, `apps/backend/cmd/**`, `apps/web/**`, `apps/desktop/**`, `packages/**`,
 `package.json`
 Checks:
-- [ ] `run()` termina depois do encerramento e fecha `done` (RF-4101); `release()` libera o estado (RF-4102).
-- [ ] `enroll`, `deliver`, `leave`, `sendSignal` e `BroadcastFileShared` não bloqueiam depois do término (RF-4103).
-- [ ] Marcador mantido: `TestHandler_HandshakeComHubEncerrado` e `TestServeWS_ConexaoDuranteEncerramento` verdes
+- [x] `run()` termina depois do encerramento e fecha `done` (RF-4101); `release()` libera o estado (RF-4102).
+- [x] `enroll`, `deliver`, `leave`, `sendSignal` e `BroadcastFileShared` não bloqueiam depois do término (RF-4103).
+- [x] Marcador mantido: `TestHandler_HandshakeComHubEncerrado` e `TestServeWS_ConexaoDuranteEncerramento` verdes
   (RF-4104).
-- [ ] `TestServeWS_HubEncerradoNaoDeixaGoroutine` falha no código anterior e passa com a correção.
-- [ ] No container Linux (`golang:1.26`): `go test -race ./internal/signaling/ ./cmd/server/` sem corrida (RNF-4101).
-- [ ] `go vet ./...` e `go test -count=1 ./...` verdes.
+- [x] `TestServeWS_HubEncerradoNaoDeixaGoroutine` falha no código anterior e passa com a correção.
+- [x] No container Linux (`golang:1.26`): `go test -race ./internal/signaling/ ./cmd/server/` sem corrida (RNF-4101).
+- [x] `go vet ./...` e `go test -count=1 ./...` verdes.
 
 ### T4102 — Converge
 [ ] T4102

@@ -119,6 +119,10 @@ type Hub struct {
 	internal   chan signal // sinais internos (timeouts, fechamentos, streamStarted)
 	fileShared chan FileSharedPayload
 
+	// done é fechado pela goroutine run() quando ela termina, depois do encerramento da sessão (041/RF-4101). Todo
+	// envio aos canais do hub também escuta done, para nunca bloquear depois disso (041/RF-4103).
+	done chan struct{}
+
 	publisherTimer *time.Timer
 	sfu            SFU // nil até T011
 
@@ -170,6 +174,7 @@ func newHubWithCallbacks(roomID string, sfu SFU, cb hubCallbacks) *Hub {
 		inbound:       make(chan *envelope, 256),
 		internal:      make(chan signal, 8),
 		fileShared:    make(chan FileSharedPayload, 16),
+		done:          make(chan struct{}),
 		sfu:           sfu,
 
 		connectedStudents: make(map[string]string),
@@ -209,7 +214,10 @@ func (h *Hub) isClosed() bool {
 	return h.status == SessionClosed
 }
 
-// run é o loop central do Hub — única goroutine que toca o estado.
+// run é o loop central do Hub — única goroutine que toca o estado. Termina quando a sessão encerra (end-session,
+// encerramento pelo REST ou timeout de reconexão): libera o estado da sala e fecha done (041/RF-4101 e RF-4102).
+// O término é conferido depois de cada evento, pois os três encerramentos chegam por aqui (route, sigRoomClose e
+// sigPublisherTimeout).
 func (h *Hub) run() {
 	for {
 		select {
@@ -235,6 +243,12 @@ func (h *Hub) run() {
 		case f := <-h.fileShared:
 			h.sharedFiles = append(h.sharedFiles, f)
 			h.broadcastAll(TypeFileShared, f)
+		}
+
+		if h.isClosed() {
+			h.release()
+			close(h.done)
+			return
 		}
 	}
 }
@@ -410,7 +424,7 @@ func (h *Hub) onUnregister(c *Client) {
 		log.Printf("hub[%s]: publisher desconectado, reconexão em %s", h.roomID, publisherReconnectTimeout)
 
 		h.publisherTimer = time.AfterFunc(publisherReconnectTimeout, func() {
-			h.internal <- sigPublisherTimeout
+			h.sendSignal(sigPublisherTimeout)
 		})
 
 		if h.sfu != nil {
@@ -680,25 +694,17 @@ func (h *Hub) onPublisherTimeout() {
 		return // professor reconectou a tempo
 	}
 	log.Printf("hub[%s]: timeout de reconexão — encerrando sala", h.roomID)
-	h.writeStatus(SessionClosed)
-	h.broadcastAll(TypeRoomClosed, struct{}{})
-	for _, c := range h.clients {
-		c.close()
-	}
-	h.clients = make(map[string]*Client)
-	h.studentsMu.Lock()
-	h.connectedStudents = make(map[string]string)
-	h.studentsMu.Unlock()
-	if h.sfu != nil {
-		_ = h.sfu.RoomClosed(h.roomID)
-	}
-	if h.onClosed != nil {
-		h.onClosed(h.roomID)
-	}
+	h.closeSession()
 }
 
 func (h *Hub) onRoomClose() {
 	log.Printf("hub[%s]: sala encerrada pelo professor", h.roomID)
+	h.closeSession()
+}
+
+// closeSession encerra a sessão: avisa e fecha todos os clientes, libera as matrículas, a SFU e os recursos de fora
+// (onClosed). Depois dela, run() termina (041/RF-4101).
+func (h *Hub) closeSession() {
 	h.writeStatus(SessionClosed)
 	h.broadcastAll(TypeRoomClosed, struct{}{})
 	for _, c := range h.clients {
@@ -731,18 +737,95 @@ func (h *Hub) onStreamStarted() {
 	}
 }
 
+// release libera o estado que a sala encerrada não usa mais: chat, arquivos, fixados, limites de chat e o timer de
+// reconexão. O hub fica no mapa do handler só como marcador para recusar conexões (037/RF-3702, 041/RF-4102).
+// Só pode ser chamado na goroutine run(), depois do encerramento.
+func (h *Hub) release() {
+	if h.publisherTimer != nil {
+		h.publisherTimer.Stop()
+		h.publisherTimer = nil
+	}
+	h.clients = make(map[string]*Client)
+	h.chatLimits = nil
+	h.chatHistory = nil
+	h.sharedFiles = nil
+	h.pinnedPublic = nil
+	h.pinnedPrivate = nil
+}
+
+// terminated informa, sem bloquear, se a goroutine run() já terminou. Os canais com buffer (internal, inbound,
+// fileShared) aceitam envio mesmo sem leitor, e o select escolhe ao acaso entre casos prontos; por isso o término é
+// conferido antes do envio.
+func (h *Hub) terminated() bool {
+	select {
+	case <-h.done:
+		return true
+	default:
+		return false
+	}
+}
+
+// sendSignal entrega um sinal interno à goroutine run(), ou o descarta se ela já terminou (041/RF-4103).
+func (h *Hub) sendSignal(sig signal) {
+	if h.terminated() {
+		return
+	}
+	select {
+	case h.internal <- sig:
+	case <-h.done:
+	}
+}
+
+// enroll entrega o cliente ao hub para registro. Se a goroutine run() já terminou, o cliente recebe room-closed e é
+// fechado, como no registro em sessão encerrada (037/RF-3701), e enroll devolve false (041/RF-4103).
+func (h *Hub) enroll(c *Client) bool {
+	select {
+	case h.register <- c:
+		return true
+	case <-h.done:
+		c.sendJSON(TypeRoomClosed, struct{}{})
+		c.close()
+		return false
+	}
+}
+
+// deliver entrega ao hub uma mensagem lida do cliente. Devolve false se a goroutine run() já terminou (041/RF-4103).
+func (h *Hub) deliver(env *envelope) bool {
+	if h.terminated() {
+		return false
+	}
+	select {
+	case h.inbound <- env:
+		return true
+	case <-h.done:
+		return false
+	}
+}
+
+// leave avisa o hub de que a conexão do cliente terminou; sem efeito se a goroutine run() já terminou (041/RF-4103).
+func (h *Hub) leave(c *Client) {
+	select {
+	case h.unregister <- c:
+	case <-h.done:
+	}
+}
+
 // BroadcastStreamStarted é chamado externamente quando o SFU inicializa a track de vídeo do professor.
 func (h *Hub) BroadcastStreamStarted() {
-	h.internal <- sigStreamStarted
+	h.sendSignal(sigStreamStarted)
 }
 
-// BroadcastRoomClosed é chamado externamente (ex: pelo handler REST de close).
+// BroadcastRoomClosed é chamado externamente (ex: pelo handler REST de close). Sem efeito se o hub já terminou.
 func (h *Hub) BroadcastRoomClosed() {
-	h.internal <- sigRoomClose
+	h.sendSignal(sigRoomClose)
 }
 
-// BroadcastFileShared é chamado externamente quando o professor faz upload de arquivo na sala.
+// BroadcastFileShared é chamado externamente quando o professor faz upload de arquivo na sala. Sem efeito se o hub já
+// terminou.
 func (h *Hub) BroadcastFileShared(payload FileSharedPayload) {
+	if h.terminated() {
+		return
+	}
 	select {
 	case h.fileShared <- payload:
 	default:

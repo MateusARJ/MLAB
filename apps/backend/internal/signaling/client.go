@@ -79,10 +79,11 @@ func (c *Client) startReading() {
 }
 
 // readPump lê mensagens do WebSocket e envia ao hub para processamento.
-// Roda numa goroutine dedicada por cliente.
+// Roda numa goroutine dedicada por cliente. Os envios ao hub não bloqueiam depois de a goroutine do hub terminar
+// (041/RF-4103).
 func (c *Client) readPump() {
 	defer func() {
-		c.hub.unregister <- c
+		c.hub.leave(c)
 		c.conn.Close()
 	}()
 
@@ -110,7 +111,9 @@ func (c *Client) readPump() {
 			continue
 		}
 
-		c.hub.inbound <- &envelope{client: c, msg: msg}
+		if !c.hub.deliver(&envelope{client: c, msg: msg}) {
+			return
+		}
 	}
 }
 
