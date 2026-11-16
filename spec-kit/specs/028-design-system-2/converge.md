@@ -72,6 +72,9 @@ Status: CONVERGED
   JavaScript foram verificados um a um.
 - Validação manual no Windows (Electron, tema claro e escuro, aula real com um aluno, favicon na aba): fica com o
   responsável, antes do merge.
+- Atualização de 2026-11-15 (seção 10): backend, build completo e lint passaram; o E2E do aluno continua **não
+  executado** (o Chromium do Playwright foi instalado, mas a execução foi interrompida por falta de memória na
+  máquina).
 
 ## 6. Novas tasks necessárias
 
@@ -82,8 +85,8 @@ Status: CONVERGED
 | Issue | Labels | Bloqueante? | Situação |
 |---|---|---|---|
 | #89 | `bug`, `desvio`, `area:desktop` | não | corrigida nesta feature (T2808, C-2807) |
-| #90 | `bug`, `desvio`, `area:desktop` | não | aviso de mão levantada: botões não respondem e o aviso não some; aberta |
-| #91 | `enhancement`, `area:desktop` | não | fixar uma janela na transmissão de múltiplas janelas; aberta |
+| #90 | `bug`, `desvio`, `area:desktop` | não | aviso de mão levantada: botões não respondem e o aviso não some; fechada pela feature 031 (seção 10) |
+| #91 | `enhancement`, `area:desktop` | não | fixar uma janela na transmissão de múltiplas janelas; aberta, especificada na feature 032 (ainda não implementada) |
 
 ## 8. Impacto de versão
 
@@ -91,9 +94,11 @@ Classificação pelo escopo de `docs/versionamento.md` §2 (ADR 0007).
 
 | Nível | Versão resultante | Justificativa |
 |---|---|---|
-| MAJOR | 2.0.0 | Escolhido pelo responsável (C-2809): o fluxo do professor muda de organização e de rótulos. Commit com `!`: `41de663`. |
+| MAJOR | 2.0.0 | Escolhido pelo responsável (C-2809): o fluxo do professor muda de organização e de rótulos. Commit com `!`: `081327b` (antes `41de663`). |
 
-O PR fica em rascunho e só entra na `development` depois que a 1.15.0 for para a `main` (C-2809).
+O bump parte da versão da `development` no momento da atualização (1.15.8, seção 10). O PR fica em rascunho e só
+entra na `development` depois que a 1.15.x for para a `main` (C-2809, mantida pelo responsável em 2026-11-15). Se a
+`development` mudar até lá, a branch é rebaseada de novo e o commit `chore(release)` é refeito.
 
 ## 9. Resultado
 
@@ -101,3 +106,25 @@ O PR fica em rascunho e só entra na `development` depois que a 1.15.0 for para 
 - [x] CONVERGED — o design system 2.0 está aplicado no desktop e na web, com tema claro e escuro, sem mudança em
   hooks, serviços, contratos e backend; o favicon usa a logo do cabeçalho e a barra de marcação fica dentro da
   prévia. Pendências de execução na seção 5.
+
+## 10. Atualização sobre a development 1.15.8 (2026-11-15)
+
+A branch foi rebaseada da base `7bb2499` (1.15.0) para a `development` na 1.15.8 (`ecf1583`), que trouxe as features
+029 a 038. O commit de release anterior foi descartado e refeito ao final.
+
+| Ponto | Encaminhamento |
+|---|---|
+| Conflito em `Room.tsx`, estilo `handToastOverlay` | A 031 (`1805bb0`, RF-3101) subiu o `zIndex` do aviso de mão para 20, entre o canvas (15) e a barra (25). Mantidos os tokens do design system 2.0 e o `zIndex: 20` com o comentário da 031; o PR já mantinha canvas 15, barra 25 e popover 30. |
+| Testes da 031 em `RoomHandRaise.test.tsx` | Usavam o rótulo antigo "Avançar e Iniciar Transmissão"; passaram a usar "Começar transmissão" (`test(desktop)`, T2805). Comportamento testado inalterado. |
+| #90 | Fechada pela 031 antes da atualização; o aviso continua clicável no visual novo (testes de camadas e "Ver Turma" verdes). |
+| Demais arquivos alterados pela development | `handToast.ts`, `useWebRTCPublisher.ts`, `packages/types`, backend e CI mesclaram sem conflito e fora do Scope Lock da 028. |
+
+Validações após o rebase (Windows, Node 22, Go 1.27):
+
+- `npm run test -w apps/desktop`: 32 arquivos, 357 testes verdes;
+- `npm run test -w apps/web`: 5 arquivos, 54 testes verdes;
+- `npm run lint -w` em `packages/ui`, `apps/web` e `apps/desktop`: verdes;
+- `cd apps/backend && go test ./...`: verde;
+- `npm run build` (Turborepo, 5 tarefas): verde;
+- `npm run spec:check`: PASS em todas as features;
+- E2E do aluno: não executado (seção 5).
