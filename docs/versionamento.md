@@ -119,12 +119,18 @@ Ao concluir um PR que altera `apps/` ou `packages/`:
 Pré-requisitos: tudo o que vai sair na release está mergeado na `development`, com `npx turbo run build test` e
 `npm run spec:check` verdes. A versão já está certa: ela foi incrementada em cada PR.
 
-1. **Levar à `main`**: PR `development → main`. O CI gera os instaladores nos três sistemas
+1. **Escrever as notas** em `docs/releases/vX.Y.Z.md`, num PR `docs` para a `development` antes do PR de release.
+   Use a release anterior como modelo: destaques, downloads, novidades **por versão** desde a última release
+   publicada (a partir dos commits `chore(release): versao X.Y.Z` e dos `converge.md`) e limitações conhecidas.
+   O workflow usa esse arquivo como texto da release e acrescenta ao final a lista automática de PRs; sem o arquivo,
+   a release sai só com a lista automática.
+
+2. **Levar à `main`**: PR `development → main`. O CI gera os instaladores nos três sistemas
    (`.github/workflows/build-all.yml`); faça o merge com **merge commit** (sem squash) depois dos três builds verdes.
    No PR o build só valida: os instaladores não são publicados como artefato do Actions (cota de armazenamento da
-   conta, #112). Eles saem apenas pela release do passo 2.
+   conta, #112). Eles saem apenas pela release do passo 3.
 
-2. **Publicar** com a tag, a partir da `main` atualizada:
+3. **Publicar** com a tag, a partir da `main` atualizada:
 
    ```bash
    git switch main && git pull
@@ -133,12 +139,13 @@ Pré-requisitos: tudo o que vai sair na release está mergeado na `development`,
    git push mlab v1.8.0
    ```
 
-   O push da tag dispara o workflow, que gera os instaladores e cria a release `MLab v1.8.0` com notas automáticas.
+   O push da tag dispara o workflow, que gera os instaladores e cria a release `MLab v1.8.0` com o texto de
+   `docs/releases/v1.8.0.md` seguido das notas automáticas.
 
    Alternativa sem tag local: na aba **Actions**, rode o workflow manualmente com os campos em branco; a release usa a
    versão do `package.json`.
 
-3. **Conferir** na página de [Releases](https://github.com/MateusARJ/MLAB/releases) os arquivos
+4. **Conferir** na página de [Releases](https://github.com/MateusARJ/MLAB/releases) os arquivos
    `MLab-Setup-X.Y.Z.exe`, `MLab-Mac-X.Y.Z.dmg`/`.zip` e `MLab-Linux-X.Y.Z.AppImage`/`.deb`/`.tar.gz`.
 
 > **A release traz o código-fonte.** A tag aponta para o commit da `main` que gerou a versão, e o GitHub anexa
