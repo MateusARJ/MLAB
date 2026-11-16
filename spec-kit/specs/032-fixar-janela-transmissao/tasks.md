@@ -50,20 +50,22 @@ Allowed Paths: `apps/desktop/src/renderer/pages/Room.tsx`, `apps/desktop/src/ren
 Prohibited Paths: `apps/desktop/src/renderer/hooks/**`, `apps/desktop/src/renderer/media/**`,
 `apps/desktop/src/main/**`, `apps/backend/**`, `apps/web/**`, `packages/**`, `package.json`
 Checks:
-- [ ] Estado `pinnedWindowSourceId` (state + ref) e `lastFocusedAuthorizedIdRef`.
-- [ ] Efeito de foco: grava a última janela autorizada focada; com fixação, não troca a fonte (RF-3203); sem fixação,
+- [x] Estado `pinnedWindowSourceId` (state + ref) e `lastFocusedAuthorizedIdRef`.
+- [x] Efeito de foco: grava a última janela autorizada focada; com fixação, não troca a fonte (RF-3203); sem fixação,
   igual ao atual (RF-3210).
-- [ ] `handlePinWindow`: fixa sem recaptura se a janela já está no ar; senão troca com `pinnedSourceId`, aplicando o
+- [x] `handlePinWindow`: fixa sem recaptura se a janela já está no ar; senão troca com `pinnedSourceId`, aplicando o
   mudo do microfone como no `handleSwitchScreen`; substitui fixação anterior (RF-3202).
-- [ ] `handleUnpinWindow`: troca para a última focada quando difere da janela no ar e continua autorizada; senão só
+- [x] `handleUnpinWindow`: troca para a última focada quando difere da janela no ar e continua autorizada; senão só
   reinicia o rastreamento sem fixação (RF-3204).
-- [ ] Clique no nome com fixação chama `handlePinWindow` (RF-3209).
-- [ ] Fixação limpa em `handleReconfigure`, `handleEndSession` e na saída do ao vivo (RF-3206).
-- [ ] Fim da captura da fixada desfixa por `handleUnpinWindow` (RF-3207).
+- [x] Clique no nome com fixação chama `handlePinWindow` (RF-3209).
+- [x] Fixação limpa em `handleReconfigure`, `handleEndSession` e na saída do ao vivo (RF-3206).
+- [x] Fim da captura da fixada desfixa por `handleUnpinWindow` (RF-3207).
 - [ ] Testes em `Room.test.tsx`, partindo do teste de múltiplas janelas existente (callback de
   `onActiveWindowChanged`): foco em B com A fixada não troca; desfixar após foco em B troca para B; desfixar sem foco
   em outra não chama `selectSource`; depois de desfixar o foco volta a trocar; fixar B com A fixada passa para B;
   reconfigurar/encerrar limpa; fim da captura desfixa; `startCursorTracking`/`selectSource` recebem `pinnedSourceId`.
+  Nota (2026-11-16): sem a interface não há como acionar a fixação no componente; esses testes entram no commit da
+  T3204, e a T3203 só é marcada `[x]` depois deles. O seletor expõe `data-pinned-source-id` para os testes.
 
 ### T3204 — Room: interface da fixação
 [ ] T3204
