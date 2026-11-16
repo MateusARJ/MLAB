@@ -135,12 +135,25 @@ jobs:
             echo "title=MLab v$PKG_VER" >> $GITHUB_OUTPUT
           fi
 
+      - name: Localizar as notas da release
+        id: release_notes
+        run: |
+          NOTES="docs/releases/${{ steps.release_vars.outputs.tag }}.md"
+          if [ -f "$NOTES" ]; then
+            echo "Notas da release: $NOTES"
+            echo "path=$NOTES" >> $GITHUB_OUTPUT
+          else
+            echo "::warning::$NOTES não existe; a release sai só com as notas automáticas."
+            echo "path=" >> $GITHUB_OUTPUT
+          fi
+
       - name: Publicar Release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ steps.release_vars.outputs.tag }}
           target_commitish: ${{ github.sha }}
           name: ${{ steps.release_vars.outputs.title }}
+          body_path: ${{ steps.release_notes.outputs.path }}
           draft: false
           prerelease: false
           files: |

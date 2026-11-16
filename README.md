@@ -435,8 +435,8 @@ npm run bump -- patch            # ou minor | major: último commit do PR, "chor
 **Fluxo de release:**
 
 1. Cada PR para a `development` que muda o app termina com o commit de versão.
-2. Para publicar, abre-se um PR `development → main`. O CI gera os instaladores de Windows, macOS e Linux, e o merge é feito com merge commit, sem squash.
-3. O responsável cria a tag `vX.Y.Z` na `main`. O workflow publica a release com os instaladores, o código-fonte e as notas automáticas.
+2. Para publicar, as novidades de cada versão são escritas em `docs/releases/vX.Y.Z.md` e abre-se um PR `development → main`. O CI valida o build de Windows, macOS e Linux, e o merge é feito com merge commit, sem squash.
+3. O responsável cria a tag `vX.Y.Z` na `main`. O workflow publica a release com os instaladores, o código-fonte, o texto de `docs/releases/vX.Y.Z.md` e a lista automática de PRs.
 
 ---
 
