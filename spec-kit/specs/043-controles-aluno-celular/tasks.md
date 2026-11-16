@@ -9,23 +9,24 @@ Regras:
 - um commit atômico por task, com `Ref: T430x` e `Refs #98`.
 
 ### T4301 — Barra do vídeo sem sobreposição e X único em tela cheia
-[ ] T4301
+[x] T4301
 Allowed Paths: `apps/web/src/pages/Room.tsx`, `apps/web/src/pages/Room.test.tsx`, `apps/web/src/index.css`,
 `spec-kit/specs/043-controles-aluno-celular/tasks.md`
 Prohibited Paths: `apps/web/src/hooks/**`, `apps/web/src/services/**`, `apps/web/e2e/**`, `apps/desktop/**`,
 `apps/backend/**`, `packages/**`, `package.json`
 Checks:
-- [ ] Pílula e grupo PiP / Tela Cheia no mesmo contêiner flexível com `gap: 8px`, espaçador fixo oculto até 600 px
+- [x] Pílula e grupo PiP / Tela Cheia no mesmo contêiner flexível com `gap: 8px`, espaçador fixo oculto até 600 px
   e grupo sem encolher (RF-4301, RF-4302).
-- [ ] Rótulo curto "Abaixar mão" e padding de 16 px até 480 px, por CSS; nomes acessíveis iguais (RF-4303).
-- [ ] Barra com `pointer-events: none` e controles com `auto` (RF-4304).
-- [ ] Cabeçalho da sidebar em tela cheia sem botão de fechar, com espaço para o gatilho (RF-4305, RF-4307).
-- [ ] Gatilho com `aria-expanded`, `aria-controls` e rótulo por estado (RF-4306).
-- [ ] Testes novos em `Room.test.tsx`: estrutura da barra, rótulos completo/curto, X único e `aria-expanded`;
+- [x] Rótulo curto "Abaixar mão" e padding de 16 px até 480 px, por CSS; nomes acessíveis iguais (RF-4303).
+- [x] Barra com `pointer-events: none` e controles com `auto` (RF-4304).
+- [x] Cabeçalho da sidebar em tela cheia sem botão de fechar, com espaço para o gatilho (RF-4305, RF-4307).
+- [x] Gatilho com `aria-expanded`, `aria-controls` e rótulo por estado (RF-4306).
+- [x] Testes novos em `Room.test.tsx`: estrutura da barra, rótulos completo/curto, X único e `aria-expanded`;
   testes existentes verdes (RNF-4302).
-- [ ] Verificação visual em 320, 360 e 390 px (retrato, normal e ativo), paisagem em tela cheia com menu aberto e
+- [x] Verificação visual em 320, 360 e 390 px (retrato, normal e ativo), paisagem em tela cheia com menu aberto e
   desktop 1280 px.
-- [ ] `npm run test:e2e` em `apps/web`: A10 e A15 verdes (RNF-4302).
+- [x] `npm run test:e2e` em `apps/web`: A10 e A15 verdes nos dois projetos (RNF-4302); A20 e A14 caíram com o
+  `4001` falso do desvio #127, sem relação com o layout.
 
 ### T4302 — Converge
 [ ] T4302

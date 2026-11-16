@@ -45,6 +45,45 @@ body {
   -webkit-tap-highlight-color: transparent;
 }
 
+/* 043/RF-4301 a RF-4303: pílula "Levantar mão" do aluno. O texto encolhe com reticências antes de encostar no
+   grupo PiP / Tela Cheia. Até 600 px o espaçador que centraliza a pílula no vídeo some; até 480 px, padding menor e
+   rótulo ativo curto ("Abaixar mão"). */
+@media (max-width: 600px) {
+  .ml-video-bar-spacer {
+    display: none;
+  }
+}
+
+.ml-hand-btn {
+  padding: 0 24px;
+}
+
+.ml-hand-label,
+.ml-hand-label-short,
+.ml-hand-label-any {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.ml-hand-label-short {
+  display: none;
+}
+
+@media (max-width: 480px) {
+  .ml-hand-btn {
+    padding: 0 16px;
+  }
+
+  .ml-hand-label {
+    display: none;
+  }
+
+  .ml-hand-label-short {
+    display: inline;
+  }
+}
+
 /* Previne zoom automático indesejado no iOS ao focar inputs */
 input, select, textarea {
   font-size: 16px;

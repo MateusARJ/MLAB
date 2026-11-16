@@ -606,3 +606,67 @@ describe('Room — altura da lista de arquivos (024)', () => {
     expect(screen.getByTestId('files-list')).toHaveStyle({ maxHeight: '380px' });
   });
 });
+
+describe('Room — controles do aluno no celular (043)', () => {
+  const dummyToken = 'student-jwt-123';
+  const dummyRoomInfo = { room_id: 'room-101', ws_url: 'ws://localhost:8080/ws/rooms/room-101/signal', ice_servers: [] };
+
+  afterEach(() => {
+    mockSubscriberState.isHandRaised = false;
+    window.innerWidth = 1024;
+    window.innerHeight = 768;
+    fireEvent(window, new Event('resize'));
+    try {
+      Object.defineProperty(document, 'fullscreenElement', { configurable: true, value: null });
+    } catch {}
+  });
+
+  it('pílula de levantar mão e grupo PiP / Tela Cheia ficam na mesma linha flexível, com espaço entre eles (RF-4301)', () => {
+    render(<Room token={dummyToken} roomInfo={dummyRoomInfo} onLeave={vi.fn()} />);
+
+    const bar = screen.getByTestId('video-bottom-bar');
+    expect(bar).toHaveStyle({ display: 'flex', gap: '8px', pointerEvents: 'none' });
+
+    const handBtn = screen.getByRole('button', { name: 'Levantar mão' });
+    const toolbar = screen.getByRole('toolbar', { name: 'Visualização' });
+    expect(bar).toContainElement(handBtn);
+    expect(bar).toContainElement(toolbar);
+    expect(toolbar).toHaveStyle({ flexShrink: '0', pointerEvents: 'auto' });
+    expect(toolbar).not.toHaveStyle({ position: 'absolute' });
+    expect(handBtn).toHaveStyle({ minWidth: '0', maxWidth: '100%', pointerEvents: 'auto' });
+    expect(handBtn).toHaveClass('ml-hand-btn');
+  });
+
+  it('pílula ativa tem rótulo completo e curto, com o mesmo nome acessível (RF-4303)', () => {
+    mockSubscriberState.isHandRaised = true;
+    render(<Room token={dummyToken} roomInfo={dummyRoomInfo} onLeave={vi.fn()} />);
+
+    const handBtn = screen.getByRole('button', { name: 'Abaixar mão', pressed: true });
+    expect(handBtn.querySelector('.ml-hand-label')).toHaveTextContent('Mão levantada (abaixar)');
+    expect(handBtn.querySelector('.ml-hand-label-short')).toHaveTextContent('Abaixar mão');
+  });
+
+  it('menu em tela cheia tem um único X e o gatilho informa o estado (RF-4305, RF-4306)', () => {
+    window.innerWidth = 844;
+    window.innerHeight = 390;
+    fireEvent(window, new Event('resize'));
+    const { container } = render(<Room token={dummyToken} roomInfo={dummyRoomInfo} onLeave={vi.fn()} />);
+    Object.defineProperty(document, 'fullscreenElement', { configurable: true, value: container });
+    fireEvent(document, new Event('fullscreenchange'));
+
+    const trigger = screen.getByTestId('fullscreen-menu-trigger');
+    expect(trigger).toHaveAttribute('aria-expanded', 'false');
+    expect(trigger).toHaveAttribute('aria-controls', 'fullscreen-right-sidebar');
+    expect(trigger).toHaveAccessibleName('Abrir menu da transmissão');
+    expect(screen.getByTestId('fullscreen-right-sidebar')).toHaveAttribute('id', 'fullscreen-right-sidebar');
+
+    fireEvent.click(trigger);
+    expect(trigger).toHaveAttribute('aria-expanded', 'true');
+    expect(trigger).toHaveAccessibleName('Fechar menu da transmissão');
+    expect(screen.getAllByRole('button', { name: /fechar menu/i })).toEqual([trigger]);
+
+    fireEvent.click(trigger);
+    expect(trigger).toHaveAttribute('aria-expanded', 'false');
+    expect(screen.getByTestId('fullscreen-right-sidebar')).toHaveStyle({ transform: 'translateX(100%)' });
+  });
+});
