@@ -11,9 +11,9 @@ Clarify: `./clarify.md` (C-4301 a C-4303)
 barra inferior do vídeo (position: absolute; left/right/bottom: 16px; display: flex; gap: 8px; pointer-events: none)
 ┌───────────┬──────────────────────────────┬─────────────┐
 │ espaçador │   slot (flex 1 1 auto)        │ grupo PiP / │
-│ 0 100 90px│   [ ✋ Levantar mão ]          │ Tela Cheia  │
-│ (encolhe  │   centrado, min-width 0,      │ flex-shrink │
-│ primeiro) │   texto com reticências       │ 0           │
+│ 0 0 90px  │   [ ✋ Levantar mão ]          │ Tela Cheia  │
+│ (some até │   centrado, min-width 0,      │ flex-shrink │
+│ 600 px)   │   texto com reticências       │ 0           │
 └───────────┴──────────────────────────────┴─────────────┘
 
 tela cheia: gatilho ☰/X (aria-expanded, aria-controls) ── sidebar sem botão de fechar no cabeçalho
@@ -26,15 +26,15 @@ tela cheia: gatilho ☰/X (aria-expanded, aria-controls) ── sidebar sem bot�
    - gatilho com `aria-expanded`, `aria-controls="fullscreen-right-sidebar"`, rótulo por estado; `<aside>` com
      `id`; cabeçalho sem `closeDrawerBtn` e com `paddingRight` para o gatilho.
 2. `apps/web/src/index.css`: `.ml-hand-btn` (padding), `.ml-hand-label`, `.ml-hand-label-short` e `@media (max-width:
-   400px)`.
+   480px)` e `.ml-video-bar-spacer` com `@media (max-width: 600px)`.
 3. `apps/web/src/pages/Room.test.tsx`: testes novos.
 
 ## 2. Technical Context
 
 | Item | Decisão | Ref |
 |---|---|---|
-| Linha flexível | espaçador `flex: 0 100 90px`, slot `flex: 1 1 auto`, grupo `flex-shrink: 0`, `gap: 8px` | C-4302 |
-| Rótulo curto e padding | CSS com `@media (max-width: 400px)` em `index.css` | C-4302 |
+| Linha flexível | espaçador `flex: 0 0 90px` oculto até 600 px, slot `flex: 1 1 auto`, grupo `flex-shrink: 0`, `gap: 8px` | C-4302 |
+| Rótulo curto e padding | CSS com `@media (max-width: 480px)` em `index.css` | C-4302 |
 | Cliques | barra `pointer-events: none`; pílula e grupo `auto` | RF-4304 |
 | Menu em tela cheia | só o gatilho; `aria-expanded`/`aria-controls`; cabeçalho com `paddingRight: 64px` | C-4301 |
 | Versão | PATCH | C-4303 |

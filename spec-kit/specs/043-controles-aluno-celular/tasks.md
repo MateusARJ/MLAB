@@ -15,9 +15,9 @@ Allowed Paths: `apps/web/src/pages/Room.tsx`, `apps/web/src/pages/Room.test.tsx`
 Prohibited Paths: `apps/web/src/hooks/**`, `apps/web/src/services/**`, `apps/web/e2e/**`, `apps/desktop/**`,
 `apps/backend/**`, `packages/**`, `package.json`
 Checks:
-- [ ] Pílula e grupo PiP / Tela Cheia no mesmo contêiner flexível com `gap: 8px`, espaçador e grupo sem encolher
-  (RF-4301, RF-4302).
-- [ ] Rótulo curto "Abaixar mão" e padding de 16 px até 400 px, por CSS; nomes acessíveis iguais (RF-4303).
+- [ ] Pílula e grupo PiP / Tela Cheia no mesmo contêiner flexível com `gap: 8px`, espaçador fixo oculto até 600 px
+  e grupo sem encolher (RF-4301, RF-4302).
+- [ ] Rótulo curto "Abaixar mão" e padding de 16 px até 480 px, por CSS; nomes acessíveis iguais (RF-4303).
 - [ ] Barra com `pointer-events: none` e controles com `auto` (RF-4304).
 - [ ] Cabeçalho da sidebar em tela cheia sem botão de fechar, com espaço para o gatilho (RF-4305, RF-4307).
 - [ ] Gatilho com `aria-expanded`, `aria-controls` e rótulo por estado (RF-4306).

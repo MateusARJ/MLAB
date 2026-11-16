@@ -15,11 +15,13 @@ Decisões registradas em 2026-11-16 na correção da issue #98, pedida pelo resp
 
 ## C-4302 — Como evitar a sobreposição sem perder a centralização
 
-- **Opções:** (A) aumentar a reserva do `maxWidth`; (B) uma linha flexível com espaçador à esquerda do tamanho do
-  grupo, que encolhe primeiro, e pílula que encolhe com reticências.
+- **Opções:** (A) aumentar a reserva do `maxWidth`; (B) uma linha flexível com espaçador à esquerda da largura do
+  grupo, que some em telas de até 600 px, e pílula que encolhe com reticências.
 - **Resposta:** **B**. (A) continua dependendo de números fixos e corta a pílula cedo no desktop. Em (B) o espaçador
-  centraliza a pílula quando há espaço e some antes de a pílula encostar no grupo; o `gap` garante os 8 px.
-- **Texto ativo em tela estreita:** rótulo curto "Abaixar mão" até 400 px, por CSS (`@media`) em `apps/web/src/index.css`,
+  centraliza a pílula quando há espaço; até 600 px ele some por CSS, pois um espaçador que só encolhe tira frações
+  de pixel da pílula e corta o texto (visto em 360 px na verificação visual). O `gap` garante os 8 px.
+- **Texto ativo em tela estreita:** rótulo curto "Abaixar mão" até 480 px (o rótulo longo
+  não cabe sem espaçador abaixo disso), por CSS (`@media`) em `apps/web/src/index.css`,
   pois estilo inline não tem media query. O nome acessível já é "Abaixar mão".
 - **Impacto em spec:** RF-4301 a RF-4304.
 

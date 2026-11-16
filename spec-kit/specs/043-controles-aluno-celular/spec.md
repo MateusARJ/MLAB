@@ -65,8 +65,9 @@ Como aluno em tela cheia, quero um único botão para fechar o menu lateral.
 
 - RF-4301: a pílula "Levantar mão" e o grupo PiP / Tela Cheia ficam num mesmo contêiner de linha, com espaço mínimo de
   8 px entre eles; a pílula encolhe (com reticências no texto) antes de encostar no grupo.
-- RF-4302: com espaço sobrando, a pílula fica centralizada na largura do vídeo, como hoje.
-- RF-4303: em larguras de até 400 px, a pílula ativa mostra "Abaixar mão" no lugar de "Mão levantada (abaixar)" e usa
+- RF-4302: em larguras acima de 600 px, a pílula fica centralizada na largura do vídeo, como hoje; até 600 px ela se
+  centraliza no espaço à esquerda do grupo.
+- RF-4303: em larguras de até 480 px, a pílula ativa mostra "Abaixar mão" no lugar de "Mão levantada (abaixar)" e usa
   padding lateral de 16 px; o nome acessível ("Levantar mão" / "Abaixar mão") não muda.
 - RF-4304: a área vazia da barra não captura cliques; tocar no vídeo fora dos controles continua chegando ao vídeo.
 - RF-4305: o cabeçalho da sidebar em tela cheia não tem botão de fechar; o menu fecha pelo gatilho flutuante, pelo
