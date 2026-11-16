@@ -121,6 +121,8 @@ Pré-requisitos: tudo o que vai sair na release está mergeado na `development`,
 
 1. **Levar à `main`**: PR `development → main`. O CI gera os instaladores nos três sistemas
    (`.github/workflows/build-all.yml`); faça o merge com **merge commit** (sem squash) depois dos três builds verdes.
+   No PR o build só valida: os instaladores não são publicados como artefato do Actions (cota de armazenamento da
+   conta, #112). Eles saem apenas pela release do passo 2.
 
 2. **Publicar** com a tag, a partir da `main` atualizada:
 
