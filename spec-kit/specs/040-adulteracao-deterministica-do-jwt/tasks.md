@@ -10,18 +10,18 @@ Regras:
 - um commit atômico por task, com `Ref: T400x` e `Refs #116`.
 
 ### T4001 — Adulterar a claim `role` no teste
-[ ] T4001
+[x] T4001
 Allowed Paths: `apps/backend/internal/auth/auth_security_test.go`,
 `spec-kit/specs/040-adulteracao-deterministica-do-jwt/tasks.md`
 Prohibited Paths: `apps/backend/internal/auth/jwt.go`, `apps/backend/internal/auth/middleware.go`,
 `apps/backend/internal/auth/handler.go`, `apps/backend/internal/signaling/**`, `apps/backend/cmd/**`, `apps/web/**`,
 `apps/desktop/**`, `packages/**`, `package.json`
 Checks:
-- [ ] O teste troca `role` de `aluno` para `professor` no payload e mantém header e assinatura (RF-4001).
-- [ ] O teste confere que o token adulterado difere do original e exige erro do `ParseToken` (RF-4002).
-- [ ] `go test -count=1000 -run TestAuthSecurity_ClaimManipulation ./internal/auth/` e 200 execuções em segundos
+- [x] O teste troca `role` de `aluno` para `professor` no payload e mantém header e assinatura (RF-4001).
+- [x] O teste confere que o token adulterado difere do original e exige erro do `ParseToken` (RF-4002).
+- [x] `go test -count=1000 -run TestAuthSecurity_ClaimManipulation ./internal/auth/` e 200 execuções em segundos
   diferentes sem falha (RNF-4001).
-- [ ] `go vet ./...` e `go test -count=1 ./...` verdes.
+- [x] `go vet ./...` e `go test -count=1 ./...` verdes.
 
 ### T4002 — Converge
 [ ] T4002
