@@ -27,13 +27,13 @@ Checks:
 - [x] `go vet ./...` e `go test -count=1 ./...` verdes.
 
 ### T4102 — Converge
-[ ] T4102
+[x] T4102
 Depends On: T4101
 Allowed Paths: `spec-kit/specs/041-termino-do-hub-encerrado/**`
 Prohibited Paths: `apps/**`, `packages/**`, `.github/**`, `spec-kit/docs/adrs/**`
 Checks:
-- [ ] `converge.md` com evidências, desvios e impacto de versão (PATCH, C-4103).
-- [ ] `npm run spec:check -- spec-kit/specs/041-termino-do-hub-encerrado` com PASS.
+- [x] `converge.md` com evidências, desvios e impacto de versão (PATCH, C-4103).
+- [x] `npm run spec:check -- spec-kit/specs/041-termino-do-hub-encerrado` com PASS.
 
 ### T4103 — Versão
 [ ] T4103
