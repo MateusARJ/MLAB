@@ -2,7 +2,7 @@
 
 Feature: `042-e2e-a19-sessao-unica`
 Prerequisites: spec/clarify/plan/checklist/analyze aprovados
-Status: READY
+Status: DONE
 
 Regras:
 - um commit atômico por task, com `Ref: T420x` e `Refs #126`.
@@ -21,10 +21,10 @@ Checks:
   intermitente, sem relação com o A19, registrado como desvio #127.
 
 ### T4202 — Converge
-[ ] T4202
+[x] T4202
 Depends On: T4201
 Allowed Paths: `spec-kit/specs/042-e2e-a19-sessao-unica/**`
 Prohibited Paths: `apps/**`, `packages/**`, `.github/**`, `spec-kit/docs/adrs/**`
 Checks:
-- [ ] `converge.md` com evidências, desvios e impacto de versão (sem incremento, C-4202).
-- [ ] `npm run spec:check -- spec-kit/specs/042-e2e-a19-sessao-unica` com PASS.
+- [x] `converge.md` com evidências, desvios e impacto de versão (sem incremento, C-4202).
+- [x] `npm run spec:check -- spec-kit/specs/042-e2e-a19-sessao-unica` com PASS.
