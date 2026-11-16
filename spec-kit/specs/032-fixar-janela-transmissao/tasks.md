@@ -83,14 +83,14 @@ Checks:
   fixação.
 
 ### T3205 — Regressão de múltiplas janelas sem fixação
-[ ] T3205
+[x] T3205
 Depends On: T3204
 Allowed Paths: `apps/desktop/src/renderer/pages/Room.test.tsx`
 Prohibited Paths: `apps/desktop/src/renderer/pages/Room.tsx`, `apps/desktop/src/renderer/hooks/**`,
 `apps/desktop/src/main/**`, `packages/**`, `apps/backend/**`, `apps/web/**`, `package.json`
 Checks:
-- [ ] Teste de múltiplas janelas existente passa sem mudar asserções (RF-3210).
-- [ ] Teste novo: sem fixação, `selectSource` é chamado sem `pinnedSourceId` em toda troca por foco e pelo seletor.
+- [x] Teste de múltiplas janelas existente passa sem mudar asserções (RF-3210).
+- [x] Teste novo: sem fixação, `selectSource` é chamado sem `pinnedSourceId` em toda troca por foco e pelo seletor.
 
 ### T3206 — Verificação, notas, converge e versão
 [ ] T3206

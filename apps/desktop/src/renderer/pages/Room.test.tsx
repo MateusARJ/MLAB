@@ -1209,6 +1209,23 @@ describe('Room — fixar uma janela na transmissão (032)', () => {
     expect(screen.getByTestId('window-pills-bar')).not.toHaveAttribute('data-pinned-source-id');
   });
 
+  it('sem fixação, nenhuma troca por foco ou pelo seletor leva pinnedSourceId (T3205, RF-3210)', async () => {
+    await startLiveWithTwoWindows();
+
+    await emitFocus(B);
+    await waitFor(() => expect(captures(B)).toBe(1));
+    await emitFocus(A);
+    await waitFor(() => expect(captures(A)).toBe(1));
+    fireEvent.click(screen.getByTitle('Alternar para transmitir agora: Navegador Web'));
+    await waitFor(() => expect(captures(B)).toBe(2));
+
+    const targets = startTracking().mock.calls.map(([t]: any[]) => t);
+    expect(targets.map((t: any) => t.sourceId)).toEqual([B, A, B]);
+    expect(targets.every((t: any) => t.pinnedSourceId === undefined)).toBe(true);
+    expect(screen.getByText('No Ar')).toBeInTheDocument();
+    expect(screen.queryByText('Em pausa')).not.toBeInTheDocument();
+  });
+
   it('trocar tela desfaz a fixação (RF-3206)', async () => {
     await startLiveWithTwoWindows();
     pin('VS Code');
