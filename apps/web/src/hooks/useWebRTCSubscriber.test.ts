@@ -1,12 +1,15 @@
+import React from 'react';
 import { renderHook, act } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { useWebRTCSubscriber } from './useWebRTCSubscriber';
 
 describe('useWebRTCSubscriber Hook', () => {
   let mockWsInstance: any;
+  let mockWsInstances: any[] = [];
   let mockPcInstances: any[] = [];
 
   beforeEach(() => {
+    mockWsInstances = [];
     mockPcInstances = [];
 
     // Mock do WebSocket
@@ -28,6 +31,7 @@ describe('useWebRTCSubscriber Hook', () => {
       constructor(url: string) {
         this.url = url;
         mockWsInstance = this;
+        mockWsInstances.push(this);
       }
     }
     // @ts-ignore
@@ -75,6 +79,31 @@ describe('useWebRTCSubscriber Hook', () => {
     ws_url: 'ws://localhost:8080/ws/rooms/room-abc/signal',
     ice_servers: [{ urls: 'stun:stun.l.google.com:19302' }],
   };
+
+  // Deixa passar o tick em que o hook abre o WebSocket (044/RF-4401).
+  const flushConnect = async () => {
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+  };
+
+  describe('conexão única por montagem (044)', () => {
+    it('deve abrir um único WebSocket na montagem dupla do StrictMode (RF-4401)', async () => {
+      renderHook(() => useWebRTCSubscriber(dummyToken, dummyRoomInfo), { wrapper: React.StrictMode });
+      await flushConnect();
+
+      expect(mockWsInstances).toHaveLength(1);
+      expect(mockWsInstances[0].close).not.toHaveBeenCalled();
+    });
+
+    it('não deve abrir WebSocket quando desmonta antes de conectar (044, spec §9)', async () => {
+      const { unmount } = renderHook(() => useWebRTCSubscriber(dummyToken, dummyRoomInfo));
+      unmount();
+      await flushConnect();
+
+      expect(mockWsInstances).toHaveLength(0);
+    });
+  });
 
   it('deve enviar o token do aluno ao listar os arquivos da sala', async () => {
     renderHook(() => useWebRTCSubscriber(dummyToken, dummyRoomInfo));

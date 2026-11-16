@@ -8,15 +8,16 @@ Regras:
 - um commit atômico por task, com `Ref: T440x` e `Refs #127`.
 
 ### T4401 — Teste da montagem dupla do StrictMode
-[ ] T4401
+[x] T4401
 Allowed Paths: `apps/web/src/hooks/useWebRTCSubscriber.test.ts`, `spec-kit/specs/044-conexao-unica-do-aluno/tasks.md`
 Prohibited Paths: `apps/web/src/hooks/useWebRTCSubscriber.ts`, `apps/web/src/main.tsx`, `apps/web/src/pages/**`,
 `apps/web/e2e/**`, `apps/backend/**`, `apps/desktop/**`, `packages/**`
 Checks:
-- [ ] Teste com `renderHook(..., { wrapper: React.StrictMode })` exige um único WebSocket criado e nenhum fechado
+- [x] Teste com `renderHook(..., { wrapper: React.StrictMode })` exige um único WebSocket criado e nenhum fechado
   (RF-4401).
-- [ ] Teste de desmontagem antes da conexão exige nenhum WebSocket criado (spec §9).
-- [ ] Os testes falham antes da T4402 (vermelho registrado).
+- [x] Teste de desmontagem antes da conexão exige nenhum WebSocket criado (spec §9).
+- [x] Os testes falham antes da T4402: "expected ... to have a length of 1 but got 2" (StrictMode) e "length of +0 but
+  got 1" (desmontagem); os 14 demais verdes.
 
 ### T4402 — Abertura adiada e cancelável da conexão
 [ ] T4402
