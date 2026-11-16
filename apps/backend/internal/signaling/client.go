@@ -54,7 +54,8 @@ type Client struct {
 	closeReason string
 }
 
-// newClient cria um Client e inicia os pumps em goroutines separadas.
+// newClient cria um Client e inicia o writePump. O readPump só começa em startReading, depois de o hub processar o
+// registro: assim nenhuma mensagem do cliente chega ao hub antes dele estar em clients (039/RF-3901).
 func newClient(hub *Hub, conn *websocket.Conn, participantID, roomID, name, studentID string, role Role) *Client {
 	c := &Client{
 		hub:           hub,
@@ -67,8 +68,14 @@ func newClient(hub *Hub, conn *websocket.Conn, participantID, roomID, name, stud
 		studentID:     studentID,
 	}
 	go c.writePump()
-	go c.readPump()
 	return c
+}
+
+// startReading inicia o readPump. Deve ser chamado uma vez, depois de o hub receber o cliente por register
+// (039/RF-3901). Cliente recusado no registro também lê: o readPump termina quando a conexão fecha e envia o unregister
+// que o hub ignora.
+func (c *Client) startReading() {
+	go c.readPump()
 }
 
 // readPump lê mensagens do WebSocket e envia ao hub para processamento.

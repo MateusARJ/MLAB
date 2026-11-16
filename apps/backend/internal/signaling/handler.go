@@ -123,9 +123,12 @@ func (h *Handler) serveWS(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// 7. Cria o cliente e o registra no hub.
+	// 7. Cria o cliente e o registra no hub. A leitura só começa depois do register: o envio é síncrono e o hub
+	// processa o registro antes de ler inbound de novo, então a primeira mensagem do cliente (publish-request,
+	// subscribe-request, end-session) nunca chega antes do registro (039/RF-3901).
 	client := newClient(hub, conn, participantID, roomID, name, studentID, Role(role))
 	hub.register <- client
+	client.startReading()
 
 	// 8. Envia configuração de ICE servers ao novo cliente.
 	client.sendJSON(TypeIceServers, h.buildIceServers(participantID))

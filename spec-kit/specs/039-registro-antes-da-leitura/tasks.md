@@ -10,20 +10,20 @@ Regras:
 - um commit atômico por task, com `Ref: T390x` e `Refs #114`.
 
 ### T3901 — Leitura do cliente só depois do registro
-[ ] T3901
+[x] T3901
 Allowed Paths: `apps/backend/internal/signaling/client.go`, `apps/backend/internal/signaling/handler.go`,
 `apps/backend/internal/signaling/handler_register_test.go`, `spec-kit/specs/039-registro-antes-da-leitura/tasks.md`
 Prohibited Paths: `apps/backend/internal/signaling/hub.go`, `apps/backend/internal/signaling/message.go`,
 `apps/backend/internal/room/**`, `apps/backend/internal/webrtc/**`, `apps/backend/cmd/**`, `apps/web/**`,
 `apps/desktop/**`, `packages/**`, `package.json`
 Checks:
-- [ ] `newClient` inicia só o `writePump`; `serveWS` chama `startReading()` depois do `register` (RF-3901).
-- [ ] Cliente recusado continua recebendo `room-closed`/`4002` e o fechamento (RF-3902); ordem do registro inalterada
+- [x] `newClient` inicia só o `writePump`; `serveWS` chama `startReading()` depois do `register` (RF-3901).
+- [x] Cliente recusado continua recebendo `room-closed`/`4002` e o fechamento (RF-3902); ordem do registro inalterada
   (RF-3903).
-- [ ] `TestServeWS_PrimeiraMensagemDepoisDoRegistro` falha na `development` e passa com a correção.
-- [ ] No container Linux (`golang:1.26`): `go test -count=200 -run TestServeWS_ConexaoDuranteEncerramento
+- [x] `TestServeWS_PrimeiraMensagemDepoisDoRegistro` falha na `development` e passa com a correção.
+- [x] No container Linux (`golang:1.26`): `go test -count=200 -run TestServeWS_ConexaoDuranteEncerramento
   ./internal/signaling/` sem falha e `go test -race ./internal/signaling/ ./cmd/server/` sem corrida (RNF-3901).
-- [ ] `go vet ./...` e `go test -count=1 ./...` verdes.
+- [x] `go vet ./...` e `go test -count=1 ./...` verdes.
 
 ### T3902 — Converge
 [ ] T3902
