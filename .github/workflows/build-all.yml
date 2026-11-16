@@ -18,10 +18,73 @@ on:
     tags:
       - 'v*' # Dispara automaticamente ao criar uma tag de versão (ex: v1.7.1)
 
+# Os instaladores (~510 MB por run) não passam por artefatos do Actions: a cota de armazenamento da conta é menor que
+# um run (#80, #112, #123). Na tag/dispatch, cada build envia os próprios instaladores direto para uma release em
+# rascunho, e ela só é publicada quando os três builds passam. Em PR o build só valida.
 jobs:
+  prepare:
+    name: Preparar release (rascunho)
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    outputs:
+      tag: ${{ steps.release_vars.outputs.tag }}
+    steps:
+      - name: Checkout do código
+        uses: actions/checkout@v4
+
+      - name: Determinar Versão da Release
+        id: release_vars
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ -n "${{ github.event.inputs.tag_name }}" ]; then
+            echo "tag=${{ github.event.inputs.tag_name }}" >> $GITHUB_OUTPUT
+            echo "title=${{ github.event.inputs.release_title || format('MLab {0}', github.event.inputs.tag_name) }}" >> $GITHUB_OUTPUT
+          elif [[ "${{ github.ref }}" == refs/tags/* ]]; then
+            TAG_NAME="${GITHUB_REF#refs/tags/}"
+            echo "tag=$TAG_NAME" >> $GITHUB_OUTPUT
+            echo "title=MLab $TAG_NAME" >> $GITHUB_OUTPUT
+          else
+            PKG_VER=$(node -p "require('./package.json').version") || { echo "Versão do package.json não encontrada"; exit 1; }
+            echo "tag=v$PKG_VER" >> $GITHUB_OUTPUT
+            echo "title=MLab v$PKG_VER" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Criar a release em rascunho com as notas
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ steps.release_vars.outputs.tag }}
+          TITLE: ${{ steps.release_vars.outputs.title }}
+        run: |
+          NOTES="docs/releases/$TAG.md"
+          NOTES_ARGS=()
+          if [ -f "$NOTES" ]; then
+            echo "Notas da release: $NOTES"
+            NOTES_ARGS=(--notes-file "$NOTES")
+          else
+            echo "::warning::$NOTES não existe; a release sai só com as notas automáticas."
+          fi
+
+          IS_DRAFT=$(gh release view "$TAG" --json isDraft -q .isDraft 2>/dev/null || echo "none")
+          if [ "$IS_DRAFT" = "false" ]; then
+            echo "::error::A release $TAG já está publicada. Use outra versão ou apague a release antes de repetir."
+            exit 1
+          elif [ "$IS_DRAFT" = "true" ]; then
+            echo "Reaproveitando o rascunho existente de $TAG."
+            if [ -f "$NOTES" ]; then gh release edit "$TAG" --title "$TITLE" --notes-file "$NOTES"; fi
+          else
+            # --generate-notes acrescenta a lista automática de PRs depois do texto de --notes-file.
+            gh release create "$TAG" --draft --target "$GITHUB_SHA" --title "$TITLE" --generate-notes "${NOTES_ARGS[@]}"
+          fi
+
   build:
     name: Build ${{ matrix.platform }} (${{ matrix.os }})
+    needs: prepare
+    # Em PR o prepare é pulado e o build roda mesmo assim, só para validar.
+    if: ${{ !cancelled() && needs.prepare.result != 'failure' }}
     runs-on: ${{ matrix.os }}
+    permissions:
+      contents: write
     strategy:
       fail-fast: false
       matrix:
@@ -29,23 +92,15 @@ jobs:
           - os: windows-latest
             platform: windows
             build_cmd: npm --prefix apps/desktop run make:win
-            artifact_name: mlab-windows
-            artifact_path: apps/desktop/dist/*.exe*
+            release_files: apps/desktop/dist/*.exe apps/desktop/dist/*.exe.blockmap
           - os: ubuntu-latest
             platform: linux
             build_cmd: npm --prefix apps/desktop run make:linux
-            artifact_name: mlab-linux
-            artifact_path: |
-              apps/desktop/dist/*.AppImage
-              apps/desktop/dist/*.deb
-              apps/desktop/dist/*.tar.gz
+            release_files: apps/desktop/dist/*.AppImage apps/desktop/dist/*.deb apps/desktop/dist/*.tar.gz
           - os: macos-latest
             platform: macos
             build_cmd: npm --prefix apps/desktop run make:mac
-            artifact_name: mlab-macos
-            artifact_path: |
-              apps/desktop/dist/*.dmg
-              apps/desktop/dist/*.zip
+            release_files: apps/desktop/dist/*.dmg apps/desktop/dist/*.zip
 
     steps:
       - name: Checkout do código
@@ -92,76 +147,35 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: ${{ matrix.build_cmd }}
 
-      # Em PR o build só valida: os instaladores (~510 MB por run) esgotavam a cota de armazenamento da conta (#80, #112).
-      # Na tag/dispatch o job release baixa os artefatos neste mesmo run, então 1 dia de retenção basta.
-      - name: Fazer upload dos instaladores (Artifacts)
+      - name: Enviar os instaladores para a release
         if: github.event_name != 'pull_request'
-        uses: actions/upload-artifact@v4
-        with:
-          name: ${{ matrix.artifact_name }}
-          path: ${{ matrix.artifact_path }}
-          if-no-files-found: error
-          retention-days: 1
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ needs.prepare.outputs.tag }}
+          RELEASE_FILES: ${{ matrix.release_files }}
+        run: |
+          shopt -s nullglob
+          FILES=( $RELEASE_FILES )
+          if [ ${#FILES[@]} -eq 0 ]; then
+            echo "::error::Nenhum instalador encontrado em: $RELEASE_FILES"
+            exit 1
+          fi
+          printf 'Enviando %s\n' "${FILES[@]}"
+          gh release upload "$TAG" "${FILES[@]}" --clobber
 
-  release:
-    name: Criar GitHub Release
-    needs: build
-    if: success() && (startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch')
+  publish:
+    name: Publicar GitHub Release
+    needs: [prepare, build]
+    if: github.event_name != 'pull_request'
     runs-on: ubuntu-latest
     permissions:
       contents: write
     steps:
-      - name: Checkout do código
-        uses: actions/checkout@v4
-
-      - name: Download de todos os artefatos
-        uses: actions/download-artifact@v4
-        with:
-          path: dist-release
-
-      - name: Determinar Versão da Release
-        id: release_vars
+      - name: Tirar a release do rascunho
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ needs.prepare.outputs.tag }}
         run: |
-          if [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ -n "${{ github.event.inputs.tag_name }}" ]; then
-            echo "tag=${{ github.event.inputs.tag_name }}" >> $GITHUB_OUTPUT
-            echo "title=${{ github.event.inputs.release_title || format('MLab {0}', github.event.inputs.tag_name) }}" >> $GITHUB_OUTPUT
-          elif [[ "${{ github.ref }}" == refs/tags/* ]]; then
-            TAG_NAME="${GITHUB_REF#refs/tags/}"
-            echo "tag=$TAG_NAME" >> $GITHUB_OUTPUT
-            echo "title=MLab $TAG_NAME" >> $GITHUB_OUTPUT
-          else
-            PKG_VER=$(node -p "require('./package.json').version") || { echo "Versão do package.json não encontrada"; exit 1; }
-            echo "tag=v$PKG_VER" >> $GITHUB_OUTPUT
-            echo "title=MLab v$PKG_VER" >> $GITHUB_OUTPUT
-          fi
-
-      - name: Localizar as notas da release
-        id: release_notes
-        run: |
-          NOTES="docs/releases/${{ steps.release_vars.outputs.tag }}.md"
-          if [ -f "$NOTES" ]; then
-            echo "Notas da release: $NOTES"
-            echo "path=$NOTES" >> $GITHUB_OUTPUT
-          else
-            echo "::warning::$NOTES não existe; a release sai só com as notas automáticas."
-            echo "path=" >> $GITHUB_OUTPUT
-          fi
-
-      - name: Publicar Release
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: ${{ steps.release_vars.outputs.tag }}
-          target_commitish: ${{ github.sha }}
-          name: ${{ steps.release_vars.outputs.title }}
-          body_path: ${{ steps.release_notes.outputs.path }}
-          draft: false
-          prerelease: false
-          files: |
-            dist-release/**/*.exe
-            dist-release/**/*.blockmap
-            dist-release/**/*.AppImage
-            dist-release/**/*.deb
-            dist-release/**/*.tar.gz
-            dist-release/**/*.dmg
-            dist-release/**/*.zip
-          generate_release_notes: true
+          gh release edit "$TAG" --repo "$GITHUB_REPOSITORY" --draft=false --latest
+          gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json url,assets -q '"Publicada: \(.url)\n" + ([.assets[].name] | join("\n"))'
