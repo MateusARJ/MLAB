@@ -2,7 +2,7 @@
 
 Feature: `039-registro-antes-da-leitura`
 Prerequisites: spec/clarify/plan/checklist/analyze aprovados
-Status: IN PROGRESS
+Status: DONE
 
 Regras:
 - antes de marcar `[x]`: `go test ./...` e `go vet ./...` em `apps/backend`, e `gofmt -l` vazio nos arquivos Go
@@ -35,10 +35,10 @@ Checks:
 - [x] `npm run spec:check -- spec-kit/specs/039-registro-antes-da-leitura` com PASS.
 
 ### T3903 — Versão
-[ ] T3903
+[x] T3903
 Depends On: T3902
 Allowed Paths: `package.json`, `package-lock.json`, `apps/*/package.json`, `packages/*/package.json`,
 `spec-kit/specs/039-registro-antes-da-leitura/tasks.md`
 Prohibited Paths: `apps/**/src/**`, `apps/backend/internal/**`, `packages/**/src/**`, `.github/**`
 Checks:
-- [ ] `npm run bump -- patch` e `npm run version:check`; commit `chore(release): versao X.Y.Z`.
+- [x] `npm run bump -- patch` e `npm run version:check`; commit `chore(release): versao X.Y.Z`.
