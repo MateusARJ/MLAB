@@ -1,0 +1,50 @@
+# Tasks: Uma Única Conexão de Sinalização por Entrada do Aluno
+
+Feature: `044-conexao-unica-do-aluno`
+Prerequisites: spec/clarify/plan/checklist/analyze aprovados
+Status: READY
+
+Regras:
+- um commit atômico por task, com `Ref: T440x` e `Refs #127`.
+
+### T4401 — Teste da montagem dupla do StrictMode
+[ ] T4401
+Allowed Paths: `apps/web/src/hooks/useWebRTCSubscriber.test.ts`, `spec-kit/specs/044-conexao-unica-do-aluno/tasks.md`
+Prohibited Paths: `apps/web/src/hooks/useWebRTCSubscriber.ts`, `apps/web/src/main.tsx`, `apps/web/src/pages/**`,
+`apps/web/e2e/**`, `apps/backend/**`, `apps/desktop/**`, `packages/**`
+Checks:
+- [ ] Teste com `renderHook(..., { wrapper: React.StrictMode })` exige um único WebSocket criado e nenhum fechado
+  (RF-4401).
+- [ ] Teste de desmontagem antes da conexão exige nenhum WebSocket criado (spec §9).
+- [ ] Os testes falham antes da T4402 (vermelho registrado).
+
+### T4402 — Abertura adiada e cancelável da conexão
+[ ] T4402
+Depends On: T4401
+Allowed Paths: `apps/web/src/hooks/useWebRTCSubscriber.ts`, `apps/web/src/hooks/useWebRTCSubscriber.test.ts`,
+`spec-kit/specs/044-conexao-unica-do-aluno/tasks.md`
+Prohibited Paths: `apps/web/src/main.tsx`, `apps/web/src/pages/**`, `apps/web/e2e/**`, `apps/backend/**`,
+`apps/desktop/**`, `packages/**`
+Checks:
+- [ ] O efeito agenda `connect()` num timer de 0 ms; o cleanup cancela o timer (RF-4401).
+- [ ] Tratamento do `4001`, `4002`, `1000`/`4004` e backoff inalterados; testes existentes verdes, ajustados só para
+  avançar um tick (RF-4402).
+- [ ] `npm run test -w @mlab/web` e `npm run typecheck -w @mlab/web` (ou equivalente) verdes.
+
+### T4403 — Verificação e2e
+[ ] T4403
+Depends On: T4402
+Allowed Paths: `spec-kit/specs/044-conexao-unica-do-aluno/tasks.md`
+Prohibited Paths: `apps/**`, `packages/**`
+Checks:
+- [ ] `npm run build` verde.
+- [ ] `cd apps/web && npx playwright test --repeat-each=3 --retries=0` sem `4001` falso (RNF-4401).
+
+### T4404 — Converge
+[ ] T4404
+Depends On: T4403
+Allowed Paths: `spec-kit/specs/044-conexao-unica-do-aluno/**`
+Prohibited Paths: `apps/**`, `packages/**`, `.github/**`, `spec-kit/docs/adrs/**`
+Checks:
+- [ ] `converge.md` com evidências, desvios e impacto de versão (PATCH, C-4402).
+- [ ] `npm run spec:check -- spec-kit/specs/044-conexao-unica-do-aluno` com PASS.
