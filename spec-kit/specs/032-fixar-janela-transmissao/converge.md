@@ -1,7 +1,7 @@
 # Converge: Fixar uma Janela na Transmissão de Múltiplas Janelas
 
 Feature: `032-fixar-janela-transmissao`
-Status: PARTIAL — falta a verificação manual no Windows (T3206)
+Status: DONE
 Branch: `feat/fixar-janela-transmissao`, a partir da `development` @ `0873ec8` (2.0.0, com o #93)
 
 ## 1. Revalidação antes da implementação (C-3201)
@@ -56,14 +56,18 @@ comportamento; spec, plan e analyze ficaram como estavam.
 
 - Nenhum novo nesta feature.
 
-## 6. Trabalho restante
+## 6. Verificação manual (T3206)
 
-- **Verificação manual no Windows (T3206)**, com o app instalado ou em `npm run dev` e duas janelas autorizadas:
-  fixar A, colocar o foco em B (a transmissão continua em A), desfixar (passa para B), fechar a janela fixada (desfixa
-  e volta a seguir o foco), "Trocar tela" (fixação desfeita), cursor e lupa só sobre A enquanto fixada, e a gravação
-  local depois de trocas (C-3206). Não foi feita nesta sessão: depende de janelas reais do sistema operacional.
+- Feita pelo responsável no Windows em 2026-11-16, com duas janelas autorizadas, sobre o roteiro: fixar A, colocar o
+  foco em B (a transmissão continua em A), desfixar (passa para B), fechar a janela fixada (desfixa e volta a seguir o
+  foco), "Trocar tela" (fixação desfeita), cursor e lupa só sobre A enquanto fixada, e a gravação local depois de
+  trocas (C-3206). Resultado relatado: fixação 100% funcional, sem desvio.
 
-## 7. Impacto de versão
+## 7. Trabalho restante
+
+- Nenhum nesta feature.
+
+## 8. Impacto de versão
 
 **MINOR** (C-3206): funcionalidade nova compatível, com campo opcional no IPC interno do desktop
 (`docs/versionamento.md` §2).

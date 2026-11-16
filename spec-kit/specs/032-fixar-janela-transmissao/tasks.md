@@ -2,7 +2,7 @@
 
 Feature: `032-fixar-janela-transmissao`
 Prerequisites: spec/clarify/plan/checklist/analyze aprovados; PR #93 integrado à `development` (C-3201)
-Status: READY
+Status: DONE
 
 Regras:
 - `npm test` e `npm run lint` (`tsc --noEmit`) em `apps/desktop` verdes antes de marcar `[x]`;
@@ -93,17 +93,17 @@ Checks:
 - [x] Teste novo: sem fixação, `selectSource` é chamado sem `pinnedSourceId` em toda troca por foco e pelo seletor.
 
 ### T3206 — Verificação, notas, converge e versão
-[ ] T3206
+[x] T3206
 Depends On: T3201, T3202, T3203, T3204, T3205
 Allowed Paths: `spec-kit/specs/032-fixar-janela-transmissao/**`, `spec-kit/specs/003-classroom-interaction/spec.md`,
 `spec-kit/specs/007-mascara-cursor-janela/spec.md`, `package.json`, `package-lock.json`, `apps/*/package.json`,
 `packages/*/package.json`
 Prohibited Paths: `apps/**/src/**`, `packages/**/src/**`, `apps/backend/**`, `.github/**`, `docs/requirements/**`
 Checks:
-- [ ] Verificação manual no Windows (duas janelas autorizadas): fixar, foco na outra, desfixar, fechar a fixada,
+- [x] Verificação manual no Windows (duas janelas autorizadas): fixar, foco na outra, desfixar, fechar a fixada,
   reconfigurar, alinhamento do cursor/lupa com a fixada; gravação após troca observada (C-3206) ou impossibilidade
   registrada no `converge.md`.
 - [x] Notas na US-20 da `003/spec.md` e no RF-701/RF-708 da `007/spec.md` apontando o RF-3208.
 - [x] `converge.md` com evidências, desvios registrados e impacto de versão (MINOR, C-3206).
-- [ ] `npm run bump -- minor` e `npm run version:check`; commit `chore(release): versao X.Y.Z`.
+- [x] `npm run bump -- minor` e `npm run version:check`; commit `chore(release): versao X.Y.Z`.
 - [x] `npm run spec:check -- spec-kit/specs/032-fixar-janela-transmissao` com PASS.
