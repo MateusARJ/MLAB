@@ -15,8 +15,8 @@ depois: efeito → setTimeout(connect, 0)                ← StrictMode: cleanup
         efeito → setTimeout(connect, 0) → ws (único)
 ```
 
-1. `apps/web/src/hooks/useWebRTCSubscriber.ts`: o efeito de conexão agenda `connect()` com `setTimeout(..., 0)` num
-   ref (`initialConnectTimerRef`); o cleanup cancela o timer antes do restante da limpeza.
+1. `apps/web/src/hooks/useWebRTCSubscriber.ts`: o efeito de conexão agenda `connect()` com `setTimeout(..., 0)`,
+   guardado numa variável local do efeito; o cleanup cancela o timer antes do restante da limpeza.
 2. `apps/web/src/hooks/useWebRTCSubscriber.test.ts`: teste com `renderHook(..., { wrapper: React.StrictMode })` que
    exige um único WebSocket; os testes existentes avançam um tick antes de ler o WebSocket criado.
 

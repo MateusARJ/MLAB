@@ -83,8 +83,18 @@ describe('useWebRTCSubscriber Hook', () => {
   // Deixa passar o tick em que o hook abre o WebSocket (044/RF-4401).
   const flushConnect = async () => {
     await act(async () => {
-      await new Promise((resolve) => setTimeout(resolve, 0));
+      if (vi.isFakeTimers()) {
+        vi.advanceTimersByTime(0);
+      } else {
+        await new Promise((resolve) => setTimeout(resolve, 0));
+      }
     });
+  };
+
+  const renderSubscriber = async () => {
+    const view = renderHook(() => useWebRTCSubscriber(dummyToken, dummyRoomInfo));
+    await flushConnect();
+    return view;
   };
 
   describe('conexão única por montagem (044)', () => {
@@ -106,7 +116,7 @@ describe('useWebRTCSubscriber Hook', () => {
   });
 
   it('deve enviar o token do aluno ao listar os arquivos da sala', async () => {
-    renderHook(() => useWebRTCSubscriber(dummyToken, dummyRoomInfo));
+    await renderSubscriber();
     await act(async () => {
       await Promise.resolve();
     });
@@ -116,7 +126,7 @@ describe('useWebRTCSubscriber Hook', () => {
   });
 
   it('deve enviar subscribe-request ao abrir conexão WebSocket', async () => {
-    renderHook(() => useWebRTCSubscriber(dummyToken, dummyRoomInfo));
+    await renderSubscriber();
 
     expect(mockWsInstance).toBeDefined();
 
@@ -135,7 +145,7 @@ describe('useWebRTCSubscriber Hook', () => {
   });
 
   it('deve configurar playoutDelayHint=0 e jitterBufferTarget=0 no receptor ao receber faixa de vídeo/áudio para ultra-baixa latência', async () => {
-    const { result } = renderHook(() => useWebRTCSubscriber(dummyToken, dummyRoomInfo));
+    const { result } = await renderSubscriber();
 
     await act(async () => {
       if (mockWsInstance.onopen) {
@@ -171,7 +181,7 @@ describe('useWebRTCSubscriber Hook', () => {
   });
 
   it('deve armazenar mensagens anteriores ao receber evento chat-history', async () => {
-    const { result } = renderHook(() => useWebRTCSubscriber(dummyToken, dummyRoomInfo));
+    const { result } = await renderSubscriber();
 
     const historicalMessages = [
       { message_id: 'm1', name: 'Professor', content: 'Boa tarde!', is_private: false },
@@ -195,7 +205,7 @@ describe('useWebRTCSubscriber Hook', () => {
   });
 
   it('deve armazenar arquivos compartilhados ao receber evento files-history', async () => {
-    const { result } = renderHook(() => useWebRTCSubscriber(dummyToken, dummyRoomInfo));
+    const { result } = await renderSubscriber();
 
     const historicalFiles = [
       { id: 'f1', name: 'ementa.pdf', size: 2048, url: '/rooms/room-abc/files/f1/download' },
@@ -217,7 +227,7 @@ describe('useWebRTCSubscriber Hook', () => {
   });
 
   it('deve recriar PeerConnection e reenviar subscribe-request ao receber stream-started (sem F5)', async () => {
-    const { result } = renderHook(() => useWebRTCSubscriber(dummyToken, dummyRoomInfo));
+    const { result } = await renderSubscriber();
 
     const initialPCCount = mockPcInstances.length;
     mockWsInstance.send.mockClear();
@@ -248,7 +258,7 @@ describe('useWebRTCSubscriber Hook', () => {
   it('deve exibir aviso temporário ao receber CHAT_RATE_LIMITED sem fechar a conexão', async () => {
     vi.useFakeTimers();
     try {
-      const { result } = renderHook(() => useWebRTCSubscriber(dummyToken, dummyRoomInfo));
+      const { result } = await renderSubscriber();
 
       await act(async () => {
         mockWsInstance.onmessage({
@@ -278,7 +288,7 @@ describe('useWebRTCSubscriber Hook', () => {
   });
 
   it('não deve exibir aviso de chat para outros códigos de erro', async () => {
-    const { result } = renderHook(() => useWebRTCSubscriber(dummyToken, dummyRoomInfo));
+    const { result } = await renderSubscriber();
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
     await act(async () => {
       mockWsInstance.onmessage({ data: JSON.stringify({ type: 'error', payload: { code: 'FORBIDDEN', message: 'x' } }) });
@@ -290,7 +300,7 @@ describe('useWebRTCSubscriber Hook', () => {
   it('deve ir para duplicate sem reconectar ao receber close 4001 (RN-04)', async () => {
     vi.useFakeTimers();
     try {
-      const { result } = renderHook(() => useWebRTCSubscriber(dummyToken, dummyRoomInfo));
+      const { result } = await renderSubscriber();
       const firstWs = mockWsInstance;
 
       await act(async () => {
@@ -310,7 +320,7 @@ describe('useWebRTCSubscriber Hook', () => {
   it('deve ir para student-id-in-use sem reconectar ao receber close 4002 (027/RF-2706)', async () => {
     vi.useFakeTimers();
     try {
-      const { result } = renderHook(() => useWebRTCSubscriber(dummyToken, dummyRoomInfo));
+      const { result } = await renderSubscriber();
       const firstWs = mockWsInstance;
 
       await act(async () => {
@@ -356,7 +366,7 @@ describe('useWebRTCSubscriber Hook', () => {
     }
 
     it('deve tratar stream-started só depois da answer da offer em andamento e responder a oferta seguinte com a PC nova (RF-2305)', async () => {
-      renderHook(() => useWebRTCSubscriber(dummyToken, dummyRoomInfo));
+      await renderSubscriber();
       await act(async () => {
         mockWsInstance.onopen();
       });
@@ -400,7 +410,7 @@ describe('useWebRTCSubscriber Hook', () => {
     });
 
     it('não deve enviar answer de uma offer cuja PC foi descartada enquanto aguardava (RF-2306)', async () => {
-      const { unmount } = renderHook(() => useWebRTCSubscriber(dummyToken, dummyRoomInfo));
+      const { unmount } = await renderSubscriber();
       await act(async () => {
         mockWsInstance.onopen();
       });
@@ -425,7 +435,7 @@ describe('useWebRTCSubscriber Hook', () => {
     });
 
     it('não deve repetir o candidato ICE numa PC descartada (RF-2306)', async () => {
-      const { unmount } = renderHook(() => useWebRTCSubscriber(dummyToken, dummyRoomInfo));
+      const { unmount } = await renderSubscriber();
       await act(async () => {
         mockWsInstance.onopen();
       });
@@ -456,7 +466,7 @@ describe('useWebRTCSubscriber Hook', () => {
   it('deve liberar o chat só com o WebSocket aberto e bloquear ao cair (005/RF-506)', async () => {
     vi.useFakeTimers();
     try {
-      const { result } = renderHook(() => useWebRTCSubscriber(dummyToken, dummyRoomInfo));
+      const { result } = await renderSubscriber();
       const firstWs = mockWsInstance;
       expect(result.current.isChatReady).toBe(false);
 

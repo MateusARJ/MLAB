@@ -20,17 +20,17 @@ Checks:
   got 1" (desmontagem); os 14 demais verdes.
 
 ### T4402 — Abertura adiada e cancelável da conexão
-[ ] T4402
+[x] T4402
 Depends On: T4401
 Allowed Paths: `apps/web/src/hooks/useWebRTCSubscriber.ts`, `apps/web/src/hooks/useWebRTCSubscriber.test.ts`,
-`spec-kit/specs/044-conexao-unica-do-aluno/tasks.md`
+`spec-kit/specs/044-conexao-unica-do-aluno/plan.md`, `spec-kit/specs/044-conexao-unica-do-aluno/tasks.md`
 Prohibited Paths: `apps/web/src/main.tsx`, `apps/web/src/pages/**`, `apps/web/e2e/**`, `apps/backend/**`,
 `apps/desktop/**`, `packages/**`
 Checks:
-- [ ] O efeito agenda `connect()` num timer de 0 ms; o cleanup cancela o timer (RF-4401).
-- [ ] Tratamento do `4001`, `4002`, `1000`/`4004` e backoff inalterados; testes existentes verdes, ajustados só para
-  avançar um tick (RF-4402).
-- [ ] `npm run test -w @mlab/web` e `npm run typecheck -w @mlab/web` (ou equivalente) verdes.
+- [x] O efeito agenda `connect()` num timer de 0 ms; o cleanup cancela o timer (RF-4401).
+- [x] Tratamento do `4001`, `4002`, `1000`/`4004` e backoff inalterados; testes existentes verdes, ajustados só para
+  avançar um tick pelo helper `renderSubscriber` (RF-4402).
+- [x] `npx vitest run` em `apps/web`: 5 arquivos, 59 testes verdes; `npm run lint` (`tsc --noEmit`) verde.
 
 ### T4403 — Verificação e2e
 [ ] T4403
