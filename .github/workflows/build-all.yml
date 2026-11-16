@@ -92,13 +92,16 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: ${{ matrix.build_cmd }}
 
+      # Em PR o build só valida: os instaladores (~510 MB por run) esgotavam a cota de armazenamento da conta (#80, #112).
+      # Na tag/dispatch o job release baixa os artefatos neste mesmo run, então 1 dia de retenção basta.
       - name: Fazer upload dos instaladores (Artifacts)
+        if: github.event_name != 'pull_request'
         uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.artifact_name }}
           path: ${{ matrix.artifact_path }}
           if-no-files-found: error
-          retention-days: 7
+          retention-days: 1
 
   release:
     name: Criar GitHub Release
