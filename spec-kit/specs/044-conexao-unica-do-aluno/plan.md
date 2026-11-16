@@ -78,7 +78,7 @@ depois: efeito → setTimeout(connect, 0)                ← StrictMode: cleanup
 - [x] Princípio V: nenhum contrato muda.
 - [x] Princípio VI: Scope Lock e paths por task.
 - [x] Princípio VII: mudança restrita a um hook e seus testes.
-- [ ] Princípio VIII: converge ao final (T4404).
+- [x] Princípio VIII: converge ao final (T4404).
 
 ## 5. Decision Log
 

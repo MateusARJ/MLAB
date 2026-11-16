@@ -2,7 +2,7 @@
 
 Feature: `044-conexao-unica-do-aluno`
 Prerequisites: spec/clarify/plan/checklist/analyze aprovados
-Status: READY
+Status: DONE
 
 Regras:
 - um commit atômico por task, com `Ref: T440x` e `Refs #127`.
@@ -33,19 +33,19 @@ Checks:
 - [x] `npx vitest run` em `apps/web`: 5 arquivos, 59 testes verdes; `npm run lint` (`tsc --noEmit`) verde.
 
 ### T4403 — Verificação e2e
-[ ] T4403
+[x] T4403
 Depends On: T4402
 Allowed Paths: `spec-kit/specs/044-conexao-unica-do-aluno/tasks.md`
 Prohibited Paths: `apps/**`, `packages/**`
 Checks:
-- [ ] `npm run build` verde.
-- [ ] `cd apps/web && npx playwright test --repeat-each=3 --retries=0` sem `4001` falso (RNF-4401).
+- [x] `npm run build` verde.
+- [x] `cd apps/web && npx playwright test --repeat-each=3 --retries=0`: 39 passed, sem `4001` falso (RNF-4401).
 
 ### T4404 — Converge
-[ ] T4404
+[x] T4404
 Depends On: T4403
 Allowed Paths: `spec-kit/specs/044-conexao-unica-do-aluno/**`
 Prohibited Paths: `apps/**`, `packages/**`, `.github/**`, `spec-kit/docs/adrs/**`
 Checks:
-- [ ] `converge.md` com evidências, desvios e impacto de versão (PATCH, C-4402).
-- [ ] `npm run spec:check -- spec-kit/specs/044-conexao-unica-do-aluno` com PASS.
+- [x] `converge.md` com evidências, desvios e impacto de versão (PATCH, C-4402).
+- [x] `npm run spec:check -- spec-kit/specs/044-conexao-unica-do-aluno` com PASS.
