@@ -153,12 +153,13 @@ uma, está em [Features e Decisões de Arquitetura](#features-e-decisões-de-arq
 - O aluno clica em **Levantar Mão** no player de vídeo ou na barra lateral de tela cheia.
 - O professor vê a seção **Mãos Levantadas** na aba de Alunos, em ordem de chamada (`#1`, `#2`, `#3`).
 - O professor pode responder em chat privado ou clicar em **Abaixar Mão**; o aluno também pode abaixar a própria mão.
-- Com a barra lateral fechada, um aviso flutuante informa o professor e leva até a turma. No celular do aluno, o aviso se ajusta à largura da tela.
+- Com a barra lateral fechada, um aviso flutuante informa o professor. **Ver Turma** leva até a turma, **Dispensar aviso** fecha o aviso, e ele some sozinho quando a mão é abaixada. No celular do aluno, o aviso se ajusta à largura da tela.
 
 ### Entrada Identificada com Validação de Matrícula
 - O aluno informa Nome Completo e Matrícula antes de entrar.
 - A matrícula aceita siglas de curso de até 4 letras cercadas de dígitos (ex.: `2025116TADS0000`, `20241INFO1234`).
-- Sessão única por aluno: se a mesma matrícula entrar em outra aba ou dispositivo, a sessão anterior é encerrada com aviso.
+- **Matrícula única na transmissão** ([ADR 0010](spec-kit/docs/adrs/0010-sessao-unica-recusa-nova-entrada.md)): se a matrícula já está conectada, a nova entrada é recusada com o aviso "Esta matrícula já está conectada nesta transmissão." A sessão que já estava na sala não cai.
+- **Sala encerrada não aceita entrada:** depois que o professor encerra a transmissão, o link antigo não recria a sala. O aluno que tenta entrar, ou estava conectando no momento do encerramento, recebe o aviso de transmissão encerrada.
 
 ### Chat com Máscara de Palavrões
 - Chat público da turma e canal privado aluno-professor, separados.
@@ -409,7 +410,7 @@ go build -ldflags="-s -w" -o ./bin/mlab-server ./cmd/server
 
 Nos instaladores o binário se chama `mlab-backend.exe` (Windows) ou `mlab-backend` (Linux/macOS), em `resources/bin/`.
 O app inicia o backend e o encerra ao fechar; se o app morrer, o backend se encerra sozinho em poucos segundos. Até a
-1.15.x o binário se chamava `server.exe`/`server`.
+1.15.3 o binário se chamava `server.exe`/`server`.
 
 ---
 
@@ -479,7 +480,8 @@ Encontrou uma vulnerabilidade? Abra uma issue sem detalhes de exploração e pe�
 | O link `mlab.local` não abre (mas o IP abre) | O mDNS pode estar bloqueado na rede ou no aparelho. Use o link por IP. No celular, prefira Chrome (Android 12+) ou Safari (iOS). |
 | O aluno entra, mas o vídeo fica preto | Libere as portas UDP `50000–50100`. Peça ao aluno para recarregar uma vez; o SFU envia um keyframe novo a quem entra. |
 | O aluno não ouve o áudio | O navegador bloqueou o som automático. O aluno clica em **Clique para Ativar Som** no aviso do topo. |
-| "Sessão aberta em outra aba" | A mesma matrícula entrou em outra aba ou dispositivo. Só a sessão mais recente fica ativa. |
+| "Esta matrícula já está conectada nesta transmissão." | A matrícula já está na sala, em outra aba ou dispositivo. Feche a sessão aberta antes de entrar de novo. Se for de outra pessoa, avise o professor. |
+| "A transmissão foi encerrada pelo professor" | A sala foi encerrada e o link antigo não vale mais. Peça o link da nova transmissão ao professor. |
 | Aviso de mensagens rápidas demais no chat | Limite de envio do chat. Espere alguns segundos. |
 | Arquivo recusado no envio | Ele passa de 50 MB ou é executável/instalador. Compacte em `.zip` se for material didático. |
 | macOS: tela preta ou captura vazia | Permita o MLab em **Gravação de Tela e Áudio do Sistema** e reabra o app. |
@@ -609,8 +611,18 @@ Cada feature tem a sua pasta em [`spec-kit/specs/`](spec-kit/specs/), com `spec.
 | 024 | [lista-arquivos-celular](spec-kit/specs/024-lista-arquivos-celular/) | Lista de arquivos na altura da gaveta no celular |
 | 025 | [favicon-web](spec-kit/specs/025-favicon-web/) | Favicon próprio do web dos alunos |
 | 026 | [barra-flutuante-cantos](spec-kit/specs/026-barra-flutuante-cantos/) | Barra flutuante inteira nos cantos da tela |
+| 027 | [matricula-unica-na-transmissao](spec-kit/specs/027-matricula-unica-na-transmissao/) | Matrícula conectada recusa a nova entrada (ADR 0010) |
+| 029 | [join-sala-encerrada](spec-kit/specs/029-join-sala-encerrada/) | Join em sala encerrada responde `409` |
+| 030 | [teste-mdns-sondagem](spec-kit/specs/030-teste-mdns-sondagem/) | Teste do mDNS mede só a sondagem |
+| 031 | [aviso-mao-levantada](spec-kit/specs/031-aviso-mao-levantada/) | Aviso de mão levantada clicável e sincronizado com a fila |
+| 032 | [fixar-janela-transmissao](spec-kit/specs/032-fixar-janela-transmissao/) | Fixar uma janela na transmissão de múltiplas janelas (especificada, ainda não implementada) |
+| 033 | [encerramento-sala-pelo-hub](spec-kit/specs/033-encerramento-sala-pelo-hub/) | Encerramento da sala pelo hub reflete no store |
+| 034 | [encerramento-backend-orfao](spec-kit/specs/034-encerramento-backend-orfao/) | App e backend embarcado encerram em qualquer fechamento |
+| 035 | [status-sala-pelo-hub](spec-kit/specs/035-status-sala-pelo-hub/) | Status da sala acompanha a sessão do hub |
+| 036 | [status-hub-sincronizado](spec-kit/specs/036-status-hub-sincronizado/) | Leitura sincronizada do status do hub |
+| 037 | [registro-em-hub-encerrado](spec-kit/specs/037-registro-em-hub-encerrado/) | Conexão recusada em sala encerrada pelo hub |
 
-O número 011 não foi usado.
+Os números 011 e 028 não foram usados.
 
 **ADRs aprovadas** ([`spec-kit/docs/adrs/`](spec-kit/docs/adrs/)):
 
