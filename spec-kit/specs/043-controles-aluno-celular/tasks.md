@@ -29,13 +29,13 @@ Checks:
   `4001` falso do desvio #127, sem relação com o layout.
 
 ### T4302 — Converge
-[ ] T4302
+[x] T4302
 Depends On: T4301
 Allowed Paths: `spec-kit/specs/043-controles-aluno-celular/**`
 Prohibited Paths: `apps/**`, `packages/**`, `.github/**`, `spec-kit/docs/adrs/**`
 Checks:
-- [ ] `converge.md` com evidências, desvios e impacto de versão (PATCH, C-4303).
-- [ ] `npm run spec:check -- spec-kit/specs/043-controles-aluno-celular` com PASS.
+- [x] `converge.md` com evidências, desvios e impacto de versão (PATCH, C-4303).
+- [x] `npm run spec:check -- spec-kit/specs/043-controles-aluno-celular` com PASS.
 
 ### T4303 — Versão
 [ ] T4303
