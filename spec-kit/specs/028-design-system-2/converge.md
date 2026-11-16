@@ -75,6 +75,8 @@ Status: CONVERGED
 - Atualização de 2026-11-15 (seção 10): backend, build completo e lint passaram; o E2E do aluno continua **não
   executado** (o Chromium do Playwright foi instalado, mas a execução foi interrompida por falta de memória na
   máquina).
+- Atualização de 2026-11-16 (seção 12): E2E do aluno executado (11 verdes, 1 instável, 1 falha pré-existente → #126)
+  e validação manual no Electron confirmada pelo responsável.
 
 ## 6. Novas tasks necessárias
 
@@ -87,6 +89,7 @@ Status: CONVERGED
 | #89 | `bug`, `desvio`, `area:desktop` | não | corrigida nesta feature (T2808, C-2807) |
 | #90 | `bug`, `desvio`, `area:desktop` | não | aviso de mão levantada: botões não respondem e o aviso não some; fechada pela feature 031 (seção 10) |
 | #91 | `enhancement`, `area:desktop` | não | fixar uma janela na transmissão de múltiplas janelas; aberta, especificada na feature 032 (ainda não implementada) |
+| #126 | `bug`, `desvio`, `area:web` | não | e2e A19 ainda espera a troca de sessão da mesma matrícula (`4001`) em vez da recusa da ADR 0010 (`409`/`4002`); falha também na `development` sem este PR; aberta (seção 12) |
 
 ## 8. Impacto de versão
 
@@ -150,3 +153,19 @@ Validações após o rebase (Windows, Node 22, Go 1.27):
 - `npm run build` (Turborepo, 5 tarefas): verde;
 - `npm run spec:check`: PASS;
 - E2E do aluno e validação manual no Electron: não executados (seção 5).
+
+## 12. E2E do aluno e validação manual (2026-11-16)
+
+- **Validação manual no Windows:** o responsável confirmou que o app do professor abre e funciona com a interface
+  nova, e que os comandos do Electron e o electron-builder funcionam.
+- **E2E do aluno** (`npx playwright test` em `apps/web`, Chromium 1148, base 1.15.10): 13 testes; 11 verdes,
+  1 instável e 1 falha.
+  - Instável: passou na nova tentativa; na primeira, o Chromium não abriu dentro de 180 s com a máquina sob pouca
+    memória (`browserType.launch: Timeout`), sem relação com a interface.
+  - Falha: `A19 mesma matrícula em outra aba encerra a sessão anterior com aviso`. A segunda aba recebe o `409` da
+    ADR 0010 e fica na entrada com "Esta matrícula já está conectada nesta transmissão.", mas o teste ainda espera a
+    troca de sessão com `4001`. Com instalação limpa da `development` 1.15.10 (`3646ecb`), sem este PR, o A19 falha
+    no mesmo ponto (`fixtures.ts:144`, chamado em `aluno.e2e.ts:150`). Desvio não bloqueante registrado na #126; a
+    correção fica para tarefa própria.
+- Os rótulos novos usados pelo e2e ("Nome completo", "Matrícula", "Entrar na aula") foram encontrados em todos os
+  testes que passam pela entrada.
