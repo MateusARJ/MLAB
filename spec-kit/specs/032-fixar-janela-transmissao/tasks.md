@@ -103,7 +103,7 @@ Checks:
 - [ ] Verificação manual no Windows (duas janelas autorizadas): fixar, foco na outra, desfixar, fechar a fixada,
   reconfigurar, alinhamento do cursor/lupa com a fixada; gravação após troca observada (C-3206) ou impossibilidade
   registrada no `converge.md`.
-- [ ] Notas na US-20 da `003/spec.md` e no RF-701/RF-708 da `007/spec.md` apontando o RF-3208.
-- [ ] `converge.md` com evidências, desvios registrados e impacto de versão (MINOR, C-3206).
+- [x] Notas na US-20 da `003/spec.md` e no RF-701/RF-708 da `007/spec.md` apontando o RF-3208.
+- [x] `converge.md` com evidências, desvios registrados e impacto de versão (MINOR, C-3206).
 - [ ] `npm run bump -- minor` e `npm run version:check`; commit `chore(release): versao X.Y.Z`.
-- [ ] `npm run spec:check -- spec-kit/specs/032-fixar-janela-transmissao` com PASS.
+- [x] `npm run spec:check -- spec-kit/specs/032-fixar-janela-transmissao` com PASS.
