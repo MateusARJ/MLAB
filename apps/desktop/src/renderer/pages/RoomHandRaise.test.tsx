@@ -173,7 +173,7 @@ describe('Room Component - Feature Levantar a Mão (Desktop)', () => {
   };
 
   const startStreaming = async () => {
-    const advanceBtn = screen.getByRole('button', { name: /Avançar e Iniciar Transmissão/i });
+    const advanceBtn = screen.getByRole('button', { name: /Começar transmissão/i });
     await waitFor(() => {
       expect(advanceBtn).toBeEnabled();
     });
