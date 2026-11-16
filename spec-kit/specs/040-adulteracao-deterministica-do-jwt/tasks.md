@@ -2,7 +2,7 @@
 
 Feature: `040-adulteracao-deterministica-do-jwt`
 Prerequisites: spec/clarify/plan/checklist/analyze aprovados
-Status: IN PROGRESS
+Status: DONE
 
 Regras:
 - antes de marcar `[x]`: `go test ./...` e `go vet ./...` em `apps/backend`, e `gofmt -l` vazio nos arquivos Go
@@ -24,10 +24,10 @@ Checks:
 - [x] `go vet ./...` e `go test -count=1 ./...` verdes.
 
 ### T4002 — Converge
-[ ] T4002
+[x] T4002
 Depends On: T4001
 Allowed Paths: `spec-kit/specs/040-adulteracao-deterministica-do-jwt/**`
 Prohibited Paths: `apps/**`, `packages/**`, `.github/**`, `spec-kit/docs/adrs/**`
 Checks:
-- [ ] `converge.md` com evidências, desvios e impacto de versão (sem incremento, C-4002).
-- [ ] `npm run spec:check -- spec-kit/specs/040-adulteracao-deterministica-do-jwt` com PASS.
+- [x] `converge.md` com evidências, desvios e impacto de versão (sem incremento, C-4002).
+- [x] `npm run spec:check -- spec-kit/specs/040-adulteracao-deterministica-do-jwt` com PASS.
