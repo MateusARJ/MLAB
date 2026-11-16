@@ -497,8 +497,10 @@ export const Room: React.FC<RoomProps> = ({ token, roomInfo, onLeave }) => {
             ...styles.fullscreenMenuBtn,
             ...(isFullscreenSidebarOpen ? styles.fullscreenMenuBtnActive : {}),
           }}
-          title={isFullscreenSidebarOpen ? 'Fechar menu' : 'Menu da transmissão'}
-          aria-label="Menu da transmissão"
+          title={isFullscreenSidebarOpen ? 'Fechar menu da transmissão' : 'Abrir menu da transmissão'}
+          aria-label={isFullscreenSidebarOpen ? 'Fechar menu da transmissão' : 'Abrir menu da transmissão'}
+          aria-expanded={isFullscreenSidebarOpen}
+          aria-controls="fullscreen-right-sidebar"
           data-testid="fullscreen-menu-trigger"
         >
           {isFullscreenSidebarOpen ? (
@@ -531,6 +533,7 @@ export const Room: React.FC<RoomProps> = ({ token, roomInfo, onLeave }) => {
       {/* Sidebar Retrátil na lateral direita em tela cheia */}
       {effectiveFullscreen && (
         <aside
+          id="fullscreen-right-sidebar"
           data-testid="fullscreen-right-sidebar"
           style={{
             ...styles.fullscreenRightSidebar,
@@ -548,14 +551,7 @@ export const Room: React.FC<RoomProps> = ({ token, roomInfo, onLeave }) => {
                 <span style={styles.fullscreenSidebarSubtitle}>Controles da Transmissão</span>
               </div>
             </div>
-            <button
-              onClick={() => setIsFullscreenSidebarOpen(false)}
-              style={styles.closeDrawerBtn}
-              title="Fechar Menu"
-              aria-label="Fechar Menu"
-            >
-              <Close size={16} />
-            </button>
+            {/* 043/RF-4305: sem botão de fechar aqui; o gatilho flutuante (X) fecha o menu no mesmo canto. */}
           </div>
 
           <div style={styles.fullscreenSidebarContent}>
@@ -862,11 +858,15 @@ export const Room: React.FC<RoomProps> = ({ token, roomInfo, onLeave }) => {
                 </div>
               )}
               {/* Controles sobre o vídeo (ocultados em tela cheia): sempre visíveis */}
+              {/* 043/RF-4301: pílula e grupo PiP / Tela Cheia na mesma linha, com espaço mínimo entre eles; o
+                  espaçador centraliza a pílula quando há espaço e encolhe primeiro em telas estreitas. */}
               {!effectiveFullscreen && (
-                <>
-                  <div style={styles.handPos}>
+                <div style={styles.videoBottomBar} data-testid="video-bottom-bar">
+                  <div className="ml-video-bar-spacer" style={styles.videoBottomSpacer} aria-hidden="true" />
+                  <div style={styles.handSlot}>
                     <button
                       type="button"
+                      className="ml-hand-btn"
                       onClick={(e) => {
                         e.stopPropagation();
                         toggleHand();
@@ -877,7 +877,14 @@ export const Room: React.FC<RoomProps> = ({ token, roomInfo, onLeave }) => {
                       aria-pressed={isHandRaised}
                     >
                       {isHandRaised ? <Touch_1Filled size={20} /> : <Touch_1 size={20} />}
-                      {isHandRaised ? 'Mão levantada (abaixar)' : 'Levantar mão'}
+                      {isHandRaised ? (
+                        <>
+                          <span className="ml-hand-label">Mão levantada (abaixar)</span>
+                          <span className="ml-hand-label-short">Abaixar mão</span>
+                        </>
+                      ) : (
+                        <span className="ml-hand-label-any">Levantar mão</span>
+                      )}
                     </button>
                   </div>
                   <div style={styles.videoOverlayControls} role="toolbar" aria-label="Visualização">
@@ -906,7 +913,7 @@ export const Room: React.FC<RoomProps> = ({ token, roomInfo, onLeave }) => {
                       <Maximize size={20} />
                     </button>
                   </div>
-                </>
+                </div>
               )}
             </div>
           ) : (
@@ -1471,18 +1478,35 @@ const styles: { [key: string]: React.CSSProperties } = {
     overflow: 'hidden',
     textOverflow: 'ellipsis',
   },
-  handPos: {
+  // 043/RF-4301 a RF-4304: linha única para a pílula e o grupo PiP / Tela Cheia. A área vazia deixa o clique
+  // passar para o vídeo; os controles reativam o pointer-events.
+  videoBottomBar: {
     position: 'absolute',
-    left: '50%',
+    left: '16px',
+    right: '16px',
     bottom: '16px',
-    transform: 'translateX(-50%)',
+    display: 'flex',
+    alignItems: 'center',
+    gap: '8px',
     zIndex: 10,
-    width: 'max-content',
-    maxWidth: 'calc(100% - 140px)',
+    pointerEvents: 'none',
   },
+  // Mesma largura do grupo (2 × 40 px + 2 px de gap + 2 × 4 px de padding): centraliza a pílula no vídeo. Some até
+  // 600 px pela classe .ml-video-bar-spacer (index.css), para a pílula usar todo o espaço à esquerda do grupo.
+  videoBottomSpacer: {
+    flex: '0 0 90px',
+  },
+  handSlot: {
+    flex: '1 1 auto',
+    minWidth: 0,
+    display: 'flex',
+    justifyContent: 'center',
+  },
+  // O padding lateral fica na classe .ml-hand-btn (index.css), que o reduz em telas estreitas (043/RF-4303).
   handBtn: {
     minHeight: '52px',
-    padding: '0 24px',
+    minWidth: 0,
+    maxWidth: '100%',
     borderRadius: 'var(--r-pill)',
     border: 'none',
     cursor: 'pointer',
@@ -1495,10 +1519,13 @@ const styles: { [key: string]: React.CSSProperties } = {
     color: '#ffffff',
     boxShadow: '0 12px 32px rgba(0, 0, 0, 0.45)',
     whiteSpace: 'nowrap',
+    pointerEvents: 'auto',
   },
   handBtnActive: {
     minHeight: '52px',
-    padding: '0 24px',
+    minWidth: 0,
+    maxWidth: '100%',
+    pointerEvents: 'auto',
     borderRadius: 'var(--r-pill)',
     border: 'none',
     cursor: 'pointer',
@@ -1617,9 +1644,8 @@ const styles: { [key: string]: React.CSSProperties } = {
     imageRendering: '-webkit-optimize-contrast' as any,
   },
   videoOverlayControls: {
-    position: 'absolute',
-    bottom: '16px',
-    right: '16px',
+    flexShrink: 0,
+    pointerEvents: 'auto',
     display: 'flex',
     alignItems: 'center',
     gap: '2px',
@@ -2303,7 +2329,9 @@ const styles: { [key: string]: React.CSSProperties } = {
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'space-between',
-    padding: '12px 8px 12px 16px',
+    // 043/RF-4307: 64 px à direita reservam o canto do gatilho flutuante (16 px + 44 px + folga).
+    padding: '12px 64px 12px 16px',
+    minHeight: '76px',
     borderBottom: '1px solid var(--border-subtle)',
   },
   fullscreenBrandBox: {
