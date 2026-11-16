@@ -97,6 +97,14 @@ export const Room: React.FC<RoomProps> = ({ room, onCloseRoom }) => {
   const [selectedWindowSources, setSelectedWindowSources] = useState<CaptureSource[]>([]);
   const [activeWindowSource, setActiveWindowSource] = useState<CaptureSource | null>(null);
   const currentActiveWindowSourceRef = useRef<CaptureSource | null>(null);
+  // 032: janela fixada (state para a interface, ref para os callbacks de foco) e última janela autorizada em foco.
+  const [pinnedWindowSourceId, setPinnedWindowSourceIdState] = useState<string | null>(null);
+  const pinnedWindowSourceIdRef = useRef<string | null>(null);
+  const lastFocusedAuthorizedIdRef = useRef<string | null>(null);
+  const setPinnedWindowSourceId = useCallback((id: string | null) => {
+    pinnedWindowSourceIdRef.current = id;
+    setPinnedWindowSourceIdState(id);
+  }, []);
   const [isLiveSession, setIsLiveSession] = useState<boolean>(false);
   const [saveSuccessMsg, setSaveSuccessMsg] = useState<string | null>(null);
   const [copiedMdns, setCopiedMdns] = useState<boolean>(false);
@@ -402,6 +410,8 @@ export const Room: React.FC<RoomProps> = ({ room, onCloseRoom }) => {
     toggleVideoPause,
     stopCapture,
     setTargetFps,
+    restartCursorTracking,
+    setCaptureEndedListener,
   } = useScreenCapture('screen');
 
   // Fonte ativa no setup derivada sincronamente para evitar condição de corrida em testes/CI
@@ -1196,7 +1206,11 @@ export const Room: React.FC<RoomProps> = ({ room, onCloseRoom }) => {
 
     const unsubChanged = window.electronAPI.onActiveWindowChanged?.(async (data: { sourceId: string }) => {
       const targetSrc = selectedWindowSources.find((s) => s.id === data.sourceId);
-      if (!targetSrc || targetSrc.id === currentActiveWindowSourceRef.current?.id) return;
+      if (!targetSrc) return;
+      // 032/RF-3203: registra a última janela autorizada em foco; com uma janela fixada, não troca a fonte.
+      lastFocusedAuthorizedIdRef.current = targetSrc.id;
+      if (pinnedWindowSourceIdRef.current) return;
+      if (targetSrc.id === currentActiveWindowSourceRef.current?.id) return;
       currentActiveWindowSourceRef.current = targetSrc;
       setActiveWindowSource(targetSrc);
 
@@ -1241,7 +1255,9 @@ export const Room: React.FC<RoomProps> = ({ room, onCloseRoom }) => {
   // Identifica telas/monitores disponíveis para alternância rápida
   const screenSources = sources.filter((s) => s.type === 'screen' || s.id.startsWith('screen'));
 
-  const handleSwitchScreen = useCallback(async (source: CaptureSource) => {
+  // Troca a fonte transmitida sem desconectar a sessão (RN-20). `pinnedSourceId` (032) vai para o rastreamento.
+  // Retorna se a nova captura foi obtida.
+  const switchToSource = useCallback(async (source: CaptureSource, pinnedSourceId?: string): Promise<boolean> => {
     if (window.electronAPI && typeof window.electronAPI.setContentProtection === 'function') {
       await window.electronAPI.setContentProtection(true).catch(() => {});
     }
@@ -1250,7 +1266,9 @@ export const Room: React.FC<RoomProps> = ({ room, onCloseRoom }) => {
       captureMode === 'window' && selectedWindowSources.length > 0
         ? selectedWindowSources.map((s) => s.id)
         : undefined;
-    const newStream = await selectSource(source, fps, allowedIds);
+    const newStream = pinnedSourceId
+      ? await selectSource(source, fps, allowedIds, pinnedSourceId)
+      : await selectSource(source, fps, allowedIds);
     if (source.thumbnail) {
       setCurrentThumbnail(source.thumbnail);
     }
@@ -1265,7 +1283,91 @@ export const Room: React.FC<RoomProps> = ({ room, onCloseRoom }) => {
       }
       await changeStream(newStream);
     }
+    return !!newStream;
   }, [selectSource, micMuted, changeStream, qualityProfile, captureMode, selectedWindowSources]);
+
+  const handleSwitchScreen = useCallback(async (source: CaptureSource) => {
+    await switchToSource(source);
+  }, [switchToSource]);
+
+  const clearWindowPin = useCallback(() => {
+    setPinnedWindowSourceId(null);
+    lastFocusedAuthorizedIdRef.current = null;
+  }, [setPinnedWindowSourceId]);
+
+  // 032/RF-3202: fixa a janela; sem recaptura se ela já está no ar. Substitui uma fixação anterior.
+  const handlePinWindow = useCallback(async (source: CaptureSource) => {
+    const allowedIds = selectedWindowSources.map((s) => s.id);
+    const previousPin = pinnedWindowSourceIdRef.current;
+    const onAir = currentActiveWindowSourceRef.current;
+    if (previousPin === source.id && onAir?.id === source.id) return;
+
+    setPinnedWindowSourceId(source.id);
+    // "Desde a fixação" (RF-3204): o foco anterior à fixação não conta para a troca ao desfixar.
+    lastFocusedAuthorizedIdRef.current = source.id;
+
+    if (onAir?.id === source.id) {
+      restartCursorTracking(source, allowedIds, source.id);
+      return;
+    }
+    const ok = await switchToSource(source, source.id);
+    if (!ok && onAir) {
+      // Captura recusada: volta à janela e à fixação anteriores.
+      setActiveWindowSource(onAir);
+      currentActiveWindowSourceRef.current = onAir;
+      setPinnedWindowSourceId(previousPin);
+      restartCursorTracking(onAir, allowedIds, previousPin || undefined);
+    }
+  }, [selectedWindowSources, setPinnedWindowSourceId, restartCursorTracking, switchToSource]);
+
+  // 032/RF-3204: desfixa e troca para a última janela autorizada em foco, se for outra e continuar autorizada.
+  const handleUnpinWindow = useCallback(async () => {
+    if (!pinnedWindowSourceIdRef.current) return;
+    setPinnedWindowSourceId(null);
+    const allowedIds = selectedWindowSources.map((s) => s.id);
+    const onAir = currentActiveWindowSourceRef.current;
+    const lastId = lastFocusedAuthorizedIdRef.current;
+    const lastSrc = lastId ? selectedWindowSources.find((s) => s.id === lastId) : undefined;
+
+    if (lastSrc && lastSrc.id !== onAir?.id) {
+      const ok = await switchToSource(lastSrc);
+      if (ok || !onAir) return;
+      // Captura recusada (spec §9): continua na janela que estava no ar, já desfixada.
+      setActiveWindowSource(onAir);
+      currentActiveWindowSourceRef.current = onAir;
+    }
+    if (onAir) {
+      restartCursorTracking(onAir, allowedIds);
+    }
+  }, [selectedWindowSources, setPinnedWindowSourceId, restartCursorTracking, switchToSource]);
+
+  // 032/RF-3209: com uma janela fixada, clicar no nome de outra janela a fixa; sem fixação, troca como antes.
+  const handleWindowPillClick = useCallback((source: CaptureSource) => {
+    if (pinnedWindowSourceIdRef.current) {
+      void handlePinWindow(source);
+    } else {
+      void handleSwitchScreen(source);
+    }
+  }, [handlePinWindow, handleSwitchScreen]);
+
+  // 032/RF-3207: a janela fixada fechada (fim da captura) é desfixada pela regra do RF-3204.
+  const handleUnpinWindowRef = useRef(handleUnpinWindow);
+  handleUnpinWindowRef.current = handleUnpinWindow;
+  useEffect(() => {
+    setCaptureEndedListener((sourceId) => {
+      if (sourceId && sourceId === pinnedWindowSourceIdRef.current) {
+        void handleUnpinWindowRef.current();
+      }
+    });
+    return () => setCaptureEndedListener(null);
+  }, [setCaptureEndedListener]);
+
+  // 032/RF-3206: a fixação vale só durante a sessão ao vivo.
+  useEffect(() => {
+    if (!isLiveSession) {
+      clearWindowPin();
+    }
+  }, [isLiveSession, clearWindowPin]);
 
   // Carrega arquivos iniciais da sala
   useEffect(() => {
@@ -1383,19 +1485,21 @@ export const Room: React.FC<RoomProps> = ({ room, onCloseRoom }) => {
     if (window.electronAPI && typeof window.electronAPI.setContentProtection === 'function') {
       window.electronAPI.setContentProtection(false).catch(() => {});
     }
+    clearWindowPin();
     endSession();
     stopCapture();
     onCloseRoom();
-  }, [wantRecord, recordingStatus, stopRecording, endSession, stopCapture, onCloseRoom, room?.id]);
+  }, [wantRecord, recordingStatus, stopRecording, endSession, stopCapture, onCloseRoom, room?.id, clearWindowPin]);
 
   const handleReconfigure = useCallback(() => {
+    clearWindowPin();
     setIsLiveSession(false);
     // Mantém setContentProtection(true) ativo durante a troca de modo/fonte para que
     // a janela do MLab nunca apareça na transmissão de Tela Cheia para os alunos.
     if (window.electronAPI && typeof window.electronAPI.setContentProtection === 'function') {
       window.electronAPI.setContentProtection(true).catch(() => {});
     }
-  }, []);
+  }, [clearWindowPin]);
 
   const handleSendPublicChat = (e: React.FormEvent) => {
     e.preventDefault();
@@ -1858,7 +1962,9 @@ export const Room: React.FC<RoomProps> = ({ room, onCloseRoom }) => {
                 {/* Rótulo do palco: o que a turma vê */}
                 <div style={styles.stageLabel}>
                   O que a turma está vendo agora. Modo: {captureMode === 'screen' ? 'Tela inteira' : (selectedWindowSources.length > 1 ? `Janelas escolhidas (${selectedWindowSources.length} autorizadas)` : 'Janelas escolhidas')} (
-                  {activeWindowSource?.name || selectedSource?.name || 'Fonte Ativa'})
+                  {pinnedWindowSourceId
+                    ? `Fixada: ${selectedWindowSources.find((s) => s.id === pinnedWindowSourceId)?.name || activeWindowSource?.name || 'Fonte Ativa'}`
+                    : activeWindowSource?.name || selectedSource?.name || 'Fonte Ativa'})
                 </div>
 
                 {/* Visualizador da Transmissão + Barra Vertical de Marcação e Lupa no Lado Esquerdo */}
@@ -2252,25 +2358,58 @@ export const Room: React.FC<RoomProps> = ({ room, onCloseRoom }) => {
 
                 {/* Seletor rápido de janelas autorizadas quando houver múltiplas */}
                 {captureMode === 'window' && selectedWindowSources.length > 1 && (
-                  <div style={styles.windowPillsBar}>
+                  <div style={styles.windowPillsBar} data-testid="window-pills-bar" data-pinned-source-id={pinnedWindowSourceId ?? undefined}>
                     <span style={styles.windowPillsLabel}>
                       Janelas da Aula ({selectedWindowSources.length}):
                     </span>
                     <div style={styles.windowPillsList}>
                       {selectedWindowSources.map((src) => {
                         const isActive = (activeWindowSource?.id || selectedSource?.id) === src.id;
+                        const isPinned = pinnedWindowSourceId === src.id;
+                        // 032/RF-3205: com uma janela fixada, ela mostra "Fixada" e as demais "Em pausa".
+                        const badge = pinnedWindowSourceId
+                          ? isPinned
+                            ? 'Fixada'
+                            : 'Em pausa'
+                          : isActive
+                            ? 'No Ar'
+                            : null;
                         return (
-                          <button
-                            key={src.id}
-                            type="button"
-                            onClick={() => handleSwitchScreen(src)}
-                            style={isActive ? styles.windowPillActive : styles.windowPill}
-                            title={`Alternar para transmitir agora: ${src.name}`}
-                          >
-                            <span style={isActive ? styles.windowPillDotActive : styles.windowPillDot} />
-                            <span style={styles.windowPillText}>{src.name}</span>
-                            {isActive && <span style={styles.windowPillActiveBadge}>No Ar</span>}
-                          </button>
+                          <div key={src.id} style={styles.windowPillGroup}>
+                            <button
+                              type="button"
+                              onClick={() => handleWindowPillClick(src)}
+                              style={isActive ? styles.windowPillActive : styles.windowPill}
+                              title={
+                                pinnedWindowSourceId
+                                  ? `Fixar e transmitir agora: ${src.name}`
+                                  : `Alternar para transmitir agora: ${src.name}`
+                              }
+                            >
+                              <span style={isActive ? styles.windowPillDotActive : styles.windowPillDot} />
+                              <span style={styles.windowPillText}>{src.name}</span>
+                              {badge && (
+                                <span style={badge === 'Em pausa' ? styles.windowPillPausedBadge : styles.windowPillActiveBadge}>
+                                  {badge}
+                                </span>
+                              )}
+                            </button>
+                            {/* 032/RF-3201: alfinete por janela, com nome acessível e estado pressionado. */}
+                            <button
+                              type="button"
+                              onClick={() => (isPinned ? handleUnpinWindow() : handlePinWindow(src))}
+                              style={isPinned ? styles.windowPinBtnActive : styles.windowPinBtn}
+                              aria-pressed={isPinned}
+                              aria-label={isPinned ? `Desafixar ${src.name}` : `Fixar ${src.name}`}
+                              title={
+                                isPinned
+                                  ? `Desafixar ${src.name} e voltar a seguir a janela em uso`
+                                  : `Fixar ${src.name}: só ela é transmitida, mesmo usando outra janela`
+                              }
+                            >
+                              {isPinned ? <PinFilled size={14} /> : <Pin size={14} />}
+                            </button>
+                          </div>
                         );
                       })}
                     </div>
@@ -5543,6 +5682,45 @@ const styles: { [key: string]: React.CSSProperties } = {
     fontSize: 'var(--fs-caption)',
     fontWeight: '700',
     color: 'var(--live)',
+    flexShrink: 0,
+  },
+  // 032: janela autorizada que não está no ar enquanto outra está fixada.
+  windowPillPausedBadge: {
+    fontSize: 'var(--fs-caption)',
+    fontWeight: '600',
+    color: 'var(--text-3)',
+    flexShrink: 0,
+  },
+  windowPillGroup: {
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: '2px',
+    flexShrink: 0,
+  },
+  windowPinBtn: {
+    width: '32px',
+    height: '32px',
+    borderRadius: 'var(--r-control)',
+    border: '1px solid var(--border-subtle)',
+    backgroundColor: 'transparent',
+    color: 'var(--text-2)',
+    cursor: 'pointer',
+    display: 'inline-flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexShrink: 0,
+  },
+  windowPinBtnActive: {
+    width: '32px',
+    height: '32px',
+    borderRadius: 'var(--r-control)',
+    border: '1px solid var(--accent-fill)',
+    backgroundColor: 'var(--accent-soft)',
+    color: 'var(--accent)',
+    cursor: 'pointer',
+    display: 'inline-flex',
+    alignItems: 'center',
+    justifyContent: 'center',
     flexShrink: 0,
   },
 };
