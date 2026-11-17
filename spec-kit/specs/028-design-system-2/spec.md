@@ -5,6 +5,10 @@ Feature ID: `028-design-system-2`
 Origem: issue #92. Inclui a correção da issue #89. Emenda os rótulos da US-09 da `001-screen-share-core` e os
 RF-2501, RF-2503 e RF-2504 da `025-favicon-web`.
 
+> **Emenda 045 (2026-11-16, `045-favicon-transparente`, C-4502):** o RF-2814 deixa de exigir o quadrado escuro. O
+> `favicon-32.png` passa a ser o ícone do header sem fundo (RF-4501) e o `apple-touch-icon.png` fica sobre fundo
+> branco opaco (RF-4502). Os nomes, tamanhos e a exclusão do `favicon.svg` continuam.
+
 ## 1. Objetivo
 
 Trocar a aparência do MLab (app do professor, web dos alunos e `packages/ui`) por um design system próprio,
