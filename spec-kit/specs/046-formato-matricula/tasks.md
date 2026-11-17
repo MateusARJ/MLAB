@@ -2,7 +2,7 @@
 
 Feature: `046-formato-matricula`
 Prerequisites: spec/clarify/plan/checklist/analyze aprovados
-Status: IN PROGRESS
+Status: DONE
 
 Regras:
 - um commit atômico por task, com `Ref: T460x` e `Refs #134`.
@@ -44,10 +44,10 @@ Checks:
 - [x] `npx vitest run` e `npm run lint` em `apps/web` verdes.
 
 ### T4604 — Converge
-[ ] T4604
+[x] T4604
 Depends On: T4602, T4603
 Allowed Paths: `spec-kit/specs/046-formato-matricula/**`
 Prohibited Paths: `apps/**`, `packages/**`, `.github/**`, `spec-kit/docs/adrs/**`
 Checks:
-- [ ] `converge.md` com evidências, desvios e impacto de versão (PATCH, C-4603).
-- [ ] `npm run spec:check` verde.
+- [x] `converge.md` com evidências, desvios e impacto de versão (PATCH, C-4603).
+- [x] `npm run spec:check` verde.
