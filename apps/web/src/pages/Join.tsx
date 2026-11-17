@@ -3,8 +3,11 @@ import { useParams, useLocation } from 'react-router-dom';
 import { joinRoom, getRoomInfo } from '../services/api';
 import { Button, TextInput, Alert, BrandMark, ThemeToggle, colors, typography } from '@mlab/ui';
 
-// Validação de matrícula: números com limite de até 4 letras (qualquer letra) da sigla do curso no miolo
-const STUDENT_ID_REGEX = /^[0-9]+[A-Za-z]{1,4}[0-9]+$/;
+// Validação de matrícula: 7 números, 4 letras da sigla do curso e 4 números, ex.: 2025116TADS0000 (046/RF-4601).
+// Igual à studentIDRegex do backend, que repete a validação.
+const STUDENT_ID_REGEX = /^[0-9]{7}[A-Za-z]{4}[0-9]{4}$/;
+const STUDENT_ID_ERROR =
+  'Matrícula inválida. Use 7 números, 4 letras da sigla do curso e 4 números (ex.: 2025116TADS0000).';
 
 interface JoinProps {
   onJoined: (token: string, roomInfo: any) => void;
@@ -63,8 +66,10 @@ export const Join: React.FC<JoinProps> = ({ onJoined }) => {
       return;
     }
 
-    if (!STUDENT_ID_REGEX.test(studentId.trim())) {
-      setError('Matrícula inválida. A matrícula deve conter números e até 4 letras da sigla do curso (Ex: 2025116TADS0000).');
+    // A sigla pode ser digitada em minúsculas; a matrícula segue em maiúsculas (046/RF-4602).
+    const normalizedStudentId = studentId.trim().toUpperCase();
+    if (!STUDENT_ID_REGEX.test(normalizedStudentId)) {
+      setError(STUDENT_ID_ERROR);
       return;
     }
 
@@ -77,7 +82,7 @@ export const Join: React.FC<JoinProps> = ({ onJoined }) => {
     try {
       const resp = await joinRoom(effectiveSlug, {
         name: name.trim(),
-        student_id: studentId.trim(),
+        student_id: normalizedStudentId,
       });
       setLoading(false);
       onJoined(resp.token, {
@@ -145,7 +150,7 @@ export const Join: React.FC<JoinProps> = ({ onJoined }) => {
               maxLength={15}
               onChange={(e) => setStudentId(e.target.value.toUpperCase().slice(0, 15))}
               placeholder="Ex: 2025116TADS0000"
-              helperText="Números com a sigla do curso no meio, como 2025116TADS0031."
+              helperText="7 números, 4 letras da sigla do curso e 4 números, como 2025116TADS0031."
               style={{ textTransform: 'uppercase', fontFamily: typography.fontMono }}
               required
             />

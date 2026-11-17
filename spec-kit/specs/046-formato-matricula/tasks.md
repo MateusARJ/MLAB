@@ -34,13 +34,14 @@ Checks:
 - [x] `go test ./...` em `apps/backend` verde.
 
 ### T4603 — Web
-[ ] T4603
+[x] T4603
 Depends On: T4601
-Allowed Paths: `apps/web/src/pages/Join.tsx`, `spec-kit/specs/046-formato-matricula/tasks.md`
+Allowed Paths: `apps/web/src/pages/Join.tsx`, `apps/web/src/pages/Join.test.tsx` (só correção dos casos da T4601),
+`spec-kit/specs/046-formato-matricula/tasks.md`
 Prohibited Paths: `apps/backend/**`, `apps/desktop/**`, `packages/**`
 Checks:
-- [ ] `STUDENT_ID_REGEX` igual à do backend; mensagem nova; envio em maiúsculas (RF-4601 a RF-4603).
-- [ ] `npx vitest run` e `npm run lint` em `apps/web` verdes.
+- [x] `STUDENT_ID_REGEX` igual à do backend; mensagem nova; envio em maiúsculas (RF-4601 a RF-4603).
+- [x] `npx vitest run` e `npm run lint` em `apps/web` verdes.
 
 ### T4604 — Converge
 [ ] T4604

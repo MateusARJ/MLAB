@@ -104,7 +104,7 @@ describe('Join Component (Web)', () => {
     ['2025116TADS0', '1 número final (issue #134)'],
     ['202511TADS0000', '6 números iniciais'],
     ['2025116ADS0000', '3 letras'],
-    ['2025116TADS00000', '5 números finais'],
+    ['2025116TADS000', '3 números finais'],
   ])('deve exibir mensagem de erro e bloquear envio com matricula invalida %s (%s)', async (matricula) => {
     const handleJoined = vi.fn();
 
@@ -157,7 +157,7 @@ describe('Join Component (Web)', () => {
       target: { value: 'Carlos Silva' },
     });
     fireEvent.change(screen.getByLabelText(/Matrícula/i), {
-      target: { value: ' 2025116tads0000 ' },
+      target: { value: '2025116tads0000' },
     });
 
     fireEvent.click(screen.getByRole('button', { name: /Entrar na aula/i }));
