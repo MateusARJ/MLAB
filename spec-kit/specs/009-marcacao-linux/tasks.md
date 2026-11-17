@@ -108,9 +108,10 @@ Checks:
 ### T911 — Erro X da região de entrada não encerra o processo (#32)
 [x] T911
 Depends On: T908
-Allowed Paths: `apps/desktop/src/main/x11InputShape.ts`, `apps/desktop/src/main/x11InputShape.test.ts`
+Allowed Paths: `apps/desktop/src/main/x11InputShape.ts`, `apps/desktop/src/main/x11InputShape.test.ts`; só no commit
+de versão (`AGENTS.md` §13): `package.json`, `package-lock.json`, `apps/*/package.json`, `packages/*/package.json`
 Prohibited Paths: `apps/desktop/src/main/nativeWindowTracker.ts`, `apps/desktop/src/main/annotationOverlayWindow.ts`,
-`apps/desktop/src/renderer/**`, `apps/desktop/package.json`, `apps/backend/**`, `apps/web/**`, `packages/**`
+`apps/desktop/src/renderer/**`, `apps/backend/**` e `apps/web/**` (exceto `package.json`), `packages/*/src/**`
 Checks:
 - [x] `apply` instala um `XSetErrorHandler` próprio só durante a chamada, troca `XFlush` por `XSync` (o erro chega ali
   mesmo) e devolve o handler anterior, também quando a chamada lança.
