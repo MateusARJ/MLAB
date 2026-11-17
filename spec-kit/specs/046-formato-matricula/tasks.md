@@ -8,7 +8,7 @@ Regras:
 - um commit atômico por task, com `Ref: T460x` e `Refs #134`.
 
 ### T4601 — Testes do formato e notas de emenda
-[ ] T4601
+[x] T4601
 Allowed Paths: `apps/backend/internal/room/room_test.go`, `apps/web/src/pages/Join.test.tsx`,
 `spec-kit/specs/003-classroom-interaction/spec.md`, `spec-kit/specs/003-classroom-interaction/clarify.md`,
 `spec-kit/specs/001-screen-share-core/contracts/room-api.md`, `spec-kit/specs/001-screen-share-core/contracts/auth.md`,
@@ -17,11 +17,11 @@ Allowed Paths: `apps/backend/internal/room/room_test.go`, `apps/web/src/pages/Jo
 Prohibited Paths: `apps/backend/internal/room/handler.go`, `apps/web/src/pages/Join.tsx`, `apps/desktop/**`,
 `apps/backend/internal/signaling/**`, `packages/**`
 Checks:
-- [ ] `TestJoinValidation` recusa `2025116TADS0`, `202511TADS0000`, `2025116ADS0000`, `2025116TADS00000` (RF-4601).
-- [ ] Teste do backend: `2025116tads0039` entra e o token traz `student_id` `2025116TADS0039` (RF-4602).
-- [ ] `Join.test.tsx`: `2025116TADS0` mostra a mensagem nova sem chamar a API; minúsculas enviadas em maiúsculas
+- [x] `TestJoinValidation` recusa `2025116TADS0`, `202511TADS0000`, `2025116ADS0000`, `2025116TADS00000` (RF-4601).
+- [x] Teste do backend: `2025116tads0039` entra e o token traz `student_id` `2025116TADS0039` (RF-4602).
+- [x] `Join.test.tsx`: `2025116TADS0` mostra a mensagem nova sem chamar a API; minúsculas enviadas em maiúsculas
   (RF-4601 a RF-4603).
-- [ ] Notas de emenda na RN-306 e na C-303 da 003, nos contratos e no RF011.
+- [x] Notas de emenda na RN-306 e na C-303 da 003, nos contratos e no RF011.
 
 ### T4602 — Backend
 [ ] T4602

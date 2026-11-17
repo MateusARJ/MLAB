@@ -108,7 +108,7 @@ Aluno informa Nome e Matrícula e recebe um JWT de sessão. `{roomId}` aceita o 
 ```json
 {
   "name": "string (não vazio)",
-  "student_id": "string (não vazio)"
+  "student_id": "string (7 números + 4 letras + 4 números; normalizada em maiúsculas — 046)"
 }
 ```
 
@@ -129,6 +129,8 @@ Aluno informa Nome e Matrícula e recebe um JWT de sessão. `{roomId}` aceita o 
 
 **Errors:**
 - `400 Bad Request` — campos vazios ou inválidos (inclui matrícula fora do padrão — `003-classroom-interaction`, US-17).
+  O padrão é `^[0-9]{7}[A-Za-z]{4}[0-9]{4}$` (ex.: `2025116TADS0000`); o servidor remove espaços nas pontas e grava a
+  matrícula em maiúsculas antes de validar (`046-formato-matricula`, RF-4601, RF-4602).
 - `404 Room not found` — slug/id inexistente.
 - `409 Room closed` — sala já encerrada.
 - `409 Student ID in use` — já há WebSocket ativo de um aluno com a mesma matrícula na sala (sem diferenciar
