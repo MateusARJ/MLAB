@@ -2,43 +2,45 @@
 
 Feature: `009-marcacao-linux`
 Mode: READ-ONLY sobre o código (só este arquivo é escrito)
-Data: 2026-11-05
-Commit avaliado: `1f48d62`
-Status: OPEN
+Data: 2026-11-05; atualizado em 2026-11-17 (T910, T911)
+Commit avaliado: `1f48d62`; atualização sobre `9f69048` (2.1.4)
+Status: OPEN — falta só o smoke manual no Windows
 
 ## Entradas
 
-- `spec.md`, `clarify.md` (C-901 a C-904), `plan.md`, `tasks.md` (T901–T909), `003/contracts/desktop-ipc.md`
+- `spec.md`, `clarify.md` (C-901 a C-904), `plan.md`, `tasks.md` (T901–T911), `003/contracts/desktop-ipc.md`
 - código em `apps/desktop/src/main/{annotationOverlayWindow,toolbarHitTest,x11InputShape,main,preload}.ts`,
   `apps/desktop/src/renderer/components/FloatingAnnotationOverlay.tsx`, `packages/types/src/index.ts`
 - suítes: Windows — `npx vitest run` (desktop) 143/143, `npx turbo run test --force` 5/5, `npx tsc --noEmit` com os 14
   erros pré-existentes; WSL (Ubuntu 26.04) — suítes da 009 verdes (`toolbarHitTest` 16, `annotationOverlayWindow` 20,
   `x11InputShape` 7), suíte geral 141/143 por causa de `nativeWindowTracker.test.ts` (seção 5)
 - verificação manual no WSLg: `evidencias/t905-wslg-hit-test.log`, `evidencias/t905-wslg-regiao-entrada.log`
+- 2026-11-17, Ubuntu 26.04.1 real (GNOME Shell 50.1): `evidencias/t910-ubuntu-testes.log` (vitest, `tsc`, `turbo`,
+  `go test`), `evidencias/t910-ubuntu-roteiro.md` (roteiro manual em GNOME Wayland, escala 200% e Openbox/X11),
+  `evidencias/t911-xwayland-badwindow.log` (erro X da região de entrada)
 
 ## 1. Requisitos atendidos
 
 | Requisito | Evidência (arquivo, teste ou commit) |
 |---|---|
-| RF-901 | `x11InputShape.ts` + `applyInputRegion` em `annotationOverlayWindow.ts` (`10cc5bc`, `1f48d62`); `resolveInputRegion`/`toDevicePixels` (`1d2226c`); testes "região de entrada X11" (9) e "hit-test alternativo" (11); WSLg: região alterna barra ↔ tela inteira ↔ botão recolhido e o responsável confirmou cliques na barra e desenho em toda a tela |
-| RF-902 | `reportToolbarRect` em `FloatingAnnotationOverlay.tsx` (`1429cdd`); 5 testes no `FloatingAnnotationOverlay.test.tsx`; WSLg: retângulos `496×46`, `496×239` (popover), `54×54` (recolhida), `null` |
-| RF-903 | `registerGlobalShortcuts` (`6780e13`); 3 testes; WSLg: nenhum atalho recusado no log |
-| RNF-901 | caminho Windows/macOS inalterado; teste "Windows (009/RNF-901)"; suítes verdes no Windows |
+| RF-901 | `x11InputShape.ts` + `applyInputRegion` em `annotationOverlayWindow.ts` (`10cc5bc`, `1f48d62`); `resolveInputRegion`/`toDevicePixels` (`1d2226c`); testes "região de entrada X11" (9) e "hit-test alternativo" (11); WSLg e Ubuntu real (GNOME Wayland, 200% e Openbox/X11): botões e popover respondem, clique fora da barra atravessa, desenho em toda a tela, arraste (T910); erro X tratado sem encerrar o app (T911, `9ba0212`) |
+| RF-902 | `reportToolbarRect` em `FloatingAnnotationOverlay.tsx` (`1429cdd`); 5 testes no `FloatingAnnotationOverlay.test.tsx`; WSLg: retângulos `496×46`, `496×239` (popover), `54×54` (recolhida), `null`; Ubuntu real: recolher/expandir e arraste (T910) |
+| RF-903 | `registerGlobalShortcuts` (`6780e13`); 3 testes; WSLg e Ubuntu real: nenhum atalho recusado no log; `Alt+…` e `Alt+H` funcionam (T910) |
+| RF-904 | Ubuntu real (Wayland e X11): letras únicas trocam a ferramenta depois de clicar na barra (T910) |
 | RNF-902 | sem temporizador com a região X11 (`expect(vi.getTimerCount()).toBe(0)`); temporizador de 16 ms só na alternativa |
-| RN-901 | regras da 003 intocadas; C-903 preservada (retângulo `null` → região vazia, teste dedicado) |
+| RN-901 | regras da 003 intocadas; C-903 preservada (retângulo `null` → região vazia, teste dedicado); Ubuntu real: passagem do painel do MLab para o overlay funcionou (T910) |
 
 ## 2. Requisitos parcialmente atendidos
 
 | Requisito | O que falta | Evidência |
 |---|---|---|
-| RF-904 | letras únicas do overlay depois de clicar na barra não foram verificadas separadamente no WSLg | T905; o responsável confirmou atalhos `Alt+…` |
-| Critérios de sucesso | teste em Ubuntu/GNOME real (X11 e Wayland) e smoke manual da barra no Windows não executados | T905 |
+| RNF-901 / critério "smoke da barra no Windows sem regressão" | smoke manual da barra no Windows real (cliques, recolher/expandir, desenho, lupa, atalhos e duplo `Ctrl`) | testes automatizados cobrem o caminho Windows (`annotationOverlayWindow.test.ts`); T910 |
 
 ## 3. Divergências (código ≠ spec/plan/contrato)
 
 | Item | Spec/contrato diz | Código faz | Encaminhamento (emenda, ADR, nova task) |
 |---|---|---|---|
-| Texto do canal `annotation-overlay:toolbar-rect` em `003/contracts/desktop-ipc.md` | retângulo "para o hit-test do Linux" | o retângulo alimenta a região de entrada X11 e, na falta dela, o hit-test | emenda textual no contrato (sem mudança de formato) |
+| — | — | — | nenhuma; a emenda do texto do canal `annotation-overlay:toolbar-rect` foi feita na T910 (`00c7614`) |
 
 ## 4. Código sem requisito (implementado fora de spec/task)
 
@@ -48,21 +50,20 @@ Status: OPEN
 
 ## 5. Testes faltantes
 
-- Teste manual em Ubuntu/GNOME real, sessões X11 e Wayland (XWayland), incluindo escala de 200%.
-- Smoke manual da barra no Windows.
-- No WSL, `nativeWindowTracker.test.ts` derruba o worker (`X Error of failed request: BadWindow`): fora da 009, ver
-  seção 6.
+- Smoke manual da barra no Windows real (seção 2).
+- No Linux, `nativeWindowTracker.test.ts` derruba o worker (`BadWindow`): fora da 009, #139.
 
 ## 6. Novas tasks necessárias
 
-- **Fora da 009 — Xlib sem `XSetErrorHandler` em `nativeWindowTracker.ts`:** um XID inválido aciona o handler padrão
-  do Xlib, que chama `exit()`; no app real, pode encerrar o processo principal se a janela capturada fechar. Exige
-  feature/tarefa própria (o arquivo é path proibido aqui).
-- **Fora da 009 — `CursorPresenceTracker` sob XWayland:** `mlabFocused` e a posição do cursor vêm de
-  `getCursorScreenPoint()`/`XQueryPointer`, que congelam fora de janelas X11 (mesma causa da C-904). A passagem do
-  painel do MLab para o overlay ao sair da janela do MLab não foi comprovada no WSLg. Investigar em feature própria.
-- **009 — emenda do contrato** da seção 3.
-- **009 — verificação pendente:** RF-904 (letras únicas), Ubuntu/GNOME real e smoke Windows.
+- **009:** nenhuma; falta só executar o smoke no Windows previsto na T910.
+- **Fora da 009:** #139 (`nativeWindowTracker.ts` sem `XSetErrorHandler`); #140 (`CursorPresenceTracker` sob
+  XWayland — no roteiro da T910 a passagem do painel para o overlay funcionou no GNOME 50, então a #140 precisa de um
+  cenário que a reproduza ou pode ser reavaliada); #138 (pacote Linux gerado no WSL sem o binário do `koffi`: o app
+  instalado ainda reproduz a #30).
+
+## Desvios registrados
+
+- #138, #139, #140 (AGENTS.md §14), todos não bloqueantes para a 009.
 
 ## 7. Impacto de versão
 
@@ -75,8 +76,13 @@ Classificação pelo escopo de `docs/versionamento.md` §2 (ADR 0007).
 
 ## 8. Resultado
 
-- [x] OPEN — há gaps registrados acima com encaminhamento definido.
+- [x] OPEN — falta só o smoke manual da barra no Windows (seção 2).
 - [ ] CONVERGED — não há divergência, código sem requisito ou teste faltante.
 
-Limitação do ambiente (não é gap da feature): no WSLg, janelas Linux não ficam acima de apps nativos do Windows, então
-o overlay e os desenhos ficam atrás deles quando um app do Windows vem para a frente.
+Limitações do ambiente (não são gaps da feature):
+
+- No WSLg, janelas Linux não ficam acima de apps nativos do Windows, então o overlay e os desenhos ficam atrás deles
+  quando um app do Windows vem para a frente.
+- No GNOME Wayland (XWayland), o atalho global só dispara com uma janela X11 em foco; com app Wayland nativo em foco,
+  `Alt+…` não chega (comportamento previsto pela US-903).
+- O GNOME 50 não tem sessão X11; o X11 puro foi verificado na sessão Openbox.

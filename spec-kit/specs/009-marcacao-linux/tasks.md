@@ -172,13 +172,16 @@ Prohibited Paths: `apps/**`, `packages/**`
 Checks:
 - [x] Emenda textual do canal `annotation-overlay:toolbar-rect` em `003/contracts/desktop-ipc.md`: o retângulo alimenta
   a região de entrada X11 (C-904) e, na falta dela, o hit-test; sem mudança de formato.
-- [ ] Testes automatizados no Linux registrados em `evidencias/` (vitest, `tsc`, `turbo test`, `go test`).
-- [ ] GNOME Wayland (XWayland), Ubuntu 26.04: US-901 a US-903 item a item (botões, popover de cores, clique
+- [x] Testes automatizados no Linux registrados em `evidencias/` (vitest, `tsc`, `turbo test`, `go test`).
+- [x] GNOME Wayland (XWayland), Ubuntu 26.04: US-901 a US-903 item a item (botões, popover de cores, clique
   atravessando, ferramentas na tela inteira, recolher/expandir, `Alt+H`, `Alt+…`). Atalho global com app Wayland
   nativo em foco não dispara (XGrabKey do XWayland): resultado esperado pela US-903, não falha.
-- [ ] X11 puro: sessão Openbox desta máquina ou Ubuntu 24.04 com GNOME em Xorg (o GNOME 50 não tem sessão X11).
-- [ ] Escala de 200%: região de entrada alinhada com a barra.
-- [ ] RF-904: letras únicas (`V`, `P`, `M`, `A`, `R`, `E`, `L`, `Z`, `H`) depois de clicar na barra.
-- [ ] Passagem do painel para o overlay registrada (causa provável na #140, fora da 009).
+- [x] X11 puro: sessão Openbox desta máquina ou Ubuntu 24.04 com GNOME em Xorg (o GNOME 50 não tem sessão X11).
+- [x] Escala de 200%: região de entrada alinhada com a barra.
+- [x] RF-904: letras únicas (`V`, `P`, `M`, `A`, `R`, `E`, `L`, `Z`, `H`) depois de clicar na barra.
+- [x] Passagem do painel para o overlay registrada (causa provável na #140, fora da 009).
 - [ ] Smoke manual da barra no Windows (RNF-901, RN-901).
-- [ ] `converge.md` atualizado: CONVERGED ou novas tasks.
+- [x] `converge.md` atualizado: CONVERGED ou novas tasks.
+- Resultado (2026-11-17): roteiro aprovado pelo responsável em GNOME Wayland, escala 200% e Openbox/X11
+  (`evidencias/t910-ubuntu-roteiro.md`); testes automatizados em `evidencias/t910-ubuntu-testes.log`. Converge OPEN só
+  pelo smoke no Windows; a T910 fica aberta até ele.

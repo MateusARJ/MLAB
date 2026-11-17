@@ -1,0 +1,68 @@
+# 009 / T910 — testes automatizados no Ubuntu real, 2026-11-17, commit 45fa0aa
+# Ambiente: Ubuntu 26.04.1 LTS (live), GNOME Shell 50.1 Wayland, kernel 7.0.0-30-generic, Node v22.23.5, npm 10.9.9, go1.27.4
+
+## apps/desktop — npx vitest run
+ ✓ src/renderer/hooks/useScreenCapture.test.ts (15 tests) 77ms
+ ✓ src/main/annotationOverlayWindow.test.ts (24 tests) 27ms
+ ✓ src/main/backendManager.test.ts (32 tests) 64ms
+ ✓ src/renderer/components/FloatingAnnotationOverlay.test.tsx (33 tests) 1333ms
+ ✓ src/renderer/media/cursorMaskPolicy.test.ts (25 tests) 17ms
+ ✓ src/renderer/hooks/useRoomFileUploads.test.ts (11 tests) 390ms
+ ✓ src/renderer/pages/RoomHandRaise.test.tsx (5 tests) 1350ms
+ ✓ src/renderer/media/cursorMaskFrame.test.ts (18 tests) 7ms
+ ✓ src/renderer/pages/Room.test.tsx (39 tests) 6701ms
+ ✓ src/renderer/pages/Dashboard.test.tsx (7 tests) 673ms
+ ✓ src/renderer/pages/RoomFileDrop.test.tsx (6 tests) 1790ms
+ ✓ src/renderer/media/createCursorMaskedTrack.test.ts (5 tests) 20ms
+ ✓ src/main/navigationGuard.test.ts (12 tests) 26ms
+ ✓ src/main/cursorPresence.test.ts (4 tests) 19ms
+ ✓ src/shared/cursorVisibility.test.ts (12 tests) 4ms
+ ✓ src/main/doubleCtrlDetector.test.ts (5 tests) 5ms
+ ✓ src/main/toolbarHitTest.test.ts (16 tests) 21ms
+ ✓ src/renderer/utils/webmFixer.test.ts (4 tests) 5ms
+ ✓ src/renderer/components/FileDropZone.test.tsx (7 tests) 77ms
+ ✓ src/renderer/services/files.test.ts (37 tests) 13ms
+ ✓ src/main/x11InputShape.test.ts (7 tests) 10ms
+ ✓ src/renderer/hooks/useRoomLinks.test.ts (5 tests) 39ms
+ ✓ src/renderer/pages/annotationToolbarPosition.test.ts (7 tests) 5ms
+ ✓ src/renderer/pages/ProfessorEntry.test.tsx (4 tests) 203ms
+ ✓ src/renderer/utils/preventFileDropNavigation.test.ts (4 tests) 4ms
+ ✓ src/renderer/components/AppInfoFooter.test.tsx (5 tests) 249ms
+ ✓ src/renderer/hooks/handToast.test.ts (8 tests) 5ms
+ ✓ src/renderer/services/auth.test.ts (2 tests) 6ms
+ ✓ src/renderer/hooks/useAppInfo.test.ts (3 tests) 175ms
+ ✓ src/main/appMeta.test.ts (6 tests) 6ms
+ ✓ src/main/hostKey.test.ts (4 tests) 4ms
+ ✓ src/main/appInfo.test.ts (2 tests) 2ms
+⎯⎯⎯⎯⎯⎯ Unhandled Errors ⎯⎯⎯⎯⎯⎯
+Error: Worker exited unexpectedly
+ ❯ ChildProcess.onUnexpectedExit ../../node_modules/tinypool/dist/index.js:118:30
+ ❯ ChildProcess.emit node:events:531:35
+ ❯ ChildProcess._handle.onexit node:internal/child_process:293:12
+ Test Files  32 passed (33)
+      Tests  374 passed (376)
+     Errors  1 error
+
+## apps/desktop — npx vitest run src/main/nativeWindowTracker.test.ts
+X Error of failed request:  BadWindow (invalid Window parameter)
+  Major opcode of failed request:  15 (X_QueryTree)
+Error: Worker exited unexpectedly
+ Test Files   (1)
+      Tests   (2)
+
+## apps/desktop — npx tsc --noEmit
+erros TS: 0
+
+## raiz — npx turbo run test --force
+@mlab/desktop#test:  ERROR  command (/run/media/ubuntu/F2E2140BE213D329/Users/User/mlab-linux/apps/desktop) /snap/bin/npm run test exited (1)
+ Tasks:    4 successful, 5 total
+Failed:    @mlab/desktop#test
+ ERROR  run failed: command  exited (1)
+
+## apps/backend — go test ./...
+ok  	github.com/MateusARJ/MLAB/apps/backend/cmd/server	1.079s
+ok  	github.com/MateusARJ/MLAB/apps/backend/internal/auth	0.004s
+ok  	github.com/MateusARJ/MLAB/apps/backend/internal/chat	0.005s
+ok  	github.com/MateusARJ/MLAB/apps/backend/internal/room	11.236s
+ok  	github.com/MateusARJ/MLAB/apps/backend/internal/signaling	1.250s
+ok  	github.com/MateusARJ/MLAB/apps/backend/internal/webrtc	0.027s
