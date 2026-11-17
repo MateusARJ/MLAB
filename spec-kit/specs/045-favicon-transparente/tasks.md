@@ -2,7 +2,7 @@
 
 Feature: `045-favicon-transparente`
 Prerequisites: spec/clarify/plan/checklist/analyze aprovados
-Status: READY
+Status: DONE
 
 Regras:
 - um commit atômico por task, com `Ref: T450x` e `Refs #131`.
@@ -34,10 +34,10 @@ Checks:
   (RNF-4502).
 
 ### T4503 — Converge
-[ ] T4503
+[x] T4503
 Depends On: T4502
 Allowed Paths: `spec-kit/specs/045-favicon-transparente/**`
 Prohibited Paths: `apps/**`, `packages/**`, `.github/**`, `spec-kit/docs/adrs/**`
 Checks:
-- [ ] `converge.md` com evidências, desvios e impacto de versão (PATCH, C-4503).
-- [ ] `npm run spec:check -- spec-kit/specs/045-favicon-transparente` com PASS.
+- [x] `converge.md` com evidências, desvios e impacto de versão (PATCH, C-4503).
+- [x] `npm run spec:check -- spec-kit/specs/045-favicon-transparente` com PASS.
