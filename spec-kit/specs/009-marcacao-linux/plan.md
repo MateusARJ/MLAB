@@ -60,7 +60,7 @@ Clarify: `./clarify.md` (C-901 a C-903; C-904 aprovada em 2026-11-05 após spike
 | Foco preso no overlay após clicar | teclas do app do professor vão ao overlay | só letras sem modificador são tratadas pelo overlay; registrar no teste manual |
 | Wayland nativo sem XWayland | sem X11, não há região de entrada nem cursor global | Electron 31 usa XWayland por padrão; fora do escopo (C-901, C-904) |
 | Electron reaplicar a forma de entrada | região de entrada perdida | manager não chama `setIgnoreMouseEvents` depois da 1ª vez no Linux e reaplica a região após `setBounds` e ao exibir |
-| `BadWindow` no Xlib encerra o processo | app fecha | só chama com a janela viva (`!isDestroyed()`); XID lido a cada chamada |
+| `BadWindow` no Xlib encerra o processo | app fecha | só chama com a janela viva (`!isDestroyed()`); XID lido a cada chamada; desde a T911, `XSetErrorHandler` próprio instalado só durante a chamada e `XSync` no lugar de `XFlush`: o erro é tratado ali mesmo e o handler anterior volta em seguida |
 | WSLg: janela Linux abaixo de apps do Windows | desenhos somem atrás deles | limitação do ambiente, registrada no converge; validar em Ubuntu/GNOME real |
 
 ## Scope Lock
@@ -132,3 +132,4 @@ Clarify: `./clarify.md` (C-901 a C-903; C-904 aprovada em 2026-11-05 após spike
 | 2026-11-04 | Feature renumerada de 008 para 009 (colisão com `008-dev-entrada-unica-web`); IDs 8xx → 9xx | — |
 | 2026-11-04 | Retângulo `null` com o MLab em foco, para manter paridade com o Windows | C-903 |
 | 2026-11-05 | Região de entrada X11 via `koffi` como caminho principal no Linux; hit-test vira alternativa | C-904 |
+| 2026-11-17 | Erro X da região de entrada tratado no próprio módulo (handler temporário + `XSync`): `BadWindow` é ignorado com log; outro erro lança e o manager volta ao hit-test (RF-901) | T911, #32 |

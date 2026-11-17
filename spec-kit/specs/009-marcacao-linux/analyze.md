@@ -84,3 +84,43 @@ dependência nova no `package.json`.
 
 - [ ] FAIL
 - [x] PASS — próxima execução: T907.
+
+## 8. Rodada 3 — T911 (2026-11-17)
+
+### Inconsistências
+
+Nenhuma. A verificação no Ubuntu real (#32) mostrou que `x11InputShape.ts` abre conexão X própria sem
+`XSetErrorHandler`: um `BadWindow` (XID do overlay inválido) aciona o handler padrão do Xlib, que chama `exit()`.
+Reproduzido no XWayland do Ubuntu 26.04 (`XShapeCombineRectangles` num XID destruído → processo sai com código 1). O
+risco já estava no plan com mitigação insuficiente ("só chama com a janela viva"); a mitigação foi atualizada (plan,
+riscos e decision log) e a T911 criada. Não muda spec nem clarify: o comportamento continua o de RF-901, inclusive a
+volta ao hit-test quando a região não pode ser aplicada.
+
+### Cobertura
+
+| Requisito | Task |
+|---|---|
+| RF-901 | T902, T903 (alternativa), T907, T908, T909, T911, T905 |
+
+Os demais requisitos seguem a cobertura da rodada 2.
+
+### Contratos
+
+Sem mudança.
+
+### Scope Lock
+
+A T911 só toca `x11InputShape.ts` e o teste, já em Allowed Paths. O mesmo defeito em `nativeWindowTracker.ts` (path
+proibido) está na #139; como o handler do Xlib é global por processo, a T911 o instala só durante a chamada e devolve
+o anterior, sem disputar com o handler que a #139 vier a criar.
+
+### Riscos
+
+- Handler global por processo: janela de troca curta (uma ida e volta ao servidor X) e restauração garantida em
+  `finally`.
+- `XSync` custa uma ida e volta por aplicação da região; a região só é reaplicada quando muda (RNF-902).
+
+### Resultado
+
+- [ ] FAIL
+- [x] PASS — próxima execução: T911.

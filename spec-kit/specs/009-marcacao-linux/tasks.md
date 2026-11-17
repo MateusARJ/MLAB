@@ -105,6 +105,22 @@ Checks:
 - [x] `annotationOverlayWindow.test.ts` 20/20 (11 da alternativa + 9 da região X11); vitest desktop 143/143,
   `turbo test` 5/5; `tsc` sem erro novo (14 pré-existentes).
 
+### T911 — Erro X da região de entrada não encerra o processo (#32)
+[ ] T911
+Depends On: T908
+Allowed Paths: `apps/desktop/src/main/x11InputShape.ts`, `apps/desktop/src/main/x11InputShape.test.ts`
+Prohibited Paths: `apps/desktop/src/main/nativeWindowTracker.ts`, `apps/desktop/src/main/annotationOverlayWindow.ts`,
+`apps/desktop/src/renderer/**`, `apps/desktop/package.json`, `apps/backend/**`, `apps/web/**`, `packages/**`
+Checks:
+- [ ] `apply` instala um `XSetErrorHandler` próprio só durante a chamada, troca `XFlush` por `XSync` (o erro chega ali
+  mesmo) e devolve o handler anterior, também quando a chamada lança.
+- [ ] `BadWindow` (código 3) é ignorado com `console.warn` (o overlay fechou); qualquer outro erro X lança, e o manager
+  volta ao hit-test (RF-901).
+- [ ] Testes com `koffi` mockado: handler instalado e restaurado, `XSync`, `BadWindow` ignorado, outro erro lança,
+  restauração após exceção.
+- [ ] Verificação no X real (XWayland): região aplicada a um XID destruído não encerra o processo.
+- [ ] `x11InputShape.test.ts` e suítes da 009 verdes; `tsc --noEmit` sem erro novo.
+
 ### T905 — Verificação manual no Linux (WSLg) e smoke no Windows
 [x] T905
 Depends On: T903, T904, T909
