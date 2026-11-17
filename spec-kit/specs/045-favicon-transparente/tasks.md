@@ -8,15 +8,15 @@ Regras:
 - um commit atômico por task, com `Ref: T450x` e `Refs #131`.
 
 ### T4501 — Teste do favicon transparente e notas de emenda
-[ ] T4501
+[x] T4501
 Allowed Paths: `apps/web/src/favicon.test.ts`, `spec-kit/specs/025-favicon-web/spec.md`,
 `spec-kit/specs/028-design-system-2/spec.md`, `spec-kit/specs/045-favicon-transparente/tasks.md`
 Prohibited Paths: `apps/web/public/**`, `apps/web/index.html`, `apps/web/src/pages/**`, `apps/desktop/**`,
 `apps/backend/**`, `packages/**`
 Checks:
-- [ ] `favicon.test.ts` cita a 045 e exige `favicon-32.png` RGBA (IHDR byte 25 = 6) (RF-4501).
-- [ ] Asserções de links, tamanhos e apple-touch-icon RGB mantidas (RF-4502, RF-4503).
-- [ ] Notas de emenda na 025 (RF-2502) e na 028 (RF-2814) apontando para a 045 (C-4502).
+- [x] `favicon.test.ts` cita a 045 e exige `favicon-32.png` RGBA (IHDR byte 25 = 6) (RF-4501).
+- [x] Asserções de links, tamanhos e apple-touch-icon RGB mantidas (RF-4502, RF-4503).
+- [x] Notas de emenda na 025 (RF-2502) e na 028 (RF-2814) apontando para a 045 (C-4502).
 
 ### T4502 — PNGs com o mark do header
 [ ] T4502
