@@ -71,6 +71,7 @@ Classificação pelo escopo de `docs/versionamento.md` §2 (ADR 0007).
 | Nível | Versão resultante | Justificativa |
 |---|---|---|
 | MINOR | 1.8.0 | A 009 cria requisitos novos (RF-901 a RF-904, RNF-901, RNF-902) e um canal IPC novo e compatível (`annotation-overlay:toolbar-rect`, tipo `AnnotationToolbarRect`), sem quebrar contrato nem fluxo existente. O PR #31 entrou antes da regra do §13 do `AGENTS.md` chegar ao branch; o incremento foi feito em PR próprio logo depois. |
+| PATCH | 2.1.4 | T911 (2026-11-17): correção de estabilidade em `x11InputShape.ts` (erro X tratado com handler temporário e `XSync`, sem `exit()` do Xlib). Sem capacidade nova e sem mudança de contrato. |
 
 ## 8. Resultado
 
