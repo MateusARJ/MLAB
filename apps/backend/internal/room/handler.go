@@ -17,8 +17,12 @@ import (
 
 const defaultMaxParticipants = 50
 
-// studentIDRegex valida que a matrícula contém números e até 4 letras da sigla do curso.
-var studentIDRegex = regexp.MustCompile(`^[0-9]+[A-Za-z]{1,4}[0-9]+$`)
+// studentIDRegex valida a matrícula: 7 números, 4 letras da sigla do curso e 4 números, ex.: 2025116TADS0000
+// (046/RF-4601). A matrícula chega aqui já em maiúsculas (RF-4602); a classe aceita as duas caixas por robustez.
+var studentIDRegex = regexp.MustCompile(`^[0-9]{7}[A-Za-z]{4}[0-9]{4}$`)
+
+// errStudentIDFormat é a mensagem do 400 do join para matrícula fora do formato (046/RF-4603).
+const errStudentIDFormat = "Matrícula inválida. Use 7 números, 4 letras da sigla do curso e 4 números (ex.: 2025116TADS0000)."
 
 // RoomCloseBroadcasterFunc define a assinatura da função de broadcast para encerramento de sala.
 type RoomCloseBroadcasterFunc func(roomID string)
@@ -383,13 +387,14 @@ func (h *Handler) handleJoin(w http.ResponseWriter, r *http.Request, identifier 
 	}
 
 	req.Name = strings.TrimSpace(req.Name)
-	req.StudentID = strings.TrimSpace(req.StudentID)
+	// A matrícula é gravada em maiúsculas: sessão única, participante e claim student_id (046/RF-4602).
+	req.StudentID = strings.ToUpper(strings.TrimSpace(req.StudentID))
 	if req.Name == "" || req.StudentID == "" {
 		writeError(w, http.StatusBadRequest, "name e student_id são obrigatórios")
 		return
 	}
 	if !studentIDRegex.MatchString(req.StudentID) {
-		writeError(w, http.StatusBadRequest, "matrícula inválida: deve conter números e até 4 letras da sigla do curso (ex: 2025116TADS0000)")
+		writeError(w, http.StatusBadRequest, errStudentIDFormat)
 		return
 	}
 

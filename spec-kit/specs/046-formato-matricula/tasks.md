@@ -24,14 +24,14 @@ Checks:
 - [x] Notas de emenda na RN-306 e na C-303 da 003, nos contratos e no RF011.
 
 ### T4602 — Backend
-[ ] T4602
+[x] T4602
 Depends On: T4601
 Allowed Paths: `apps/backend/internal/room/handler.go`, `spec-kit/specs/046-formato-matricula/tasks.md`
 Prohibited Paths: `apps/web/**`, `apps/desktop/**`, `apps/backend/internal/signaling/**`, `packages/**`
 Checks:
-- [ ] `studentIDRegex` com `^[0-9]{7}[A-Za-z]{4}[0-9]{4}$`; `TrimSpace` + `ToUpper`; mensagem do `400` (RF-4601 a
+- [x] `studentIDRegex` com `^[0-9]{7}[A-Za-z]{4}[0-9]{4}$`; `TrimSpace` + `ToUpper`; mensagem do `400` (RF-4601 a
   RF-4603).
-- [ ] `go test ./...` em `apps/backend` verde.
+- [x] `go test ./...` em `apps/backend` verde.
 
 ### T4603 — Web
 [ ] T4603
