@@ -214,7 +214,7 @@ contratos, testes e tarefas rastreáveis.
 - RN-303: mensagem privada nunca é entregue a outro aluno.
 - RN-304: o histórico (substitui a antiga RN-18 da 001) contém só mensagens públicas, no máximo 200.
 - RN-305: só o professor dono da sala envia arquivos; limite de 50 MB por arquivo.
-- RN-306: matrícula no formato `^[0-9]+[A-Za-z]{1,4}[0-9]+$`.
+- RN-306: matrícula no formato `^[0-9]+[A-Za-z]{1,4}[0-9]+$`. **Emenda 046 (2026-11-16, `046-formato-matricula`, C-4601):** o formato passa a ser exatamente `^[0-9]{7}[A-Za-z]{4}[0-9]{4}$` (ex.: `2025116TADS0000`), com a matrícula normalizada em maiúsculas (RF-4601, RF-4602).
 
 ## 8. Estados e Erros
 
