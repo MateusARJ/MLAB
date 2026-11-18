@@ -2,7 +2,7 @@
 
 Feature: `050-nome-acessivel-cabecalho-aluno`
 Prerequisites: spec/clarify/plan/checklist/analyze aprovados
-Status: READY
+Status: DONE
 
 Regras:
 - `npx vitest run` e `npm run lint` em `apps/web` verdes antes de marcar `[x]`;
@@ -41,10 +41,10 @@ Checks:
 - [x] `npm run spec:check -- spec-kit/specs/050-nome-acessivel-cabecalho-aluno` com PASS.
 
 ### T5004 — Versão
-[ ] T5004
+[x] T5004
 Depends On: T5003
 Allowed Paths: `package.json`, `package-lock.json`, `apps/*/package.json`, `packages/*/package.json`,
 `spec-kit/specs/050-nome-acessivel-cabecalho-aluno/tasks.md`
 Prohibited Paths: `apps/**/src/**`, `packages/**/src/**`, `.github/**`
 Checks:
-- [ ] `npm run bump -- patch` e `npm run version:check`; commit `chore(release): versao 2.2.1`.
+- [x] `npm run bump -- patch` e `npm run version:check`; commit `chore(release): versao 2.2.1`.
