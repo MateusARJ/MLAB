@@ -1,0 +1,27 @@
+# 047 / T4704 — erro X do rastreador de janelas num servidor X real, 2026-11-18
+# Ambiente: WSL2 Ubuntu (kernel 6.18.58.1-microsoft-standard-WSL2), WSLg com XWayland (DISPLAY=:0), Node v24.16.0, koffi 3.3.4 (@koromix/koffi-linux-x64)
+# Clone limpo com npm ci; o mesmo package-lock.json nas duas execuções.
+
+## Antes: development @ b17d684 (2.1.4), npx vitest run src/main/nativeWindowTracker.test.ts
+b17d684 Merge pull request #142 from MateusARJ/docs/converge-009-ubuntu
+X Error of failed request:  BadWindow (invalid Window parameter)
+  Major opcode of failed request:  15 (X_QueryTree)
+⎯⎯⎯⎯⎯⎯ Unhandled Errors ⎯⎯⎯⎯⎯⎯
+Error: Worker exited unexpectedly
+ Test Files   (1)
+      Tests   (2)
+     Errors  1 error
+
+## Depois: fix/erro-x-rastreador-janelas @ 7362d0f
+--- rastreador:
+ ✓ src/main/nativeWindowTracker.test.ts (7 tests) 21ms
+ Test Files  1 passed (1)
+      Tests  7 passed (7)
+--- suites X11 (009 + 047):
+ Test Files  5 passed (5)
+      Tests  66 passed (66)
+--- desktop completo:
+ Test Files  34 passed (34)
+      Tests  393 passed (393)
+--- tsc:
+tsc exit=0

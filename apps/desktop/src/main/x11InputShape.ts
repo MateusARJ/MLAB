@@ -1,4 +1,5 @@
 import type { AnnotationToolbarRect } from '@mlab/types';
+import { createX11ErrorTrap, X_BAD_WINDOW, type X11ErrorTrap } from './x11ErrorTrap';
 
 /**
  * Região de entrada X11 do overlay de marcação no Linux (009, RF-901 / C-904).
@@ -15,8 +16,8 @@ export const SHAPE_INPUT = 2;
 export const SHAPE_SET = 0;
 /** `Unsorted`: sem ordem garantida entre os retângulos. */
 export const SHAPE_UNSORTED = 0;
-/** `BadWindow` de X11/X.h: a janela não existe mais (ex.: overlay fechado). */
-export const X_BAD_WINDOW = 3;
+/** `BadWindow` de X11/X.h: a janela não existe mais (ex.: overlay fechado). Definido em `x11ErrorTrap.ts` (047). */
+export { X_BAD_WINDOW };
 
 export interface X11InputShaper {
   /** Define a região de entrada da janela `handle` (de `getNativeWindowHandle()`), em pixels físicos. */
@@ -36,8 +37,6 @@ export function readXid(handle: Buffer): bigint {
 }
 
 const RECT_STRUCT = 'XRectangle_MLAB_009';
-const ERROR_EVENT_STRUCT = 'XErrorEvent_MLAB_009';
-const ERROR_HANDLER_PROTO = 'XErrorHandler_MLAB_009';
 
 /** Reaproveita um tipo já registrado no `koffi` (o módulo pode ser criado mais de uma vez) ou o define. */
 function getOrDefineType(koffi: any, name: string, define: () => any): any {
@@ -67,27 +66,9 @@ export function createX11InputShaper(loadKoffi: () => any = defaultLoadKoffi): X
     getOrDefineType(koffi, RECT_STRUCT, () =>
       koffi.struct(RECT_STRUCT, { x: 'int16_t', y: 'int16_t', width: 'uint16_t', height: 'uint16_t' })
     );
-    getOrDefineType(koffi, ERROR_EVENT_STRUCT, () =>
-      koffi.struct(ERROR_EVENT_STRUCT, {
-        type: 'int',
-        display: 'uintptr_t',
-        resourceid: 'uintptr_t',
-        serial: 'ulong',
-        error_code: 'uint8_t',
-        request_code: 'uint8_t',
-        minor_code: 'uint8_t',
-      })
-    );
-    const errorHandlerProto = getOrDefineType(koffi, ERROR_HANDLER_PROTO, () =>
-      koffi.proto(`int ${ERROR_HANDLER_PROTO}(uintptr_t display, void *event)`)
-    );
 
     const XOpenDisplay = x11.func('uintptr_t XOpenDisplay(str display_name)');
     const XCloseDisplay = x11.func('int XCloseDisplay(uintptr_t display)');
-    const XSync = x11.func('int XSync(uintptr_t display, int discard)');
-    const XSetErrorHandler = x11.func(
-      `${ERROR_HANDLER_PROTO} *XSetErrorHandler(${ERROR_HANDLER_PROTO} *handler)`
-    );
     const XShapeCombineRectangles = xext.func(
       `void XShapeCombineRectangles(uintptr_t display, uintptr_t dest, int dest_kind, int x_off, int y_off, ${RECT_STRUCT} *rectangles, int n_rects, int op, int ordering)`
     );
@@ -97,37 +78,23 @@ export function createX11InputShaper(loadKoffi: () => any = defaultLoadKoffi): X
     let open = true;
 
     // T911: o handler padrão do Xlib chama exit() diante de qualquer erro (ex.: BadWindow com o overlay fechado) e
-    // encerraria o processo principal. O handler próprio só guarda o primeiro erro; ele fica instalado apenas durante
-    // a chamada, porque o handler do Xlib é global por processo.
-    let pendingError: { code: number; request: number } | null = null;
-    const onXError = koffi.register((_display: unknown, event: unknown) => {
-      let code = 0;
-      let request = 0;
-      try {
-        const decoded = koffi.decode(event, ERROR_EVENT_STRUCT);
-        code = Number(decoded?.error_code ?? 0);
-        request = Number(decoded?.request_code ?? 0);
-      } catch {}
-      if (!pendingError) pendingError = { code, request };
-      return 0;
-    }, koffi.pointer(errorHandlerProto));
+    // encerraria o processo principal. A captura de erro X (047) instala um handler próprio só durante a chamada.
+    let trap: X11ErrorTrap;
+    try {
+      trap = createX11ErrorTrap(koffi, x11);
+    } catch (err) {
+      XCloseDisplay(dpy);
+      throw err;
+    }
 
     return {
       apply(handle, rects) {
         if (!open) return;
         const xid = readXid(handle);
         if (xid <= 0n) return;
-        pendingError = null;
-        const previous = XSetErrorHandler(onXError);
-        try {
-          XShapeCombineRectangles(dpy, xid, SHAPE_INPUT, 0, 0, rects, rects.length, SHAPE_SET, SHAPE_UNSORTED);
-          // XSync (e não XFlush): o erro, se houver, chega agora, com o handler próprio ainda instalado.
-          XSync(dpy, 0);
-        } finally {
-          XSetErrorHandler(previous);
-        }
-        const error = pendingError as { code: number; request: number } | null;
-        pendingError = null;
+        const { error } = trap.run(dpy, () =>
+          XShapeCombineRectangles(dpy, xid, SHAPE_INPUT, 0, 0, rects, rects.length, SHAPE_SET, SHAPE_UNSORTED)
+        );
         if (!error) return;
         if (error.code === X_BAD_WINDOW) {
           console.warn(`[X11InputShape] janela 0x${xid.toString(16)} não existe mais (BadWindow); região ignorada`);
@@ -142,9 +109,7 @@ export function createX11InputShaper(loadKoffi: () => any = defaultLoadKoffi): X
         try {
           XCloseDisplay(dpy);
         } catch {}
-        try {
-          koffi.unregister(onXError);
-        } catch {}
+        trap.dispose();
       },
     };
   } catch {

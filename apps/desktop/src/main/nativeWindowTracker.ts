@@ -1,5 +1,6 @@
 import { screen } from 'electron';
 import { containsPoint, type Point, type Rect } from '../shared/cursorVisibility';
+import { createX11ErrorTrap, X_BAD_WINDOW, type X11ErrorTrap } from './x11ErrorTrap';
 
 export interface WindowSnapshot {
   cursor: Point;
@@ -407,7 +408,7 @@ function createMacTracker(koffi: any): NativeWindowTracker | null {
 
 // ── Implementação Linux (X11 libX11.so.6 via koffi) ──────────────────────────
 
-function createLinuxX11Tracker(koffi: any): NativeWindowTracker | null {
+export function createLinuxX11Tracker(koffi: any): NativeWindowTracker | null {
   try {
     const x11 = koffi.load('libX11.so.6');
 
@@ -461,6 +462,29 @@ function createLinuxX11Tracker(koffi: any): NativeWindowTracker | null {
     if (!dpy) return null;
     const root = XDefaultRootWindow(dpy);
 
+    // 047 (#139): sem handler próprio, um BadWindow (ex.: a janela capturada fechou) cai no handler padrão do Xlib,
+    // que chama exit() e encerra o processo. Sem como capturar o erro, o rastreador não é criado (fallback Electron).
+    let trap: X11ErrorTrap;
+    try {
+      trap = createX11ErrorTrap(koffi, x11);
+    } catch (err) {
+      XCloseDisplay(dpy);
+      throw err;
+    }
+    const warnedErrorCodes = new Set<number>();
+    // Roda a consulta com o erro X capturado. BadWindow é o esperado quando a janela some: as chamadas devolvem falha e
+    // a consulta já resulta em "janela não encontrada", sem log (roda a cada 16 ms). Outro erro: aviso único por código.
+    const guarded = <T>(query: () => T): T => {
+      const { result, error } = trap.run(dpy, query);
+      if (error && error.code !== X_BAD_WINDOW && !warnedErrorCodes.has(error.code)) {
+        warnedErrorCodes.add(error.code);
+        console.warn(
+          `[NativeWindowTracker] erro X ${error.code} na requisição ${error.request}; consulta segue com o que foi lido`
+        );
+      }
+      return result;
+    };
+
     // Sobe na árvore X11 a partir de `win` para verificar se `ancestor` é ancestral (ex: frame do WM)
     const isDescendantOrEqual = (win: bigint, ancestor: bigint): boolean => {
       if (win <= 0n || ancestor <= 0n) return false;
@@ -503,58 +527,63 @@ function createLinuxX11Tracker(koffi: any): NativeWindowTracker | null {
 
     return {
       queryWindow(targetWindowId: bigint): WindowSnapshot {
-        const rootRet = [0n];
-        const childRet = [0n];
-        const rootX = [0];
-        const rootY = [0];
-        const winX = [0];
-        const winY = [0];
-        const mask = [0];
-        XQueryPointer(dpy, root, rootRet, childRet, rootX, rootY, winX, winY, mask);
+        return guarded((): WindowSnapshot => {
+          const rootRet = [0n];
+          const childRet = [0n];
+          const rootX = [0];
+          const rootY = [0];
+          const winX = [0];
+          const winY = [0];
+          const mask = [0];
+          XQueryPointer(dpy, root, rootRet, childRet, rootX, rootY, winX, winY, mask);
 
-        const focusRet = [0n];
-        const revertRet = [0];
-        XGetInputFocus(dpy, focusRet, revertRet);
+          const focusRet = [0n];
+          const revertRet = [0];
+          XGetInputFocus(dpy, focusRet, revertRet);
 
-        const topUnderCursor = BigInt(childRet[0] || 0);
-        const focusWin = BigInt(focusRet[0] || 0);
+          const topUnderCursor = BigInt(childRet[0] || 0);
+          const focusWin = BigInt(focusRet[0] || 0);
 
-        const underMatches =
-          isDescendantOrEqual(targetWindowId, topUnderCursor) ||
-          isDescendantOrEqual(topUnderCursor, targetWindowId);
-        const focusMatches =
-          isDescendantOrEqual(targetWindowId, focusWin) ||
-          isDescendantOrEqual(focusWin, targetWindowId);
+          const underMatches =
+            isDescendantOrEqual(targetWindowId, topUnderCursor) ||
+            isDescendantOrEqual(topUnderCursor, targetWindowId);
+          const focusMatches =
+            isDescendantOrEqual(targetWindowId, focusWin) ||
+            isDescendantOrEqual(focusWin, targetWindowId);
 
-        return {
-          cursor: { x: rootX[0], y: rootY[0] },
-          foregroundWindowId: focusMatches ? targetWindowId : focusWin,
-          windowUnderCursorId: underMatches ? targetWindowId : topUnderCursor,
-          targetBounds: readTargetBounds(targetWindowId),
-        };
+          return {
+            cursor: { x: rootX[0], y: rootY[0] },
+            foregroundWindowId: focusMatches ? targetWindowId : focusWin,
+            windowUnderCursorId: underMatches ? targetWindowId : topUnderCursor,
+            targetBounds: readTargetBounds(targetWindowId),
+          };
+        });
       },
       queryTopWindowAtCursor(mlabWindowId: bigint | null) {
-        const rootRet = [0n];
-        const childRet = [0n];
-        const rootX = [0];
-        const rootY = [0];
-        const winX = [0];
-        const winY = [0];
-        const mask = [0];
-        XQueryPointer(dpy, root, rootRet, childRet, rootX, rootY, winX, winY, mask);
-        const topUnderCursor = BigInt(childRet[0] || 0);
-        const isMlabUnderCursor =
-          mlabWindowId !== null && mlabWindowId > 0n
-            ? isDescendantOrEqual(mlabWindowId, topUnderCursor) ||
-              isDescendantOrEqual(topUnderCursor, mlabWindowId)
-            : true;
-        return { cursor: { x: rootX[0], y: rootY[0] }, isMlabUnderCursor };
+        return guarded(() => {
+          const rootRet = [0n];
+          const childRet = [0n];
+          const rootX = [0];
+          const rootY = [0];
+          const winX = [0];
+          const winY = [0];
+          const mask = [0];
+          XQueryPointer(dpy, root, rootRet, childRet, rootX, rootY, winX, winY, mask);
+          const topUnderCursor = BigInt(childRet[0] || 0);
+          const isMlabUnderCursor =
+            mlabWindowId !== null && mlabWindowId > 0n
+              ? isDescendantOrEqual(mlabWindowId, topUnderCursor) ||
+                isDescendantOrEqual(topUnderCursor, mlabWindowId)
+              : true;
+          return { cursor: { x: rootX[0], y: rootY[0] }, isMlabUnderCursor };
+        });
       },
       setBrowserOcclusionBypass() {},
       dispose() {
         try {
           XCloseDisplay(dpy);
         } catch {}
+        trap.dispose();
       },
     };
   } catch (err) {
