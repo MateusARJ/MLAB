@@ -2,7 +2,7 @@
 
 Feature: `049-tela-cheia-sem-bordas`
 Prerequisites: spec/clarify/plan/checklist/analyze aprovados
-Status: READY
+Status: DONE
 
 Regras:
 - `npm test` e `npm run lint` em `apps/web` verdes antes de marcar `[x]`;
@@ -38,10 +38,10 @@ Checks:
 - [x] `npm run spec:check -- spec-kit/specs/049-tela-cheia-sem-bordas` com PASS.
 
 ### T4903 — Versão
-[ ] T4903
+[x] T4903
 Depends On: T4902
 Allowed Paths: `package.json`, `package-lock.json`, `apps/*/package.json`, `packages/*/package.json`,
 `spec-kit/specs/049-tela-cheia-sem-bordas/tasks.md`
 Prohibited Paths: `apps/**/src/**`, `packages/**/src/**`, `.github/**`
 Checks:
-- [ ] `npm run bump -- minor` e `npm run version:check`; commit `chore(release): versao 2.2.0`.
+- [x] `npm run bump -- minor` e `npm run version:check`; commit `chore(release): versao 2.2.0`.
