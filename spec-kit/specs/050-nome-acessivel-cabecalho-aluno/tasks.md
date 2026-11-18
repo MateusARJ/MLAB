@@ -32,13 +32,13 @@ Checks:
 - [x] Suíte e2e do aluno verde nos projetos `desktop` e `mobile`.
 
 ### T5003 — Converge
-[ ] T5003
+[x] T5003
 Depends On: T5002
 Allowed Paths: `spec-kit/specs/050-nome-acessivel-cabecalho-aluno/**`
 Prohibited Paths: `apps/**`, `packages/**`, `.github/**`, `spec-kit/docs/adrs/**`
 Checks:
-- [ ] `converge.md` com evidências, desvios e impacto de versão (PATCH, C-5003).
-- [ ] `npm run spec:check -- spec-kit/specs/050-nome-acessivel-cabecalho-aluno` com PASS.
+- [x] `converge.md` com evidências, desvios e impacto de versão (PATCH, C-5003).
+- [x] `npm run spec:check -- spec-kit/specs/050-nome-acessivel-cabecalho-aluno` com PASS.
 
 ### T5004 — Versão
 [ ] T5004
