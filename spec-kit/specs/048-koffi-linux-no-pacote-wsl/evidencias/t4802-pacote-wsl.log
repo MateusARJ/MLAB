@@ -1,0 +1,39 @@
+# 048 / T4802 — pacote Linux gerado pelo WSL, 2026-11-18
+# Ambiente: Windows 11 (npm run make:linux:deb, Node v24.16.0) + WSL2 Ubuntu com WSLg (DISPLAY=:0) para inspecionar e rodar o pacote.
+# Inspeção: dpkg-deb -x (sem instalar) + leitura do índice do app.asar; carga: Electron do próprio pacote com ELECTRON_RUN_AS_NODE=1
+# fazendo require do koffi de dentro do app.asar e XOpenDisplay.
+
+## Antes: script da development @ b17d684 (MLab-Linux-2.1.4.deb)
+--- .node do koffi no app.asar:
+/node_modules/@koromix/koffi-win32-x64/win32_x64/koffi.node
+--- Electron do pacote (modo Node) no WSLg:
+electron 31.7.7 node 20.18.0
+koffi carregado do asar: FALHOU -> Cannot find the native Koffi module; did you bundle it correctly?
+exit=2
+
+## Depois: fix/koffi-linux-no-pacote-wsl @ 0ea49b7
+--- log do build:
+[build-linux-wsl] Baixando @koromix/koffi-linux-x64@3.3.4 para o pacote Linux...
+[build-linux-wsl] ✔ @koromix/koffi-linux-x64@3.3.4 conferido e colocado em node_modules.
+[build-linux-wsl] Empacotando alvos para Linux (deb) via WSL...
+[build-linux-wsl] @koromix/koffi-linux-x64 removido de node_modules.
+[build-linux-wsl] ✔ Build Linux (deb) concluído com sucesso!
+--- .node do koffi no app.asar:
+/node_modules/@koromix/koffi-linux-x64/musl_x64/koffi.node
+/node_modules/@koromix/koffi-linux-x64/linux_x64/koffi.node
+/node_modules/@koromix/koffi-win32-x64/win32_x64/koffi.node
+--- Electron do pacote (modo Node) no WSLg:
+electron 31.7.7 node 20.18.0
+koffi carregado do asar: OK, versao 3.3.4
+XOpenDisplay: OK
+RESULTADO: OK
+exit=0
+
+## Depois do build no Windows
+node_modules/@koromix: koffi-win32-x64 (o koffi-linux-x64 colocado pelo script foi removido)
+git status --short logo após o build: só " M scripts/build-linux-wsl.js" (a correção ainda em edição, depois commitada em 0ea49b7); package-lock.json sem mudança
+
+## Integridade divergente (integrity alterado só no disco e restaurado)
+[build-linux-wsl] Baixando @koromix/koffi-linux-x64@3.3.4 para o pacote Linux...
+[build-linux-wsl] integridade de @koromix/koffi-linux-x64 não confere com o package-lock.json (sha512).
+exit=1  (node_modules/@koromix: koffi-win32-x64)

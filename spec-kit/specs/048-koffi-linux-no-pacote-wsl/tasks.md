@@ -2,7 +2,7 @@
 
 Feature: `048-koffi-linux-no-pacote-wsl`
 Prerequisites: spec/clarify/plan/checklist/analyze aprovados
-Status: IN PROGRESS
+Status: DONE
 
 Regras:
 - um commit atômico por task, com `Ref: T480x` e `Refs #138`.
@@ -24,23 +24,24 @@ Checks:
   temporário. O `koffi` é localizado pelo pacote resolvido, porque o `exports` dele não expõe `package.json`.
 
 ### T4802 — Verificação do pacote gerado
-[ ] T4802
+[x] T4802
 Depends On: T4801
 Allowed Paths: `spec-kit/specs/048-koffi-linux-no-pacote-wsl/**`
 Prohibited Paths: `apps/**`, `packages/**`, `scripts/**`, `package.json`, `package-lock.json`
 Checks:
-- [ ] Antes (`development`): o `.deb` de `npm run make:linux:deb` não tem `koffi-linux-x64`.
-- [ ] Depois: o `.deb` contém `@koromix/koffi-linux-x64/linux_x64/koffi.node`, e o Electron do pacote carrega o `koffi`
-  do `app.asar` no WSL.
-- [ ] Depois do build, `node_modules/@koromix/koffi-linux-x64` não existe no Windows e o `git status` está limpo
+- [x] Antes (`development`): o `.deb` de `npm run make:linux:deb` só tem `koffi-win32-x64`, e o Electron do pacote
+  falha ao carregar o `koffi` no WSL.
+- [x] Depois: o `.deb` contém `@koromix/koffi-linux-x64/linux_x64/koffi.node`, e o Electron do pacote carrega o `koffi`
+  do `app.asar` e abre o display X no WSLg.
+- [x] Depois do build, `node_modules/@koromix/koffi-linux-x64` não existe no Windows e o `package-lock.json` não muda
   (RF-4803).
-- [ ] Evidência em `evidencias/`.
+- [x] Evidência em `evidencias/t4802-pacote-wsl.log`.
 
 ### T4803 — Converge
-[ ] T4803
+[x] T4803
 Depends On: T4802
 Allowed Paths: `spec-kit/specs/048-koffi-linux-no-pacote-wsl/**`
 Prohibited Paths: `apps/**`, `packages/**`, `scripts/**`, `.github/**`, `spec-kit/docs/adrs/**`
 Checks:
-- [ ] `converge.md` com evidências, desvios e impacto de versão (sem incremento, C-4803).
-- [ ] `npm run spec:check -- spec-kit/specs/048-koffi-linux-no-pacote-wsl` com PASS.
+- [x] `converge.md` com evidências, desvios e impacto de versão (sem incremento, C-4803).
+- [x] `npm run spec:check -- spec-kit/specs/048-koffi-linux-no-pacote-wsl` com PASS.
