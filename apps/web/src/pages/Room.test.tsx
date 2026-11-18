@@ -670,3 +670,144 @@ describe('Room — controles do aluno no celular (043)', () => {
     expect(screen.getByTestId('fullscreen-right-sidebar')).toHaveStyle({ transform: 'translateX(100%)' });
   });
 });
+
+describe('Room — tela cheia sem bordas (049)', () => {
+  const dummyToken = 'student-jwt-123';
+  const dummyRoomInfo = { room_id: 'room-101', ws_url: 'ws://localhost:8080/ws/rooms/room-101/signal', ice_servers: [] };
+
+  const enterFullscreen = (container: HTMLElement) => {
+    Object.defineProperty(document, 'fullscreenElement', { configurable: true, value: container });
+    fireEvent(document, new Event('fullscreenchange'));
+  };
+  const exitFullscreen = () => {
+    Object.defineProperty(document, 'fullscreenElement', { configurable: true, value: null });
+    fireEvent(document, new Event('fullscreenchange'));
+  };
+
+  beforeEach(() => {
+    window.localStorage.clear();
+  });
+
+  const storageSpies: Array<{ mockRestore: () => void }> = [];
+
+  afterEach(() => {
+    storageSpies.splice(0).forEach((spy) => spy.mockRestore());
+    window.localStorage.clear();
+    window.innerWidth = 1024;
+    window.innerHeight = 768;
+    fireEvent(window, new Event('resize'));
+    try {
+      Object.defineProperty(document, 'fullscreenElement', { configurable: true, value: null });
+    } catch {}
+  });
+
+  it('em tela cheia o vídeo preenche a tela (cover) e fora dela mostra a imagem inteira (RF-4901 a RF-4903)', () => {
+    const { container } = render(<Room token={dummyToken} roomInfo={dummyRoomInfo} onLeave={vi.fn()} />);
+    const video = screen.getByTestId('room-video');
+    expect(video).toHaveStyle({ objectFit: 'contain' });
+
+    enterFullscreen(container);
+    expect(video).toHaveStyle({ objectFit: 'cover' });
+
+    exitFullscreen();
+    expect(video).toHaveStyle({ objectFit: 'contain' });
+  });
+
+  it('o menu em tela cheia alterna entre Mostrar tela inteira e Preencher a tela, sem fechar o menu, e salva a escolha (RF-4904, RF-4905)', () => {
+    const { container } = render(<Room token={dummyToken} roomInfo={dummyRoomInfo} onLeave={vi.fn()} />);
+    enterFullscreen(container);
+    fireEvent.click(screen.getByTestId('fullscreen-menu-trigger'));
+
+    const video = screen.getByTestId('room-video');
+    const toggle = screen.getByRole('button', { name: 'Mostrar tela inteira' });
+    expect(toggle).toHaveTextContent('Ajustar sem cortar as bordas');
+
+    fireEvent.click(toggle);
+    expect(video).toHaveStyle({ objectFit: 'contain' });
+    expect(window.localStorage.getItem('mlab-video-fit')).toBe('contain');
+    expect(toggle).toHaveAccessibleName('Preencher a tela');
+    expect(toggle).toHaveTextContent('Sem bordas; pode cortar as laterais');
+    expect(screen.getByTestId('fullscreen-right-sidebar')).toHaveStyle({ transform: 'translateX(0)' });
+
+    fireEvent.click(toggle);
+    expect(video).toHaveStyle({ objectFit: 'cover' });
+    expect(window.localStorage.getItem('mlab-video-fit')).toBe('cover');
+  });
+
+  it('usa a escolha salva no dispositivo e volta ao padrão com valor inválido (RF-4905)', () => {
+    window.localStorage.setItem('mlab-video-fit', 'contain');
+    const first = render(<Room token={dummyToken} roomInfo={dummyRoomInfo} onLeave={vi.fn()} />);
+    enterFullscreen(first.container);
+    expect(screen.getByTestId('room-video')).toHaveStyle({ objectFit: 'contain' });
+    first.unmount();
+    exitFullscreen();
+
+    window.localStorage.setItem('mlab-video-fit', 'esticar');
+    const second = render(<Room token={dummyToken} roomInfo={dummyRoomInfo} onLeave={vi.fn()} />);
+    enterFullscreen(second.container);
+    expect(screen.getByTestId('room-video')).toHaveStyle({ objectFit: 'cover' });
+  });
+
+  it('armazenamento indisponível não quebra a sala e o modo alterna na sessão (RF-4905)', () => {
+    storageSpies.push(
+      vi.spyOn(Storage.prototype, 'getItem').mockImplementation(() => {
+        throw new Error('bloqueado');
+      }),
+      vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
+        throw new Error('bloqueado');
+      }),
+    );
+    const { container } = render(<Room token={dummyToken} roomInfo={dummyRoomInfo} onLeave={vi.fn()} />);
+    enterFullscreen(container);
+    const video = screen.getByTestId('room-video');
+    expect(video).toHaveStyle({ objectFit: 'cover' });
+
+    fireEvent.click(screen.getByTestId('fullscreen-menu-trigger'));
+    fireEvent.click(screen.getByRole('button', { name: 'Mostrar tela inteira' }));
+    expect(video).toHaveStyle({ objectFit: 'contain' });
+  });
+
+  it('ao entrar em tela cheia o chat fecha, e continua abrindo pelo menu (RF-4906)', () => {
+    const { container } = render(<Room token={dummyToken} roomInfo={dummyRoomInfo} onLeave={vi.fn()} />);
+    // No desktop o chat começa aberto
+    expect(screen.getByText(/Chat da Aula/i)).toBeInTheDocument();
+
+    enterFullscreen(container);
+    const trigger = screen.getByTestId('fullscreen-menu-trigger');
+    expect(trigger).toBeInTheDocument();
+
+    fireEvent.click(trigger);
+    fireEvent.click(screen.getByRole('button', { name: /Chat da Turma/i }));
+    expect(screen.queryByTestId('fullscreen-menu-trigger')).not.toBeInTheDocument();
+  });
+
+  it('menu em tela cheia e gaveta do celular fechados não deixam sombra na borda direita (RF-4908)', () => {
+    window.innerWidth = 844;
+    window.innerHeight = 390;
+    fireEvent(window, new Event('resize'));
+    const { container } = render(<Room token={dummyToken} roomInfo={dummyRoomInfo} onLeave={vi.fn()} />);
+    enterFullscreen(container);
+    const sidebar = screen.getByTestId('fullscreen-right-sidebar');
+    const drawer = container.querySelector('main > aside') as HTMLElement;
+    expect(sidebar.style.boxShadow).toBe('none');
+    expect(drawer.style.boxShadow).toBe('none');
+
+    fireEvent.click(screen.getByTestId('fullscreen-menu-trigger'));
+    expect(sidebar.style.boxShadow).toMatch(/rgba/);
+
+    fireEvent.click(screen.getByRole('button', { name: /Chat da Turma/i }));
+    expect(drawer.style.boxShadow).toMatch(/rgba/);
+  });
+
+  it('no celular, a área segura inferior só é reservada fora da tela cheia (RF-4907)', () => {
+    window.innerWidth = 844;
+    window.innerHeight = 390;
+    fireEvent(window, new Event('resize'));
+    const { container } = render(<Room token={dummyToken} roomInfo={dummyRoomInfo} onLeave={vi.fn()} />);
+    const section = screen.getByTestId('video-section');
+    expect(section.style.paddingBottom).toBe('var(--sab, 0px)');
+
+    enterFullscreen(container);
+    expect(section.style.paddingBottom).toBe('');
+  });
+});
