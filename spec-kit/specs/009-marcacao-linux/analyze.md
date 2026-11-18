@@ -124,3 +124,39 @@ o anterior, sem disputar com o handler que a #139 vier a criar.
 
 - [ ] FAIL
 - [x] PASS — próxima execução: T911.
+
+## 9. Rodada 4 — T910 (2026-11-17)
+
+### Inconsistências
+
+Nenhuma. A T910 reúne as pendências do converge (#32) numa tarefa só de verificação e documentação. Ajuste de
+ambiente, sem mudar requisito: o GNOME 50 (Ubuntu 26.04) não tem mais sessão X11, então o critério "Ubuntu com GNOME
+(X11)" da spec é cumprido em X11 puro (Openbox) ou num Ubuntu 24.04. O comportamento de atalhos globais sob XWayland
+com app Wayland nativo em foco segue a US-903 (atalho global garantido só em X11).
+
+### Cobertura
+
+| Requisito | Task |
+|---|---|
+| RF-901 | T902, T903 (alternativa), T907, T908, T909, T911, T905, T910 |
+| RF-902 | T901, T904, T910 |
+| RF-903 | T903, T905, T910 |
+| RF-904 | T910 |
+| RNF-901 | T903, T909, T910 (smoke Windows) |
+| RNF-902 | T903 (alternativa), T909 |
+| RN-901 | T910 (smoke Windows) |
+
+### Contratos
+
+Emenda só de texto no canal `annotation-overlay:toolbar-rect` (`003/contracts/desktop-ipc.md`), já prevista no
+converge; formato e validação inalterados.
+
+### Scope Lock
+
+A T910 só toca `spec-kit/specs/009-marcacao-linux/**` e o contrato da 003, ambos em Allowed Paths. `apps/**` e
+`packages/**` proibidos.
+
+### Resultado
+
+- [ ] FAIL
+- [x] PASS — próxima execução: T910.
