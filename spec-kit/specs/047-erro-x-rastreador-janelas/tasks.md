@@ -39,7 +39,7 @@ Checks:
 - [x] `x11ErrorTrap.test.ts` 7/7; `annotationOverlayWindow.test.ts` 24/24; `tsc --noEmit` sem erros.
 
 ### T4703 — Captura de erro X no rastreador Linux
-[ ] T4703
+[x] T4703
 Depends On: T4702
 Allowed Paths: `apps/desktop/src/main/nativeWindowTracker.ts` (somente o trecho Linux),
 `apps/desktop/src/main/nativeWindowTracker.test.ts`, `spec-kit/specs/047-erro-x-rastreador-janelas/tasks.md`
@@ -47,10 +47,11 @@ Prohibited Paths: `apps/desktop/src/main/x11ErrorTrap.ts`, `apps/desktop/src/mai
 `apps/desktop/src/main/x11InputShape.test.ts`, `apps/desktop/src/main/cursorPresence.ts`,
 `apps/desktop/src/renderer/**`, `apps/web/**`, `apps/backend/**`, `packages/**`
 Checks:
-- [ ] `queryWindow` e `queryTopWindowAtCursor` rodam dentro de `trap.run`; `BadWindow` sem log; outro erro com aviso
-  único por código; trap indisponível → rastreador `null` (RF-4701, RF-4702).
-- [ ] Testes da T4701 verdes; rastreadores do Windows e do macOS sem mudança (RNF-4702).
-- [ ] `npx vitest run` no desktop (Windows) verde; `npx tsc --noEmit` sem erros.
+- [x] `queryWindow` e `queryTopWindowAtCursor` rodam dentro de `trap.run`; `BadWindow` sem log; outro erro com aviso
+  único por código; trap indisponível → rastreador `null`, com o display fechado (RF-4701, RF-4702).
+- [x] Testes da T4701 verdes (7/7 no arquivo); diff só no import e no trecho de `createLinuxX11Tracker`, rastreadores
+  do Windows e do macOS sem mudança (RNF-4702).
+- [x] `npx vitest run` no desktop (Windows): 34 arquivos, 393 testes verdes; `npx tsc --noEmit` sem erros.
 
 ### T4704 — Verificação num servidor X real
 [ ] T4704
