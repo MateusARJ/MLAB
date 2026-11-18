@@ -24,7 +24,7 @@ Checks:
   `XSync`, rastreador criado sem `koffi.register`, sem `unregister`); os 2 testes existentes seguem verdes.
 
 ### T4702 — Módulo único de captura de erro X
-[ ] T4702
+[x] T4702
 Depends On: T4701
 Allowed Paths: `apps/desktop/src/main/x11ErrorTrap.ts`, `apps/desktop/src/main/x11ErrorTrap.test.ts`,
 `apps/desktop/src/main/x11InputShape.ts`, `spec-kit/specs/047-erro-x-rastreador-janelas/tasks.md`
@@ -32,10 +32,11 @@ Prohibited Paths: `apps/desktop/src/main/x11InputShape.test.ts`, `apps/desktop/s
 `apps/desktop/src/main/cursorPresence.ts`, `apps/desktop/src/main/annotationOverlayWindow.ts`,
 `apps/desktop/src/renderer/**`, `apps/web/**`, `apps/backend/**`, `packages/**`
 Checks:
-- [ ] `createX11ErrorTrap` instala o handler só durante `run`, chama `XSync`, restaura o anterior também quando `fn`
+- [x] `createX11ErrorTrap` instala o handler só durante `run`, chama `XSync`, restaura o anterior também quando `fn`
   lança, guarda só o primeiro erro e zera o erro pendente a cada `run`; `dispose` libera o callback.
-- [ ] `x11InputShape.ts` usa o trap; `x11InputShape.test.ts` verde sem alteração (RF-4703).
-- [ ] `x11ErrorTrap.test.ts` verde.
+- [x] `x11InputShape.ts` usa o trap; `x11InputShape.test.ts` 12/12 sem alteração (RF-4703). Se o trap não puder ser
+  criado, o display aberto é fechado antes de devolver `null`.
+- [x] `x11ErrorTrap.test.ts` 7/7; `annotationOverlayWindow.test.ts` 24/24; `tsc --noEmit` sem erros.
 
 ### T4703 — Captura de erro X no rastreador Linux
 [ ] T4703
