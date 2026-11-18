@@ -2,7 +2,7 @@
 
 Feature: `047-erro-x-rastreador-janelas`
 Prerequisites: spec/clarify/plan/checklist/analyze aprovados
-Status: IN PROGRESS
+Status: DONE
 
 Regras:
 - um commit atômico por task, com `Ref: T470x` e `Refs #139`.
@@ -54,20 +54,20 @@ Checks:
 - [x] `npx vitest run` no desktop (Windows): 34 arquivos, 393 testes verdes; `npx tsc --noEmit` sem erros.
 
 ### T4704 — Verificação num servidor X real
-[ ] T4704
+[x] T4704
 Depends On: T4703
 Allowed Paths: `spec-kit/specs/047-erro-x-rastreador-janelas/**`
 Prohibited Paths: `apps/**`, `packages/**`
 Checks:
-- [ ] WSLg (XWayland): `nativeWindowTracker.test.ts` derruba o worker na `development` e passa nesta branch
-  (RNF-4701); evidência em `evidencias/`.
-- [ ] Suíte do desktop no Linux sem a falha da #139.
+- [x] WSLg (XWayland): `nativeWindowTracker.test.ts` derruba o worker na `development` (`BadWindow` em
+  `X_QueryTree`) e passa 7/7 nesta branch (RNF-4701); evidência em `evidencias/t4704-wslg-badwindow.log`.
+- [x] Suíte do desktop no Linux sem a falha da #139: 34 arquivos, 393 testes verdes; `tsc --noEmit` sem erros.
 
 ### T4705 — Converge
-[ ] T4705
+[x] T4705
 Depends On: T4704
 Allowed Paths: `spec-kit/specs/047-erro-x-rastreador-janelas/**`
 Prohibited Paths: `apps/**`, `packages/**`, `.github/**`, `spec-kit/docs/adrs/**`
 Checks:
-- [ ] `converge.md` com evidências, desvios e impacto de versão (PATCH, C-4703).
-- [ ] `npm run spec:check -- spec-kit/specs/047-erro-x-rastreador-janelas` com PASS.
+- [x] `converge.md` com evidências, desvios e impacto de versão (PATCH, C-4703).
+- [x] `npm run spec:check -- spec-kit/specs/047-erro-x-rastreador-janelas` com PASS.
