@@ -22,14 +22,14 @@ Checks:
 - [x] Testes novos no celular e no computador, com e sem contagem; testes existentes verdes (RNF-5002).
 
 ### T5002 — E2E A13 sem corrida
-[ ] T5002
+[x] T5002
 Depends On: T5001
 Allowed Paths: `apps/web/e2e/aluno.e2e.ts`, `spec-kit/specs/050-nome-acessivel-cabecalho-aluno/tasks.md`
 Prohibited Paths: `apps/web/e2e/fixtures.ts`, `apps/web/src/**`, `apps/desktop/**`, `apps/backend/**`, `packages/**`
 Checks:
-- [ ] A13 espera `{ name: /Arquivos da aula \(1 arquivo\)/i }` antes de clicar (RF-5004).
-- [ ] `npx playwright test -g "A13" --project=mobile --repeat-each=30 --retries=0` verde (RNF-5002).
-- [ ] Suíte e2e do aluno verde nos projetos `desktop` e `mobile`.
+- [x] A13 espera `{ name: /Arquivos da aula \(1 arquivo\)/i }` antes de clicar (RF-5004).
+- [x] `npx playwright test -g "A13" --project=mobile --repeat-each=30 --retries=0` verde (RNF-5002).
+- [x] Suíte e2e do aluno verde nos projetos `desktop` e `mobile`.
 
 ### T5003 — Converge
 [ ] T5003
