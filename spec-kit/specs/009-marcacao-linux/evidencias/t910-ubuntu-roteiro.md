@@ -33,4 +33,4 @@ Para cada sessão: `npm run dev`, criar sala, transmitir e abrir a barra de marc
 
 ## Pendente
 
-- Smoke manual da barra no Windows real (RNF-901, RN-901).
+- Nenhum: o smoke no Windows foi feito em 2026-11-18 (`t910-windows-smoke.md`).

@@ -164,7 +164,7 @@ Checks:
   e `CursorPresenceTracker` sob XWayland).
 
 ### T910 — Verificação no Ubuntu real e emenda do contrato (#32)
-[ ] T910
+[x] T910
 Depends On: T905, T909, T911
 Allowed Paths: `spec-kit/specs/009-marcacao-linux/**`,
 `spec-kit/specs/003-classroom-interaction/contracts/desktop-ipc.md`
@@ -180,8 +180,9 @@ Checks:
 - [x] Escala de 200%: região de entrada alinhada com a barra.
 - [x] RF-904: letras únicas (`V`, `P`, `M`, `A`, `R`, `E`, `L`, `Z`, `H`) depois de clicar na barra.
 - [x] Passagem do painel para o overlay registrada (causa provável na #140, fora da 009).
-- [ ] Smoke manual da barra no Windows (RNF-901, RN-901).
+- [x] Smoke manual da barra no Windows (RNF-901, RN-901).
 - [x] `converge.md` atualizado: CONVERGED ou novas tasks.
 - Resultado (2026-11-17): roteiro aprovado pelo responsável em GNOME Wayland, escala 200% e Openbox/X11
-  (`evidencias/t910-ubuntu-roteiro.md`); testes automatizados em `evidencias/t910-ubuntu-testes.log`. Converge OPEN só
-  pelo smoke no Windows; a T910 fica aberta até ele.
+  (`evidencias/t910-ubuntu-roteiro.md`); testes automatizados em `evidencias/t910-ubuntu-testes.log`.
+- Resultado (2026-11-18): smoke da barra no Windows 11 aprovado pelo responsável, todos os itens OK
+  (`evidencias/t910-windows-smoke.md`). Converge CONVERGED.
