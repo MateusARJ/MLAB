@@ -21,17 +21,17 @@ Checks:
 - [x] `test-results/` no `.gitignore` do web (RF-5105).
 
 ### T5102 — Teste de regressão I1
-[ ] T5102
+[x] T5102
 Depends On: T5101
 Allowed Paths: `apps/web/e2e/infra.e2e.ts`, `spec-kit/specs/051-e2e-sem-reload-do-vite/tasks.md`
 Prohibited Paths: `apps/web/src/**`, `apps/web/e2e/aluno.e2e.ts`, `apps/web/e2e/fixtures.ts`, `apps/desktop/**`,
 `apps/backend/**`, `packages/**`
 Checks:
-- [ ] `I1` grava `.html` em `testInfo.outputDir` e em `e2e-results/` e não recebe `full-reload`; exige o frame
+- [x] `I1` grava `.html` em `testInfo.outputDir` e em `e2e-results/` e não recebe `full-reload`; exige o frame
   `connected` do HMR (RF-5104).
-- [ ] `I1` falha com a configuração anterior (sem `server.watch.ignored`, gravando em `e2e-results/`).
-- [ ] A3 `desktop` 40/40, A10 `desktop`/`mobile` e A13 `mobile` repetidos sem retry, verdes (RNF-5101).
-- [ ] Suíte e2e completa verde nos dois projetos; HMR do `src/` funcionando (RNF-5102).
+- [x] `I1` falha com a configuração anterior (sem `server.watch.ignored`, gravando em `e2e-results/`).
+- [x] A3 `desktop` 40/40, A10 `desktop`/`mobile` e A13 `mobile` repetidos sem retry, verdes (RNF-5101).
+- [x] Suíte e2e completa verde nos dois projetos; HMR do `src/` funcionando (RNF-5102).
 
 ### T5103 — Converge
 [ ] T5103
