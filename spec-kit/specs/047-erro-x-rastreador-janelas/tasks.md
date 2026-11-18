@@ -8,19 +8,20 @@ Regras:
 - um commit atômico por task, com `Ref: T470x` e `Refs #139`.
 
 ### T4701 — Testes do erro X no rastreador Linux
-[ ] T4701
+[x] T4701
 Allowed Paths: `apps/desktop/src/main/nativeWindowTracker.test.ts`, `apps/desktop/src/main/nativeWindowTracker.ts`
 (somente o `export` de `createLinuxX11Tracker`), `spec-kit/specs/047-erro-x-rastreador-janelas/tasks.md`
 Prohibited Paths: `apps/desktop/src/main/cursorPresence.ts`, `apps/desktop/src/main/x11InputShape.ts`,
 `apps/desktop/src/main/x11InputShape.test.ts`, `apps/desktop/src/renderer/**`, `apps/web/**`, `apps/backend/**`,
 `packages/**`
 Checks:
-- [ ] `koffi` simulado em que um erro X sem handler próprio instalado faz o papel do `exit()` do Xlib.
-- [ ] `BadWindow` em `queryWindow`: não lança, `targetBounds` nulo, sem aviso, handler anterior restaurado (RF-4701,
+- [x] `koffi` simulado em que um erro X sem handler próprio instalado faz o papel do `exit()` do Xlib.
+- [x] `BadWindow` em `queryWindow`: não lança, `targetBounds` nulo, sem aviso, handler anterior restaurado (RF-4701,
   RF-4702).
-- [ ] Outro erro X: não lança e gera um único aviso por código (RF-4702).
-- [ ] `dispose` fecha o display e libera o callback.
-- [ ] Os testes novos falham antes da T4703; os demais seguem verdes.
+- [x] Outro erro X: não lança e gera um único aviso por código (RF-4702).
+- [x] `dispose` fecha o display e libera o callback.
+- [x] Os testes novos falham antes da T4703: 5 falhas (`BadWindow` lança "handler padrão do Xlib: exit()", sem
+  `XSync`, rastreador criado sem `koffi.register`, sem `unregister`); os 2 testes existentes seguem verdes.
 
 ### T4702 — Módulo único de captura de erro X
 [ ] T4702

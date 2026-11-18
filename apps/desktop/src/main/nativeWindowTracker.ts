@@ -407,7 +407,7 @@ function createMacTracker(koffi: any): NativeWindowTracker | null {
 
 // ── Implementação Linux (X11 libX11.so.6 via koffi) ──────────────────────────
 
-function createLinuxX11Tracker(koffi: any): NativeWindowTracker | null {
+export function createLinuxX11Tracker(koffi: any): NativeWindowTracker | null {
   try {
     const x11 = koffi.load('libX11.so.6');
 
