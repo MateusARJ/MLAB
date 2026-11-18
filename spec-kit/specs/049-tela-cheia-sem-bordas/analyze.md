@@ -8,16 +8,18 @@ Status: PASS
 
 Nenhuma entre os artefatos da feature.
 
-- Spec, clarify (C-4901 a C-4904) e plan concordam: Preencher (`cover`) por padrão em tela cheia, Ajustar
+- Spec, clarify (C-4901 a C-4905) e plan concordam: Preencher (`cover`) por padrão em tela cheia, Ajustar
   (`contain`) a um toque, escolha em `mlab-video-fit`, painéis fechados na entrada, sem área segura inferior em tela
-  cheia, MINOR.
+  cheia, sem sombra do menu fechado, MINOR.
+- Rodada 2 (2026-11-18): RF-4908/C-4905 entraram depois da verificação visual da T4901; ficam na T4901 e no mesmo
+  Scope Lock (`Room.tsx`). PASS mantido.
 - RF-22 (001) e RF-4305/RF-4306 (043) não mudam: o menu em tela cheia ganha um item no mesmo padrão.
 
 ## 2. Cobertura
 
 | Requisito | Task |
 |---|---|
-| RF-4901 a RF-4907 | T4901 |
+| RF-4901 a RF-4908 | T4901 |
 | RNF-4901 | T4901 (testes existentes e e2e A10/A15 no converge) |
 | RNF-4902 | T4901 |
 | RNF-4903 | T4901 (re-export de ícones já instalados) |

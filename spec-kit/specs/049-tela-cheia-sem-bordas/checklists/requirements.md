@@ -5,9 +5,9 @@ Status: APPROVED
 
 ## Completude
 
-- [x] Cada requisito (RF-4901 a RF-4907, RNF-4901 a RNF-4903) tem task.
-- [x] Ambiguidades fechadas (C-4901 a C-4904): modo de preenchimento, controle, persistência, painéis, área segura e
-  versão.
+- [x] Cada requisito (RF-4901 a RF-4908, RNF-4901 a RNF-4903) tem task.
+- [x] Ambiguidades fechadas (C-4901 a C-4905): modo de preenchimento, controle, persistência, painéis, área segura,
+  sombra do menu fechado e versão.
 - [x] Evidência registrada: `Room.tsx` (`video`, `videoSection`, `videoSectionMobile`, `pseudoFullscreen`,
   `isChatOpen`) e `useScreenCapture.ts` (limite 1920×1080 com proporção da fonte).
 - [x] Edge cases cobertos: mesma proporção, painel aberto pelo menu, tela mais alta que o vídeo, armazenamento

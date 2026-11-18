@@ -84,6 +84,8 @@ Como aluno, quero mostrar a tela do professor inteira quando o corte esconder al
 - RF-4906: ao entrar em tela cheia, Chat e Arquivos fecham; continuam acessíveis pelo menu da transmissão.
 - RF-4907: no celular, em tela cheia, a área do vídeo não reserva a área segura inferior (`--sab`); fora da tela cheia,
   a reserva continua.
+- RF-4908: fechados, o menu da transmissão em tela cheia e a gaveta Chat/Arquivos do celular não deixam sombra na
+  borda direita da tela; abertos, a sombra continua.
 
 ## 7. Requisitos Não Funcionais
 
@@ -116,9 +118,9 @@ Como aluno, quero mostrar a tela do professor inteira quando o corte esconder al
 
 ## 11. Critérios de Sucesso
 
-- `npm test` e `npm run lint` em `apps/web` verdes, com testes novos para RF-4901 a RF-4907.
+- `npm test` e `npm run lint` em `apps/web` verdes, com testes novos para RF-4901 a RF-4908.
 - Verificação visual em tela cheia: 1920×1080, 2560×1080 e 844×390, nos dois modos, com uma transmissão 16:9.
 
 ## 12. Perguntas que bloqueiam a implementação
 
-- [x] Nenhuma. Respondidas em `clarify.md` (C-4901 a C-4904).
+- [x] Nenhuma. Respondidas em `clarify.md` (C-4901 a C-4905).

@@ -40,6 +40,15 @@ Decisões registradas em 2026-11-18 na correção da issue #147, pedida pelo res
 - **Impacto de versão:** **MINOR**. Além da correção, o aluno ganha uma opção nova (Preencher/Ajustar) salva no
   dispositivo: "nova opção" em `docs/versionamento.md` §2. Nenhum contrato muda. 2.1.5 → 2.2.0.
 
+## C-4905 — Sombra do menu fechado na borda direita
+
+- **Achado (verificação visual da T4901, 844×390):** o menu da transmissão em tela cheia fica fora da tela com
+  `translateX(100%)` quando fechado, mas a `box-shadow` (`-12px 0 32px`) continua visível como uma faixa escura na
+  borda direita. A gaveta Chat/Arquivos do celular (`chatDrawerMobile`) tem a mesma sombra e o mesmo `translateX(100%)`
+  e também vaza, dentro e fora da tela cheia. É uma borda lateral em tela cheia, do mesmo relato da issue #147.
+- **Resposta:** corrigir nesta feature: nos dois painéis, a sombra só existe aberto. Sem mudança de comportamento.
+- **Impacto em spec:** RF-4908.
+
 ## Resultado
 
-CLOSED: C-4901 a C-4904 respondidas, sem ambiguidade em aberto.
+CLOSED: C-4901 a C-4905 respondidas, sem ambiguidade em aberto.

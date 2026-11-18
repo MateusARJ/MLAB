@@ -27,7 +27,9 @@ videoSection no celular: padding-bottom --sab só fora da tela cheia
      (RF-4904);
    - efeito em `effectiveFullscreen`: na transição para `true`, `setIsChatOpen(false)` e `setIsFilesOpen(false)`
      (RF-4906);
-   - `videoSectionMobile` só quando `isMobile && !effectiveFullscreen` (RF-4907).
+   - `videoSectionMobile` só quando `isMobile && !effectiveFullscreen` (RF-4907);
+   - `boxShadow` do `fullscreen-right-sidebar` e da gaveta do celular (`chatDrawerMobile`) só abertos (`none`
+     fechados) (RF-4908, C-4905).
 2. `packages/ui/src/index.ts`: exporta `Expand` e `Shrink` do `lucide-react` com os nomes `FillScreen` e `FitScreen`,
    no padrão de um import por ícone.
 3. `apps/web/src/pages/Room.test.tsx`: `describe` novo da 049.
@@ -42,6 +44,7 @@ videoSection no celular: padding-bottom --sab só fora da tela cheia
 | Ícones | `FillScreen` (Lucide `Expand`) para "Preencher a tela", `FitScreen` (Lucide `Shrink`) para "Mostrar tela inteira" | RNF-4903 |
 | Painéis | fecham na entrada em tela cheia, por efeito na borda de subida de `effectiveFullscreen` | C-4903 |
 | Área segura | `videoSectionMobile` desligado em tela cheia | C-4903 |
+| Sombra dos painéis | `boxShadow: 'none'` com o menu em tela cheia ou a gaveta do celular fechados | C-4905 |
 | Versão | MINOR (2.1.5 → 2.2.0) | C-4904 |
 
 ## 3. Risks / Failure Modes
@@ -107,3 +110,4 @@ videoSection no celular: padding-bottom --sab só fora da tela cheia
 | 2026-11-18 | Controle no menu da transmissão, escolha em `mlab-video-fit` | C-4902 |
 | 2026-11-18 | Chat/Arquivos fecham ao entrar em tela cheia; sem área segura inferior em tela cheia | C-4903 |
 | 2026-11-18 | Uma feature, um PR, IDs `490x`, MINOR | C-4904 |
+| 2026-11-18 | Sombra do menu fechado removida (achado da verificação visual) | C-4905 |
