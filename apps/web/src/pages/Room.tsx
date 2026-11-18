@@ -108,6 +108,19 @@ function saveVideoFit(fit: VideoFit): void {
   } catch {}
 }
 
+// 050/RF-5001, RF-5002: nome acessível dos botões do cabeçalho. No celular eles só têm ícone; sem `aria-label`, o
+// selo de contagem viraria o nome ("1", "3"). A contagem entra no nome e o selo fica `aria-hidden`.
+function filesButtonLabel(count: number): string {
+  if (count <= 0) return 'Arquivos da aula';
+  return `Arquivos da aula (${count} ${count === 1 ? 'arquivo' : 'arquivos'})`;
+}
+
+function withUnread(label: string, count: number): string {
+  if (count <= 0) return label;
+  if (count > 99) return `${label} (99+ não lidas)`;
+  return `${label} (${count} ${count === 1 ? 'não lida' : 'não lidas'})`;
+}
+
 export const Room: React.FC<RoomProps> = ({ token, roomInfo, onLeave }) => {
   const {
     stream,
@@ -813,10 +826,11 @@ export const Room: React.FC<RoomProps> = ({ token, roomInfo, onLeave }) => {
                   : {}),
               }}
               title="Arquivos da Aula"
+              aria-label={filesButtonLabel(sharedFiles.length)}
             >
               <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}><Folder size={16} /> {isMobile ? '' : 'Arquivos da aula'}</span>
               {sharedFiles.length > 0 && (
-                <span style={styles.filesBadge}>{sharedFiles.length}</span>
+                <span style={styles.filesBadge} aria-hidden="true">{sharedFiles.length}</span>
               )}
             </button>
 
@@ -838,10 +852,11 @@ export const Room: React.FC<RoomProps> = ({ token, roomInfo, onLeave }) => {
                   : {}),
               }}
               title={isChatOpen ? 'Recolher Chat' : 'Abrir Chat'}
+              aria-label={withUnread(isMobile ? (isChatOpen ? 'Recolher Chat' : 'Abrir Chat') : 'Chat', unreadCount)}
             >
               <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}><Chat size={16} /> {isMobile ? '' : 'Chat'}</span>
               {unreadCount > 0 && (
-                <span style={styles.unreadBadge}>{unreadCount > 99 ? '99+' : unreadCount}</span>
+                <span style={styles.unreadBadge} aria-hidden="true">{unreadCount > 99 ? '99+' : unreadCount}</span>
               )}
             </button>
             <button onClick={() => onLeave()} style={isMobile ? styles.leaveBtnMobile : styles.leaveBtn}>Sair</button>

@@ -9,17 +9,17 @@ Regras:
 - um commit atômico por task, com `Ref: T500x` e `Refs #149`.
 
 ### T5001 — Nome acessível dos botões Arquivos e Chat do cabeçalho
-[ ] T5001
+[x] T5001
 Allowed Paths: `apps/web/src/pages/Room.tsx`, `apps/web/src/pages/Room.test.tsx`,
 `spec-kit/specs/050-nome-acessivel-cabecalho-aluno/tasks.md`
 Prohibited Paths: `apps/web/src/hooks/**`, `apps/web/src/services/**`, `apps/web/e2e/**`, `apps/desktop/**`,
 `apps/backend/**`, `packages/**`, `package.json`
 Checks:
-- [ ] Botão de Arquivos com `aria-label` "Arquivos da aula" e contagem com unidade (RF-5001).
-- [ ] Botão de Chat com `aria-label` pelo rótulo da tela (celular: `title`; computador: "Chat") e não lidas com
+- [x] Botão de Arquivos com `aria-label` "Arquivos da aula" e contagem com unidade (RF-5001).
+- [x] Botão de Chat com `aria-label` pelo rótulo da tela (celular: `title`; computador: "Chat") e não lidas com
   unidade e `99+` (RF-5002).
-- [ ] Selos desses botões com `aria-hidden="true"`; `title` sem mudança; nenhuma mudança visual (RF-5003, RNF-5001).
-- [ ] Testes novos no celular e no computador, com e sem contagem; testes existentes verdes (RNF-5002).
+- [x] Selos desses botões com `aria-hidden="true"`; `title` sem mudança; nenhuma mudança visual (RF-5003, RNF-5001).
+- [x] Testes novos no celular e no computador, com e sem contagem; testes existentes verdes (RNF-5002).
 
 ### T5002 — E2E A13 sem corrida
 [ ] T5002
