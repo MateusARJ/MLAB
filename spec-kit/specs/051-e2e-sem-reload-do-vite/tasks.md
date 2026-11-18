@@ -9,16 +9,16 @@ Regras:
 - um commit atômico por task, com `Ref: T510x` e `Refs #153`.
 
 ### T5101 — Artefatos fora da observação do Vite
-[ ] T5101
+[x] T5101
 Allowed Paths: `apps/web/playwright.config.ts`, `apps/web/vite.config.ts`, `apps/web/.gitignore`,
 `scripts/smoke-report.js`, `spec-kit/specs/051-e2e-sem-reload-do-vite/tasks.md`
 Prohibited Paths: `apps/web/src/**`, `apps/web/e2e/**`, `apps/desktop/**`, `apps/backend/**`, `packages/**`,
 `package.json`
 Checks:
-- [ ] `outputDir` em `test-results/e2e` e JSON em `test-results/e2e-results.json` (RF-5101).
-- [ ] `server.watch.ignored` com `**/test-results/**`, `**/e2e-results/**`, `**/playwright-report/**` (RF-5102).
-- [ ] `smoke-report.js` no novo caminho; `node --check` ok (RF-5103).
-- [ ] `test-results/` no `.gitignore` do web (RF-5105).
+- [x] `outputDir` em `test-results/e2e` e JSON em `test-results/e2e-results.json` (RF-5101).
+- [x] `server.watch.ignored` com `**/test-results/**`, `**/e2e-results/**`, `**/playwright-report/**` (RF-5102).
+- [x] `smoke-report.js` no novo caminho; `node --check` ok (RF-5103).
+- [x] `test-results/` no `.gitignore` do web (RF-5105).
 
 ### T5102 — Teste de regressão I1
 [ ] T5102

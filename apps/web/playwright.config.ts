@@ -20,8 +20,10 @@ export default defineConfig({
   retries: 1,
   timeout: 60_000,
   expect: { timeout: 15_000 },
-  reporter: [['list'], ['json', { outputFile: 'e2e-results/results.json' }]],
-  outputDir: 'e2e-results/artifacts',
+  // 051/RF-5101: artefatos em test-results, que o Vite não observa. Em e2e-results, o .html gravado pelo trace fazia o
+  // Vite mandar full-reload e a página do aluno recarregava no meio do teste (#153).
+  reporter: [['list'], ['json', { outputFile: 'test-results/e2e-results.json' }]],
+  outputDir: 'test-results/e2e',
   use: {
     baseURL: 'http://localhost:5173',
     trace: 'retain-on-failure',
