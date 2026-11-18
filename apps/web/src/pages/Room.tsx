@@ -3,6 +3,8 @@ import {
   Folder,
   Popup,
   Maximize,
+  FillScreen,
+  FitScreen,
   Exit,
   Close,
   Locked,
@@ -87,6 +89,25 @@ function getFullscreenElement(): Element | null {
   );
 }
 
+// 049/RF-4905: modo do vídeo em tela cheia, salvo no dispositivo como o tema (`mlab-theme`). `cover` preenche a tela
+// sem faixas (pode cortar as bordas); `contain` mostra a imagem inteira. Armazenamento indisponível não é erro.
+type VideoFit = 'cover' | 'contain';
+const VIDEO_FIT_KEY = 'mlab-video-fit';
+
+function readVideoFit(): VideoFit {
+  try {
+    const v = window.localStorage.getItem(VIDEO_FIT_KEY);
+    if (v === 'cover' || v === 'contain') return v;
+  } catch {}
+  return 'cover';
+}
+
+function saveVideoFit(fit: VideoFit): void {
+  try {
+    window.localStorage.setItem(VIDEO_FIT_KEY, fit);
+  } catch {}
+}
+
 export const Room: React.FC<RoomProps> = ({ token, roomInfo, onLeave }) => {
   const {
     stream,
@@ -169,6 +190,27 @@ export const Room: React.FC<RoomProps> = ({ token, roomInfo, onLeave }) => {
   }, [sharedFiles.length, isFilesOpen, mobileDrawerTab, isChatOpen, isMobile]);
 
   const effectiveFullscreen = isFullscreen || isPseudoFullscreen;
+
+  // 049/RF-4901 a RF-4905: Preencher (padrão) ou Ajustar, só em tela cheia.
+  const [videoFit, setVideoFit] = useState<VideoFit>(readVideoFit);
+  const toggleVideoFit = () => {
+    setVideoFit((prev) => {
+      const next: VideoFit = prev === 'cover' ? 'contain' : 'cover';
+      saveVideoFit(next);
+      return next;
+    });
+  };
+
+  // 049/RF-4906: ao entrar em tela cheia, Chat e Arquivos fecham para o vídeo ocupar a tela; só na transição,
+  // para continuarem abrindo pelo menu da transmissão.
+  const wasFullscreenRef = useRef(false);
+  useEffect(() => {
+    if (effectiveFullscreen && !wasFullscreenRef.current) {
+      setIsChatOpen(false);
+      setIsFilesOpen(false);
+    }
+    wasFullscreenRef.current = effectiveFullscreen;
+  }, [effectiveFullscreen]);
 
   useEffect(() => {
     const handleFsChange = () => {
@@ -538,6 +580,8 @@ export const Room: React.FC<RoomProps> = ({ token, roomInfo, onLeave }) => {
           style={{
             ...styles.fullscreenRightSidebar,
             transform: isFullscreenSidebarOpen ? 'translateX(0)' : 'translateX(100%)',
+            // 049/RF-4908: fechado fora da tela, a sombra vazaria como faixa escura na borda direita.
+            boxShadow: isFullscreenSidebarOpen ? styles.fullscreenRightSidebar.boxShadow : 'none',
             pointerEvents: isFullscreenSidebarOpen ? 'auto' : 'none',
           }}
         >
@@ -658,6 +702,30 @@ export const Room: React.FC<RoomProps> = ({ token, roomInfo, onLeave }) => {
                   <div style={styles.fullscreenActionMeta}>
                     <span style={styles.fullscreenActionTitle}>Picture-in-Picture</span>
                     <span style={styles.fullscreenActionDesc}>Assistir em janela flutuante</span>
+                  </div>
+                </div>
+              </button>
+
+              {/* 049/RF-4904: Preencher (sem faixas) ou Ajustar (tela inteira do professor); não fecha o menu */}
+              <button
+                type="button"
+                onClick={toggleVideoFit}
+                style={styles.fullscreenActionButton}
+                title={videoFit === 'cover' ? 'Mostrar tela inteira' : 'Preencher a tela'}
+                aria-label={videoFit === 'cover' ? 'Mostrar tela inteira' : 'Preencher a tela'}
+                data-testid="video-fit-toggle"
+              >
+                <div style={styles.fullscreenActionLeft}>
+                  <span style={styles.fullscreenActionIcon}>
+                    {videoFit === 'cover' ? <FitScreen size={18} /> : <FillScreen size={18} />}
+                  </span>
+                  <div style={styles.fullscreenActionMeta}>
+                    <span style={styles.fullscreenActionTitle}>
+                      {videoFit === 'cover' ? 'Mostrar tela inteira' : 'Preencher a tela'}
+                    </span>
+                    <span style={styles.fullscreenActionDesc}>
+                      {videoFit === 'cover' ? 'Ajustar sem cortar as bordas' : 'Sem bordas; pode cortar as laterais'}
+                    </span>
                   </div>
                 </div>
               </button>
@@ -796,8 +864,10 @@ export const Room: React.FC<RoomProps> = ({ token, roomInfo, onLeave }) => {
           className="ml-on-stage"
           style={{
             ...styles.videoSection,
-            ...(isMobile ? styles.videoSectionMobile : {}),
+            // 049/RF-4907: em tela cheia o vídeo vai até a borda inferior, sem reservar a área segura.
+            ...(isMobile && !effectiveFullscreen ? styles.videoSectionMobile : {}),
           }}
+          data-testid="video-section"
           onClick={() => {
             if (isChatOpen) {
               setIsChatOpen(false);
@@ -830,7 +900,8 @@ export const Room: React.FC<RoomProps> = ({ token, roomInfo, onLeave }) => {
                 autoPlay
                 playsInline
                 muted={autoplayBlocked}
-                style={styles.video}
+                data-testid="room-video"
+                style={{ ...styles.video, objectFit: effectiveFullscreen ? videoFit : 'contain' }}
               />
               {/* Banner de feedback quando a mão está levantada */}
               {isHandRaised && (
@@ -1008,6 +1079,8 @@ export const Room: React.FC<RoomProps> = ({ token, roomInfo, onLeave }) => {
               ? {
                   ...styles.chatDrawerMobile,
                   transform: isChatOpen ? 'translateX(0)' : 'translateX(100%)',
+                  // 049/RF-4908: fechada fora da tela, a sombra vazaria na borda direita.
+                  boxShadow: isChatOpen ? styles.chatDrawerMobile.boxShadow : 'none',
                   pointerEvents: isChatOpen ? 'auto' : 'none',
                 }
               : {
