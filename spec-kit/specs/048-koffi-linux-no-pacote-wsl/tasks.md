@@ -8,17 +8,20 @@ Regras:
 - um commit atômico por task, com `Ref: T480x` e `Refs #138`.
 
 ### T4801 — Binário Linux do koffi no build pelo WSL
-[ ] T4801
+[x] T4801
 Allowed Paths: `scripts/build-linux-wsl.js`, `spec-kit/specs/048-koffi-linux-no-pacote-wsl/tasks.md`
 Prohibited Paths: `apps/**`, `packages/**`, `package.json`, `package-lock.json`, `.github/**`,
 `scripts/build-backend.js`, `scripts/bump-version.mjs`
 Checks:
-- [ ] No caminho Windows, `ensureLinuxKoffi()` baixa `@koromix/koffi-linux-x64` na versão do `koffi`, confere versão e
+- [x] No caminho Windows, `ensureLinuxKoffi()` baixa `@koromix/koffi-linux-x64` na versão do `koffi`, confere versão e
   sha512 com o `package-lock.json` e extrai nos `node_modules` (RF-4801, RF-4802).
-- [ ] A chamada ao WSL roda em `try/finally`; a limpeza remove só o diretório criado pelo script (RF-4803).
-- [ ] Caminho Linux nativo sem mudança (RNF-4801).
-- [ ] Integridade divergente interrompe o build antes do `electron-builder` (teste com o lockfile alterado numa cópia
-  temporária, sem commit).
+- [x] A chamada ao WSL roda em `try/finally`; a limpeza remove só o diretório criado pelo script (RF-4803).
+- [x] Caminho Linux nativo sem mudança (RNF-4801).
+- [x] Integridade divergente interrompe o build antes do `electron-builder`: com o `integrity` alterado só no disco
+  (restaurado em seguida, sem commit), o script baixa, acusa "integridade ... não confere com o package-lock.json
+  (sha512)", sai com código 1 e não deixa nada em `node_modules`.
+- [x] Funciona com o `tar` do Git Bash (GNU) e do Windows: a extração usa caminhos relativos ao diretório
+  temporário. O `koffi` é localizado pelo pacote resolvido, porque o `exports` dele não expõe `package.json`.
 
 ### T4802 — Verificação do pacote gerado
 [ ] T4802
