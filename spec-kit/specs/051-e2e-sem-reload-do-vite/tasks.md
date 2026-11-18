@@ -2,7 +2,7 @@
 
 Feature: `051-e2e-sem-reload-do-vite`
 Prerequisites: spec/clarify/plan/checklist/analyze aprovados
-Status: READY
+Status: DONE
 
 Regras:
 - e2e do aluno verde antes de marcar `[x]`;
@@ -34,10 +34,10 @@ Checks:
 - [x] Suíte e2e completa verde nos dois projetos; HMR do `src/` funcionando (RNF-5102).
 
 ### T5103 — Converge
-[ ] T5103
+[x] T5103
 Depends On: T5102
 Allowed Paths: `spec-kit/specs/051-e2e-sem-reload-do-vite/**`
 Prohibited Paths: `apps/**`, `packages/**`, `.github/**`, `spec-kit/docs/adrs/**`
 Checks:
-- [ ] `converge.md` com evidências (taxas antes/depois), desvios e impacto de versão (nenhum, C-5103).
-- [ ] `npm run spec:check -- spec-kit/specs/051-e2e-sem-reload-do-vite` com PASS.
+- [x] `converge.md` com evidências (taxas antes/depois), desvios e impacto de versão (nenhum, C-5103).
+- [x] `npm run spec:check -- spec-kit/specs/051-e2e-sem-reload-do-vite` com PASS.
