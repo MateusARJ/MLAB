@@ -29,13 +29,13 @@ Checks:
 - [x] Verificação visual em tela cheia: 1920×1080, 2560×1080 e 844×390, nos dois modos, com transmissão 16:9.
 
 ### T4902 — Converge
-[ ] T4902
+[x] T4902
 Depends On: T4901
 Allowed Paths: `spec-kit/specs/049-tela-cheia-sem-bordas/**`
 Prohibited Paths: `apps/**`, `packages/**`, `.github/**`, `spec-kit/docs/adrs/**`
 Checks:
-- [ ] `converge.md` com evidências, desvios e impacto de versão (MINOR, C-4904).
-- [ ] `npm run spec:check -- spec-kit/specs/049-tela-cheia-sem-bordas` com PASS.
+- [x] `converge.md` com evidências, desvios e impacto de versão (MINOR, C-4904).
+- [x] `npm run spec:check -- spec-kit/specs/049-tela-cheia-sem-bordas` com PASS.
 
 ### T4903 — Versão
 [ ] T4903
