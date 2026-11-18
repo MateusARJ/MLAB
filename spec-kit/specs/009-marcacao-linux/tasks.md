@@ -105,6 +105,26 @@ Checks:
 - [x] `annotationOverlayWindow.test.ts` 20/20 (11 da alternativa + 9 da região X11); vitest desktop 143/143,
   `turbo test` 5/5; `tsc` sem erro novo (14 pré-existentes).
 
+### T911 — Erro X da região de entrada não encerra o processo (#32)
+[x] T911
+Depends On: T908
+Allowed Paths: `apps/desktop/src/main/x11InputShape.ts`, `apps/desktop/src/main/x11InputShape.test.ts`; só no commit
+de versão (`AGENTS.md` §13): `package.json`, `package-lock.json`, `apps/*/package.json`, `packages/*/package.json`
+Prohibited Paths: `apps/desktop/src/main/nativeWindowTracker.ts`, `apps/desktop/src/main/annotationOverlayWindow.ts`,
+`apps/desktop/src/renderer/**`, `apps/backend/**` e `apps/web/**` (exceto `package.json`), `packages/*/src/**`
+Checks:
+- [x] `apply` instala um `XSetErrorHandler` próprio só durante a chamada, troca `XFlush` por `XSync` (o erro chega ali
+  mesmo) e devolve o handler anterior, também quando a chamada lança.
+- [x] `BadWindow` (código 3) é ignorado com `console.warn` (o overlay fechou); qualquer outro erro X lança, e o manager
+  volta ao hit-test (RF-901).
+- [x] Testes com `koffi` mockado: handler instalado e restaurado, `XSync`, `BadWindow` ignorado, outro erro lança,
+  restauração após exceção.
+- [x] Verificação no X real (XWayland): região aplicada a um XID destruído não encerra o processo.
+- [x] `x11InputShape.test.ts` e suítes da 009 verdes; `tsc --noEmit` sem erro novo.
+- [x] `x11InputShape.test.ts` 12/12, suítes da 009 52/52; vitest desktop 379/381 no Linux (só a falha de
+  `nativeWindowTracker.test.ts`, #139); `tsc --noEmit` sem erros. X real: `evidencias/t911-xwayland-badwindow.log`
+  (antes: processo sai com `BadWindow`, exit 1; depois: aviso no log e exit 0).
+
 ### T905 — Verificação manual no Linux (WSLg) e smoke no Windows
 [x] T905
 Depends On: T903, T904, T909
@@ -142,3 +162,27 @@ Checks:
 - [x] `converge.md` criado comparando código com spec/plan/tasks, com pendências (ex.: Ubuntu/GNOME real).
   Resultado: OPEN — pendências com encaminhamento (contrato, RF-904, Ubuntu real, smoke Windows, `nativeWindowTracker`
   e `CursorPresenceTracker` sob XWayland).
+
+### T910 — Verificação no Ubuntu real e emenda do contrato (#32)
+[x] T910
+Depends On: T905, T909, T911
+Allowed Paths: `spec-kit/specs/009-marcacao-linux/**`,
+`spec-kit/specs/003-classroom-interaction/contracts/desktop-ipc.md`
+Prohibited Paths: `apps/**`, `packages/**`
+Checks:
+- [x] Emenda textual do canal `annotation-overlay:toolbar-rect` em `003/contracts/desktop-ipc.md`: o retângulo alimenta
+  a região de entrada X11 (C-904) e, na falta dela, o hit-test; sem mudança de formato.
+- [x] Testes automatizados no Linux registrados em `evidencias/` (vitest, `tsc`, `turbo test`, `go test`).
+- [x] GNOME Wayland (XWayland), Ubuntu 26.04: US-901 a US-903 item a item (botões, popover de cores, clique
+  atravessando, ferramentas na tela inteira, recolher/expandir, `Alt+H`, `Alt+…`). Atalho global com app Wayland
+  nativo em foco não dispara (XGrabKey do XWayland): resultado esperado pela US-903, não falha.
+- [x] X11 puro: sessão Openbox desta máquina ou Ubuntu 24.04 com GNOME em Xorg (o GNOME 50 não tem sessão X11).
+- [x] Escala de 200%: região de entrada alinhada com a barra.
+- [x] RF-904: letras únicas (`V`, `P`, `M`, `A`, `R`, `E`, `L`, `Z`, `H`) depois de clicar na barra.
+- [x] Passagem do painel para o overlay registrada (causa provável na #140, fora da 009).
+- [x] Smoke manual da barra no Windows (RNF-901, RN-901).
+- [x] `converge.md` atualizado: CONVERGED ou novas tasks.
+- Resultado (2026-11-17): roteiro aprovado pelo responsável em GNOME Wayland, escala 200% e Openbox/X11
+  (`evidencias/t910-ubuntu-roteiro.md`); testes automatizados em `evidencias/t910-ubuntu-testes.log`.
+- Resultado (2026-11-18): smoke da barra no Windows 11 aprovado pelo responsável, todos os itens OK
+  (`evidencias/t910-windows-smoke.md`). Converge CONVERGED.

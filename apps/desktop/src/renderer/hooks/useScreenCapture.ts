@@ -24,6 +24,37 @@ export function useScreenCapture(initialMode: CaptureSourceType = 'screen', init
   const maskedTracksRef = useRef<MaskedVideoTrackResult[]>([]);
   const streamRef = useRef<MediaStream | null>(null);
   streamRef.current = stream;
+  // 032/RF-3207: avisado com o sourceId quando a faixa de vídeo bruta de uma captura termina (janela fechada).
+  const captureEndedListenerRef = useRef<((sourceId: string) => void) | null>(null);
+
+  const setCaptureEndedListener = useCallback((cb: ((sourceId: string) => void) | null) => {
+    captureEndedListenerRef.current = cb;
+  }, []);
+
+  const startTracking = useCallback((source: CaptureSource, allowedSourceIds?: string[], pinnedSourceId?: string) => {
+    if (window.electronAPI && typeof window.electronAPI.startCursorTracking === 'function') {
+      window.electronAPI
+        .startCursorTracking({
+          sourceId: source.id,
+          type: source.type || (source.id.startsWith('screen') ? 'screen' : 'window'),
+          displayId: source.displayId,
+          allowedSourceIds: allowedSourceIds && allowedSourceIds.length > 0 ? allowedSourceIds : undefined,
+          pinnedSourceId: pinnedSourceId || undefined,
+        })
+        .catch(() => {});
+    }
+  }, []);
+
+  /**
+   * Reinicia só o rastreamento de cursor/janelas, sem nova captura (032/RF-3202, RF-3204): usado para fixar a janela
+   * que já está no ar ou desfixar sem trocar a fonte.
+   */
+  const restartCursorTracking = useCallback(
+    (source: CaptureSource, allowedSourceIds?: string[], pinnedSourceId?: string) => {
+      startTracking(source, allowedSourceIds, pinnedSourceId);
+    },
+    [startTracking]
+  );
 
   const loadSources = useCallback(async (mode: CaptureSourceType) => {
     if (window.electronAPI && window.electronAPI.getScreenSources) {
@@ -69,7 +100,12 @@ export function useScreenCapture(initialMode: CaptureSourceType = 'screen', init
     setSelectedSource(null);
   }, []);
 
-  const selectSource = useCallback(async (source: CaptureSource, fps?: 30 | 60, allowedSourceIds?: string[]): Promise<MediaStream | null> => {
+  const selectSource = useCallback(async (
+    source: CaptureSource,
+    fps?: 30 | 60,
+    allowedSourceIds?: string[],
+    pinnedSourceId?: string
+  ): Promise<MediaStream | null> => {
     setSelectedSource(source);
     const effectiveFps = fps || targetFps;
     if (fps && fps !== targetFps) {
@@ -163,6 +199,13 @@ export function useScreenCapture(initialMode: CaptureSourceType = 'screen', init
         videoTrack.contentHint = 'motion';
         const settings = videoTrack.getSettings();
         console.log(`[Capture] Resolução capturada: ${settings.width}x${settings.height} @ ${settings.frameRate}fps (alvo: ${effectiveFps}fps)`);
+        // 032/RF-3207: a faixa bruta (antes da máscara do cursor, cujo gerador não termina sozinho) dispara 'ended'
+        // quando a fonte some, por exemplo a janela fechada. stop() não dispara 'ended', então trocas normais não avisam.
+        if (typeof videoTrack.addEventListener === 'function') {
+          videoTrack.addEventListener('ended', () => {
+            captureEndedListenerRef.current?.(source.id);
+          });
+        }
       }
 
       // Isola e gerencia a faixa de áudio interno do sistema capturada
@@ -200,16 +243,7 @@ export function useScreenCapture(initialMode: CaptureSourceType = 'screen', init
         }
       }
 
-      if (window.electronAPI && typeof window.electronAPI.startCursorTracking === 'function') {
-        window.electronAPI
-          .startCursorTracking({
-            sourceId: source.id,
-            type: source.type || (source.id.startsWith('screen') ? 'screen' : 'window'),
-            displayId: source.displayId,
-            allowedSourceIds: allowedSourceIds && allowedSourceIds.length > 0 ? allowedSourceIds : undefined,
-          })
-          .catch(() => {});
-      }
+      startTracking(source, allowedSourceIds, pinnedSourceId);
 
       // Tenta anexar microfone do professor com processamento DSP anti-microfonia (RF-10, RN-10)
       try {
@@ -338,7 +372,7 @@ export function useScreenCapture(initialMode: CaptureSourceType = 'screen', init
       console.error('Erro ao capturar stream de tela/janela:', err);
       return null;
     }
-  }, [stream, micMuted, systemAudioMuted, targetFps]);
+  }, [stream, micMuted, systemAudioMuted, targetFps, startTracking]);
 
   const toggleMicMute = useCallback(() => {
     const nextMuted = !micMuted;
@@ -480,6 +514,8 @@ export function useScreenCapture(initialMode: CaptureSourceType = 'screen', init
     toggleSystemAudio,
     toggleVideoPause,
     stopCapture,
+    restartCursorTracking,
+    setCaptureEndedListener,
   };
 }
 

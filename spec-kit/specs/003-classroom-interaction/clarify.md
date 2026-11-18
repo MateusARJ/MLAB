@@ -26,6 +26,7 @@ junto com o plano de remediação (2026-11-01). Nenhuma resposta altera comporta
 
 - **Resposta aprovada:** `^[0-9]+[A-Za-z]{1,4}[0-9]+$` (dígitos + sigla de 1 a 4 letras + dígitos). Validação no backend; o front exibe o erro retornado.
 - **Impacto:** `001/contracts/room-api.md` (erro 400 no join).
+- **Emenda 046 (2026-11-16):** substituída pela `046-formato-matricula`/C-4601: exatamente 7 dígitos, 4 letras e 4 dígitos, normalizada em maiúsculas.
 
 ## C-304 — Duplo Ctrl fora do Windows
 

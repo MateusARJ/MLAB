@@ -15,14 +15,13 @@ describe('Room Component (Desktop)', () => {
   it('deve exibir o setup inicial com opções de gravação e modos de captura', async () => {
     render(<Room room={dummyRoom} onCloseRoom={vi.fn()} />);
 
-    // Pergunta de gravação
-    expect(screen.getByText(/1\. Deseja gravar esta aula no seu computador\?/i)).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /Sim, Gravar Aula/i })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /Apenas Transmitir/i })).toBeInTheDocument();
+    // Opção de gravação (interruptor, desligado por padrão)
+    expect(screen.getByRole('heading', { name: /Gravação/i })).toBeInTheDocument();
+    expect(screen.getByRole('switch', { name: /Gravar a aula neste computador/i })).not.toBeChecked();
 
     // Modos de captura
-    expect(screen.getByRole('button', { name: /Tela Cheia/i })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /Janela \/ Aba Específica/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Tela inteira/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Janelas escolhidas/i })).toBeInTheDocument();
 
     // Botão de avançar
     await waitFor(() => {
@@ -37,16 +36,15 @@ describe('Room Component (Desktop)', () => {
       expect(screen.getByText('Tela Inteira 1')).toBeInTheDocument();
     });
 
-    // Por padrão a gravação vem desligada: botão .webm não deve estar visível
-    expect(screen.queryByRole('button', { name: /\.webm \(Alta Fidelidade em 1080p\)/i })).not.toBeInTheDocument();
+    // Por padrão a gravação vem desligada: o formato .webm não deve estar visível
+    expect(screen.queryByText(/\.webm \(Alta Fidelidade em 1080p\)/i)).not.toBeInTheDocument();
 
-    // Ao clicar em 'Sim, Gravar Aula', as opções de gravação aparecem
-    const wantRecordBtn = screen.getByRole('button', { name: /Sim, Gravar Aula/i });
-    fireEvent.click(wantRecordBtn);
+    // Ao ligar 'Gravar a aula neste computador', o formato de gravação aparece
+    const wantRecordSwitch = screen.getByRole('switch', { name: /Gravar a aula neste computador/i });
+    fireEvent.click(wantRecordSwitch);
 
-    const webmBtn = screen.getByRole('button', { name: /\.webm \(Alta Fidelidade em 1080p\)/i });
-    expect(webmBtn).toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: /\.mp4/i })).not.toBeInTheDocument();
+    expect(screen.getByText(/\.webm \(Alta Fidelidade em 1080p\)/i)).toBeInTheDocument();
+    expect(screen.queryByText(/\.mp4/i)).not.toBeInTheDocument();
   });
 
   it('deve alternar para modo Janela, exibir dica de janelas abertas e permitir clicar em Atualizar Janelas', async () => {
@@ -56,7 +54,7 @@ describe('Room Component (Desktop)', () => {
       expect(screen.getByText('Tela Inteira 1')).toBeInTheDocument();
     });
 
-    const windowTab = screen.getByRole('button', { name: /Janela \/ Aba Específica/i });
+    const windowTab = screen.getByRole('button', { name: /Janelas escolhidas/i });
     fireEvent.click(windowTab);
 
     await waitFor(() => {
@@ -82,14 +80,14 @@ describe('Room Component (Desktop)', () => {
       expect(screen.getByText('Tela Inteira 1')).toBeInTheDocument();
     });
 
-    const advanceBtn = screen.getByRole('button', { name: /Avançar e Iniciar Transmissão/i });
+    const advanceBtn = screen.getByRole('button', { name: /Começar transmissão/i });
     await waitFor(() => {
       expect(advanceBtn).toBeEnabled();
     });
     fireEvent.click(advanceBtn);
 
     await waitFor(() => {
-      expect(screen.getByRole('button', { name: /Alterar Modo \/ Fonte/i })).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: /Trocar tela/i })).toBeInTheDocument();
     });
 
     // Microfone deve iniciar desligado por padrão (exibindo 'Desmutar Microfone')
@@ -108,14 +106,14 @@ describe('Room Component (Desktop)', () => {
       expect(screen.getByText('Tela Inteira 1')).toBeInTheDocument();
     });
 
-    const advanceBtn = screen.getByRole('button', { name: /Avançar e Iniciar Transmissão/i });
+    const advanceBtn = screen.getByRole('button', { name: /Começar transmissão/i });
     await waitFor(() => {
       expect(advanceBtn).toBeEnabled();
     });
     fireEvent.click(advanceBtn);
 
     await waitFor(() => {
-      expect(screen.getByRole('button', { name: /Alterar Modo \/ Fonte/i })).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: /Trocar tela/i })).toBeInTheDocument();
     });
 
     // Som do PC deve iniciar desligado por padrão (exibindo 'Ativar Som do PC')
@@ -138,26 +136,26 @@ describe('Room Component (Desktop)', () => {
       expect(screen.getByText('Tela Inteira 1')).toBeInTheDocument();
     });
 
-    const advanceBtn = screen.getByRole('button', { name: /Avançar e Iniciar Transmissão/i });
+    const advanceBtn = screen.getByRole('button', { name: /Começar transmissão/i });
     await waitFor(() => {
       expect(advanceBtn).toBeEnabled();
     });
     fireEvent.click(advanceBtn);
 
     await waitFor(() => {
-      expect(screen.getByRole('button', { name: /Alterar Modo \/ Fonte/i })).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: /Trocar tela/i })).toBeInTheDocument();
     });
 
     // Abre o painel lateral de chat
-    const chatBtn = screen.getByRole('button', { name: /Chat & Turma/i });
+    const chatBtn = screen.getByRole('button', { name: /^Painel/i });
     fireEvent.click(chatBtn);
 
     // Deve exibir as abas dedicadas de Turma (Público) e Dúvidas Privadas
-    expect(screen.getByRole('button', { name: /Turma \(Público\)/i })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /Dúvidas Privadas/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /^Chat/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Dúvidas/i })).toBeInTheDocument();
 
     // Clica na aba de Dúvidas Privadas
-    fireEvent.click(screen.getByRole('button', { name: /Dúvidas Privadas/i }));
+    fireEvent.click(screen.getByRole('button', { name: /Dúvidas/i }));
     expect(screen.getByText(/Nenhuma dúvida privada recebida/i)).toBeInTheDocument();
   });
 
@@ -201,27 +199,27 @@ describe('Room Component (Desktop)', () => {
     });
 
     // Inicia a primeira sessão
-    const advanceBtn = screen.getByRole('button', { name: /Avançar e Iniciar Transmissão/i });
+    const advanceBtn = screen.getByRole('button', { name: /Começar transmissão/i });
     await waitFor(() => {
       expect(advanceBtn).toBeEnabled();
     });
     fireEvent.click(advanceBtn);
 
     await waitFor(() => {
-      expect(screen.getByRole('button', { name: /Alterar Modo \/ Fonte/i })).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: /Trocar tela/i })).toBeInTheDocument();
     });
-    expect(screen.getByRole('button', { name: /Alterar Modo \/ Fonte/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Trocar tela/i })).toBeInTheDocument();
 
     // Clica para alterar modo/fonte
-    fireEvent.click(screen.getByRole('button', { name: /Alterar Modo \/ Fonte/i }));
+    fireEvent.click(screen.getByRole('button', { name: /Trocar tela/i }));
 
     // Deve voltar ao setup de seleção
     await waitFor(() => {
-      expect(screen.getByRole('button', { name: /Janela \/ Aba Específica/i })).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: /Janelas escolhidas/i })).toBeInTheDocument();
     });
 
     // Alterna para janela
-    fireEvent.click(screen.getByRole('button', { name: /Janela \/ Aba Específica/i }));
+    fireEvent.click(screen.getByRole('button', { name: /Janelas escolhidas/i }));
 
     await waitFor(() => {
       expect(screen.getByText('Google Chrome')).toBeInTheDocument();
@@ -231,15 +229,15 @@ describe('Room Component (Desktop)', () => {
     fireEvent.click(screen.getByText('Google Chrome'));
 
     // Avança novamente para a transmissão
-    const advanceBtn2 = screen.getByRole('button', { name: /Avançar e Iniciar Transmissão/i });
+    const advanceBtn2 = screen.getByRole('button', { name: /Começar transmissão/i });
     await waitFor(() => {
       expect(advanceBtn2).toBeEnabled();
     });
     fireEvent.click(advanceBtn2);
 
     await waitFor(() => {
-      expect(screen.getByRole('button', { name: /Alterar Modo \/ Fonte/i })).toBeInTheDocument();
-      expect(screen.getByText(/Janela Específica/i)).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: /Trocar tela/i })).toBeInTheDocument();
+      expect(screen.getByText(/Modo: Janelas escolhidas/i)).toBeInTheDocument();
     });
   });
 
@@ -262,14 +260,14 @@ describe('Room Component (Desktop)', () => {
       expect(screen.getByText('Tela Inteira 1')).toBeInTheDocument();
     });
 
-    const advanceBtn = screen.getByRole('button', { name: /Avançar e Iniciar Transmissão/i });
+    const advanceBtn = screen.getByRole('button', { name: /Começar transmissão/i });
     await waitFor(() => {
       expect(advanceBtn).toBeEnabled();
     });
     fireEvent.click(advanceBtn);
 
     await waitFor(() => {
-      expect(screen.getByRole('button', { name: /Alterar Modo \/ Fonte/i })).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: /Trocar tela/i })).toBeInTheDocument();
       expect(screen.getByText('1080p @ 60fps')).toBeInTheDocument();
       expect(screen.queryByText(/6 Mbps/i)).not.toBeInTheDocument();
     });
@@ -283,22 +281,22 @@ describe('Room Component (Desktop)', () => {
     });
 
     // Inicia sessão ao vivo
-    const advanceBtn = screen.getByRole('button', { name: /Avançar e Iniciar Transmissão/i });
+    const advanceBtn = screen.getByRole('button', { name: /Começar transmissão/i });
     await waitFor(() => {
       expect(advanceBtn).toBeEnabled();
     });
     fireEvent.click(advanceBtn);
 
     await waitFor(() => {
-      expect(screen.getByRole('button', { name: /Chat & Turma/i })).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: /^Painel/i })).toBeInTheDocument();
     });
 
-    const chatBtn = screen.getByRole('button', { name: /Chat & Turma/i });
+    const chatBtn = screen.getByRole('button', { name: /^Painel/i });
     fireEvent.click(chatBtn);
 
     // Deve exibir as abas na sidebar retrátil
     expect(screen.getByRole('button', { name: /^Chat$/i })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /Alunos/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Turma/i })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /Arquivos/i })).toBeInTheDocument();
   });
 
@@ -310,14 +308,14 @@ describe('Room Component (Desktop)', () => {
     });
 
     // Inicia sessão ao vivo
-    const advanceBtn = screen.getByRole('button', { name: /Avançar e Iniciar Transmissão/i });
+    const advanceBtn = screen.getByRole('button', { name: /Começar transmissão/i });
     await waitFor(() => {
       expect(advanceBtn).toBeEnabled();
     });
     fireEvent.click(advanceBtn);
 
     await waitFor(() => {
-      expect(screen.getByRole('button', { name: /Alterar Modo \/ Fonte/i })).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: /Trocar tela/i })).toBeInTheDocument();
     });
 
     // Deve exibir badge de imagem estática e NÃO possuir botões na área de captura
@@ -333,18 +331,18 @@ describe('Room Component (Desktop)', () => {
       expect(screen.getByText('Tela Inteira 1')).toBeInTheDocument();
     });
 
-    const advanceBtn = screen.getByRole('button', { name: /Avançar e Iniciar Transmissão/i });
+    const advanceBtn = screen.getByRole('button', { name: /Começar transmissão/i });
     await waitFor(() => {
       expect(advanceBtn).toBeEnabled();
     });
     fireEvent.click(advanceBtn);
 
     await waitFor(() => {
-      expect(screen.getByRole('button', { name: /Alterar Modo \/ Fonte/i })).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: /Trocar tela/i })).toBeInTheDocument();
     });
 
     // Abre painel lateral de chat
-    const chatBtn = screen.getByRole('button', { name: /Chat & Turma/i });
+    const chatBtn = screen.getByRole('button', { name: /^Painel/i });
     fireEvent.click(chatBtn);
 
     // Na aba pública inicial:
@@ -354,7 +352,7 @@ describe('Room Component (Desktop)', () => {
     expect((publicInput as HTMLInputElement).value).toBe('Dúvida geral turma');
 
     // Alterna para aba privada
-    fireEvent.click(screen.getByRole('button', { name: /Dúvidas Privadas/i }));
+    fireEvent.click(screen.getByRole('button', { name: /Dúvidas/i }));
 
     // Input público não deve estar visível
     expect(screen.queryByPlaceholderText('Mensagem pública para toda a turma...')).not.toBeInTheDocument();
@@ -367,12 +365,12 @@ describe('Room Component (Desktop)', () => {
     expect(screen.getByText(/Modo de visualização geral\. Selecione um aluno no menu acima para enviar uma mensagem privada\./i)).toBeInTheDocument();
 
     // Retorna para a aba pública e garante que o texto digitado anteriormente permaneceu isolado e intacto
-    fireEvent.click(screen.getByRole('button', { name: /Turma \(Público\)/i }));
+    fireEvent.click(screen.getByRole('button', { name: /^Chat/i }));
     const restoredPublicInput = screen.getByPlaceholderText('Mensagem pública para toda a turma...');
     expect((restoredPublicInput as HTMLInputElement).value).toBe('Dúvida geral turma');
 
     // Volta para a aba privada e garante que o modo de visualização geral permanece ativo
-    fireEvent.click(screen.getByRole('button', { name: /Dúvidas Privadas/i }));
+    fireEvent.click(screen.getByRole('button', { name: /Dúvidas/i }));
     expect(screen.queryByPlaceholderText(/Mensagem privada/i)).not.toBeInTheDocument();
     expect(screen.getByText(/Modo de visualização geral/i)).toBeInTheDocument();
   });
@@ -385,7 +383,7 @@ describe('Room Component (Desktop)', () => {
     });
 
     // Alterna para modo Janela para renderizar a tag <video> ao invés de imagem estática
-    const windowTab = screen.getByRole('button', { name: /Janela \/ Aba Específica/i });
+    const windowTab = screen.getByRole('button', { name: /Janelas escolhidas/i });
     fireEvent.click(windowTab);
 
     await waitFor(() => {
@@ -393,14 +391,14 @@ describe('Room Component (Desktop)', () => {
     });
 
     // Inicia sessão ao vivo
-    const advanceBtn = screen.getByRole('button', { name: /Avançar e Iniciar Transmissão/i });
+    const advanceBtn = screen.getByRole('button', { name: /Começar transmissão/i });
     await waitFor(() => {
       expect(advanceBtn).toBeEnabled();
     });
     fireEvent.click(advanceBtn);
 
     await waitFor(() => {
-      expect(screen.getByRole('button', { name: /Alterar Modo \/ Fonte/i })).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: /Trocar tela/i })).toBeInTheDocument();
     });
 
     const videoEl = document.querySelector('video') as HTMLVideoElement;
@@ -431,14 +429,14 @@ describe('Room Component (Desktop)', () => {
     });
 
     // Avança para a transmissão ao vivo
-    const advanceBtn = screen.getByRole('button', { name: /Avançar e Iniciar Transmissão/i });
+    const advanceBtn = screen.getByRole('button', { name: /Começar transmissão/i });
     await waitFor(() => {
       expect(advanceBtn).toBeEnabled();
     });
     fireEvent.click(advanceBtn);
 
     await waitFor(() => {
-      expect(screen.getByRole('button', { name: /Alterar Modo \/ Fonte/i })).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: /Trocar tela/i })).toBeInTheDocument();
     });
 
     // Deve exibir badge de 1080p @ 30fps na barra de status
@@ -452,14 +450,14 @@ describe('Room Component (Desktop)', () => {
       expect(screen.getByText('Tela Inteira 1')).toBeInTheDocument();
     });
 
-    const advanceBtn = screen.getByRole('button', { name: /Avançar e Iniciar Transmissão/i });
+    const advanceBtn = screen.getByRole('button', { name: /Começar transmissão/i });
     await waitFor(() => {
       expect(advanceBtn).toBeEnabled();
     });
     fireEvent.click(advanceBtn);
 
     await waitFor(() => {
-      expect(screen.getByRole('button', { name: /Alterar Modo \/ Fonte/i })).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: /Trocar tela/i })).toBeInTheDocument();
     });
 
     const printBtn = screen.getByRole('button', { name: /Tirar Print/i });
@@ -498,20 +496,20 @@ describe('Room Component (Desktop)', () => {
     // Na montagem da sala, setContentProtection(true) já deve ser ativado
     expect(setContentProtectionMock).toHaveBeenCalledWith(true);
 
-    const advanceBtn = screen.getByRole('button', { name: /Avançar e Iniciar Transmissão/i });
+    const advanceBtn = screen.getByRole('button', { name: /Começar transmissão/i });
     await waitFor(() => {
       expect(advanceBtn).toBeEnabled();
     });
     fireEvent.click(advanceBtn);
 
     await waitFor(() => {
-      expect(screen.getByRole('button', { name: /Alterar Modo \/ Fonte/i })).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: /Trocar tela/i })).toBeInTheDocument();
     });
 
     setContentProtectionMock.mockClear();
 
     // Clica em Alterar Modo / Fonte enquanto em modo Tela Cheia
-    fireEvent.click(screen.getByRole('button', { name: /Alterar Modo \/ Fonte/i }));
+    fireEvent.click(screen.getByRole('button', { name: /Trocar tela/i }));
 
     // NUNCA deve chamar setContentProtection(false) ao clicar em Alterar Modo / Fonte
     expect(setContentProtectionMock).not.toHaveBeenCalledWith(false);
@@ -525,7 +523,7 @@ describe('Room Component (Desktop)', () => {
       expect(screen.getByText('Tela Inteira 1')).toBeInTheDocument();
     });
 
-    const advanceBtn = screen.getByRole('button', { name: /Avançar e Iniciar Transmissão/i });
+    const advanceBtn = screen.getByRole('button', { name: /Começar transmissão/i });
     await waitFor(() => {
       expect(advanceBtn).toBeEnabled();
     });
@@ -629,7 +627,7 @@ describe('Room Component (Desktop)', () => {
       expect(screen.getByText('Tela Inteira 1')).toBeInTheDocument();
     });
 
-    const advanceBtn = screen.getByRole('button', { name: /Avançar e Iniciar Transmissão/i });
+    const advanceBtn = screen.getByRole('button', { name: /Começar transmissão/i });
     await waitFor(() => {
       expect(advanceBtn).toBeEnabled();
     });
@@ -677,7 +675,7 @@ describe('Room Component (Desktop)', () => {
     });
 
     // O botão de avanço já deve estar habilitado imediatamente sem necessidade de clique prévio
-    const advanceBtn = screen.getByRole('button', { name: /Avançar e Iniciar Transmissão/i });
+    const advanceBtn = screen.getByRole('button', { name: /Começar transmissão/i });
     expect(advanceBtn).toBeEnabled();
   });
 
@@ -699,7 +697,7 @@ describe('Room Component (Desktop)', () => {
     render(<Room room={dummyRoom} onCloseRoom={vi.fn()} />);
 
     // Alterna para modo Janela
-    const windowTab = screen.getByRole('button', { name: /Janela \/ Aba Específica/i });
+    const windowTab = screen.getByRole('button', { name: /Janelas escolhidas/i });
     fireEvent.click(windowTab);
 
     await waitFor(() => {
@@ -760,7 +758,7 @@ describe('Room Component (Desktop)', () => {
     render(<Room room={dummyRoom} onCloseRoom={vi.fn()} />);
 
     // Alterna para modo Janela e autoriza as 2 janelas
-    fireEvent.click(screen.getByRole('button', { name: /Janela \/ Aba Específica/i }));
+    fireEvent.click(screen.getByRole('button', { name: /Janelas escolhidas/i }));
 
     await waitFor(() => {
       expect(screen.getByText('VS Code')).toBeInTheDocument();
@@ -773,11 +771,11 @@ describe('Room Component (Desktop)', () => {
     });
 
     // Inicia transmissão ao vivo
-    const advanceBtn = screen.getByRole('button', { name: /Avançar e Iniciar Transmissão/i });
+    const advanceBtn = screen.getByRole('button', { name: /Começar transmissão/i });
     fireEvent.click(advanceBtn);
 
     await waitFor(() => {
-      expect(screen.getByText(/Janela Específica \(Múltiplas - 2 autorizadas\)/i)).toBeInTheDocument();
+      expect(screen.getByText(/Janelas escolhidas \(2 autorizadas\)/i)).toBeInTheDocument();
       expect(screen.getByText(/Janelas da Aula \(2\):/i)).toBeInTheDocument();
     });
 
@@ -790,7 +788,7 @@ describe('Room Component (Desktop)', () => {
     });
 
     await waitFor(() => {
-      expect(screen.getByText(/Janela Específica \(Múltiplas - 2 autorizadas\)/i)).toBeInTheDocument();
+      expect(screen.getByText(/Janelas escolhidas \(2 autorizadas\)/i)).toBeInTheDocument();
     });
     expect(screen.queryByText(/Proteção de Privacidade Ativa/i)).not.toBeInTheDocument();
 
@@ -800,7 +798,7 @@ describe('Room Component (Desktop)', () => {
     });
 
     await waitFor(() => {
-      expect(screen.getByText(/Janela Específica \(Múltiplas - 2 autorizadas\)/i)).toBeInTheDocument();
+      expect(screen.getByText(/Janelas escolhidas \(2 autorizadas\)/i)).toBeInTheDocument();
     });
   });
 
@@ -844,16 +842,16 @@ describe('Room Component (Desktop)', () => {
       expect(screen.getByText('Tela Inteira 1')).toBeInTheDocument();
     });
 
-    const advanceBtn = screen.getByRole('button', { name: /Avançar e Iniciar Transmissão/i });
+    const advanceBtn = screen.getByRole('button', { name: /Começar transmissão/i });
     fireEvent.click(advanceBtn);
 
     await waitFor(() => {
-      expect(screen.getByRole('button', { name: /Alterar Modo \/ Fonte/i })).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: /Trocar tela/i })).toBeInTheDocument();
     });
 
     // Abre o chat e muda para aba de Dúvidas Privadas
-    fireEvent.click(screen.getByRole('button', { name: /Chat & Turma/i }));
-    fireEvent.click(screen.getByRole('button', { name: /Dúvidas Privadas/i }));
+    fireEvent.click(screen.getByRole('button', { name: /^Painel/i }));
+    fireEvent.click(screen.getByRole('button', { name: /Dúvidas/i }));
 
     // Inicialmente sem aluno selecionado:
     // O formulário de envio (input e botão Enviar Privado) NÃO deve existir no DOM
@@ -922,11 +920,11 @@ describe('Room Component (Desktop)', () => {
     });
 
     // Inicia sessão ao vivo
-    const advanceBtn = screen.getByRole('button', { name: /Avançar e Iniciar Transmissão/i });
+    const advanceBtn = screen.getByRole('button', { name: /Começar transmissão/i });
     fireEvent.click(advanceBtn);
 
     await waitFor(() => {
-      expect(screen.getByRole('button', { name: /Alterar Modo \/ Fonte/i })).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: /Trocar tela/i })).toBeInTheDocument();
     });
 
     // Ativa o microfone
@@ -938,15 +936,15 @@ describe('Room Component (Desktop)', () => {
     });
 
     // Clica em "Alterar Modo / Fonte"
-    const changeModeBtn = screen.getByRole('button', { name: /Alterar Modo \/ Fonte/i });
+    const changeModeBtn = screen.getByRole('button', { name: /Trocar tela/i });
     fireEvent.click(changeModeBtn);
 
     // Na tela de configuração, avança novamente para a transmissão
-    const resumeBtn = screen.getByRole('button', { name: /Avançar e Iniciar Transmissão/i });
+    const resumeBtn = screen.getByRole('button', { name: /Começar transmissão/i });
     fireEvent.click(resumeBtn);
 
     await waitFor(() => {
-      expect(screen.getByRole('button', { name: /Alterar Modo \/ Fonte/i })).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: /Trocar tela/i })).toBeInTheDocument();
     });
 
     // O microfone continua exibindo "Mutar Microfone" (ativo)
@@ -1005,7 +1003,7 @@ describe('Room Component (Desktop)', () => {
       // Fora da sessão ao vivo nada é enviado.
       expect(setRaisedHands).not.toHaveBeenCalled();
 
-      fireEvent.click(screen.getByRole('button', { name: /Avançar e Iniciar Transmissão/i }));
+      fireEvent.click(screen.getByRole('button', { name: /Começar transmissão/i }));
       await waitFor(() => {
         expect(setRaisedHands).toHaveBeenLastCalledWith(2);
       });
@@ -1032,5 +1030,243 @@ describe('Room Component (Desktop)', () => {
     } finally {
       spy.mockRestore();
     }
+  });
+});
+
+describe('Room — fixar uma janela na transmissão (032)', () => {
+  const dummyRoom = {
+    id: 'room-101',
+    slug: 'charlie-delta-7342',
+    link: 'http://mlab-2.local:3000',
+    mdnsLink: 'http://mlab-2.local:3000',
+    ipLink: 'http://192.168.1.100:3000',
+  };
+  const A = 'window:10';
+  const B = 'window:20';
+
+  let focus: ((data: { sourceId: string }) => void) | null = null;
+  let endedBySource: Record<string, () => void> = {};
+  const gum = () => navigator.mediaDevices.getUserMedia as any;
+  const startTracking = () => window.electronAPI.startCursorTracking as any;
+  /** Quantas capturas de vídeo foram pedidas para a janela. */
+  const captures = (id: string) =>
+    gum().mock.calls.filter(([c]: any[]) => c?.video?.mandatory?.chromeMediaSourceId === id).length;
+  const lastTrackingTarget = () => startTracking().mock.calls.at(-1)?.[0];
+  const pinnedAttr = () => screen.getByTestId('window-pills-bar').getAttribute('data-pinned-source-id');
+  const emitFocus = async (sourceId: string) => {
+    await act(async () => {
+      focus!({ sourceId });
+    });
+  };
+
+  async function startLiveWithTwoWindows() {
+    gum().mockClear();
+    startTracking().mockClear();
+    focus = null;
+    endedBySource = {};
+    (window.electronAPI.onActiveWindowChanged as any).mockImplementation((cb: any) => {
+      focus = cb;
+      return () => {
+        focus = null;
+      };
+    });
+    (window.electronAPI.getScreenSources as any).mockImplementation((type?: string) =>
+      Promise.resolve(
+        type === 'window'
+          ? [
+              { id: A, name: 'VS Code', type: 'window', thumbnail: 'data:image/png;base64,aaa' },
+              { id: B, name: 'Navegador Web', type: 'window', thumbnail: 'data:image/png;base64,bbb' },
+            ]
+          : [{ id: 'screen:1', name: 'Tela Inteira 1', type: 'screen', thumbnail: 'data:image/png;base64,111' }]
+      )
+    );
+    gum().mockImplementation(async (constraints: any) => {
+      const stream = new MediaStream();
+      const id = constraints?.video?.mandatory?.chromeMediaSourceId;
+      const video = stream.getVideoTracks()[0] as any;
+      if (id && video) {
+        video.addEventListener = (ev: string, cb: () => void) => {
+          if (ev === 'ended') endedBySource[id] = cb;
+        };
+      }
+      return stream;
+    });
+
+    const utils = render(<Room room={dummyRoom} onCloseRoom={vi.fn()} />);
+    fireEvent.click(screen.getByRole('button', { name: /Janelas escolhidas/i }));
+    await waitFor(() => expect(screen.getByText('VS Code')).toBeInTheDocument());
+    fireEvent.click(screen.getByRole('button', { name: /Selecionar Todas/i }));
+    await waitFor(() => expect(screen.getByText(/2 janelas autorizadas/i)).toBeInTheDocument());
+    fireEvent.click(screen.getByRole('button', { name: /Começar transmissão/i }));
+    await waitFor(() => expect(screen.getByText(/Janelas da Aula \(2\):/i)).toBeInTheDocument());
+    await waitFor(() => expect(captures(A)).toBe(1));
+    gum().mockClear();
+    startTracking().mockClear();
+    return utils;
+  }
+
+  const pin = (name: string) => fireEvent.click(screen.getByRole('button', { name: `Fixar ${name}` }));
+  const unpin = (name: string) => fireEvent.click(screen.getByRole('button', { name: `Desafixar ${name}` }));
+
+  it('mostra o alfinete em cada janela com nome acessível e estado em texto (RF-3201, RF-3205)', async () => {
+    await startLiveWithTwoWindows();
+
+    expect(screen.getByRole('button', { name: 'Fixar VS Code' })).toHaveAttribute('aria-pressed', 'false');
+    expect(screen.getByRole('button', { name: 'Fixar Navegador Web' })).toHaveAttribute('aria-pressed', 'false');
+    // Sem fixação, os textos atuais (RF-3210).
+    expect(screen.getByText('No Ar')).toBeInTheDocument();
+    expect(screen.queryByText('Fixada')).not.toBeInTheDocument();
+    expect(screen.queryByText('Em pausa')).not.toBeInTheDocument();
+    expect(screen.queryByText(/Fixada:/)).not.toBeInTheDocument();
+
+    pin('VS Code');
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: 'Desafixar VS Code' })).toHaveAttribute('aria-pressed', 'true')
+    );
+    expect(screen.getByText('Fixada')).toBeInTheDocument();
+    expect(screen.getByText('Em pausa')).toBeInTheDocument();
+    expect(screen.getByText(/Fixada: VS Code/)).toBeInTheDocument();
+    expect(screen.queryByText('No Ar')).not.toBeInTheDocument();
+  });
+
+  it('fixar a janela no ar não recaptura e prende o cursor nela (RF-3202, RF-3208)', async () => {
+    await startLiveWithTwoWindows();
+
+    pin('VS Code');
+    await waitFor(() => expect(pinnedAttr()).toBe(A));
+    expect(captures(A)).toBe(0);
+    expect(lastTrackingTarget()).toEqual(
+      expect.objectContaining({ sourceId: A, allowedSourceIds: [A, B], pinnedSourceId: A })
+    );
+  });
+
+  it('com A fixada, o foco em B não troca a fonte (RF-3203)', async () => {
+    await startLiveWithTwoWindows();
+    pin('VS Code');
+    await waitFor(() => expect(pinnedAttr()).toBe(A));
+
+    await emitFocus(B);
+
+    expect(captures(B)).toBe(0);
+    expect(screen.getByText(/Fixada: VS Code/)).toBeInTheDocument();
+  });
+
+  it('desfixar depois do foco em B troca para B na hora, e o foco volta a trocar (RF-3204, RF-3210)', async () => {
+    await startLiveWithTwoWindows();
+    pin('VS Code');
+    await waitFor(() => expect(pinnedAttr()).toBe(A));
+    await emitFocus(B);
+
+    unpin('VS Code');
+    await waitFor(() => expect(captures(B)).toBe(1));
+    expect(screen.getByTestId('window-pills-bar')).not.toHaveAttribute('data-pinned-source-id');
+    expect(lastTrackingTarget().pinnedSourceId).toBeUndefined();
+
+    await emitFocus(A);
+    await waitFor(() => expect(captures(A)).toBe(1));
+  });
+
+  it('desfixar sem foco em outra janela desde a fixação mantém a fonte (RF-3204)', async () => {
+    await startLiveWithTwoWindows();
+    // O foco em B antes da fixação não conta.
+    await emitFocus(B);
+    await waitFor(() => expect(captures(B)).toBe(1));
+    pin('Navegador Web');
+    await waitFor(() => expect(pinnedAttr()).toBe(B));
+    gum().mockClear();
+    startTracking().mockClear();
+
+    unpin('Navegador Web');
+    await waitFor(() => expect(startTracking()).toHaveBeenCalled());
+    expect(gum().mock.calls.filter(([c]: any[]) => c?.video).length).toBe(0);
+    expect(lastTrackingTarget()).toEqual(expect.objectContaining({ sourceId: B }));
+    expect(lastTrackingTarget().pinnedSourceId).toBeUndefined();
+  });
+
+  it('fixar B com A fixada passa para B; clicar no nome com fixação equivale a fixar (RF-3202, RF-3209)', async () => {
+    await startLiveWithTwoWindows();
+    pin('VS Code');
+    await waitFor(() => expect(pinnedAttr()).toBe(A));
+
+    pin('Navegador Web');
+    await waitFor(() => expect(pinnedAttr()).toBe(B));
+    expect(captures(B)).toBe(1);
+    expect(lastTrackingTarget()).toEqual(expect.objectContaining({ sourceId: B, pinnedSourceId: B }));
+    expect(screen.getByRole('button', { name: 'Fixar VS Code' })).toHaveAttribute('aria-pressed', 'false');
+
+    // Clique no nome de A, não no alfinete, com B fixada: A passa a ser a fixada.
+    fireEvent.click(screen.getByTitle('Fixar e transmitir agora: VS Code'));
+    await waitFor(() => expect(pinnedAttr()).toBe(A));
+    expect(captures(A)).toBe(1);
+  });
+
+  it('sem fixação, o clique no nome troca a janela sem pinnedSourceId (RF-3210)', async () => {
+    await startLiveWithTwoWindows();
+
+    fireEvent.click(screen.getByTitle('Alternar para transmitir agora: Navegador Web'));
+    await waitFor(() => expect(captures(B)).toBe(1));
+    expect(lastTrackingTarget().pinnedSourceId).toBeUndefined();
+    expect(screen.getByTestId('window-pills-bar')).not.toHaveAttribute('data-pinned-source-id');
+  });
+
+  it('sem fixação, nenhuma troca por foco ou pelo seletor leva pinnedSourceId (T3205, RF-3210)', async () => {
+    await startLiveWithTwoWindows();
+
+    await emitFocus(B);
+    await waitFor(() => expect(captures(B)).toBe(1));
+    await emitFocus(A);
+    await waitFor(() => expect(captures(A)).toBe(1));
+    fireEvent.click(screen.getByTitle('Alternar para transmitir agora: Navegador Web'));
+    await waitFor(() => expect(captures(B)).toBe(2));
+
+    const targets = startTracking().mock.calls.map(([t]: any[]) => t);
+    expect(targets.map((t: any) => t.sourceId)).toEqual([B, A, B]);
+    expect(targets.every((t: any) => t.pinnedSourceId === undefined)).toBe(true);
+    expect(screen.getByText('No Ar')).toBeInTheDocument();
+    expect(screen.queryByText('Em pausa')).not.toBeInTheDocument();
+  });
+
+  it('trocar tela desfaz a fixação (RF-3206)', async () => {
+    await startLiveWithTwoWindows();
+    pin('VS Code');
+    await waitFor(() => expect(pinnedAttr()).toBe(A));
+
+    fireEvent.click(screen.getByRole('button', { name: /Trocar tela/i }));
+    fireEvent.click(await screen.findByRole('button', { name: /Começar transmissão/i }));
+    await waitFor(() => expect(screen.getByText(/Janelas da Aula \(2\):/i)).toBeInTheDocument());
+
+    expect(screen.getByTestId('window-pills-bar')).not.toHaveAttribute('data-pinned-source-id');
+    expect(screen.getByRole('button', { name: 'Fixar VS Code' })).toHaveAttribute('aria-pressed', 'false');
+  });
+
+  it('encerrar a transmissão desfaz a fixação (RF-3206)', async () => {
+    await startLiveWithTwoWindows();
+    pin('VS Code');
+    await waitFor(() => expect(pinnedAttr()).toBe(A));
+
+    expect(screen.getByText('Fixada')).toBeInTheDocument();
+    (window.electronAPI.stopCursorTracking as any).mockClear();
+
+    fireEvent.click(screen.getByRole('button', { name: /Encerrar/i }));
+    await waitFor(() => expect(window.electronAPI.stopCursorTracking).toHaveBeenCalled());
+    expect(screen.queryByText('Fixada')).not.toBeInTheDocument();
+    expect(screen.queryByText(/Fixada:/)).not.toBeInTheDocument();
+  });
+
+  it('o fim da captura da janela fixada a desfixa pela regra do RF-3204 (RF-3207)', async () => {
+    await startLiveWithTwoWindows();
+    await emitFocus(B);
+    await waitFor(() => expect(captures(B)).toBe(1));
+    pin('Navegador Web');
+    await waitFor(() => expect(pinnedAttr()).toBe(B));
+    await emitFocus(A);
+    expect(captures(A)).toBe(0);
+
+    await act(async () => {
+      endedBySource[B]();
+    });
+
+    await waitFor(() => expect(screen.getByTestId('window-pills-bar')).not.toHaveAttribute('data-pinned-source-id'));
+    await waitFor(() => expect(captures(A)).toBe(1));
   });
 });

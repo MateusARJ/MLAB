@@ -85,6 +85,9 @@ apareçam para os alunos, **para** a transmissão mostrar só o que faz parte da
   (`CursorState.visible` é `true` e `CursorState.rect` não é nulo) ou quando foi posicionada no visualizador do MLab
   (`spotlight.activeInViewer`). Fora disso o quadro segue sem a lupa; sem outra anotação, pelo repasse (RF-702). Os
   traços não mudam: seguem a regra atual de anotações. A suspensão da proteção de FPS não afeta essa regra (C-705).
+- Nota (032) sobre RF-701 e RF-708: com uma janela fixada no modo de múltiplas janelas, a "janela transmitida" das
+  regras acima é a janela fixada, mesmo com o foco em outra janela autorizada (`032-fixar-janela-transmissao`,
+  RF-3208).
 - RNF-701: com o cursor visível, FPS e resolução recebidos pelo aluno iguais à linha de base (`development` antes da
   feature); com o cursor oculto, FPS recebido ≥ 95% do alvo, resolução inalterada e nenhum keyframe extra a cada
   alternância entre caminhos.

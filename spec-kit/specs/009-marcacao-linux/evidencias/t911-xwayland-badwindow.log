@@ -1,0 +1,23 @@
+# 009 / T911 — erro X da região de entrada no XWayland real, 2026-11-17
+# Ambiente: Ubuntu 26.04.1 LTS, GNOME Shell 50.1 Wayland (XWayland, DISPLAY=:0), Node v22.23.5, koffi 3.3.4
+# Roteiro: cria janela X, aplica região de entrada, destrói a janela e aplica de novo no XID destruído.
+
+## Antes (padrão da T908: XShapeCombineRectangles + XFlush, sem XSetErrorHandler)
+janela viva ok 14680065
+X Error of failed request:  BadWindow (invalid Window parameter)
+  Major opcode of failed request:  129 (SHAPE)
+  Minor opcode of failed request:  1 (X_ShapeRectangles)
+  Resource id in failed request:  0xe00001
+  Serial number of failed request:  15
+  Current serial number in output stream:  16
+exit=1
+
+## Depois (x11InputShape.ts da T911, transpilado e executado com koffi real)
+shaper criado: true
+janela viva: região aplicada sem erro
+região vazia aplicada sem erro
+[X11InputShape] janela 0xe00001 não existe mais (BadWindow); região ignorada
+XID destruído: processo seguiu vivo
+[X11InputShape] janela 0xe00001 não existe mais (BadWindow); região ignorada
+segunda instância e dispose ok
+exit=0

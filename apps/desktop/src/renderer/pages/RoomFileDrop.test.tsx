@@ -82,11 +82,11 @@ describe('Room — arrastar arquivos para a aba Arquivos (018)', () => {
 
   async function openFilesTab() {
     render(<Room room={dummyRoom} onCloseRoom={vi.fn()} />);
-    const advanceBtn = screen.getByRole('button', { name: /Avançar e Iniciar Transmissão/i });
+    const advanceBtn = screen.getByRole('button', { name: /Começar transmissão/i });
     await waitFor(() => expect(advanceBtn).toBeEnabled());
     fireEvent.click(advanceBtn);
-    await waitFor(() => expect(screen.getByRole('button', { name: /Chat & Turma/i })).toBeInTheDocument());
-    fireEvent.click(screen.getByRole('button', { name: /Chat & Turma/i }));
+    await waitFor(() => expect(screen.getByRole('button', { name: /^Painel/i })).toBeInTheDocument());
+    fireEvent.click(screen.getByRole('button', { name: /^Painel/i }));
     fireEvent.click(screen.getByRole('button', { name: /Arquivos \(\d+\)/i }));
     return screen.getByTestId('file-drop-zone');
   }

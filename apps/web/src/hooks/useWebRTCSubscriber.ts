@@ -434,9 +434,13 @@ export function useWebRTCSubscriber(token: string, roomInfo: { room_id: string; 
 
   useEffect(() => {
     isCleanedUpRef.current = false;
-    connect();
+    // Abre a conexão um tick depois da montagem, cancelável no cleanup (044/RF-4401). Uma montagem desfeita na hora,
+    // como a do StrictMode, não deixa um WebSocket descartável a caminho do hub: se ele registrasse depois do
+    // definitivo, o hub fecharia o definitivo com 4001 (027/RF-2704) e o aluno veria um aviso falso de outra aba.
+    const initialConnectTimer = setTimeout(connect, 0);
     return () => {
       isCleanedUpRef.current = true;
+      clearTimeout(initialConnectTimer);
       if (reconnectTimerRef.current) {
         clearTimeout(reconnectTimerRef.current);
         reconnectTimerRef.current = null;

@@ -322,7 +322,7 @@ func TestJoinValidation(t *testing.T) {
 		t.Errorf("expected 400 Bad Request for empty name and student_id, got %d", rec.Code)
 	}
 
-	// Invalid student_id formats (must contain numbers and up to 4 letters)
+	// Invalid student_id formats: exatamente 7 números, 4 letras e 4 números (046/RF-4601)
 	invalidIDs := []string{
 		"2024091812",       // apenas números
 		"RA-101",           // hífen
@@ -330,6 +330,12 @@ func TestJoinValidation(t *testing.T) {
 		"TADS20250000",     // letras no início
 		"20250000TADS",     // letras no fim
 		"   ",              // vazio
+		"2025116TADS0",     // 1 número final (caso da issue #134)
+		"202511TADS0000",   // 6 números iniciais
+		"20251160TADS0000", // 8 números iniciais
+		"2025116ADS0000",   // 3 letras
+		"2025116TADS00000", // 5 números finais
+		"2025116TA1S0000",  // dígito no meio da sigla
 	}
 
 	for _, invalidID := range invalidIDs {
@@ -433,6 +439,15 @@ func TestJoinRoomBySlug(t *testing.T) {
 	if len(resp.IceServers) != 1 || len(resp.IceServers[0].URLs) != 1 ||
 		resp.IceServers[0].URLs[0] != "stun:stun.l.google.com:19302" {
 		t.Errorf("esperava o STUN padrão com internet, obteve %+v", resp.IceServers)
+	}
+
+	// A matrícula enviada em minúsculas volta normalizada em maiúsculas no token (046/RF-4602).
+	claims, err := auth.ParseToken(resp.Token)
+	if err != nil {
+		t.Fatalf("token do aluno inválido: %v", err)
+	}
+	if got := claims["student_id"]; got != "2025116TADS0039" {
+		t.Errorf("esperava student_id normalizado 2025116TADS0039, obteve %v", got)
 	}
 }
 

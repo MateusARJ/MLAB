@@ -11,19 +11,20 @@
   --sar: env(safe-area-inset-right, 0px);
   --sab: env(safe-area-inset-bottom, 0px);
   --sal: env(safe-area-inset-left, 0px);
-  --color-bg: #0f172a;
-  --color-surface: #1e293b;
-  --color-border: #334155;
-  --color-text: #f1f5f9;
-  --color-muted: #94a3b8;
-  --color-primary: #6366f1;
-  --color-primary-hover: #818cf8;
-  --color-success: #22c55e;
-  --color-error: #ef4444;
-  --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
-  --radius-sm: 0.375rem;
-  --radius-md: 0.5rem;
-  --radius-lg: 0.75rem;
+  /* Nomes antigos mantidos como apelidos dos tokens do DS 2.0 (@mlab/ui) */
+  --color-bg: var(--bg);
+  --color-surface: var(--surface-1);
+  --color-border: var(--border-subtle);
+  --color-text: var(--text-1);
+  --color-muted: var(--text-3);
+  --color-primary: var(--accent-fill);
+  --color-primary-hover: var(--accent-fill-hover);
+  --color-success: var(--live);
+  --color-error: var(--danger);
+  --font-sans: var(--font-ui);
+  --radius-sm: var(--r-control);
+  --radius-md: var(--r-control);
+  --radius-lg: var(--r-panel);
 }
 
 html {
@@ -44,35 +45,46 @@ body {
   -webkit-tap-highlight-color: transparent;
 }
 
+/* 043/RF-4301 a RF-4303: pílula "Levantar mão" do aluno. O texto encolhe com reticências antes de encostar no
+   grupo PiP / Tela Cheia. Até 600 px o espaçador que centraliza a pílula no vídeo some; até 480 px, padding menor e
+   rótulo ativo curto ("Abaixar mão"). */
+@media (max-width: 600px) {
+  .ml-video-bar-spacer {
+    display: none;
+  }
+}
+
+.ml-hand-btn {
+  padding: 0 24px;
+}
+
+.ml-hand-label,
+.ml-hand-label-short,
+.ml-hand-label-any {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.ml-hand-label-short {
+  display: none;
+}
+
+@media (max-width: 480px) {
+  .ml-hand-btn {
+    padding: 0 16px;
+  }
+
+  .ml-hand-label {
+    display: none;
+  }
+
+  .ml-hand-label-short {
+    display: inline;
+  }
+}
+
 /* Previne zoom automático indesejado no iOS ao focar inputs */
 input, select, textarea {
   font-size: 16px;
-}
-
-/* Scrollbar */
-::-webkit-scrollbar {
-  width: 6px;
-}
-::-webkit-scrollbar-track {
-  background: var(--color-surface);
-}
-::-webkit-scrollbar-thumb {
-  background: var(--color-border);
-  border-radius: 3px;
-}
-
-/* Responsivo */
-@media (max-width: 768px) {
-  html {
-    font-size: 14px;
-  }
-}
-
-@keyframes spin {
-  from {
-    transform: rotate(0deg);
-  }
-  to {
-    transform: rotate(360deg);
-  }
 }

@@ -151,6 +151,7 @@ Pode assistir à tela transmitida e participar do chat de texto. Não transmite 
 
 **Critérios de aceitação**
 - O app desktop exibe abas ou seletores claros entre "Tela Cheia" e "Janela Específica".
+  (Emenda 028: os rótulos na tela passam a ser "Tela inteira" e "Janelas escolhidas"; o comportamento não muda.)
 - Em Tela Cheia, a transmissão acompanha o cursor e qualquer aplicativo ou tela aberta no monitor selecionado.
 - Em Janela Específica, a transmissão restringe-se aos limites da janela selecionada, sem expor notificações ou outras janelas.
 - O professor pode alterar a fonte selecionada durante a transmissão sem desconectar a sessão.
@@ -280,3 +281,4 @@ Pode assistir à tela transmitida e participar do chat de texto. Não transmite 
 | 2026-11-01 | RNF-02, RNF-09 | Perfis 1080p@30 e 1080p@60 já entregues (`d85cf3d`, `29c54d0`) |
 | 2026-11-01 | RF-24, US-03 | Tela de permissões removida (`4f3caad`); permissões tratadas no processo principal |
 | 2026-11-01 | RN-18, "Não incluído: upload de arquivos" | Movidos para `003-classroom-interaction` (US-15, US-16) |
+| 2026-11-14 | US-09 (rótulos) | "Tela Cheia" → "Tela inteira"; "Janela Específica" → "Janelas escolhidas" (`028-design-system-2`, C-2803) |

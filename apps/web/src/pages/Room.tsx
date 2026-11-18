@@ -14,6 +14,8 @@ import {
   PinFilled,
   Alert,
   Button,
+  BrandMark,
+  StatusBadge,
   colors,
   radii,
   decodeChatEntities,
@@ -33,6 +35,15 @@ interface RoomProps {
   };
   onLeave: (reason?: string) => void;
 }
+
+/** Rótulos do estado da conexão em linguagem do aluno (só apresentação). */
+const CONNECTION_LABELS: Record<string, string> = {
+  connecting: 'Conectando',
+  connected: 'Conectado',
+  reconnecting: 'Reconectando',
+  closed: 'Encerrada',
+  duplicate: 'Sessão duplicada',
+};
 
 function formatFileSize(bytes: number): string {
   if (!bytes || bytes === 0) return '0 B';
@@ -120,7 +131,7 @@ export const Room: React.FC<RoomProps> = ({ token, roomInfo, onLeave }) => {
   const [publicChatInput, setPublicChatInput] = useState('');
   const [privateChatInput, setPrivateChatInput] = useState('');
   const [studentChatTab, setStudentChatTab] = useState<'public' | 'private'>('public');
-  const [isVideoHovered, setIsVideoHovered] = useState<boolean>(false);
+  const [, setIsVideoHovered] = useState<boolean>(false);
   const [isFilesOpen, setIsFilesOpen] = useState<boolean>(false);
   const [mobileDrawerTab, setMobileDrawerTab] = useState<'chat' | 'files'>('chat');
 
@@ -486,8 +497,10 @@ export const Room: React.FC<RoomProps> = ({ token, roomInfo, onLeave }) => {
             ...styles.fullscreenMenuBtn,
             ...(isFullscreenSidebarOpen ? styles.fullscreenMenuBtnActive : {}),
           }}
-          title={isFullscreenSidebarOpen ? 'Fechar menu' : 'Menu da transmissão'}
-          aria-label="Menu da transmissão"
+          title={isFullscreenSidebarOpen ? 'Fechar menu da transmissão' : 'Abrir menu da transmissão'}
+          aria-label={isFullscreenSidebarOpen ? 'Fechar menu da transmissão' : 'Abrir menu da transmissão'}
+          aria-expanded={isFullscreenSidebarOpen}
+          aria-controls="fullscreen-right-sidebar"
           data-testid="fullscreen-menu-trigger"
         >
           {isFullscreenSidebarOpen ? (
@@ -520,6 +533,7 @@ export const Room: React.FC<RoomProps> = ({ token, roomInfo, onLeave }) => {
       {/* Sidebar Retrátil na lateral direita em tela cheia */}
       {effectiveFullscreen && (
         <aside
+          id="fullscreen-right-sidebar"
           data-testid="fullscreen-right-sidebar"
           style={{
             ...styles.fullscreenRightSidebar,
@@ -529,7 +543,7 @@ export const Room: React.FC<RoomProps> = ({ token, roomInfo, onLeave }) => {
         >
           <div style={styles.fullscreenSidebarHeader}>
             <div style={styles.fullscreenBrandBox}>
-              <img src="/MLAB-logo.png" alt="MLab Logo" style={styles.logoImgMobile} />
+              <BrandMark size={32} title="MLab" />
               <div>
                 <h3 style={styles.fullscreenSidebarTitle}>
                   {roomInfo.professor_name ? `Prof. ${roomInfo.professor_name}` : 'MLab'}
@@ -537,21 +551,21 @@ export const Room: React.FC<RoomProps> = ({ token, roomInfo, onLeave }) => {
                 <span style={styles.fullscreenSidebarSubtitle}>Controles da Transmissão</span>
               </div>
             </div>
-            <button
-              onClick={() => setIsFullscreenSidebarOpen(false)}
-              style={styles.closeDrawerBtn}
-              title="Fechar Menu"
-              aria-label="Fechar Menu"
-            >
-              <Close size={16} />
-            </button>
+            {/* 043/RF-4305: sem botão de fechar aqui; o gatilho flutuante (X) fecha o menu no mesmo canto. */}
           </div>
 
           <div style={styles.fullscreenSidebarContent}>
             {/* Status da Transmissão idêntico ao do Header */}
             <div style={styles.fullscreenStatusCard}>
               <span style={styles.statusLabel}>
-                {isStreamPaused ? 'pausado' : connectionStatus}
+                {isStreamPaused ? (
+                  <StatusBadge status="paused" label="Pausado" />
+                ) : (
+                  <StatusBadge
+                    status={connectionStatus === 'connected' ? 'live' : connectionStatus === 'closed' || connectionStatus === 'duplicate' ? 'neutral' : 'waiting'}
+                    label={CONNECTION_LABELS[connectionStatus] || connectionStatus}
+                  />
+                )}
               </span>
             </div>
 
@@ -691,19 +705,25 @@ export const Room: React.FC<RoomProps> = ({ token, roomInfo, onLeave }) => {
           }}
         >
           <div style={isMobile ? styles.brandBoxMobile : styles.brandBox}>
-            <img src="/MLAB-logo.png" alt="MLab Logo" style={isMobile ? styles.logoImgMobile : styles.logoImg} />
-            <h2 style={isMobile ? styles.titleMobile : styles.title}>
-              {roomInfo.professor_name
-                ? (isMobile ? `MLab — Prof. ${roomInfo.professor_name}` : `MLab — Aula ao Vivo (Prof. ${roomInfo.professor_name})`)
-                : (isMobile ? 'MLab' : 'MLab — Aula ao Vivo')}
-            </h2>
+            <BrandMark size={32} title="MLab" />
+            <div style={styles.who}>
+              <h2 style={isMobile ? styles.titleMobile : styles.title}>
+                {(roomInfo as any).room_title || 'Aula ao vivo'}
+              </h2>
+              {roomInfo.professor_name && !isMobile && (
+                <span style={styles.whoSub}>Prof. {roomInfo.professor_name}</span>
+              )}
+            </div>
           </div>
           <div style={isMobile ? styles.statusBoxMobile : styles.statusBox}>
-            <span style={styles.statusLabel}>
+            <span style={styles.statusLabel} role="status">
               {isStreamPaused ? (
-                <span style={styles.statusPausedBadge}>pausado</span>
+                <StatusBadge status="paused" label="Pausado" />
               ) : (
-                connectionStatus
+                <StatusBadge
+                  status={connectionStatus === 'connected' ? 'live' : connectionStatus === 'closed' || connectionStatus === 'duplicate' ? 'neutral' : 'waiting'}
+                  label={CONNECTION_LABELS[connectionStatus] || connectionStatus}
+                />
               )}
             </span>
 
@@ -763,7 +783,7 @@ export const Room: React.FC<RoomProps> = ({ token, roomInfo, onLeave }) => {
 
       {/* RF-21: Banner de Autoplay Policy */}
       {autoplayBlocked && (
-        <div style={styles.autoplayBanner}>
+        <div style={styles.autoplayBanner} role="alert">
           <span>O áudio da aula foi pausado pelo navegador.</span>
           <button onClick={handleUnmuteAudio} style={styles.unmuteBtn}>
             Clique para Ativar Som
@@ -773,6 +793,7 @@ export const Room: React.FC<RoomProps> = ({ token, roomInfo, onLeave }) => {
 
       <main style={styles.mainLayout}>
         <div
+          className="ml-on-stage"
           style={{
             ...styles.videoSection,
             ...(isMobile ? styles.videoSectionMobile : {}),
@@ -795,7 +816,7 @@ export const Room: React.FC<RoomProps> = ({ token, roomInfo, onLeave }) => {
           {isStreamPaused ? (
             <div style={styles.pausedScreen}>
               <div style={styles.pausedIconWrapper}>
-                <span style={styles.pausedIcon}><Renew size={36} /></span>
+                <span className="ml-spin-slow" style={styles.pausedIcon}><Renew size={36} /></span>
               </div>
               <h3 style={styles.pausedTitle}>Aula Pausada pelo Professor</h3>
               <p style={styles.pausedSub}>
@@ -836,59 +857,62 @@ export const Room: React.FC<RoomProps> = ({ token, roomInfo, onLeave }) => {
                   </div>
                 </div>
               )}
-              {/* Controles sobre o vídeo (ocultados em tela cheia) */}
+              {/* Controles sobre o vídeo (ocultados em tela cheia): sempre visíveis */}
+              {/* 043/RF-4301: pílula e grupo PiP / Tela Cheia na mesma linha, com espaço mínimo entre eles; o
+                  espaçador centraliza a pílula quando há espaço e encolhe primeiro em telas estreitas. */}
               {!effectiveFullscreen && (
-                <div
-                  style={{
-                    ...styles.videoOverlayControls,
-                    opacity: isMobile ? 1 : (isVideoHovered ? 1 : 0),
-                    pointerEvents: isMobile ? 'auto' : (isVideoHovered ? 'auto' : 'none'),
-                    transition: 'opacity 0.25s ease',
-                  }}
-                >
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      toggleHand();
-                    }}
-                    style={isHandRaised ? styles.overlayBtnActive : styles.overlayBtn}
-                    title={isHandRaised ? 'Abaixar mão' : 'Levantar mão'}
-                    aria-label={isHandRaised ? 'Abaixar mão' : 'Levantar mão'}
-                  >
-                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
-                      {isHandRaised ? <Touch_1Filled size={16} /> : <Touch_1 size={16} />}
-                      {isHandRaised ? 'Mão Levantada (Abaixar)' : 'Levantar Mão'}
-                    </span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleToggleFullscreen();
-                    }}
-                    style={styles.overlayBtn}
-                    title="Tela Cheia"
-                    aria-label="Tela Cheia"
-                  >
-                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
-                      <Maximize size={16} /> Tela Cheia
-                    </span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleTogglePiP();
-                    }}
-                    style={styles.overlayBtn}
-                    title="Picture-in-Picture"
-                    aria-label="Picture-in-Picture"
-                  >
-                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
-                      <Popup size={16} /> Picture-in-Picture
-                    </span>
-                  </button>
+                <div style={styles.videoBottomBar} data-testid="video-bottom-bar">
+                  <div className="ml-video-bar-spacer" style={styles.videoBottomSpacer} aria-hidden="true" />
+                  <div style={styles.handSlot}>
+                    <button
+                      type="button"
+                      className="ml-hand-btn"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        toggleHand();
+                      }}
+                      style={isHandRaised ? styles.handBtnActive : styles.handBtn}
+                      title={isHandRaised ? 'Abaixar mão' : 'Levantar mão'}
+                      aria-label={isHandRaised ? 'Abaixar mão' : 'Levantar mão'}
+                      aria-pressed={isHandRaised}
+                    >
+                      {isHandRaised ? <Touch_1Filled size={20} /> : <Touch_1 size={20} />}
+                      {isHandRaised ? (
+                        <>
+                          <span className="ml-hand-label">Mão levantada (abaixar)</span>
+                          <span className="ml-hand-label-short">Abaixar mão</span>
+                        </>
+                      ) : (
+                        <span className="ml-hand-label-any">Levantar mão</span>
+                      )}
+                    </button>
+                  </div>
+                  <div style={styles.videoOverlayControls} role="toolbar" aria-label="Visualização">
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleTogglePiP();
+                      }}
+                      style={styles.overlayBtn}
+                      title="Picture-in-Picture"
+                      aria-label="Picture-in-Picture"
+                    >
+                      <Popup size={20} />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleToggleFullscreen();
+                      }}
+                      style={styles.overlayBtn}
+                      title="Tela Cheia"
+                      aria-label="Tela Cheia"
+                    >
+                      <Maximize size={20} />
+                    </button>
+                  </div>
                 </div>
               )}
             </div>
@@ -991,7 +1015,7 @@ export const Room: React.FC<RoomProps> = ({ token, roomInfo, onLeave }) => {
                   width: isChatOpen ? '340px' : '0px',
                   minWidth: isChatOpen ? '340px' : '0px',
                   opacity: isChatOpen ? 1 : 0,
-                  borderLeft: isChatOpen ? '1px solid #334155' : 'none',
+                  borderLeft: isChatOpen ? '1px solid var(--border-subtle)' : 'none',
                   pointerEvents: isChatOpen ? 'auto' : 'none',
                 }
           }
@@ -1076,14 +1100,14 @@ export const Room: React.FC<RoomProps> = ({ token, roomInfo, onLeave }) => {
                   onClick={() => setStudentChatTab('public')}
                   style={studentChatTab === 'public' ? styles.chatSubTabActive : styles.chatSubTab}
                 >
-                  Turma (Público)
+                  Turma
                 </button>
                 <button
                   type="button"
                   onClick={() => setStudentChatTab('private')}
                   style={studentChatTab === 'private' ? styles.chatSubTabActivePrivate : styles.chatSubTab}
                 >
-                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}><Locked size={14} /> Privado com Professor</span>
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }} aria-label="Privado com Professor"><Locked size={14} /> Professor</span>
                   {messages.filter((m) => m.is_private).length > 0 && (
                     <span style={styles.tabBadge}>
                       {messages.filter((m) => m.is_private).length}
@@ -1224,7 +1248,7 @@ export const Room: React.FC<RoomProps> = ({ token, roomInfo, onLeave }) => {
                         {privateMsgs.length === 0 ? (
                           <div style={styles.noFilesBox}>
                             <p style={styles.noFilesText}>Nenhuma dúvida privada com o professor ainda.</p>
-                            <p style={{ ...styles.noFilesText, fontSize: '11px', color: '#64748b' }}>
+                            <p style={{ ...styles.noFilesText, fontSize: 'var(--fs-caption)', color: 'var(--text-3)' }}>
                               Envie sua dúvida abaixo. Apenas o professor poderá ler e responder.
                             </p>
                           </div>
@@ -1300,7 +1324,7 @@ export const Room: React.FC<RoomProps> = ({ token, roomInfo, onLeave }) => {
                           <button
                             type="submit"
                             disabled={!isChatReady || !privateChatInput.trim()}
-                            style={{ ...styles.sendBtn, backgroundColor: '#6366f1' }}
+                            style={{ ...styles.sendBtn, backgroundColor: 'var(--accent-fill)' }}
                           >
                             Enviar Privado
                           </button>
@@ -1329,9 +1353,9 @@ const styles: { [key: string]: React.CSSProperties } = {
     inset: 0,
     display: 'flex',
     flexDirection: 'column',
-    backgroundColor: '#0f172a',
-    color: '#f8fafc',
-    fontFamily: 'Inter, system-ui, sans-serif',
+    backgroundColor: 'var(--bg)',
+    color: 'var(--text-1)',
+    fontFamily: 'var(--font-ui)',
     touchAction: 'manipulation',
   },
   pseudoFullscreen: {
@@ -1349,14 +1373,17 @@ const styles: { [key: string]: React.CSSProperties } = {
     display: 'flex',
     justifyContent: 'space-between',
     alignItems: 'center',
-    padding: '12px 24px',
-    backgroundColor: '#1e293b',
-    borderBottom: '1px solid #334155',
+    gap: '12px',
+    minHeight: '56px',
+    padding: '0 16px',
+    backgroundColor: 'var(--surface-1)',
+    borderBottom: '1px solid var(--border-subtle)',
   },
   brandBox: {
     display: 'flex',
     alignItems: 'center',
-    gap: '12px',
+    gap: '10px',
+    minWidth: 0,
   },
   logoImg: {
     width: '40px',
@@ -1365,147 +1392,227 @@ const styles: { [key: string]: React.CSSProperties } = {
   },
   chatSubTabs: {
     display: 'flex',
-    gap: '6px',
-    padding: '8px 12px',
-    backgroundColor: '#0f172a',
-    borderBottom: '1px solid #334155',
+    gap: '4px',
+    padding: '0 12px',
+    borderBottom: '1px solid var(--border-subtle)',
   },
   chatSubTab: {
     flex: 1,
-    padding: '7px 10px',
-    borderRadius: '6px',
-    border: '1px solid #334155',
-    backgroundColor: '#1e293b',
-    color: '#94a3b8',
-    fontSize: '12px',
-    fontWeight: '500',
+    minHeight: '44px',
+    padding: '0 8px',
+    border: 'none',
+    borderBottom: '2px solid transparent',
+    backgroundColor: 'transparent',
+    color: 'var(--text-2)',
+    fontSize: 'var(--fs-small)',
+    fontWeight: 600,
     cursor: 'pointer',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
     gap: '6px',
+    whiteSpace: 'nowrap',
   },
   chatSubTabActive: {
     flex: 1,
-    padding: '7px 10px',
-    borderRadius: '6px',
-    border: '1px solid #38bdf8',
-    backgroundColor: 'rgba(56, 189, 248, 0.15)',
-    color: '#38bdf8',
-    fontSize: '12px',
+    minHeight: '44px',
+    padding: '0 8px',
+    border: 'none',
+    borderBottom: '2px solid var(--accent)',
+    backgroundColor: 'transparent',
+    color: 'var(--text-1)',
+    fontSize: 'var(--fs-small)',
     fontWeight: '700',
     cursor: 'pointer',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
     gap: '6px',
+    whiteSpace: 'nowrap',
   },
   chatSubTabActivePrivate: {
     flex: 1,
-    padding: '7px 10px',
-    borderRadius: '6px',
-    border: '1px solid #a855f7',
-    backgroundColor: 'rgba(168, 85, 247, 0.15)',
-    color: '#c084fc',
-    fontSize: '12px',
+    minHeight: '44px',
+    padding: '0 8px',
+    border: 'none',
+    borderBottom: '2px solid var(--accent)',
+    backgroundColor: 'transparent',
+    color: 'var(--text-1)',
+    fontSize: 'var(--fs-small)',
     fontWeight: '700',
     cursor: 'pointer',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
     gap: '6px',
+    whiteSpace: 'nowrap',
   },
   chatTargetBanner: {
-    padding: '6px 12px',
-    fontSize: '11px',
-    color: '#c084fc',
-    backgroundColor: 'rgba(168, 85, 247, 0.1)',
-    borderRadius: '6px',
-    border: '1px solid rgba(168, 85, 247, 0.3)',
-    marginBottom: '8px',
-    textAlign: 'center',
+    fontSize: 'var(--fs-caption)',
+    color: 'var(--text-3)',
   },
   chatTargetBannerPublic: {
-    padding: '6px 12px',
-    fontSize: '11px',
-    color: '#38bdf8',
-    backgroundColor: 'rgba(56, 189, 248, 0.08)',
-    borderRadius: '6px',
-    border: '1px solid rgba(56, 189, 248, 0.25)',
-    marginBottom: '8px',
-    textAlign: 'center',
+    fontSize: 'var(--fs-caption)',
+    color: 'var(--text-3)',
   },
   title: {
-    fontSize: '18px',
+    fontSize: 'var(--fs-body)',
+    lineHeight: 1.25,
     fontWeight: '700',
-    color: '#38bdf8',
+    color: 'var(--text-1)',
     margin: 0,
+    whiteSpace: 'nowrap',
+    overflow: 'hidden',
+    textOverflow: 'ellipsis',
+  },
+  who: {
+    display: 'flex',
+    flexDirection: 'column',
+    minWidth: 0,
+  },
+  whoSub: {
+    fontSize: 'var(--fs-caption)',
+    lineHeight: 1.25,
+    color: 'var(--text-3)',
+    whiteSpace: 'nowrap',
+    overflow: 'hidden',
+    textOverflow: 'ellipsis',
+  },
+  // 043/RF-4301 a RF-4304: linha única para a pílula e o grupo PiP / Tela Cheia. A área vazia deixa o clique
+  // passar para o vídeo; os controles reativam o pointer-events.
+  videoBottomBar: {
+    position: 'absolute',
+    left: '16px',
+    right: '16px',
+    bottom: '16px',
+    display: 'flex',
+    alignItems: 'center',
+    gap: '8px',
+    zIndex: 10,
+    pointerEvents: 'none',
+  },
+  // Mesma largura do grupo (2 × 40 px + 2 px de gap + 2 × 4 px de padding): centraliza a pílula no vídeo. Some até
+  // 600 px pela classe .ml-video-bar-spacer (index.css), para a pílula usar todo o espaço à esquerda do grupo.
+  videoBottomSpacer: {
+    flex: '0 0 90px',
+  },
+  handSlot: {
+    flex: '1 1 auto',
+    minWidth: 0,
+    display: 'flex',
+    justifyContent: 'center',
+  },
+  // O padding lateral fica na classe .ml-hand-btn (index.css), que o reduz em telas estreitas (043/RF-4303).
+  handBtn: {
+    minHeight: '52px',
+    minWidth: 0,
+    maxWidth: '100%',
+    borderRadius: 'var(--r-pill)',
+    border: 'none',
+    cursor: 'pointer',
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: '12px',
+    fontSize: 'var(--fs-body)',
+    fontWeight: 700,
+    backgroundColor: 'rgba(35, 40, 48, 0.92)',
+    color: '#ffffff',
+    boxShadow: '0 12px 32px rgba(0, 0, 0, 0.45)',
+    whiteSpace: 'nowrap',
+    pointerEvents: 'auto',
+  },
+  handBtnActive: {
+    minHeight: '52px',
+    minWidth: 0,
+    maxWidth: '100%',
+    pointerEvents: 'auto',
+    borderRadius: 'var(--r-pill)',
+    border: 'none',
+    cursor: 'pointer',
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: '12px',
+    fontSize: 'var(--fs-body)',
+    fontWeight: 700,
+    boxShadow: '0 12px 32px rgba(0, 0, 0, 0.45)',
+    whiteSpace: 'nowrap',
+    backgroundColor: 'var(--accent-fill)',
+    color: '#ffffff',
   },
   statusBox: {
     display: 'flex',
     alignItems: 'center',
-    gap: '12px',
+    gap: '4px',
+    flexShrink: 0,
   },
   statusLabel: {
-    fontSize: '13px',
-    color: '#94a3b8',
-    marginRight: '4px',
+    display: 'inline-flex',
+    marginRight: '8px',
   },
   headerBtn: {
-    padding: '8px 14px',
-    borderRadius: '6px',
-    border: '1px solid #475569',
-    backgroundColor: '#334155',
-    color: '#f8fafc',
+    minHeight: '40px',
+    padding: '0 12px',
+    borderRadius: 'var(--r-control)',
+    border: '1px solid transparent',
+    backgroundColor: 'transparent',
+    color: 'var(--text-2)',
     cursor: 'pointer',
-    fontSize: '13px',
+    fontSize: 'var(--fs-small)',
     fontWeight: '600',
     display: 'flex',
     alignItems: 'center',
-    gap: '6px',
-    transition: 'background-color 0.2s',
+    gap: '8px',
   },
   headerBtnActive: {
-    backgroundColor: '#0284c7',
-    borderColor: '#38bdf8',
-    color: '#ffffff',
+    backgroundColor: 'var(--accent-soft)',
+    color: 'var(--accent)',
   },
   filesBadge: {
-    backgroundColor: '#38bdf8',
-    color: '#0f172a',
-    fontSize: '11px',
+    backgroundColor: 'var(--surface-2)',
+    color: 'var(--text-1)',
+    fontSize: 'var(--fs-caption)',
     fontWeight: '700',
-    padding: '2px 6px',
-    borderRadius: '10px',
+    minWidth: '20px',
+    padding: '3px 6px',
+    borderRadius: 'var(--r-pill)',
     lineHeight: '1',
+    textAlign: 'center',
   },
   leaveBtn: {
-    padding: '8px 16px',
-    borderRadius: '6px',
-    border: '1px solid #475569',
+    minHeight: '40px',
+    padding: '0 12px',
+    borderRadius: 'var(--r-control)',
+    border: '1px solid transparent',
     backgroundColor: 'transparent',
-    color: '#f8fafc',
+    color: 'var(--danger)',
     cursor: 'pointer',
-    fontSize: '13px',
+    fontSize: 'var(--fs-small)',
+    fontWeight: '600',
   },
   autoplayBanner: {
-    backgroundColor: '#0284c7',
-    color: '#ffffff',
-    padding: '10px 24px',
+    backgroundColor: 'var(--surface-2)',
+    color: 'var(--text-1)',
+    borderBottom: '1px solid var(--border-subtle)',
+    borderLeft: '3px solid var(--attention)',
+    padding: '8px 16px',
     display: 'flex',
     justifyContent: 'space-between',
     alignItems: 'center',
-    fontSize: '14px',
-    fontWeight: '500',
+    gap: '12px',
+    fontSize: 'var(--fs-small)',
+    fontWeight: 600,
   },
   unmuteBtn: {
-    padding: '6px 14px',
-    borderRadius: '6px',
+    minHeight: '36px',
+    padding: '0 14px',
+    borderRadius: 'var(--r-control)',
     border: 'none',
-    backgroundColor: '#ffffff',
-    color: '#0284c7',
-    fontWeight: '700',
+    backgroundColor: 'var(--accent-fill)',
+    color: '#ffffff',
+    fontSize: 'var(--fs-small)',
+    fontWeight: '600',
     cursor: 'pointer',
+    flexShrink: 0,
   },
   mainLayout: {
     flex: 1,
@@ -1515,7 +1622,7 @@ const styles: { [key: string]: React.CSSProperties } = {
   },
   videoSection: {
     flex: 1,
-    backgroundColor: '#020617',
+    backgroundColor: 'var(--stage)',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
@@ -1533,48 +1640,47 @@ const styles: { [key: string]: React.CSSProperties } = {
     width: '100%',
     height: '100%',
     objectFit: 'contain',
-    backgroundColor: '#000000',
+    backgroundColor: 'var(--stage)',
     imageRendering: '-webkit-optimize-contrast' as any,
   },
   videoOverlayControls: {
-    position: 'absolute',
-    bottom: '20px',
-    right: '20px',
+    flexShrink: 0,
+    pointerEvents: 'auto',
     display: 'flex',
-    gap: '10px',
+    alignItems: 'center',
+    gap: '2px',
+    padding: '4px',
+    borderRadius: 'var(--r-panel)',
+    backgroundColor: 'rgba(35, 40, 48, 0.92)',
+    boxShadow: '0 12px 32px rgba(0, 0, 0, 0.45)',
     zIndex: 10,
   },
   overlayBtn: {
-    padding: '8px 14px',
-    borderRadius: '6px',
-    border: '1px solid rgba(255, 255, 255, 0.2)',
-    backgroundColor: 'rgba(15, 23, 42, 0.85)',
-    color: '#ffffff',
+    width: '40px',
+    height: '40px',
+    borderRadius: 'var(--r-control)',
+    border: 'none',
+    backgroundColor: 'transparent',
+    color: '#C3C9D2',
     cursor: 'pointer',
-    fontSize: '12px',
-    fontWeight: '500',
     display: 'inline-flex',
     alignItems: 'center',
-    gap: '6px',
-    backdropFilter: 'blur(8px)',
-    boxShadow: '0 4px 12px rgba(0, 0, 0, 0.5)',
-    transition: 'opacity 0.25s ease, background-color 0.2s',
+    justifyContent: 'center',
   },
   overlayBtnActive: {
-    padding: '8px 14px',
-    borderRadius: '6px',
-    border: '1px solid #0f62fe',
-    backgroundColor: 'rgba(15, 98, 254, 0.85)',
-    color: '#ffffff',
+    minHeight: '40px',
+    padding: '0 14px',
+    borderRadius: 'var(--r-control)',
+    border: '1px solid transparent',
     cursor: 'pointer',
-    fontSize: '12px',
-    fontWeight: '600',
+    fontSize: 'var(--fs-small)',
+    fontWeight: '700',
     display: 'inline-flex',
     alignItems: 'center',
     gap: '6px',
-    backdropFilter: 'blur(8px)',
-    boxShadow: '0 4px 12px rgba(15, 98, 254, 0.4)',
-    transition: 'opacity 0.25s ease, background-color 0.2s',
+    boxShadow: '0 4px 12px rgba(0, 0, 0, 0.4)',
+    backgroundColor: 'var(--accent-fill)',
+    color: '#ffffff',
   },
   // Aviso de mão levantada (006): largura do conteúdo, limitada à área do vídeo com 16 px de cada lado (C-601).
   handRaisedBanner: {
@@ -1586,11 +1692,11 @@ const styles: { [key: string]: React.CSSProperties } = {
     maxWidth: 'calc(100% - 32px)',
     boxSizing: 'border-box' as const,
     zIndex: 20,
-    backgroundColor: colors.surfaceCardSolid,
-    border: `1px solid ${colors.primary}`,
-    borderRadius: radii.md,
-    padding: '10px 14px',
-    boxShadow: '0 4px 16px rgba(0, 0, 0, 0.4)',
+    backgroundColor: 'var(--surface-float)',
+    borderRadius: radii.lg,
+    padding: '8px 8px 8px 14px',
+    boxShadow: 'var(--shadow-float)',
+    borderLeft: '3px solid var(--accent)',
   },
   handRaisedBannerContent: {
     display: 'flex',
@@ -1598,10 +1704,10 @@ const styles: { [key: string]: React.CSSProperties } = {
     alignItems: 'center',
     justifyContent: 'flex-end',
     gap: '8px 14px',
-    fontSize: '13px',
+    fontSize: 'var(--fs-small)',
     lineHeight: 1.4,
     color: colors.textPrimary,
-    fontWeight: '500',
+    fontWeight: 600,
   },
   handRaisedBannerMessage: {
     display: 'flex',
@@ -1615,7 +1721,7 @@ const styles: { [key: string]: React.CSSProperties } = {
     flexShrink: 0,
     width: '16px',
     height: '16px',
-    color: colors.accent,
+    color: 'var(--accent)',
   },
   handRaisedLowerBtn: {
     whiteSpace: 'nowrap' as const,
@@ -1627,95 +1733,95 @@ const styles: { [key: string]: React.CSSProperties } = {
     alignItems: 'center',
     justifyContent: 'center',
     textAlign: 'center',
-    padding: '40px',
-    backgroundColor: '#0b1120',
-    borderRadius: '16px',
-    border: '1px solid #1e293b',
-    maxWidth: '500px',
+    padding: '32px 24px',
+    maxWidth: '460px',
     margin: 'auto',
-    boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.6)',
   },
   pausedIconWrapper: {
-    width: '64px',
-    height: '64px',
+    width: '56px',
+    height: '56px',
     borderRadius: '50%',
-    backgroundColor: 'rgba(2, 132, 199, 0.12)',
-    border: '1px solid rgba(56, 189, 248, 0.3)',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: '18px',
-    color: '#38bdf8',
+    marginBottom: '20px',
+    backgroundColor: 'var(--accent-soft)',
+    color: 'var(--accent)',
   },
   pausedIcon: {
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
-    animation: 'spin 4s linear infinite',
   },
   pausedTitle: {
-    fontSize: '22px',
+    fontSize: 'var(--fs-title)',
+    lineHeight: 1.2,
     fontWeight: '700',
-    color: '#f8fafc',
-    marginBottom: '10px',
+    color: 'var(--text-1)',
+    marginBottom: '8px',
   },
   pausedSub: {
-    fontSize: '14px',
-    color: '#94a3b8',
+    fontSize: 'var(--fs-body)',
+    color: 'var(--text-2)',
     lineHeight: '1.5',
     margin: 0,
   },
   waitingStateBox: {
     textAlign: 'center',
-    padding: '40px',
+    padding: '32px 24px',
+    maxWidth: '460px',
   },
   waitingTitle: {
-    fontSize: '20px',
-    fontWeight: '600',
-    color: '#cbd5e1',
+    fontSize: 'var(--fs-title)',
+    lineHeight: 1.2,
+    fontWeight: '700',
+    color: 'var(--text-1)',
     marginBottom: '8px',
   },
   waitingSub: {
-    fontSize: '14px',
-    color: '#64748b',
+    fontSize: 'var(--fs-body)',
+    color: 'var(--text-2)',
+    lineHeight: '1.5',
   },
   chatToggleBtn: {
-    padding: '8px 14px',
-    borderRadius: '6px',
-    border: '1px solid #475569',
-    backgroundColor: '#334155',
-    color: '#f8fafc',
+    minHeight: '40px',
+    padding: '0 12px',
+    borderRadius: 'var(--r-control)',
+    border: '1px solid transparent',
+    backgroundColor: 'transparent',
+    color: 'var(--text-2)',
     cursor: 'pointer',
-    fontSize: '13px',
+    fontSize: 'var(--fs-small)',
     fontWeight: '600',
     display: 'flex',
     alignItems: 'center',
-    gap: '6px',
-    transition: 'background-color 0.2s, border-color 0.2s',
+    gap: '8px',
   },
   chatToggleBtnActive: {
-    backgroundColor: '#0284c7',
-    border: '1px solid #38bdf8',
-    color: '#ffffff',
+    backgroundColor: 'var(--accent-soft)',
+    color: 'var(--accent)',
   },
   unreadBadge: {
-    backgroundColor: '#ef4444',
+    backgroundColor: 'var(--accent-fill)',
     color: '#ffffff',
-    fontSize: '11px',
+    fontSize: 'var(--fs-caption)',
     fontWeight: '700',
-    padding: '2px 6px',
-    borderRadius: '10px',
+    minWidth: '20px',
+    padding: '3px 6px',
+    borderRadius: 'var(--r-pill)',
     lineHeight: '1',
+    textAlign: 'center',
   },
   waitingChatBtn: {
-    marginTop: '16px',
-    padding: '10px 18px',
-    borderRadius: '6px',
-    border: '1px solid #38bdf8',
-    backgroundColor: '#0284c7',
-    color: '#ffffff',
+    marginTop: '20px',
+    minHeight: '40px',
+    padding: '0 16px',
+    borderRadius: 'var(--r-control)',
+    border: '1px solid var(--border-strong)',
+    backgroundColor: 'transparent',
+    color: 'var(--text-1)',
     cursor: 'pointer',
-    fontSize: '13px',
+    fontSize: 'var(--fs-small)',
     fontWeight: '600',
     display: 'inline-flex',
     alignItems: 'center',
@@ -1724,12 +1830,15 @@ const styles: { [key: string]: React.CSSProperties } = {
   closeChatBtn: {
     background: 'transparent',
     border: 'none',
-    color: '#94a3b8',
-    fontSize: '16px',
+    color: 'var(--text-2)',
     cursor: 'pointer',
-    padding: '4px 8px',
-    borderRadius: '4px',
-    lineHeight: '1',
+    width: '40px',
+    height: '40px',
+    display: 'inline-flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 'var(--r-control)',
+    flexShrink: 0,
   },
   mobileBackdrop: {
     position: 'fixed',
@@ -1737,7 +1846,7 @@ const styles: { [key: string]: React.CSSProperties } = {
     left: 0,
     right: 0,
     bottom: 0,
-    backgroundColor: 'rgba(0, 0, 0, 0.65)',
+    backgroundColor: 'var(--scrim)',
     zIndex: 90,
   },
   chatDrawerMobile: {
@@ -1745,87 +1854,84 @@ const styles: { [key: string]: React.CSSProperties } = {
     right: 0,
     top: 0,
     bottom: 0,
-    width: '85%',
+    width: '88%',
     maxWidth: '380px',
-    backgroundColor: '#1e293b',
-    borderLeft: '1px solid #334155',
-    boxShadow: '-4px 0 20px rgba(0, 0, 0, 0.6)',
+    backgroundColor: 'var(--surface-1)',
+    boxShadow: '-12px 0 32px rgba(0, 0, 0, 0.35)',
     zIndex: 100,
     display: 'flex',
     flexDirection: 'column',
     transition: 'transform 0.25s ease',
   },
   chatSectionDesktop: {
-    backgroundColor: '#1e293b',
+    backgroundColor: 'var(--surface-1)',
     display: 'flex',
     flexDirection: 'column',
     overflow: 'hidden',
     transition: 'width 0.25s ease, opacity 0.2s ease',
   },
   chatHeader: {
-    padding: '16px',
-    fontSize: '15px',
+    padding: '8px 8px 8px 16px',
+    fontSize: 'var(--fs-lead)',
     fontWeight: '700',
-    borderBottom: '1px solid #334155',
-    color: '#f8fafc',
+    borderBottom: '1px solid var(--border-subtle)',
+    color: 'var(--text-1)',
     display: 'flex',
     justifyContent: 'space-between',
     alignItems: 'center',
   },
   messagesList: {
     flex: 1,
-    padding: '16px',
+    padding: '12px 16px',
     overflowY: 'auto',
     display: 'flex',
     flexDirection: 'column',
-    gap: '12px',
+    gap: '14px',
   },
   messageCard: {
-    backgroundColor: '#0f172a',
-    padding: '10px 12px',
-    borderRadius: '8px',
-    border: '1px solid #334155',
+    padding: 0,
   },
   privateMessageCard: {
-    backgroundColor: 'rgba(30, 27, 75, 0.7)',
-    border: '1px solid #818cf8',
+    backgroundColor: 'var(--surface-2)',
+    borderRadius: 'var(--r-panel)',
+    padding: '10px 12px',
   },
   pinnedMessageCard: {
-    border: '1px solid #38bdf8',
-    backgroundColor: 'rgba(56, 189, 248, 0.1)',
+    backgroundColor: 'var(--accent-soft)',
+    borderRadius: 'var(--r-panel)',
+    padding: '10px 12px',
   },
   pinnedPrivateMessageCard: {
-    border: '1px solid #a855f7',
-    backgroundColor: 'rgba(168, 85, 247, 0.2)',
+    backgroundColor: 'var(--accent-soft)',
+    borderRadius: 'var(--r-panel)',
+    padding: '10px 12px',
   },
   pinnedBannerBox: {
-    padding: '8px 12px',
-    backgroundColor: 'rgba(14, 116, 144, 0.18)',
-    borderBottom: '1px solid rgba(56, 189, 248, 0.35)',
+    padding: '10px 16px',
+    backgroundColor: 'var(--accent-soft)',
     display: 'flex',
     flexDirection: 'column',
     gap: '6px',
   },
   pinnedBannerBoxPrivate: {
-    padding: '8px 12px',
-    backgroundColor: 'rgba(88, 28, 135, 0.22)',
-    borderBottom: '1px solid rgba(168, 85, 247, 0.4)',
+    padding: '10px 16px',
+    backgroundColor: 'var(--accent-soft)',
     display: 'flex',
     flexDirection: 'column',
     gap: '6px',
   },
   pinnedBannerHeader: {
-    fontSize: '11px',
+    fontSize: 'var(--fs-caption)',
     fontWeight: '700',
-    color: '#38bdf8',
+    color: 'var(--accent)',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'space-between',
   },
   pinnedBannerHeaderPrivate: {
-    fontSize: '11px',
+    fontSize: 'var(--fs-caption)',
     fontWeight: '700',
-    color: '#c084fc',
+    color: 'var(--accent)',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'space-between',
@@ -1835,37 +1941,26 @@ const styles: { [key: string]: React.CSSProperties } = {
     alignItems: 'center',
     justifyContent: 'space-between',
     gap: '8px',
-    padding: '5px 8px',
-    borderRadius: '6px',
-    backgroundColor: 'rgba(15, 23, 42, 0.65)',
-    border: '1px solid rgba(148, 163, 184, 0.2)',
   },
   pinnedBannerText: {
-    fontSize: '11px',
-    color: '#f1f5f9',
+    fontSize: 'var(--fs-small)',
+    lineHeight: 1.4,
+    color: 'var(--text-1)',
     flex: 1,
     wordBreak: 'break-word',
   },
   pinnedTag: {
-    fontSize: '10px',
+    fontSize: 'var(--fs-caption)',
     fontWeight: '700',
-    color: '#38bdf8',
-    backgroundColor: 'rgba(56, 189, 248, 0.15)',
-    border: '1px solid #38bdf8',
-    padding: '2px 5px',
-    borderRadius: '4px',
+    color: 'var(--accent)',
     display: 'inline-flex',
     alignItems: 'center',
     gap: '3px',
   },
   pinnedPrivateTag: {
-    fontSize: '10px',
+    fontSize: 'var(--fs-caption)',
     fontWeight: '700',
-    color: '#c084fc',
-    backgroundColor: 'rgba(168, 85, 247, 0.2)',
-    border: '1px solid #a855f7',
-    padding: '2px 5px',
-    borderRadius: '4px',
+    color: 'var(--accent)',
     display: 'inline-flex',
     alignItems: 'center',
     gap: '3px',
@@ -1873,51 +1968,47 @@ const styles: { [key: string]: React.CSSProperties } = {
   senderHeader: {
     display: 'flex',
     justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: '4px',
+    alignItems: 'baseline',
+    gap: '8px',
+    marginBottom: '2px',
   },
   senderInfo: {
-    fontSize: '12px',
-    fontWeight: '600',
-    color: '#38bdf8',
+    fontSize: 'var(--fs-small)',
+    fontWeight: '700',
+    color: 'var(--text-1)',
   },
   studentIdBadge: {
-    color: '#e2e8f0',
-    fontWeight: '500',
-    fontSize: '11px',
-    marginLeft: '3px',
+    color: 'var(--text-3)',
+    fontWeight: 400,
+    fontFamily: 'var(--font-mono)',
+    fontSize: 'var(--fs-caption)',
+    marginLeft: '4px',
   },
   roleBadge: {
-    color: '#94a3b8',
+    color: 'var(--text-3)',
     fontWeight: '400',
+    fontSize: 'var(--fs-caption)',
   },
   publicBadge: {
-    fontSize: '10px',
-    fontWeight: '700',
-    color: '#38bdf8',
-    backgroundColor: 'rgba(56, 189, 248, 0.15)',
-    border: '1px solid #38bdf8',
-    padding: '2px 6px',
-    borderRadius: '4px',
+    fontSize: 'var(--fs-caption)',
+    fontWeight: '600',
+    color: 'var(--text-3)',
   },
   privateBadge: {
-    fontSize: '10px',
-    fontWeight: '700',
-    color: '#a5b4fc',
-    backgroundColor: 'rgba(99, 102, 241, 0.25)',
-    border: '1px solid #6366f1',
-    padding: '2px 6px',
-    borderRadius: '4px',
+    fontSize: 'var(--fs-caption)',
+    fontWeight: '600',
+    color: 'var(--accent)',
   },
   msgContent: {
-    fontSize: '13px',
-    color: '#f8fafc',
+    fontSize: 'var(--fs-body)',
+    lineHeight: 1.5,
+    color: 'var(--text-1)',
     margin: 0,
     wordBreak: 'break-word',
   },
   chatForm: {
-    padding: '12px 16px',
-    borderTop: '1px solid #334155',
+    padding: '12px',
+    borderTop: '1px solid var(--border-subtle)',
     display: 'flex',
     flexDirection: 'column',
     gap: '8px',
@@ -1928,21 +2019,23 @@ const styles: { [key: string]: React.CSSProperties } = {
   },
   chatInput: {
     flex: 1,
-    padding: '10px',
-    borderRadius: '6px',
-    border: '1px solid #334155',
-    backgroundColor: '#0f172a',
-    color: '#f8fafc',
-    fontSize: '13px',
-    outline: 'none',
+    minWidth: 0,
+    minHeight: '44px',
+    padding: '0 12px',
+    borderRadius: 'var(--r-control)',
+    border: '1px solid var(--border-strong)',
+    backgroundColor: 'var(--surface-1)',
+    color: 'var(--text-1)',
+    fontSize: 'var(--fs-body)',
   },
   sendBtn: {
-    padding: '10px 14px',
-    borderRadius: '6px',
+    minHeight: '44px',
+    padding: '0 16px',
+    borderRadius: 'var(--r-control)',
     border: 'none',
-    backgroundColor: '#0284c7',
+    backgroundColor: 'var(--accent-fill)',
     color: '#fff',
-    fontSize: '13px',
+    fontSize: 'var(--fs-small)',
     fontWeight: '600',
     cursor: 'pointer',
   },
@@ -1950,68 +2043,76 @@ const styles: { [key: string]: React.CSSProperties } = {
     position: 'absolute',
     top: '12px',
     right: '360px',
-    width: '320px',
+    width: '340px',
     maxHeight: '450px',
-    backgroundColor: '#1e293b',
-    borderRadius: '12px',
-    border: '1px solid #334155',
-    boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.6)',
+    backgroundColor: 'var(--surface-float)',
+    borderRadius: 'var(--r-panel)',
+    boxShadow: 'var(--shadow-float)',
     zIndex: 80,
     display: 'flex',
     flexDirection: 'column',
     overflow: 'hidden',
   },
   drawerHeader: {
-    padding: '14px 16px',
+    padding: '8px 8px 8px 16px',
     display: 'flex',
     justifyContent: 'space-between',
     alignItems: 'center',
-    borderBottom: '1px solid #334155',
-    backgroundColor: '#0f172a',
+    borderBottom: '1px solid var(--border-subtle)',
   },
   drawerTitle: {
-    fontSize: '14px',
+    fontSize: 'var(--fs-body)',
     fontWeight: '700',
-    color: '#f8fafc',
+    color: 'var(--text-1)',
   },
   closeDrawerBtn: {
     background: 'transparent',
     border: 'none',
-    color: '#94a3b8',
-    fontSize: '16px',
+    color: 'var(--text-2)',
     cursor: 'pointer',
-    padding: '4px 8px',
-    borderRadius: '4px',
-    lineHeight: '1',
+    width: '40px',
+    height: '40px',
+    display: 'inline-flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 'var(--r-control)',
+    flexShrink: 0,
   },
   filesList: {
-    padding: '12px',
+    padding: '8px',
     overflowY: 'auto',
     display: 'flex',
     flexDirection: 'column',
-    gap: '10px',
+    gap: '2px',
     maxHeight: '380px',
   },
   noFilesBox: {
-    padding: '24px 16px',
+    padding: '32px 16px',
     textAlign: 'center',
   },
   noFilesText: {
-    fontSize: '13px',
-    color: '#94a3b8',
+    fontSize: 'var(--fs-small)',
+    color: 'var(--text-2)',
     margin: 0,
   },
   fileItemCard: {
     display: 'flex',
     alignItems: 'center',
-    gap: '10px',
-    padding: '10px 12px',
-    backgroundColor: '#0f172a',
-    border: '1px solid #334155',
-    borderRadius: '8px',
+    gap: '12px',
+    minHeight: '52px',
+    padding: '6px 8px',
+    borderRadius: 'var(--r-control)',
   },
   fileIconBox: {
-    fontSize: '20px',
+    width: '32px',
+    height: '32px',
+    borderRadius: '50%',
+    backgroundColor: 'var(--surface-2)',
+    color: 'var(--text-2)',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexShrink: 0,
   },
   fileMeta: {
     flex: 1,
@@ -2021,24 +2122,27 @@ const styles: { [key: string]: React.CSSProperties } = {
     gap: '2px',
   },
   fileName: {
-    fontSize: '13px',
+    fontSize: 'var(--fs-small)',
     fontWeight: '600',
-    color: '#f8fafc',
+    color: 'var(--text-1)',
     whiteSpace: 'nowrap',
     overflow: 'hidden',
     textOverflow: 'ellipsis',
   },
   fileSize: {
-    fontSize: '11px',
-    color: '#94a3b8',
+    fontSize: 'var(--fs-caption)',
+    color: 'var(--text-3)',
   },
   downloadBtn: {
-    padding: '6px 12px',
-    borderRadius: '6px',
-    backgroundColor: '#0284c7',
-    color: '#ffffff',
+    minHeight: '36px',
+    display: 'inline-flex',
+    alignItems: 'center',
+    padding: '0 12px',
+    borderRadius: 'var(--r-control)',
+    border: '1px solid var(--border-strong)',
+    color: 'var(--text-1)',
     textDecoration: 'none',
-    fontSize: '12px',
+    fontSize: 'var(--fs-small)',
     fontWeight: '600',
     flexShrink: 0,
   },
@@ -2050,6 +2154,7 @@ const styles: { [key: string]: React.CSSProperties } = {
     display: 'flex',
     alignItems: 'center',
     gap: '8px',
+    minWidth: 0,
   },
   logoImgMobile: {
     width: '36px',
@@ -2057,83 +2162,86 @@ const styles: { [key: string]: React.CSSProperties } = {
     objectFit: 'contain',
   },
   titleMobile: {
-    fontSize: '14px',
+    fontSize: 'var(--fs-small)',
     fontWeight: '700',
-    color: '#f8fafc',
+    color: 'var(--text-1)',
     margin: 0,
+    whiteSpace: 'nowrap',
+    overflow: 'hidden',
+    textOverflow: 'ellipsis',
   },
   statusBoxMobile: {
     display: 'flex',
     alignItems: 'center',
-    gap: '6px',
+    gap: '2px',
+    flexShrink: 0,
   },
   statusPausedBadge: {
-    fontSize: '11px',
+    fontSize: 'var(--fs-caption)',
     fontWeight: '700',
-    color: '#38bdf8',
-    backgroundColor: 'rgba(2, 132, 199, 0.15)',
-    border: '1px solid rgba(56, 189, 248, 0.3)',
+    color: 'var(--accent)',
+    backgroundColor: 'var(--accent-soft)',
+    border: '1px solid var(--accent)',
     padding: '3px 8px',
-    borderRadius: '12px',
+    borderRadius: 'var(--r-panel)',
   },
   headerBtnMobile: {
-    padding: '6px 10px',
-    fontSize: '12px',
-    minHeight: '36px',
+    padding: '0 10px',
+    minHeight: '40px',
   },
   chatToggleBtnMobile: {
-    padding: '6px 10px',
-    fontSize: '12px',
-    minHeight: '36px',
+    padding: '0 10px',
+    minHeight: '40px',
   },
   leaveBtnMobile: {
-    padding: '6px 10px',
-    fontSize: '12px',
-    borderRadius: '6px',
-    backgroundColor: '#dc2626',
-    color: '#ffffff',
-    border: 'none',
-    fontWeight: '600',
+    minHeight: '40px',
+    padding: '0 10px',
+    borderRadius: 'var(--r-control)',
+    border: '1px solid transparent',
+    backgroundColor: 'transparent',
+    color: 'var(--danger)',
     cursor: 'pointer',
-    minHeight: '36px',
+    fontSize: 'var(--fs-small)',
+    fontWeight: '600',
   },
   videoSectionMobile: {
     paddingBottom: 'var(--sab, 0px)',
   },
   mobileDrawerHeader: {
-    padding: '12px 14px',
+    padding: '8px 8px 8px 12px',
     display: 'flex',
     justifyContent: 'space-between',
     alignItems: 'center',
-    borderBottom: '1px solid #334155',
-    backgroundColor: '#0f172a',
-    paddingTop: 'calc(12px + var(--sat, 0px))',
+    borderBottom: '1px solid var(--border-subtle)',
+    paddingTop: 'calc(8px + var(--sat, 0px))',
   },
   mobileTabsRow: {
     display: 'flex',
-    gap: '8px',
+    gap: '4px',
   },
   mobileTab: {
-    padding: '6px 12px',
-    fontSize: '12px',
-    fontWeight: '500',
-    borderRadius: '6px',
-    border: '1px solid #334155',
-    backgroundColor: '#1e293b',
-    color: '#94a3b8',
+    minHeight: '40px',
+    padding: '0 12px',
+    fontSize: 'var(--fs-small)',
+    fontWeight: 600,
+    borderRadius: 'var(--r-control)',
+    border: 'none',
+    backgroundColor: 'transparent',
+    color: 'var(--text-2)',
     cursor: 'pointer',
     display: 'flex',
     alignItems: 'center',
     gap: '6px',
   },
   mobileTabActive: {
-    padding: '6px 12px',
-    fontSize: '12px',
+    minHeight: '40px',
+    padding: '0 12px',
+    fontSize: 'var(--fs-small)',
     fontWeight: '700',
-    borderRadius: '6px',
-    border: '1px solid #38bdf8',
-    backgroundColor: 'rgba(56, 189, 248, 0.15)',
-    color: '#38bdf8',
+    borderRadius: 'var(--r-control)',
+    border: 'none',
+    backgroundColor: 'var(--accent-soft)',
+    color: 'var(--accent)',
     cursor: 'pointer',
     display: 'flex',
     alignItems: 'center',
@@ -2161,42 +2269,37 @@ const styles: { [key: string]: React.CSSProperties } = {
     top: '16px',
     right: '16px',
     zIndex: 100,
-    width: '42px',
-    height: '42px',
+    width: '44px',
+    height: '44px',
     borderRadius: '50%',
-    backgroundColor: 'rgba(15, 23, 42, 0.45)',
-    backdropFilter: 'blur(8px)',
-    WebkitBackdropFilter: 'blur(8px)',
-    border: '1px solid rgba(255, 255, 255, 0.22)',
+    backgroundColor: 'rgba(35, 40, 48, 0.92)',
+    border: '1px solid transparent',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
     cursor: 'pointer',
-    color: '#ffffff',
+    color: '#ECEFF3',
     boxShadow: '0 4px 14px rgba(0, 0, 0, 0.4)',
-    transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
   },
   fullscreenMenuBtnActive: {
-    backgroundColor: 'rgba(30, 41, 59, 0.9)',
-    border: '1px solid #38bdf8',
-    color: '#38bdf8',
+    backgroundColor: 'rgba(35, 40, 48, 0.92)',
+    color: 'var(--p-blue-300)',
   },
   fullscreenMenuBadge: {
     position: 'absolute' as const,
     top: '-4px',
     right: '-4px',
-    backgroundColor: '#ef4444',
+    backgroundColor: 'var(--accent-fill)',
     color: '#ffffff',
-    fontSize: '11px',
+    fontSize: 'var(--fs-caption)',
     fontWeight: '700',
-    minWidth: '18px',
-    height: '18px',
-    borderRadius: '9px',
+    minWidth: '20px',
+    height: '20px',
+    borderRadius: 'var(--r-pill)',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
-    padding: '0 4px',
-    border: '2px solid #0f172a',
+    padding: '0 5px',
   },
   fullscreenSidebarBackdrop: {
     position: 'fixed' as const,
@@ -2204,9 +2307,7 @@ const styles: { [key: string]: React.CSSProperties } = {
     left: 0,
     right: 0,
     bottom: 0,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    backdropFilter: 'blur(2px)',
-    WebkitBackdropFilter: 'blur(2px)',
+    backgroundColor: 'var(--scrim)',
     zIndex: 90,
   },
   fullscreenRightSidebar: {
@@ -2216,21 +2317,22 @@ const styles: { [key: string]: React.CSSProperties } = {
     bottom: 0,
     width: '320px',
     maxWidth: '85vw',
-    backgroundColor: '#0f172a',
-    borderLeft: '1px solid #334155',
-    boxShadow: '-8px 0 25px rgba(0, 0, 0, 0.6)',
+    backgroundColor: 'var(--surface-1)',
+    color: 'var(--text-1)',
+    boxShadow: '-12px 0 32px rgba(0, 0, 0, 0.35)',
     zIndex: 95,
     display: 'flex',
     flexDirection: 'column' as const,
-    transition: 'transform 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+    transition: 'transform 0.3s cubic-bezier(0.2, 0, 0, 1)',
   },
   fullscreenSidebarHeader: {
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'space-between',
-    padding: '16px 20px',
-    borderBottom: '1px solid #334155',
-    backgroundColor: '#1e293b',
+    // 043/RF-4307: 64 px à direita reservam o canto do gatilho flutuante (16 px + 44 px + folga).
+    padding: '12px 64px 12px 16px',
+    minHeight: '76px',
+    borderBottom: '1px solid var(--border-subtle)',
   },
   fullscreenBrandBox: {
     display: 'flex',
@@ -2239,17 +2341,17 @@ const styles: { [key: string]: React.CSSProperties } = {
   },
   fullscreenSidebarTitle: {
     margin: 0,
-    fontSize: '15px',
+    fontSize: 'var(--fs-body)',
     fontWeight: '700',
-    color: '#f8fafc',
+    color: 'var(--text-1)',
     whiteSpace: 'nowrap' as const,
     overflow: 'hidden',
     textOverflow: 'ellipsis',
     maxWidth: '180px',
   },
   fullscreenSidebarSubtitle: {
-    fontSize: '11px',
-    color: '#94a3b8',
+    fontSize: 'var(--fs-caption)',
+    color: 'var(--text-2)',
   },
   fullscreenSidebarContent: {
     flex: 1,
@@ -2261,10 +2363,7 @@ const styles: { [key: string]: React.CSSProperties } = {
     WebkitOverflowScrolling: 'touch' as const,
   },
   fullscreenStatusCard: {
-    padding: '12px 14px',
-    backgroundColor: '#1e293b',
-    borderRadius: '8px',
-    border: '1px solid #334155',
+    padding: '4px 2px 8px',
     display: 'flex',
     flexDirection: 'column' as const,
     gap: '8px',
@@ -2272,32 +2371,32 @@ const styles: { [key: string]: React.CSSProperties } = {
   fullscreenActionsGroup: {
     display: 'flex',
     flexDirection: 'column' as const,
-    gap: '10px',
+    gap: '4px',
   },
   fullscreenActionButton: {
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'space-between',
-    padding: '12px 14px',
-    backgroundColor: '#1e293b',
-    border: '1px solid #334155',
-    borderRadius: '8px',
-    color: '#f8fafc',
+    minHeight: '56px',
+    padding: '8px 12px',
+    backgroundColor: 'transparent',
+    border: '1px solid transparent',
+    borderRadius: 'var(--r-control)',
+    color: 'var(--text-1)',
     cursor: 'pointer',
-    transition: 'all 0.2s ease',
     textAlign: 'left' as const,
   },
   fullscreenActionButtonActive: {
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'space-between',
-    padding: '12px 14px',
-    backgroundColor: 'rgba(15, 98, 254, 0.2)',
-    border: '1px solid #0f62fe',
-    borderRadius: '8px',
-    color: '#ffffff',
+    minHeight: '56px',
+    padding: '8px 12px',
+    backgroundColor: 'var(--accent-soft)',
+    border: '1px solid transparent',
+    borderRadius: 'var(--r-control)',
+    color: 'var(--text-1)',
     cursor: 'pointer',
-    transition: 'all 0.2s ease',
     textAlign: 'left' as const,
   },
   fullscreenActionLeft: {
@@ -2306,7 +2405,8 @@ const styles: { [key: string]: React.CSSProperties } = {
     gap: '12px',
   },
   fullscreenActionIcon: {
-    fontSize: '20px',
+    display: 'inline-flex',
+    color: 'var(--text-2)',
   },
   fullscreenActionMeta: {
     display: 'flex',
@@ -2314,30 +2414,30 @@ const styles: { [key: string]: React.CSSProperties } = {
     gap: '2px',
   },
   fullscreenActionTitle: {
-    fontSize: '13px',
+    fontSize: 'var(--fs-small)',
     fontWeight: '600',
-    color: '#f8fafc',
+    color: 'var(--text-1)',
   },
   fullscreenActionDesc: {
-    fontSize: '11px',
-    color: '#94a3b8',
+    fontSize: 'var(--fs-caption)',
+    color: 'var(--text-2)',
   },
   fullscreenFooterBox: {
     marginTop: 'auto',
     paddingTop: '16px',
-    borderTop: '1px solid #334155',
+    borderTop: '1px solid var(--border-subtle)',
   },
   fullscreenLeaveBtn: {
     width: '100%',
-    padding: '12px',
-    borderRadius: '8px',
-    border: '1px solid rgba(239, 68, 68, 0.4)',
-    backgroundColor: 'rgba(239, 68, 68, 0.15)',
-    color: '#f87171',
+    minHeight: '44px',
+    padding: '0 12px',
+    borderRadius: 'var(--r-control)',
+    border: '1px solid transparent',
+    backgroundColor: 'var(--danger-soft)',
+    color: 'var(--danger)',
     fontWeight: '600',
-    fontSize: '13px',
+    fontSize: 'var(--fs-small)',
     cursor: 'pointer',
-    transition: 'all 0.2s ease',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',

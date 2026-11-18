@@ -391,6 +391,76 @@ describe('useScreenCapture & Audio Feedback Suppression (Anti-Microfonia)', () =
 
     expect(stopSpy).toHaveBeenCalled();
   });
+
+  describe('fixação de janela (032)', () => {
+    const A = { id: 'window:101:0', name: 'Navegador', type: 'window' as const, thumbnail: '' };
+    const allowed = ['window:101:0', 'window:202:0'];
+
+    it('selectSource repassa pinnedSourceId ao startCursorTracking', async () => {
+      const startSpy = vi.fn().mockResolvedValue(true);
+      window.electronAPI.startCursorTracking = startSpy;
+      const { result } = renderHook(() => useScreenCapture('window'));
+
+      await act(async () => {
+        await result.current.selectSource(A, 30, allowed, A.id);
+      });
+
+      expect(startSpy).toHaveBeenCalledWith({
+        sourceId: A.id,
+        type: 'window',
+        displayId: undefined,
+        allowedSourceIds: allowed,
+        pinnedSourceId: A.id,
+      });
+    });
+
+    it('selectSource sem pinnedSourceId mantém a chamada atual', async () => {
+      const startSpy = vi.fn().mockResolvedValue(true);
+      window.electronAPI.startCursorTracking = startSpy;
+      const { result } = renderHook(() => useScreenCapture('window'));
+
+      await act(async () => {
+        await result.current.selectSource(A, 30, allowed);
+      });
+
+      expect(startSpy.mock.calls[0][0].pinnedSourceId).toBeUndefined();
+    });
+
+    it('restartCursorTracking reinicia o rastreamento sem nova captura (RF-3202, RF-3204)', () => {
+      const startSpy = vi.fn().mockResolvedValue(true);
+      window.electronAPI.startCursorTracking = startSpy;
+      const { result } = renderHook(() => useScreenCapture('window'));
+
+      act(() => {
+        result.current.restartCursorTracking(A, allowed, A.id);
+      });
+
+      expect(navigator.mediaDevices.getUserMedia).not.toHaveBeenCalled();
+      expect(startSpy).toHaveBeenCalledWith(
+        expect.objectContaining({ sourceId: A.id, allowedSourceIds: allowed, pinnedSourceId: A.id })
+      );
+    });
+
+    it("avisa o sourceId quando a faixa de vídeo bruta termina ('ended') (RF-3207)", async () => {
+      const listeners: Record<string, () => void> = {};
+      mockVideoTrack.addEventListener = vi.fn((ev: string, cb: () => void) => {
+        listeners[ev] = cb;
+      });
+      const onEnded = vi.fn();
+      const { result } = renderHook(() => useScreenCapture('window'));
+      act(() => {
+        result.current.setCaptureEndedListener(onEnded);
+      });
+
+      await act(async () => {
+        await result.current.selectSource(A, 30, allowed, A.id);
+      });
+
+      expect(mockVideoTrack.addEventListener).toHaveBeenCalledWith('ended', expect.any(Function));
+      listeners.ended();
+      expect(onEnded).toHaveBeenCalledWith(A.id);
+    });
+  });
 });
 
 describe('useWebRTCPublisher SDP Transformation (Opus DTX & Anti-Microfonia)', () => {

@@ -102,15 +102,15 @@ const overlayStyle: React.CSSProperties = {
   display: 'flex',
   alignItems: 'center',
   justifyContent: 'center',
-  border: '2px dashed #38bdf8',
-  borderRadius: '8px',
-  backgroundColor: 'rgba(15, 23, 42, 0.88)',
+  border: '2px dashed var(--accent)',
+  borderRadius: 'var(--r-control)',
+  backgroundColor: 'var(--surface-float)',
   pointerEvents: 'none',
   zIndex: 5,
 };
 
 const overlayTextStyle: React.CSSProperties = {
-  color: '#38bdf8',
-  fontSize: '14px',
+  color: 'var(--accent)',
+  fontSize: 'var(--fs-small)',
   fontWeight: 700,
 };

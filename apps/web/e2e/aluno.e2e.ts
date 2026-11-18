@@ -11,13 +11,13 @@ test('A9 @mobile entrada pela raiz, validação da matrícula e acesso ao vivo',
   await expect(page).toHaveURL(new RegExp(`/${prof.slug}/entrar$`));
 
   await page.getByLabel('Nome Completo').fill('Aluna Teste');
-  await page.getByLabel('Matrícula / Registro Acadêmico').fill('ABC');
-  await page.getByRole('button', { name: /Assistir à Aula ao Vivo/ }).click();
+  await page.getByLabel('Matrícula').fill('ABC');
+  await page.getByRole('button', { name: /Entrar na aula/ }).click();
   await expect(page.getByRole('alert')).toBeVisible();
   await expect(page).toHaveURL(/\/entrar$/);
 
-  await page.getByLabel('Matrícula / Registro Acadêmico').fill(MATRICULA);
-  await page.getByRole('button', { name: /Assistir à Aula ao Vivo/ }).click();
+  await page.getByLabel('Matrícula').fill(MATRICULA);
+  await page.getByRole('button', { name: /Entrar na aula/ }).click();
   await expect(page).toHaveURL(new RegExp(`/${prof.slug}/ao-vivo$`));
 });
 
@@ -141,18 +141,24 @@ test('A3 professor encerra a sala e o aluno volta para a entrada com aviso', asy
   await expect(page.getByRole('alert')).toContainText(/encerrada/i);
 });
 
-test('A19 mesma matrícula em outra aba encerra a sessão anterior com aviso', async ({ page, prof, browser }) => {
+test('A19 mesma matrícula em outra aba é recusada e a sessão anterior continua', async ({ page, prof, browser }) => {
   await joinAsStudent(page, prof.slug, 'Aluno Aba 1', MATRICULA);
+  // 042/RF-4201: só tenta a segunda entrada depois que o hub registrou a aba 1 (o mesmo estado que o join consulta).
+  await prof.waitFor('participant-joined', (p) => p.student_id === MATRICULA);
 
   const otherContext = await browser.newContext();
   try {
     const other = await otherContext.newPage();
-    await joinAsStudent(other, prof.slug, 'Aluno Aba 2', MATRICULA);
+    await other.goto(`/${prof.slug}/entrar`);
+    await other.getByLabel('Nome Completo').fill('Aluno Aba 2');
+    await other.getByLabel('Matrícula').fill(MATRICULA);
+    await other.getByRole('button', { name: /Entrar na aula/ }).click();
 
-    // RN-04 (001) + C-502 (005): a sessão anterior cai com 4001 e volta à entrada com o aviso.
-    await expect(page).toHaveURL(/\/entrar$/, { timeout: 10_000 });
-    await expect(page.getByRole('alert')).toContainText(/outra aba ou dispositivo/i);
-    await expect(other).toHaveURL(/\/ao-vivo$/);
+    // RN-04 + ADR 0010 (027/RF-2701): a nova entrada recebe 409 e fica na entrada com o aviso (042/RF-4202).
+    await expect(other.getByRole('alert')).toContainText('Esta matrícula já está conectada nesta transmissão.');
+    await expect(other).toHaveURL(/\/entrar$/);
+    // A sessão existente não muda (042/RF-4203).
+    await expect(page).toHaveURL(/\/ao-vivo$/);
   } finally {
     await otherContext.close();
   }

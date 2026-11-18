@@ -163,6 +163,8 @@ contratos, testes e tarefas rastreáveis.
   ocultação é suspensa temporariamente quando ameaça o FPS (`007-mascara-cursor-janela`, C-701).
 - O rastreamento nativo identifica a janela ativa e sinaliza quando a janela transmitida fica encoberta; em ambientes sem suporte, degrada sem erro.
 - A ocultação vale também para a gravação local.
+- Nota (032): com várias janelas autorizadas, o professor pode fixar uma; enquanto fixada, a transmissão não segue o
+  foco e o cursor/lupa usam a janela fixada como alvo (`032-fixar-janela-transmissao`, RF-3203 e RF-3208).
 
 ### US-21 — Proteção de conteúdo e captura para a área de transferência
 
@@ -212,7 +214,7 @@ contratos, testes e tarefas rastreáveis.
 - RN-303: mensagem privada nunca é entregue a outro aluno.
 - RN-304: o histórico (substitui a antiga RN-18 da 001) contém só mensagens públicas, no máximo 200.
 - RN-305: só o professor dono da sala envia arquivos; limite de 50 MB por arquivo.
-- RN-306: matrícula no formato `^[0-9]+[A-Za-z]{1,4}[0-9]+$`.
+- RN-306: matrícula no formato `^[0-9]+[A-Za-z]{1,4}[0-9]+$`. **Emenda 046 (2026-11-16, `046-formato-matricula`, C-4601):** o formato passa a ser exatamente `^[0-9]{7}[A-Za-z]{4}[0-9]{4}$` (ex.: `2025116TADS0000`), com a matrícula normalizada em maiúsculas (RF-4601, RF-4602).
 
 ## 8. Estados e Erros
 

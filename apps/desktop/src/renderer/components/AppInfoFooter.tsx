@@ -74,7 +74,7 @@ const styles: { [key: string]: React.CSSProperties } = {
     color: colors.textMuted,
   },
   separator: {
-    color: colors.borderInteractive,
+    color: colors.textMuted,
   },
   link: {
     background: 'none',
@@ -91,25 +91,24 @@ const styles: { [key: string]: React.CSSProperties } = {
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: 'rgba(0, 0, 0, 0.6)',
+    backgroundColor: 'var(--scrim)',
     zIndex: 1000,
     padding: '20px',
   },
   dialog: {
     width: '100%',
     maxWidth: '380px',
-    backgroundColor: colors.surfaceCardSolid,
-    border: `1px solid ${colors.borderSubtle}`,
+    backgroundColor: colors.surfaceFloat,
     borderRadius: radii.lg,
     padding: '28px 24px',
     textAlign: 'center',
     fontFamily: typography.fontFamily,
     color: colors.textPrimary,
-    boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.5)',
+    boxShadow: 'var(--shadow-float)',
   },
   title: {
     ...typography.headingDisplay,
-    color: colors.accent,
+    color: colors.textPrimary,
     margin: '0 0 4px 0',
   },
   version: {

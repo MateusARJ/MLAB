@@ -57,6 +57,7 @@ Emitido quando o aluno informa Nome e Matrícula ao entrar via link único.
 
 - Validade: 6 horas (`STUDENT_TOKEN_TTL_H`).
 - Emitido em: `POST /rooms/{roomId}/join` e `POST /rooms/{sala}/{prof}/join` (ver `room-api.md`).
+- `student_id`: matrícula validada e normalizada em maiúsculas pelo servidor (`046-formato-matricula`, RF-4602).
 
 ## Chave de host
 

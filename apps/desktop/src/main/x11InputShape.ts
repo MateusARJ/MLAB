@@ -1,4 +1,5 @@
 import type { AnnotationToolbarRect } from '@mlab/types';
+import { createX11ErrorTrap, X_BAD_WINDOW, type X11ErrorTrap } from './x11ErrorTrap';
 
 /**
  * Região de entrada X11 do overlay de marcação no Linux (009, RF-901 / C-904).
@@ -15,6 +16,8 @@ export const SHAPE_INPUT = 2;
 export const SHAPE_SET = 0;
 /** `Unsorted`: sem ordem garantida entre os retângulos. */
 export const SHAPE_UNSORTED = 0;
+/** `BadWindow` de X11/X.h: a janela não existe mais (ex.: overlay fechado). Definido em `x11ErrorTrap.ts` (047). */
+export { X_BAD_WINDOW };
 
 export interface X11InputShaper {
   /** Define a região de entrada da janela `handle` (de `getNativeWindowHandle()`), em pixels físicos. */
@@ -35,11 +38,12 @@ export function readXid(handle: Buffer): bigint {
 
 const RECT_STRUCT = 'XRectangle_MLAB_009';
 
-function getRectStruct(koffi: any): any {
+/** Reaproveita um tipo já registrado no `koffi` (o módulo pode ser criado mais de uma vez) ou o define. */
+function getOrDefineType(koffi: any, name: string, define: () => any): any {
   try {
-    return typeof koffi.type === 'function' ? koffi.type(RECT_STRUCT) : koffi.resolve(RECT_STRUCT);
+    return typeof koffi.type === 'function' ? koffi.type(name) : koffi.resolve(name);
   } catch {
-    return koffi.struct(RECT_STRUCT, { x: 'int16_t', y: 'int16_t', width: 'uint16_t', height: 'uint16_t' });
+    return define();
   }
 }
 
@@ -59,11 +63,12 @@ export function createX11InputShaper(loadKoffi: () => any = defaultLoadKoffi): X
     const koffi = loadKoffi();
     const x11 = koffi.load('libX11.so.6');
     const xext = koffi.load('libXext.so.6');
-    getRectStruct(koffi);
+    getOrDefineType(koffi, RECT_STRUCT, () =>
+      koffi.struct(RECT_STRUCT, { x: 'int16_t', y: 'int16_t', width: 'uint16_t', height: 'uint16_t' })
+    );
 
     const XOpenDisplay = x11.func('uintptr_t XOpenDisplay(str display_name)');
     const XCloseDisplay = x11.func('int XCloseDisplay(uintptr_t display)');
-    const XFlush = x11.func('int XFlush(uintptr_t display)');
     const XShapeCombineRectangles = xext.func(
       `void XShapeCombineRectangles(uintptr_t display, uintptr_t dest, int dest_kind, int x_off, int y_off, ${RECT_STRUCT} *rectangles, int n_rects, int op, int ordering)`
     );
@@ -72,13 +77,31 @@ export function createX11InputShaper(loadKoffi: () => any = defaultLoadKoffi): X
     if (!dpy) return null;
     let open = true;
 
+    // T911: o handler padrão do Xlib chama exit() diante de qualquer erro (ex.: BadWindow com o overlay fechado) e
+    // encerraria o processo principal. A captura de erro X (047) instala um handler próprio só durante a chamada.
+    let trap: X11ErrorTrap;
+    try {
+      trap = createX11ErrorTrap(koffi, x11);
+    } catch (err) {
+      XCloseDisplay(dpy);
+      throw err;
+    }
+
     return {
       apply(handle, rects) {
         if (!open) return;
         const xid = readXid(handle);
         if (xid <= 0n) return;
-        XShapeCombineRectangles(dpy, xid, SHAPE_INPUT, 0, 0, rects, rects.length, SHAPE_SET, SHAPE_UNSORTED);
-        XFlush(dpy);
+        const { error } = trap.run(dpy, () =>
+          XShapeCombineRectangles(dpy, xid, SHAPE_INPUT, 0, 0, rects, rects.length, SHAPE_SET, SHAPE_UNSORTED)
+        );
+        if (!error) return;
+        if (error.code === X_BAD_WINDOW) {
+          console.warn(`[X11InputShape] janela 0x${xid.toString(16)} não existe mais (BadWindow); região ignorada`);
+          return;
+        }
+        // Outro erro: o manager desliga a região e volta ao hit-test por posição do ponteiro (RF-901).
+        throw new Error(`[X11InputShape] erro X ${error.code} na requisição ${error.request}`);
       },
       dispose() {
         if (!open) return;
@@ -86,6 +109,7 @@ export function createX11InputShaper(loadKoffi: () => any = defaultLoadKoffi): X
         try {
           XCloseDisplay(dpy);
         } catch {}
+        trap.dispose();
       },
     };
   } catch {

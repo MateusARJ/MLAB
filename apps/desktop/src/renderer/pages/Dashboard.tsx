@@ -1,18 +1,17 @@
 import React, { useState, useEffect } from 'react';
 import { createRoom } from '../services/room';
 import { useRoomLinks } from '../hooks/useRoomLinks';
-import mlabLogo from '../assets/MLAB-logo.png';
 import {
   Button,
   IconButton,
   TextInput,
   StatusBadge,
   Alert,
-  Card,
   Copy,
   Checkmark,
-  Play,
   Exit,
+  BrandMark,
+  ThemeToggle,
   colors,
   typography,
 } from '@mlab/ui';
@@ -130,171 +129,146 @@ export const Dashboard: React.FC<DashboardProps> = ({ onEnterRoom, onLogout }) =
 
   return (
     <div style={styles.container}>
-      <header style={styles.topbar}>
-        <div style={styles.logoBox}>
-          <img src={mlabLogo} alt="MLab Logo" style={styles.logoImg} />
-          <h2 style={styles.logo}>MLab</h2>
-        </div>
-        <Button
-          variant="danger-ghost"
-          size="sm"
-          icon={<Exit size={16} />}
-          onClick={onLogout}
-        >
+      <header className="ml-topbar">
+        <span className="ml-brand">
+          <BrandMark size={32} title="MLab" />
+          <span>MLab</span>
+        </span>
+        <span className="ml-spacer" />
+        <ThemeToggle />
+        <Button variant="ghost" size="sm" icon={<Exit size={16} />} onClick={onLogout}>
           Sair
         </Button>
       </header>
 
-      <main style={styles.content}>
-        <Card
-          title="Criar Nova Sala de Aula"
-          subtitle="Inicie uma transmissão para sua turma de alunos"
-          style={{ width: '100%', maxWidth: '520px' }}
-        >
-          {error && (
-            <div style={{ marginBottom: '20px' }}>
-              <Alert variant="error" message={error} onClose={() => setError(null)} />
-            </div>
-          )}
+      <form
+        onSubmit={currentRoom ? (e) => e.preventDefault() : handleCreateRoom}
+        style={styles.pageForm}
+      >
+      <main style={styles.layout}>
+        <div style={styles.formCol}>
+          <div>
+            <h1 style={styles.pageTitle}>Preparar aula</h1>
+            <p style={styles.pageSub}>
+              {currentRoom
+                ? 'A aula foi criada. Os alunos já podem entrar e aguardar pelo link.'
+                : 'Dê um nome à aula para gerar o link dos alunos.'}
+            </p>
+          </div>
 
-          {!currentRoom ? (
-            <form onSubmit={handleCreateRoom} style={styles.form}>
-              <TextInput
-                id="roomTitle"
-                label="Titulo / Disciplina"
-                type="text"
-                value={title}
-                onChange={(e) => setTitle(e.target.value)}
-                placeholder="Ex: Algoritmos - Turma 04"
-                autoFocus
-                required
-              />
-              <Button
-                type="submit"
-                variant="primary"
-                size="lg"
-                fullWidth
-                loading={loading}
-                icon={<Play size={18} />}
-              >
-                {loading ? 'Criando Sala...' : 'Criar Sala e Gerar Link'}
-              </Button>
-            </form>
-          ) : (
-            <div style={styles.roomActiveBox}>
-              <div>
-                <StatusBadge
-                  status="waiting"
-                  label="Estado: Waiting (Aguardando inicio)"
+          {error && <Alert variant="error" message={error} onClose={() => setError(null)} />}
+
+          <section style={styles.block} aria-labelledby="prep-aula">
+            <h2 id="prep-aula" style={styles.blockTitle}>Aula</h2>
+            {!currentRoom ? (
+              <div style={styles.form}>
+                <TextInput
+                  id="roomTitle"
+                  label="Nome da aula"
+                  type="text"
+                  value={title}
+                  onChange={(e) => setTitle(e.target.value)}
+                  placeholder="Ex.: Algoritmos - Turma 04"
+                  helperText="Os alunos veem este nome ao entrar."
+                  autoFocus
+                  required
                 />
               </div>
-
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
-                <span style={{ fontSize: '13px', color: colors.textSecondary, fontFamily: typography.fontFamily }}>
-                  Links de Acesso dos Alunos:
-                </span>
-
-                {linkNotice && <Alert variant="warning" message={linkNotice} onClose={dismissNotice} />}
-
-                {/* Link Fixo (mDNS): só com anúncio ativo; o nome varia por professor (mlab.local, mlab-2.local…) */}
-                {links.mdnsLink && (
-                <div style={styles.linkCard}>
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
-                    <span style={{ fontSize: '12px', fontWeight: 600, color: colors.textPrimary }}>
-                      Link Fixo (mDNS)
-                    </span>
-                    <span
-                      style={{
-                        fontSize: '11px',
-                        padding: '2px 8px',
-                        borderRadius: '12px',
-                        backgroundColor: 'rgba(36, 161, 72, 0.15)',
-                        color: '#42be65',
-                        fontWeight: 600,
-                        border: '1px solid rgba(36, 161, 72, 0.3)',
-                      }}
-                      title="Recomendado para computadores e dispositivos com suporte a mDNS/Bonjour"
-                    >
-                      Fácil Acesso
-                    </span>
-                  </div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <TextInput
-                      readOnly
-                      value={links.mdnsLink}
-                      style={{ flex: 1 }}
-                    />
-                    <IconButton
-                      type="button"
-                      variant={copiedMdns ? 'success' : 'secondary'}
-                      size="md"
-                      onClick={handleCopyMdns}
-                      title={copiedMdns ? 'Link Fixo Copiado' : 'Copiar Link Fixo'}
-                      aria-label="Copiar Link Fixo"
-                    >
-                      {copiedMdns ? <Checkmark size={18} /> : <Copy size={18} />}
-                    </IconButton>
-                  </div>
-                </div>
-                )}
-
-                {/* Link Direto (IP) */}
-                <div style={styles.linkCard}>
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
-                    <span style={{ fontSize: '12px', fontWeight: 600, color: colors.textPrimary }}>
-                      Link Direto (IP da Rede Local)
-                    </span>
-                    <span
-                      style={{
-                        fontSize: '11px',
-                        padding: '2px 8px',
-                        borderRadius: '12px',
-                        backgroundColor: 'rgba(15, 98, 254, 0.15)',
-                        color: '#4589ff',
-                        fontWeight: 600,
-                        border: '1px solid rgba(15, 98, 254, 0.3)',
-                      }}
-                      title="Funciona diretamente via endereço IP em qualquer dispositivo conectado à rede local"
-                    >
-                      Rede Local (LAN)
-                    </span>
-                  </div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <TextInput
-                      readOnly
-                      value={links.ipLink || links.link}
-                      style={{ flex: 1 }}
-                    />
-                    <IconButton
-                      type="button"
-                      variant={copiedIp ? 'success' : 'secondary'}
-                      size="md"
-                      onClick={handleCopyIp}
-                      title={copiedIp ? 'Link IP Copiado' : 'Copiar Link Direto IP'}
-                      aria-label="Copiar Link Direto IP"
-                    >
-                      {copiedIp ? <Checkmark size={18} /> : <Copy size={18} />}
-                    </IconButton>
-                  </div>
-                </div>
+            ) : (
+              <div style={styles.createdRow}>
+                <span style={styles.createdName}>{title}</span>
+                <StatusBadge status="waiting" label="Aguardando início" />
               </div>
+            )}
+          </section>
+        </div>
 
-              <Button
-                type="button"
-                variant="success"
-                size="lg"
-                fullWidth
-                onClick={() => onEnterRoom({ ...currentRoom, ...links })}
-                icon={<Play size={20} />}
-                style={{ marginTop: '12px' }}
-                autoFocus
-              >
-                Abrir Sala de Transmissão (Enter)
-              </Button>
+        <aside style={styles.sideCol} aria-label="Acesso dos alunos">
+          <div className="ml-panel">
+            <div className="ml-panel__head">
+              <h2 style={styles.panelTitle}>Como os alunos entram</h2>
             </div>
-          )}
-        </Card>
+            <div className="ml-panel__body" style={styles.panelBody}>
+              {!currentRoom ? (
+                <p style={styles.panelEmpty}>
+                  Os links de acesso aparecem aqui assim que a aula for criada. Os alunos abrem no navegador do computador ou do celular, sem instalar nada.
+                </p>
+              ) : (
+                <>
+                  {linkNotice && <Alert variant="warning" message={linkNotice} onClose={dismissNotice} />}
+
+                  {/* Link direto (mDNS): só com anúncio ativo; o nome varia por professor (mlab.local, mlab-2.local…) */}
+                  {links.mdnsLink && (
+                    <div style={styles.linkBlock}>
+                      <span style={styles.linkTitle}>Link direto</span>
+                      <div style={styles.linkRow}>
+                        <TextInput readOnly value={links.mdnsLink} aria-label="Link direto" />
+                        <IconButton
+                          type="button"
+                          variant={copiedMdns ? 'success' : 'ghost'}
+                          size="md"
+                          onClick={handleCopyMdns}
+                          title={copiedMdns ? 'Link Fixo Copiado' : 'Copiar Link Fixo'}
+                          aria-label="Copiar Link Fixo"
+                        >
+                          {copiedMdns ? <Checkmark size={20} /> : <Copy size={20} />}
+                        </IconButton>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Link pelo IP */}
+                  <div style={styles.linkBlock}>
+                    <span style={styles.linkTitle}>Link pelo IP</span>
+                    <div style={styles.linkRow}>
+                      <TextInput readOnly value={links.ipLink || links.link} aria-label="Link pelo IP" />
+                      <IconButton
+                        type="button"
+                        variant={copiedIp ? 'success' : 'ghost'}
+                        size="md"
+                        onClick={handleCopyIp}
+                        title={copiedIp ? 'Link IP Copiado' : 'Copiar Link Direto IP'}
+                        aria-label="Copiar Link Direto IP"
+                      >
+                        {copiedIp ? <Checkmark size={20} /> : <Copy size={20} />}
+                      </IconButton>
+                    </div>
+                    <span className="ml-hint">
+                      {links.mdnsLink
+                        ? 'Use se o link direto não abrir em algum computador.'
+                        : 'Funciona em qualquer dispositivo conectado à rede local.'}
+                    </span>
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
+        </aside>
       </main>
+
+      <div style={styles.actionBar}>
+        <div style={styles.actionBarInner}>
+          <span style={styles.actionSummary}>
+            {currentRoom ? 'Próximo passo: escolher o que transmitir.' : 'Você escolhe a tela, a qualidade e a gravação no próximo passo.'}
+          </span>
+          {!currentRoom ? (
+            <Button type="submit" variant="primary" size="lg" loading={loading}>
+              {loading ? 'Criando Sala...' : 'Criar sala e gerar link'}
+            </Button>
+          ) : (
+            <Button
+              type="button"
+              variant="primary"
+              size="lg"
+              onClick={() => onEnterRoom({ ...currentRoom, ...links })}
+              autoFocus
+            >
+              Continuar <kbd style={styles.kbd}>Enter</kbd>
+            </Button>
+          )}
+        </div>
+      </div>
+      </form>
       <AppInfoFooter />
     </div>
   );
@@ -303,53 +277,56 @@ export const Dashboard: React.FC<DashboardProps> = ({ onEnterRoom, onLogout }) =
 const styles: { [key: string]: React.CSSProperties } = {
   container: {
     minHeight: '100vh',
+    display: 'flex',
+    flexDirection: 'column',
     backgroundColor: colors.bgBase,
     color: colors.textPrimary,
     fontFamily: typography.fontFamily,
   },
-  topbar: {
+  layout: {
+    flex: 1,
+    width: '100%',
+    maxWidth: '1100px',
+    margin: '0 auto',
+    padding: '32px 24px',
+    display: 'grid',
+    gridTemplateColumns: 'minmax(0, 1fr) minmax(340px, 480px)',
+    gap: '32px',
+    alignItems: 'start',
+    boxSizing: 'border-box',
+  },
+  pageForm: { flex: 1, display: 'flex', flexDirection: 'column' },
+  formCol: { display: 'flex', flexDirection: 'column', gap: '40px', minWidth: 0 },
+  sideCol: { minWidth: 0 },
+  pageTitle: { fontSize: 'var(--fs-title)', lineHeight: 1.2, fontWeight: 700, letterSpacing: '-0.01em', margin: 0 },
+  pageSub: { fontSize: 'var(--fs-body)', color: colors.textSecondary, margin: '8px 0 0' },
+  block: { display: 'flex', flexDirection: 'column', gap: '16px' },
+  blockTitle: { fontSize: 'var(--fs-lead)', lineHeight: 1.2, fontWeight: 700, margin: 0 },
+  form: { display: 'flex', flexDirection: 'column', gap: '16px' },
+  createdRow: { display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '12px' },
+  createdName: { fontSize: 'var(--fs-body)', fontWeight: 600 },
+  panelTitle: { fontSize: 'var(--fs-lead)', lineHeight: 1.2, fontWeight: 700, margin: 0 },
+  panelBody: { display: 'flex', flexDirection: 'column', gap: '16px' },
+  panelEmpty: { margin: 0, fontSize: 'var(--fs-small)', lineHeight: 1.5, color: colors.textSecondary },
+  linkBlock: { display: 'flex', flexDirection: 'column', gap: '8px' },
+  linkTitle: { fontSize: 'var(--fs-small)', fontWeight: 600, color: colors.textPrimary },
+  linkRow: { display: 'flex', alignItems: 'center', gap: '8px' },
+  actionBar: { backgroundColor: colors.surfaceCard, borderTop: `1px solid ${colors.borderSubtle}` },
+  actionBarInner: {
+    maxWidth: '1100px',
+    margin: '0 auto',
     display: 'flex',
+    alignItems: 'center',
     justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: '12px 32px',
-    borderBottom: `1px solid ${colors.surfaceCardSolid}`,
-    backgroundColor: colors.surfaceCardSolid,
+    gap: '16px',
+    padding: '12px 24px',
+    boxSizing: 'border-box',
   },
-  logoBox: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: '14px',
-  },
-  logoImg: {
-    width: '46px',
-    height: '46px',
-    objectFit: 'contain',
-  },
-  logo: {
-    fontSize: '20px',
-    fontWeight: '700',
-    color: colors.accent,
-    margin: 0,
-  },
-  content: {
-    padding: '40px 20px',
-    display: 'flex',
-    justifyContent: 'center',
-  },
-  form: {
-    display: 'flex',
-    flexDirection: 'column',
-    gap: '20px',
-  },
-  roomActiveBox: {
-    display: 'flex',
-    flexDirection: 'column',
-    gap: '18px',
-  },
-  linkCard: {
-    backgroundColor: 'rgba(255, 255, 255, 0.03)',
-    border: '1px solid rgba(255, 255, 255, 0.08)',
-    borderRadius: '8px',
-    padding: '12px',
+  actionSummary: { fontSize: 'var(--fs-small)', color: colors.textSecondary },
+  kbd: {
+    marginLeft: '4px',
+    background: 'rgba(255, 255, 255, 0.16)',
+    borderColor: 'rgba(255, 255, 255, 0.28)',
+    color: 'inherit',
   },
 };
