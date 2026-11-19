@@ -1,6 +1,8 @@
 package room
 
 import (
+	"fmt"
+	"math/rand/v2"
 	"net"
 	"reflect"
 	"sync"
@@ -70,7 +72,8 @@ func TestYieldsName(t *testing.T) {
 }
 
 // TestLegacyProberDetectaNomeOcupado cobre RF-121: o prober marca o nome anunciado por outra máquina e ignora o
-// nome anunciado com o próprio IP.
+// nome anunciado com o próprio IP. Os nomes são únicos por execução (054/RF-5401): um MLab real na mesma rede anuncia
+// mlab.local e responderia antes do responder simulado (#164).
 func TestLegacyProberDetectaNomeOcupado(t *testing.T) {
 	ip := GetPrimaryPhysicalIP()
 	ifc := findInterfaceByIP(ip)
@@ -78,12 +81,15 @@ func TestLegacyProberDetectaNomeOcupado(t *testing.T) {
 		t.Skipf("sem interface física com IPv4 para o teste (IP detectado: %q)", ip)
 	}
 
-	defer iniciaResponderAlheio(t, ifc, "mlab.local")()
-	defer iniciaResponder(t, ifc, ip, "mlab-2.local")()
+	base := fmt.Sprintf("mlab-teste-%08x", rand.Uint32())
+	nomeAlheio, nomeProprio, nomeLivre := base+".local", base+"-2.local", base+"-3.local"
+
+	defer iniciaResponderAlheio(t, ifc, nomeAlheio)()
+	defer iniciaResponder(t, ifc, ip, nomeProprio)()
 	time.Sleep(200 * time.Millisecond)
 
 	inicio := time.Now()
-	taken, err := legacyProber{ifc: ifc, ownIP: net.ParseIP(ip)}.probe([]string{"mlab.local", "mlab-2.local", "mlab-3.local"})
+	taken, err := legacyProber{ifc: ifc, ownIP: net.ParseIP(ip)}.probe([]string{nomeAlheio, nomeProprio, nomeLivre})
 	duracao := time.Since(inicio)
 	if err != nil {
 		t.Skipf("sondagem indisponível no ambiente: %v", err)
@@ -92,14 +98,14 @@ func TestLegacyProberDetectaNomeOcupado(t *testing.T) {
 		t.Skip("nenhuma resposta à sondagem (multicast indisponível no ambiente)")
 	}
 
-	if got := taken["mlab.local"]; !got.Equal(net.ParseIP(ipAlheio)) {
-		t.Errorf("mlab.local deveria estar ocupado por %s, obteve %v", ipAlheio, got)
+	if got := taken[nomeAlheio]; !got.Equal(net.ParseIP(ipAlheio)) {
+		t.Errorf("%s deveria estar ocupado por %s, obteve %v", nomeAlheio, ipAlheio, got)
 	}
-	if _, busy := taken["mlab-2.local"]; busy {
-		t.Errorf("mlab-2.local é anunciado com o próprio IP e não pode contar como ocupado")
+	if _, busy := taken[nomeProprio]; busy {
+		t.Errorf("%s é anunciado com o próprio IP e não pode contar como ocupado", nomeProprio)
 	}
-	if _, busy := taken["mlab-3.local"]; busy {
-		t.Errorf("mlab-3.local não é anunciado e não pode contar como ocupado")
+	if _, busy := taken[nomeLivre]; busy {
+		t.Errorf("%s não é anunciado e não pode contar como ocupado", nomeLivre)
 	}
 	if duracao > 1500*time.Millisecond {
 		t.Errorf("sondagem levou %v; limite é 1,5 s (RNF-121)", duracao)
