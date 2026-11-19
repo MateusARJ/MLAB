@@ -44,6 +44,8 @@ export {
   X as Close,
   Maximize,
   Minimize,
+  Expand as FillScreen,
+  Shrink as FitScreen,
   PictureInPicture2 as Popup,
   Download,
   GraduationCap as Education,

@@ -1,6 +1,6 @@
 {
   "name": "@mlab/types",
-  "version": "2.1.5",
+  "version": "2.2.1",
   "private": true,
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
