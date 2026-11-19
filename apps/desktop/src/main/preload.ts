@@ -10,6 +10,10 @@ import type {
   RecordingFormat
 } from '@mlab/types'
 
+/** Estado do backend embarcado (053, contrato ipc-backend-status.md). Igual ao BackendStatus do main. */
+export type BackendStatus = 'down' | 'restarting' | 'up' | 'failed'
+const BACKEND_STATUSES: readonly BackendStatus[] = ['down', 'restarting', 'up', 'failed']
+
 /**
  * Preload script — expõe APIs do Electron ao renderer de forma segura.
  *
@@ -100,6 +104,12 @@ export interface ElectronAPI {
    * Inscreve um callback para ser notificado quando uma janela não autorizada estiver em primeiro plano.
    */
   onActiveWindowUnauthorized: (cb: (data: { isUnauthorized: boolean }) => void) => () => void
+
+  /**
+   * Inscreve um callback para o estado do backend embarcado: down, restarting, up, failed (053/RF-5304,
+   * contrato ipc-backend-status.md). Devolve a função de remoção.
+   */
+  onBackendStatus: (cb: (status: BackendStatus) => void) => () => void
 
   /**
    * Inscreve um callback para receber atualizações de visibilidade e posição do cursor.
@@ -240,6 +250,17 @@ const api: ElectronAPI = {
     ipcRenderer.on('active-window-unauthorized', listener)
     return () => {
       ipcRenderer.removeListener('active-window-unauthorized', listener)
+    }
+  },
+  onBackendStatus: (cb) => {
+    const listener = (_event: unknown, status: BackendStatus) => {
+      if (BACKEND_STATUSES.includes(status) && typeof cb === 'function') {
+        cb(status)
+      }
+    }
+    ipcRenderer.on('backend:status', listener)
+    return () => {
+      ipcRenderer.removeListener('backend:status', listener)
     }
   }
 }

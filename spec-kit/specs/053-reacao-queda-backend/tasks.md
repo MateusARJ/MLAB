@@ -22,15 +22,15 @@ Checks:
 - [x] Testes existentes do `BackendManager` verdes.
 
 ### T5302 — Canal IPC `backend:status`
-[ ] T5302
+[x] T5302
 Depends On: T5301
 Allowed Paths: `apps/desktop/src/main/main.ts`, `apps/desktop/src/main/preload.ts`, `apps/desktop/src/env.d.ts`,
 `apps/desktop/src/test/setup.ts`, `spec-kit/specs/053-reacao-queda-backend/tasks.md`
 Prohibited Paths: `apps/desktop/src/renderer/**`, `apps/backend/**`, `apps/web/**`, `packages/**`
 Checks:
-- [ ] `onStatus` do `BackendManager` envia `backend:status` à janela principal e registra no log (RF-5304).
-- [ ] `onBackendStatus(cb)` no preload, com função de remoção; tipo no `ElectronAPI` (contrato).
-- [ ] Nenhum token ou chave no log (RNF-5303).
+- [x] `onStatus` do `BackendManager` envia `backend:status` à janela principal e registra no log (RF-5304).
+- [x] `onBackendStatus(cb)` no preload, com função de remoção; tipo no `ElectronAPI` (contrato).
+- [x] Nenhum token ou chave no log (RNF-5303).
 
 ### T5303 — Retomada no renderer
 [ ] T5303
