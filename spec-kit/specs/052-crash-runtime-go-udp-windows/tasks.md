@@ -9,14 +9,16 @@ Regras:
 - um commit atômico por task, com `Ref: T520x`.
 
 ### T5201 — Go 1.26.11 no backend
-[ ] T5201
+[x] T5201
 Allowed Paths: `apps/backend/go.mod`, `apps/backend/go.sum`, `spec-kit/specs/052-crash-runtime-go-udp-windows/tasks.md`
 Prohibited Paths: `apps/backend/internal/**`, `apps/backend/cmd/**`, `apps/desktop/**`, `apps/web/**`, `packages/**`,
 `.github/**`
 Checks:
-- [ ] Diretiva `go 1.26.11` em `apps/backend/go.mod` (RF-5201).
-- [ ] `go version` do toolchain usado é 1.26.11; `go vet ./...` e `go test ./...` verdes (RNF-5201).
-- [ ] `go.sum` sem mudança de dependência (RNF-5202).
+- [x] Diretiva `go 1.26.11` em `apps/backend/go.mod` (RF-5201).
+- [x] `go version` do toolchain usado é 1.26.11 (`GOTOOLCHAIN=go1.26.11`); `go vet ./...` verde; `go test ./...`
+  verde, exceto `TestLegacyProberDetectaNomeOcupado`, que falha igual na 1.26.0 porque outro MLab anuncia
+  `mlab.local` na mesma LAN (192.168.1.78). Desvio não bloqueante registrado no converge (RNF-5201).
+- [x] `go mod tidy` não alterou `go.sum` (RNF-5202).
 
 ### T5202 — Saída de crash no log persistente
 [ ] T5202
