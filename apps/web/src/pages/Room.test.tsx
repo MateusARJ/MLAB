@@ -556,7 +556,7 @@ describe('Room — rolagem automática da lista de arquivos (018/RF-191)', () =>
     fireEvent(window, new Event('resize'));
     const { rerender } = render(<Room token={token} roomInfo={roomInfo} onLeave={vi.fn()} />);
 
-    fireEvent.click(screen.getByRole('button', { name: /^Arquivos/i }));
+    fireEvent.click(screen.getByRole('button', { name: /^Arquivos( \d+)?$/i }));
     expect(screen.getByTestId('files-end')).toBeInTheDocument();
     const before = scrolledToFilesEnd();
     expect(before).toBeGreaterThan(0);
@@ -589,7 +589,7 @@ describe('Room — altura da lista de arquivos (024)', () => {
     fireEvent(window, new Event('resize'));
     render(<Room token={token} roomInfo={roomInfo} onLeave={vi.fn()} />);
 
-    fireEvent.click(screen.getByRole('button', { name: /^Arquivos/i }));
+    fireEvent.click(screen.getByRole('button', { name: /^Arquivos( \d+)?$/i }));
     const list = screen.getByTestId('mobile-files-list');
     expect(list).toHaveStyle({ flex: '1', overflowY: 'auto' });
     expect(list.style.maxHeight).toBe('');
@@ -809,5 +809,89 @@ describe('Room — tela cheia sem bordas (049)', () => {
 
     enterFullscreen(container);
     expect(section.style.paddingBottom).toBe('');
+  });
+});
+
+describe('Room — nome acessível dos botões do cabeçalho (050)', () => {
+  const dummyToken = 'student-jwt-123';
+  const dummyRoomInfo = { room_id: 'room-101', ws_url: 'ws://localhost:8080/ws/rooms/room-101/signal', ice_servers: [] };
+  const file = (i: number) => ({ id: `f${i}`, name: `material-${i}.txt`, size: 10, url: `/files/f${i}` });
+  const msg = (i: number) => ({ id: `m${i}`, sender_name: 'Prof', sender_role: 'professor', content: `oi ${i}`, is_private: false, pinned: false });
+  const initialMessages = mockSubscriberState.messages;
+
+  const setViewport = (w: number, h: number) => {
+    window.innerWidth = w;
+    window.innerHeight = h;
+    fireEvent(window, new Event('resize'));
+  };
+
+  afterEach(() => {
+    mockSubscriberState.sharedFiles = [];
+    mockSubscriberState.messages = initialMessages;
+    setViewport(1024, 768);
+  });
+
+  it('no celular, o botão de Arquivos mantém o nome com o selo e anuncia a contagem (RF-5001, RF-5003)', () => {
+    setViewport(412, 915);
+    const { rerender } = render(<Room token={dummyToken} roomInfo={dummyRoomInfo} onLeave={vi.fn()} />);
+    const header = document.querySelector('header')!;
+    const btn = header.querySelector('button[title="Arquivos da Aula"]') as HTMLElement;
+    expect(btn).toHaveAccessibleName('Arquivos da aula');
+
+    mockSubscriberState.sharedFiles = [file(1)];
+    rerender(<Room token={dummyToken} roomInfo={dummyRoomInfo} onLeave={vi.fn()} />);
+    expect(btn).toHaveAccessibleName('Arquivos da aula (1 arquivo)');
+    expect(screen.getByRole('button', { name: /Arquivos da aula \(1 arquivo\)/i })).toBe(btn);
+    expect(btn).toHaveTextContent('1');
+    expect(btn.querySelector(':scope > span[aria-hidden="true"]')).toHaveTextContent('1');
+
+    mockSubscriberState.sharedFiles = [file(1), file(2)];
+    rerender(<Room token={dummyToken} roomInfo={dummyRoomInfo} onLeave={vi.fn()} />);
+    expect(btn).toHaveAccessibleName('Arquivos da aula (2 arquivos)');
+    expect(btn).toHaveAttribute('title', 'Arquivos da Aula');
+  });
+
+  it('no computador, o nome do botão de Arquivos contém o texto visível e a contagem (RF-5001, RNF-5001)', () => {
+    mockSubscriberState.sharedFiles = [file(1), file(2), file(3)];
+    render(<Room token={dummyToken} roomInfo={dummyRoomInfo} onLeave={vi.fn()} />);
+    const btn = document.querySelector('header button[title="Arquivos da Aula"]') as HTMLElement;
+    expect(btn).toHaveTextContent('Arquivos da aula');
+    expect(btn).toHaveAccessibleName('Arquivos da aula (3 arquivos)');
+  });
+
+  it('no celular, o botão de Chat mantém o rótulo da ação e anuncia as não lidas (RF-5002, RF-5003)', () => {
+    setViewport(412, 915);
+    mockSubscriberState.messages = [];
+    const { rerender } = render(<Room token={dummyToken} roomInfo={dummyRoomInfo} onLeave={vi.fn()} />);
+    const btn = document.querySelector('header button[title="Abrir Chat"]') as HTMLElement;
+    expect(btn).toHaveAccessibleName('Abrir Chat');
+
+    mockSubscriberState.messages = [msg(1)];
+    rerender(<Room token={dummyToken} roomInfo={dummyRoomInfo} onLeave={vi.fn()} />);
+    expect(btn).toHaveAccessibleName('Abrir Chat (1 não lida)');
+
+    mockSubscriberState.messages = [msg(1), msg(2), msg(3)];
+    rerender(<Room token={dummyToken} roomInfo={dummyRoomInfo} onLeave={vi.fn()} />);
+    expect(btn).toHaveAccessibleName('Abrir Chat (3 não lidas)');
+    expect(btn.querySelector(':scope > span[aria-hidden="true"]')).toHaveTextContent('3');
+
+    fireEvent.click(btn);
+    expect(btn).toHaveAccessibleName('Recolher Chat');
+  });
+
+  it('acima de 99 não lidas o nome usa 99+, como o selo (RF-5002)', () => {
+    setViewport(412, 915);
+    mockSubscriberState.messages = [];
+    const { rerender } = render(<Room token={dummyToken} roomInfo={dummyRoomInfo} onLeave={vi.fn()} />);
+    mockSubscriberState.messages = Array.from({ length: 120 }, (_, i) => msg(i));
+    rerender(<Room token={dummyToken} roomInfo={dummyRoomInfo} onLeave={vi.fn()} />);
+    const btn = document.querySelector('header button[title="Abrir Chat"]') as HTMLElement;
+    expect(btn).toHaveAccessibleName('Abrir Chat (99+ não lidas)');
+    expect(btn.querySelector(':scope > span[aria-hidden="true"]')).toHaveTextContent('99+');
+  });
+
+  it('no computador, sem não lidas, o botão de Chat continua chamado "Chat" (RF-5002)', () => {
+    render(<Room token={dummyToken} roomInfo={dummyRoomInfo} onLeave={vi.fn()} />);
+    expect(screen.getByRole('button', { name: /^Chat$/ })).toHaveAttribute('title', 'Recolher Chat');
   });
 });
