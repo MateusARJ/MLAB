@@ -13,6 +13,7 @@ import { setAnnotationOverlayState } from '../media/createCursorMaskedTrack';
 import { getStoredToken } from '../services/auth';
 import { closeRoom } from '../services/room';
 import { useRoomLinks } from '../hooks/useRoomLinks';
+import type { RecoveryState } from '../hooks/useBackendRecovery';
 import { useRoomFileUploads, type UploadItem } from '../hooks/useRoomFileUploads';
 import { FileDropZone } from '../components/FileDropZone';
 import { clampAnnotationToolbarPosition } from './annotationToolbarPosition';
@@ -79,6 +80,24 @@ interface RoomProps {
     shortMdnsLink?: string;
   };
   onCloseRoom: () => void;
+  /** Estado da retomada depois de um reinício do backend (053/RF-5307). */
+  recovery?: RecoveryState;
+}
+
+/** Aviso da sala para cada estado da retomada (053/RF-5307); null quando não há aviso. */
+export function recoveryAlert(
+  state: RecoveryState
+): { variant: 'warning' | 'success' | 'error'; message: string } | null {
+  switch (state) {
+    case 'reconnecting':
+      return { variant: 'warning', message: 'A transmissão caiu. Reconectando…' };
+    case 'recovered':
+      return { variant: 'success', message: 'Aula retomada. Peça aos alunos para entrarem de novo pelo link.' };
+    case 'failed':
+      return { variant: 'error', message: 'Não foi possível retomar a aula. Feche e abra o MLab.' };
+    default:
+      return null;
+  }
 }
 
 function formatFileSize(bytes: number): string {
@@ -89,7 +108,7 @@ function formatFileSize(bytes: number): string {
   return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
 }
 
-export const Room: React.FC<RoomProps> = ({ room, onCloseRoom }) => {
+export const Room: React.FC<RoomProps> = ({ room, onCloseRoom, recovery = 'idle' }) => {
   // Configuração pré-transmissão
   const [wantRecord, setWantRecord] = useState<boolean>(false);
   const [qualityProfile, setQualityProfile] = useState<'1080p_30' | '1080p_60'>('1080p_60');
@@ -501,6 +520,19 @@ export const Room: React.FC<RoomProps> = ({ room, onCloseRoom }) => {
     token,
     targetFps: qualityProfile === '1080p_60' ? 60 : 30,
   });
+
+  // Sala recriada depois de um reinício do backend (053/RF-5306): com a transmissão ao vivo, volta a publicar a
+  // mesma captura na sala nova, sem pedir de novo a fonte.
+  const publishedRoomIdRef = useRef(room.id);
+  useEffect(() => {
+    if (publishedRoomIdRef.current === room.id) return;
+    publishedRoomIdRef.current = room.id;
+    if (isLiveSession && stream) {
+      startPublishing(stream);
+    }
+  }, [room.id, isLiveSession, stream, startPublishing]);
+
+  const recoveryNotice = recoveryAlert(recovery);
 
   const prevMessagesLength = useRef(messages.length);
   const publicChatEndRef = useRef<HTMLDivElement>(null);
@@ -1664,6 +1696,10 @@ export const Room: React.FC<RoomProps> = ({ room, onCloseRoom }) => {
 
       {linkNotice && (
         <Alert variant="warning" message={linkNotice} onClose={dismissNotice} style={{ margin: '8px 16px 0' }} />
+      )}
+
+      {recoveryNotice && (
+        <Alert variant={recoveryNotice.variant} message={recoveryNotice.message} style={{ margin: '8px 16px 0' }} />
       )}
 
       {screenshotMsg && (

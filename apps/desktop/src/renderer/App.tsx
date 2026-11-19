@@ -25,7 +25,7 @@ export default function App(): React.ReactElement {
   const [room, setRoom] = useState<RecoverableRoom | null>(null)
 
   // Backend reiniciado (053/RF-5305): a sala é recriada no backend novo; a tela da sala continua montada.
-  useBackendRecovery({
+  const recovery = useBackendRecovery({
     room: state === 'room' ? room : null,
     onRoomRecreated: (recreated) => {
       setRoom(recreated)
@@ -64,7 +64,7 @@ export default function App(): React.ReactElement {
     <>
       {state === 'identify' && <ProfessorEntry onSuccess={handleIdentifySuccess} />}
       {state === 'dashboard' && <Dashboard onEnterRoom={handleEnterRoom} onLogout={handleLogout} />}
-      {state === 'room' && room && <Room room={room} onCloseRoom={handleCloseRoom} />}
+      {state === 'room' && room && <Room room={room} onCloseRoom={handleCloseRoom} recovery={recovery} />}
     </>
   )
 }

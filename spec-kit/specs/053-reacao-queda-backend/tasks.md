@@ -48,7 +48,7 @@ Checks:
 - [x] `App` atualiza a sala e o `setActiveRoom`; `Dashboard` passa o `title`.
 
 ### T5304 — Aviso e republicação na sala
-[ ] T5304
+[x] T5304
 Depends On: T5303
 Allowed Paths: `apps/desktop/src/renderer/pages/Room.tsx`, `apps/desktop/src/renderer/pages/Room.test.tsx`,
 `apps/desktop/src/renderer/App.tsx`,
@@ -56,9 +56,9 @@ Allowed Paths: `apps/desktop/src/renderer/pages/Room.tsx`, `apps/desktop/src/ren
 Prohibited Paths: `apps/desktop/src/renderer/services/**`, `apps/desktop/src/renderer/hooks/useWebRTCPublisher.ts`,
 `apps/desktop/src/main/**`, `apps/backend/**`, `apps/web/**`, `packages/**`
 Checks:
-- [ ] Aviso fixo com os textos da RF-5307.
-- [ ] `room.id` mudou com a sessão ao vivo e `stream` → `startPublishing(stream)` (RF-5306).
-- [ ] Testes existentes do `Room` verdes.
+- [x] Aviso fixo com os textos da RF-5307.
+- [x] `room.id` mudou com a sessão ao vivo e `stream` → `startPublishing(stream)` (RF-5306).
+- [x] Testes existentes do `Room` verdes.
 
 ### T5305 — Converge
 [ ] T5305

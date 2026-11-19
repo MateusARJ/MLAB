@@ -1270,3 +1270,81 @@ describe('Room — fixar uma janela na transmissão (032)', () => {
     await waitFor(() => expect(captures(A)).toBe(1));
   });
 });
+
+// 053/T5304: aviso da retomada (RF-5307) e republicação na sala recriada (RF-5306).
+describe('Room: retomada depois do reinício do backend (053)', () => {
+  const sala = {
+    id: 'room-101',
+    slug: 'charlie-delta-7342',
+    link: 'http://mlab-2.local:3000',
+    mdnsLink: 'http://mlab-2.local:3000',
+    ipLink: 'http://192.168.1.100:3000',
+  };
+
+  function mockPublisher(startPublishing: ReturnType<typeof vi.fn>) {
+    return vi.spyOn(publisherModule, 'useWebRTCPublisher').mockReturnValue({
+      isPublishing: true,
+      connectionState: 'connected',
+      error: null,
+      messages: [],
+      participants: [],
+      lastHandRaised: null,
+      dismissHandToast: vi.fn(),
+      lowerStudentHand: vi.fn(),
+      sendChatMessage: vi.fn(),
+      pinChatMessage: vi.fn(),
+      sendStreamPause: vi.fn(),
+      startPublishing,
+      stopPublishing: vi.fn(),
+      changeStream: vi.fn(),
+      endSession: vi.fn(),
+    } as any);
+  }
+
+  it('mostra o aviso de cada estado da retomada (RF-5307)', () => {
+    const { rerender } = render(<Room room={sala} onCloseRoom={vi.fn()} />);
+    expect(screen.queryByText(/A transmissão caiu/i)).not.toBeInTheDocument();
+
+    rerender(<Room room={sala} onCloseRoom={vi.fn()} recovery="reconnecting" />);
+    expect(screen.getByText('A transmissão caiu. Reconectando…')).toBeInTheDocument();
+
+    rerender(<Room room={sala} onCloseRoom={vi.fn()} recovery="recovered" />);
+    expect(screen.getByText('Aula retomada. Peça aos alunos para entrarem de novo pelo link.')).toBeInTheDocument();
+
+    rerender(<Room room={sala} onCloseRoom={vi.fn()} recovery="failed" />);
+    expect(screen.getByText('Não foi possível retomar a aula. Feche e abra o MLab.')).toBeInTheDocument();
+  });
+
+  it('com a transmissão ao vivo, a sala recriada recebe a mesma captura (RF-5306)', async () => {
+    const startPublishing = vi.fn();
+    const spy = mockPublisher(startPublishing);
+    const { rerender } = render(<Room room={sala} onCloseRoom={vi.fn()} />);
+    await waitFor(() => expect(screen.getByText('Tela Inteira 1')).toBeInTheDocument());
+    fireEvent.click(screen.getByRole('button', { name: /Começar transmissão/i }));
+    await waitFor(() => expect(screen.getByRole('button', { name: /Trocar tela/i })).toBeInTheDocument());
+    await waitFor(() => expect(startPublishing).toHaveBeenCalled());
+    const streamAoVivo = startPublishing.mock.calls[startPublishing.mock.calls.length - 1][0];
+    startPublishing.mockClear();
+
+    rerender(<Room room={{ ...sala, id: 'room-202' }} onCloseRoom={vi.fn()} recovery="recovered" />);
+
+    await waitFor(() => expect(startPublishing).toHaveBeenCalledTimes(1));
+    expect(startPublishing.mock.calls[0][0]).toBe(streamAoVivo);
+    // A tela continua na transmissão, sem voltar à escolha da fonte.
+    expect(screen.getByRole('button', { name: /Trocar tela/i })).toBeInTheDocument();
+    spy.mockRestore();
+  });
+
+  it('antes de começar a transmissão, trocar a sala não publica', async () => {
+    const startPublishing = vi.fn();
+    const spy = mockPublisher(startPublishing);
+    const { rerender } = render(<Room room={sala} onCloseRoom={vi.fn()} />);
+    await waitFor(() => expect(screen.getByText('Tela Inteira 1')).toBeInTheDocument());
+
+    rerender(<Room room={{ ...sala, id: 'room-202' }} onCloseRoom={vi.fn()} />);
+    await new Promise((r) => setTimeout(r, 20));
+
+    expect(startPublishing).not.toHaveBeenCalled();
+    spy.mockRestore();
+  });
+});
