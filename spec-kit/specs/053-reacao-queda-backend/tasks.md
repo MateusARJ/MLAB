@@ -25,7 +25,7 @@ Checks:
 [ ] T5302
 Depends On: T5301
 Allowed Paths: `apps/desktop/src/main/main.ts`, `apps/desktop/src/main/preload.ts`, `apps/desktop/src/env.d.ts`,
-`spec-kit/specs/053-reacao-queda-backend/tasks.md`
+`apps/desktop/src/test/setup.ts`, `spec-kit/specs/053-reacao-queda-backend/tasks.md`
 Prohibited Paths: `apps/desktop/src/renderer/**`, `apps/backend/**`, `apps/web/**`, `packages/**`
 Checks:
 - [ ] `onStatus` do `BackendManager` envia `backend:status` à janela principal e registra no log (RF-5304).

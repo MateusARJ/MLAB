@@ -81,6 +81,7 @@ BackendManager (main)                       main.ts                 renderer
   `apps/desktop/src/renderer/pages/Room.tsx`
 - `apps/desktop/src/renderer/hooks/useBackendRecovery.ts`, `apps/desktop/src/renderer/hooks/useBackendRecovery.test.ts`
 - `apps/desktop/src/env.d.ts` (tipo do `electronAPI`, se declarado ali)
+- `apps/desktop/src/test/setup.ts` (mock global do `electronAPI` nos testes; precisa do método novo para o `tsc`)
 - `spec-kit/specs/053-reacao-queda-backend/**`
 - só na T5306, via `npm run bump`: `package.json`, `package-lock.json`, `apps/*/package.json`, `packages/*/package.json`
 
