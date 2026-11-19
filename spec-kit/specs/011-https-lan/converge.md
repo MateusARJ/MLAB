@@ -80,3 +80,35 @@ Edição isolada, sem PR para a `development`: **sem `npm run bump`** e versão 
 - Interferência de outra sessão na mesma pasta de trabalho (troca de branch durante o commit; o hash 2d6eba9 virou
   df21769). Resolvido sem perda; a outra sessão passou a usar a worktree `C:\Users\User\Documents\mlab-mdns`.
   Nenhuma issue: não é defeito do produto.
+
+## 6. Atualizações por rebase
+
+### 2026-11-19 — rebase sobre a `development` 2.2.1
+
+- **Base:** os 11 commits da edição foram rebaseados de `3646ecb` (#124) para `315209e` (#156, `development` 2.2.1),
+  que estava 109 commits à frente. Os commits seguem assinados. O push forçado exigiu desligar a ruleset
+  `Rule-edicao-https-lan` só durante o envio; ela foi reativada em seguida.
+- **Versão:** a edição acompanha a da `development` e passa a **2.2.1** (instalador `MLab HTTPS-Setup-2.2.1`), sem
+  bump próprio (§4).
+- **Conflitos resolvidos:**
+  - `apps/web/src/App.tsx`: mantidos os dois imports, `BrandMark` (UI 2.0) e `TlsGate` (RF-1106).
+  - `apps/desktop/src/renderer/pages/Dashboard.tsx`: a UI 2.0 trocou o `Card` centralizado pelo layout em duas
+    colunas. O cartão **HTTPS na rede local** (RF-1108) foi refeito como um segundo `ml-panel` na coluna da direita,
+    abaixo de **Como os alunos entram**, com a impressão digital (`https-fingerprint`) e **Exportar certificado**
+    (`export-ca`). O import antigo de `MLAB-logo.png` saiu, porque a tela nova usa o `BrandMark`.
+  - `README.md`: mantido o README da edição, como manda a seção "Manter a edição atualizada".
+  - Sem conflito: `apps/desktop/package.json` (identidade "MLab HTTPS"), `src/main/main.ts` (`MLAB_TLS=1`), o backend
+    e a lista de ADRs do `AGENTS.md` (0008 ao lado da 0009 e da 0010).
+- **Verificação automática:**
+  - `npm run spec:check` PASS e `npm run version:check` 2.2.1;
+  - backend: `go vet` e `go test ./...` verdes, incluindo `internal/tlsca` e `cmd/server`;
+  - web: `vitest` 85/85 (com `TlsGate` e `services/tls`) e lint;
+  - desktop: `vitest` 393/393 e `npm run lint` (`tsc --noEmit`).
+- **Backend com `MLAB_TLS=1`** (portas de teste 18080/18443, pasta temporária): a CA foi criada na primeira subida
+  (`mlab-ca.crt`, `mlab-ca.key`); `/tls/info` respondeu `enabled: true` com a impressão digital, `/tls/ok` respondeu
+  200 por HTTPS e `/mlab-ca.crt` baixou o certificado.
+- **Teste manual do responsável:** com o backend em `MLAB_TLS=1` e o app do professor em `npm run dev`, o cartão
+  **HTTPS na rede local** aparece no layout novo, com a impressão digital e a exportação do certificado; o fluxo foi
+  confirmado como funcional.
+- **Gaps:** continuam os da §3 (aparelhos reais com a CA instalada e o instalador `make:win`). Nenhum teste
+  automatizado cobre o cartão no Dashboard.
