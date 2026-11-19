@@ -2,7 +2,7 @@
 
 Feature: `054-teste-mdns-rede-compartilhada`
 Prerequisites: spec/clarify/plan/checklist/analyze aprovados
-Status: IN PROGRESS
+Status: DONE
 
 Regras:
 - `go vet ./...` e `go test ./...` em `apps/backend` verdes antes de marcar `[x]`;
@@ -21,10 +21,10 @@ Checks:
   (RNF-5402).
 
 ### T5402 — Converge
-[ ] T5402
+[x] T5402
 Depends On: T5401
 Allowed Paths: `spec-kit/specs/054-teste-mdns-rede-compartilhada/**`
 Prohibited Paths: `apps/**`, `packages/**`, `.github/**`, `spec-kit/docs/adrs/**`
 Checks:
-- [ ] `converge.md` com evidências e impacto de versão (nenhum, C-5402).
-- [ ] `npm run spec:check -- spec-kit/specs/054-teste-mdns-rede-compartilhada` com PASS.
+- [x] `converge.md` com evidências e impacto de versão (nenhum, C-5402).
+- [x] `npm run spec:check -- spec-kit/specs/054-teste-mdns-rede-compartilhada` com PASS.
