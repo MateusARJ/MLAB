@@ -1,6 +1,6 @@
 # ADR 0007 — Versionamento semântico do MLab
 
-Status: APROVADA
+Status: APROVADA (fluxo de release atualizado pela ADR 0011)
 Data: 2026-11-02
 Feature impactada: todas (processo de entrega); referência operacional em `docs/versionamento.md`
 

@@ -231,6 +231,7 @@ ADRs aprovadas existentes (fonte: `spec-kit/docs/adrs/`; manter esta lista sincr
 - `spec-kit/docs/adrs/0007-versionamento-semantico.md` — versionamento semântico (`MAJOR.MINOR.PATCH`) a partir da 1.7.1, com incremento no PR da mudança.
 - `spec-kit/docs/adrs/0009-remocao-da-claim-email-do-professor.md` — remove a claim `email` fixa do JWT do professor; substitui o item 5 da ADR 0006.
 - `spec-kit/docs/adrs/0010-sessao-unica-recusa-nova-entrada.md` — matrícula já conectada recusa a nova entrada (`409`/`4002`); substitui a ADR 0004 §2.1.C.
+- `spec-kit/docs/adrs/0011-fluxo-de-entrega-somente-main.md` — fim da `development`: branches e PRs partem da `main` e voltam a ela; release só pela tag.
 
 Fluxo:
 
@@ -298,7 +299,7 @@ Templates oficiais configurados no repositório:
 Fonte: `docs/versionamento.md` (ADR 0007). O MLab segue `MAJOR.MINOR.PATCH` com versão única no monorepo, a partir
 da 1.7.1.
 
-- Todo PR para a `development` que altera o que é entregue (`apps/`, `packages/`) termina com **um** commit
+- Todo PR para a `main` que altera o que é entregue (`apps/`, `packages/`) termina com **um** commit
   `chore(release): versao X.Y.Z`, gerado por `npm run bump -- patch|minor|major`, seguido de `npm run version:check`.
 - O nível segue o escopo de `docs/versionamento.md` §2:
   - **MAJOR**: quebra de compatibilidade (funcionalidade removida ou fluxo incompatível, contrato incompatível,
@@ -339,13 +340,13 @@ registrado só na conversa.
 
 Vale para todo trabalho que altera o repositório — feature, fix, docs, spec-kit, refatoração, CI, build ou chore.
 
-- **Branch nova por entrega**, criada a partir da `development` atualizada (`git pull` antes). Nunca commitar
-  diretamente na `development` nem na `main`.
+- **Branch nova por entrega**, criada a partir da `main` atualizada (`git pull` antes). Nunca commitar diretamente
+  na `main` (ADR 0011).
 - **Nome da branch:** `<tipo>/<descricao-curta-em-kebab-case>`, com o mesmo `<tipo>` dos commits (seção 12):
   `feat/`, `fix/`, `docs/`, `refactor/`, `perf/`, `test/`, `build/`, `ci/`, `chore/`, `style/`.
 - **Commits** atômicos pelo template `.gitmessage` (seção 12); referenciar a tarefa (`Ref: Txxx`) e, quando houver, a
   issue (`Refs #N`).
-- **Um PR por branch**, para a `development`, pelo template `.github/pull_request_template.md`, preenchendo tarefa do
-  Spec-Kit, impacto de versão (seção 13) e desvios encontrados (seção 14). PR `development → main` só para release
-  (`docs/versionamento.md`).
+- **Um PR por branch**, para a `main`, pelo template `.github/pull_request_template.md`, preenchendo tarefa do
+  Spec-Kit, impacto de versão (seção 13) e desvios encontrados (seção 14). O merge é feito pelo responsável, com
+  merge commit, depois dos três builds do CI; a release é só a tag (`docs/versionamento.md` §5).
 - **Push forçado** somente na própria branch, sem PR em revisão ou com aviso no PR, e sempre com `--force-with-lease`.

@@ -64,7 +64,7 @@ Closes #
 
 ## Checklist do autor
 
-- [ ] Trabalhei em branch dedicada `<tipo>/<descricao>` criada a partir da `development` atualizada (`AGENTS.md` §15).
+- [ ] Trabalhei em branch dedicada `<tipo>/<descricao>` criada a partir da `main` atualizada (`AGENTS.md` §15).
 - [ ] Desvios encontrados fora do escopo foram abertos como issue com labels, sem correção neste PR (`AGENTS.md` §14).
 - [ ] O título segue rigorosamente `tipo(escopo): mensagem objetiva em português` (com prefixo em inglês: `feat`, `fix`, etc.).
 - [ ] A alteração está coesa e respeita o **Scope Lock** e as tarefas aprovadas do `AGENTS.md`.
