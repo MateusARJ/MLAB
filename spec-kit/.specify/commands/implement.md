@@ -9,8 +9,8 @@ Pré-requisitos:
 Execute somente UMA tarefa pendente por ciclo.
 
 Antes de editar:
-1. confirme que está em branch dedicada `<tipo>/<descricao>` criada a partir da `development` atualizada; se não
-   estiver, crie-a (`AGENTS.md` §15) — nunca edite na `development` ou na `main`;
+1. confirme que está em branch dedicada `<tipo>/<descricao>` criada a partir da `main` atualizada; se não
+   estiver, crie-a (`AGENTS.md` §15) — nunca edite na `main`;
 2. leia a tarefa;
 3. valide Allowed Paths e Prohibited Paths;
 4. leia apenas o contexto necessário.

@@ -58,7 +58,7 @@ issue com `bloqueante` e tarefa interrompida imediatamente, com o motivo informa
 
 ## Princípio X — Entrega rastreável
 
-Toda mudança no repositório chega à `development` por branch dedicada `<tipo>/<descricao>`, commits pelo `.gitmessage`
-e Pull Request pelo template (`AGENTS.md` §12 e §15).
+Toda mudança no repositório chega à `main` por branch dedicada `<tipo>/<descricao>`, commits pelo `.gitmessage`
+e Pull Request pelo template (`AGENTS.md` §12 e §15; ADR 0011).
 
-**Gate:** commit direto na `development` ou na `main`, ou PR fora do template = entrega inválida.
+**Gate:** commit direto na `main`, ou PR fora do template = entrega inválida.

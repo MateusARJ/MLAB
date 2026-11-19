@@ -43,5 +43,4 @@
 # Refs #<issue>   (issue relacionada ou desvio registrado — AGENTS.md §14)
 #
 # Branch: todo commit nasce em branch dedicada <tipo>/<descricao> criada a
-# partir da development (AGENTS.md §15). Nunca commite direto na development
-# ou na main.
+# partir da main (AGENTS.md §15). Nunca commite direto na main.
