@@ -24,8 +24,10 @@ Branch: `fix/e2e-sem-reload-do-vite`, a partir da `development` @ `34716d8` (2.2
 - Branch local temporária com esta feature e o #154 (050) juntos: A13 `mobile` 15/15 e suíte e2e completa 14/14
   (`desktop` e `mobile`, com o `I1`), sem retry. Branch apagada depois da verificação.
 - `node --check scripts/smoke-report.js` ok; o relatório passa a ler `apps/web/test-results/e2e-results.json`.
-- HMR de `src/`: os globs só cobrem `test-results`, `e2e-results` e `playwright-report`. A edição de um arquivo de
-  `src/` com o `npm run dev` aberto não foi testada à mão; fica para a validação do responsável.
+- HMR de `src/`: os globs só cobrem `test-results`, `e2e-results` e `playwright-report`. Teste manual do responsável
+  com `npm run dev` (Vite 5.4.21): editar e salvar `src/pages/Room.tsx` gerou `hmr update /src/pages/Room.tsx` e
+  atualizou a página. Criar e apagar um `.html` em `test-results/` e em `e2e-results/` não gerou `page reload`,
+  `full-reload` nem `hmr update`.
 
 ## 2. Requisitos
 
