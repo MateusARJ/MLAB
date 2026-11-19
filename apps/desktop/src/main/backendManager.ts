@@ -28,7 +28,23 @@ export const ORPHAN_PORT_RELEASE_MS = 3000
 /** Imagens reconhecidas como backend do MLab no Windows (C-3401 B, RF-3411). */
 export const MLAB_BACKEND_IMAGES = ['mlab-backend.exe', 'server.exe']
 
+/** Intervalo do vigia do /health (053/RF-5302, C-5302). */
+export const HEALTH_INTERVAL_MS = 3000
+/** Falhas seguidas do /health que caracterizam o backend travado (053/RF-5302). */
+export const HEALTH_MAX_FAILURES = 3
+/** Sem nenhum /health OK nesse tempo após a partida, o vigia desiste (não há como distinguir travamento). */
+export const HEALTH_ARM_TIMEOUT_MS = 60000
+/** Janela e limite de reinícios automáticos (053/RF-5303, C-5303). */
+export const RESTART_WINDOW_MS = 60000
+export const MAX_RESTARTS = 3
+/** Espera pelo primeiro /health OK do backend reiniciado antes de anunciar `up`. */
+export const RESTART_HEALTH_TIMEOUT_MS = 15000
+export const RESTART_HEALTH_POLL_MS = 500
+
 export type StartResult = 'started' | 'aborted' | 'port-busy' | 'not-found' | 'failed'
+
+/** Estado do backend informado à janela do professor (053, contrato `ipc-backend-status.md`). */
+export type BackendStatus = 'down' | 'restarting' | 'up' | 'failed'
 
 export interface SpawnSyncResult {
   status: number | null
@@ -130,8 +146,20 @@ export class BackendManager {
   private child: ChildProcess | null = null
   private stopping = false
   private stopPromise: Promise<void> | null = null
+  /** Última partida pedida, reaproveitada nos reinícios (053/RF-5303). */
+  private lastStart: { config: BackendStartConfig; port: number } | null = null
+  /** Instantes dos reinícios recentes, para o limite de RF-5303. */
+  private restarts: number[] = []
+  /** Processos cuja queda já foi tratada (a saída e o vigia podem detectar a mesma queda). */
+  private readonly handled = new WeakSet<ChildProcess>()
+  /** Processos encerrados à força por travamento (RF-5302). */
+  private readonly hung = new WeakSet<ChildProcess>()
+  private recovering = false
 
-  constructor(private readonly deps: BackendManagerDeps) {}
+  constructor(
+    private readonly deps: BackendManagerDeps,
+    private readonly onStatus: (status: BackendStatus) => void = () => {}
+  ) {}
 
   /** true depois que o encerramento começou; nenhum backend novo é iniciado a partir daí (RF-3406). */
   get isStopping(): boolean {
@@ -166,6 +194,7 @@ export class BackendManager {
     }
 
     if (this.stopping) return this.abortStart('imediatamente antes do spawn')
+    this.lastStart = { config, port }
     try {
       const child = this.deps.spawn(config.binaryPath, [], {
         cwd: config.cwd,
@@ -176,6 +205,7 @@ export class BackendManager {
       })
       this.attach(child)
       this.deps.log(`[Backend] Iniciado (PID: ${child.pid ?? 'desconhecido'}): ${config.binaryPath}`)
+      void this.watchHealth(child, port)
       return 'started'
     } catch (err) {
       this.deps.log(`[Backend] Erro ao iniciar o backend: ${err}`)
@@ -234,7 +264,136 @@ export class BackendManager {
     child.on('exit', (code, signal) => {
       this.deps.log(`[Backend] Backend finalizado (código: ${code}, sinal: ${signal})`)
       if (this.child === child) this.child = null
+      // Saída que o app não pediu: queda (053/RF-5301).
+      const reason = this.hung.has(child) ? 'sem resposta ao /health' : `saída inesperada (código: ${code}, sinal: ${signal})`
+      this.handleCrash(child, reason)
     })
+  }
+
+  private emit(status: BackendStatus): void {
+    this.deps.log(`[Backend] Estado informado à janela: ${status}`)
+    try {
+      this.onStatus(status)
+    } catch (err) {
+      this.deps.log(`[Backend] Aviso: falha ao informar o estado ${status}: ${err}`)
+    }
+  }
+
+  private isCurrentAlive(child: ChildProcess): boolean {
+    return !this.stopping && this.child === child && !hasExited(child)
+  }
+
+  /**
+   * Vigia do /health (053/RF-5302): arma no primeiro OK; com HEALTH_MAX_FAILURES falhas seguidas, considera o
+   * backend travado e o encerra à força. A queda segue pelo handler de saída (ou aqui, se a saída não vier).
+   */
+  private async watchHealth(child: ChildProcess, port: number): Promise<void> {
+    const started = this.deps.now()
+    let armed = false
+    let failures = 0
+    while (this.isCurrentAlive(child)) {
+      await this.deps.sleep(HEALTH_INTERVAL_MS)
+      if (!this.isCurrentAlive(child)) return
+      const ok = await this.deps.fetchHealth(port)
+      if (!this.isCurrentAlive(child)) return
+      if (ok) {
+        if (!armed) this.deps.log('[Backend] Vigia do /health armado')
+        armed = true
+        failures = 0
+        continue
+      }
+      if (!armed) {
+        if (this.deps.now() - started >= HEALTH_ARM_TIMEOUT_MS) {
+          this.deps.log(`[Backend] Aviso: sem /health OK em ${HEALTH_ARM_TIMEOUT_MS} ms; vigia de travamento desligado`)
+          return
+        }
+        continue
+      }
+      failures++
+      this.deps.log(`[Backend] /health sem resposta (${failures}/${HEALTH_MAX_FAILURES})`)
+      if (failures < HEALTH_MAX_FAILURES) continue
+
+      this.deps.log(`[Backend] Backend travado (PID: ${child.pid}): encerramento forçado`)
+      this.hung.add(child)
+      this.forceKill(child)
+      await this.waitForExit(child, FORCED_EXIT_CONFIRM_MS)
+      if (this.child === child) this.child = null
+      this.handleCrash(child, 'sem resposta ao /health')
+      return
+    }
+  }
+
+  /** Trata a queda uma única vez por processo e dispara a recuperação (053/RF-5301, RF-5303). */
+  private handleCrash(child: ChildProcess, reason: string): void {
+    if (this.stopping || this.handled.has(child)) return
+    this.handled.add(child)
+    this.deps.log(`[Backend] Queda do backend (PID: ${child.pid ?? '?'}): ${reason}`)
+    this.emit('down')
+    void this.recover()
+  }
+
+  /**
+   * Reinicia o backend com a última configuração, no máximo MAX_RESTARTS vezes em RESTART_WINDOW_MS, e anuncia
+   * `up` quando o novo processo responde ao /health (053/RF-5303, RF-5304). Nada acontece com o app encerrando.
+   */
+  private async recover(): Promise<void> {
+    if (this.recovering) return
+    this.recovering = true
+    try {
+      while (!this.stopping) {
+        const now = this.deps.now()
+        this.restarts = this.restarts.filter((t) => now - t < RESTART_WINDOW_MS)
+        if (this.restarts.length >= MAX_RESTARTS || !this.lastStart) {
+          this.deps.log(`[Backend] Reinício automático desistiu: ${this.restarts.length} reinícios em ${RESTART_WINDOW_MS} ms`)
+          this.emit('failed')
+          return
+        }
+        this.restarts.push(now)
+        this.emit('restarting')
+        const { config, port } = this.lastStart
+        const result = await this.start(config, port)
+        if (this.stopping) return
+        if (result !== 'started') {
+          this.deps.log(`[Backend] Reinício automático falhou: ${result}`)
+          this.emit('failed')
+          return
+        }
+        const child = this.child
+        if (child && (await this.waitHealthy(child, port))) {
+          this.deps.log(`[Backend] Backend reiniciado e respondendo (PID: ${child.pid})`)
+          this.emit('up')
+          return
+        }
+        if (this.stopping) return
+        // O processo novo saiu ou não respondeu: trata como nova queda e tenta de novo dentro do limite.
+        if (child) {
+          const alreadyHandled = this.handled.has(child)
+          this.handled.add(child)
+          if (!hasExited(child)) {
+            this.hung.add(child)
+            this.forceKill(child)
+            await this.waitForExit(child, FORCED_EXIT_CONFIRM_MS)
+          }
+          if (this.child === child) this.child = null
+          if (!alreadyHandled) {
+            this.deps.log(`[Backend] Backend reiniciado não respondeu (PID: ${child.pid ?? '?'})`)
+            this.emit('down')
+          }
+        }
+      }
+    } finally {
+      this.recovering = false
+    }
+  }
+
+  private async waitHealthy(child: ChildProcess, port: number): Promise<boolean> {
+    const deadline = this.deps.now() + RESTART_HEALTH_TIMEOUT_MS
+    while (this.deps.now() < deadline) {
+      if (!this.isCurrentAlive(child)) return false
+      if (await this.deps.fetchHealth(port)) return this.isCurrentAlive(child)
+      await this.deps.sleep(RESTART_HEALTH_POLL_MS)
+    }
+    return false
   }
 
   private async doStop(): Promise<void> {

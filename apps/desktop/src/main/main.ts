@@ -503,8 +503,14 @@ async function closeActiveRoomGracefully(): Promise<void> {
 
 // ── Backend Process Manager (Servidor Go SFU Invisível) ──────────────────────
 
-// Partida, encerramento e órfãos do backend ficam no BackendManager (034/T3402).
-const backend = new BackendManager(createDefaultDeps(logApp))
+// Partida, encerramento e órfãos do backend ficam no BackendManager (034/T3402). Queda, travamento e reinício
+// (053) são informados à janela do professor pelo canal backend:status (contrato ipc-backend-status.md).
+const backend = new BackendManager(createDefaultDeps(logApp), (status) => {
+  const win = mainWindow
+  if (win && !win.isDestroyed()) {
+    win.webContents.send('backend:status', status)
+  }
+})
 
 function getBackendExecutablePath(): string | null {
   const isDev = !app.isPackaged

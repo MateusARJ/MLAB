@@ -33,6 +33,7 @@ window.electronAPI = {
   stopCursorTracking: vi.fn().mockResolvedValue(undefined),
   onActiveWindowChanged: vi.fn().mockImplementation(() => () => {}),
   onActiveWindowUnauthorized: vi.fn().mockImplementation(() => () => {}),
+  onBackendStatus: vi.fn().mockImplementation(() => () => {}),
   onCursorState: vi.fn().mockImplementation(() => () => {}),
   startAnnotationOverlay: vi.fn().mockResolvedValue(true),
   stopAnnotationOverlay: vi.fn().mockResolvedValue(undefined),

@@ -404,3 +404,152 @@ describe('BackendManager.logProcessSnapshot', () => {
     expect(execText).not.toHaveBeenCalled()
   })
 })
+
+// ── 053: detecção de queda e de travamento, reinício e estados (RF-5301 a RF-5304) ─────────────────
+
+interface RecoveryHarness {
+  deps: BackendManagerDeps
+  children: Array<FakeChild & { healthy: boolean }>
+  spawnCalls: Array<{ command: string; options: any }>
+  logs: string[]
+  /** O que o próximo processo faz ao subir. */
+  next: { healthy: boolean; exitsAtOnce: boolean }
+}
+
+function recoveryHarness(): RecoveryHarness {
+  const children: RecoveryHarness['children'] = []
+  const spawnCalls: RecoveryHarness['spawnCalls'] = []
+  const logs: string[] = []
+  const next = { healthy: true, exitsAtOnce: false }
+  let clock = 0
+  const current = (): (FakeChild & { healthy: boolean }) | undefined => children[children.length - 1]
+  const deps: BackendManagerDeps = {
+    platform: 'win32',
+    spawn: (command, _args, options) => {
+      spawnCalls.push({ command, options })
+      const child = Object.assign(new FakeChild(), { healthy: next.healthy })
+      child.pid = 5000 + children.length
+      children.push(child)
+      if (next.exitsAtOnce) queueMicrotask(() => child.exit(2, null))
+      return child as unknown as ChildProcess
+    },
+    spawnSync: (command) => {
+      if (command === 'taskkill') {
+        const c = current()
+        queueMicrotask(() => c?.exit(1, null))
+      }
+      return { status: 0 }
+    },
+    fetchHealth: async () => {
+      const c = current()
+      return !!c && c.exitCode === null && c.signalCode === null && c.healthy
+    },
+    execText: async () => '',
+    isProcessAlive: () => false,
+    killPid: () => {},
+    sleep: async (ms) => {
+      clock += ms
+      await new Promise((r) => setTimeout(r, 0))
+    },
+    now: () => clock,
+    log: (m) => logs.push(m)
+  }
+  return { deps, children, spawnCalls, logs, next }
+}
+
+describe('BackendManager: queda e reinício (053)', () => {
+  it('saída inesperada: avisa down, reinicia com a mesma configuração e avisa up (RF-5301, RF-5303)', async () => {
+    const h = recoveryHarness()
+    const statuses: string[] = []
+    const m = new BackendManager(h.deps, (s) => statuses.push(s))
+    expect(await m.start(config)).toBe('started')
+
+    h.children[0].exit(2, null)
+
+    await vi.waitFor(() => expect(statuses).toEqual(['down', 'restarting', 'up']))
+    expect(h.spawnCalls).toHaveLength(2)
+    expect(h.spawnCalls[1].command).toBe(config.binaryPath)
+    expect(h.spawnCalls[1].options.env).toBe(config.env)
+    expect(m.pid).toBe(h.children[1].pid)
+    await m.stop()
+  })
+
+  it('travamento: 3 falhas do /health depois de armado forçam o encerramento e o reinício (RF-5302)', async () => {
+    const h = recoveryHarness()
+    const statuses: string[] = []
+    const m = new BackendManager(h.deps, (s) => statuses.push(s))
+    await m.start(config)
+    await vi.waitFor(() => expect(h.logs).toContain('[Backend] Vigia do /health armado'))
+
+    h.children[0].healthy = false // processo vivo, sem responder
+
+    await vi.waitFor(() => expect(statuses).toEqual(['down', 'restarting', 'up']))
+    expect(h.logs.filter((l) => l.startsWith('[Backend] /health sem resposta'))).toHaveLength(3)
+    expect(h.logs.some((l) => l.includes('Backend travado'))).toBe(true)
+    expect(h.logs.some((l) => l.includes('Queda do backend') && l.includes('sem resposta ao /health'))).toBe(true)
+    expect(h.children[0].exitCode).toBe(1)
+    expect(h.spawnCalls).toHaveLength(2)
+    await m.stop()
+  })
+
+  it('o vigia não arma sem /health OK: falhas na partida não derrubam o processo (RNF-5302)', async () => {
+    const h = recoveryHarness()
+    h.next.healthy = false
+    const statuses: string[] = []
+    const m = new BackendManager(h.deps, (s) => statuses.push(s))
+    await m.start(config)
+    await vi.waitFor(() => expect(h.logs.some((l) => l.includes('vigia de travamento desligado'))).toBe(true))
+    expect(statuses).toEqual([])
+    expect(h.children[0].exitCode).toBeNull()
+    await m.stop()
+  })
+
+  it('desiste depois de 3 reinícios em 60 s e avisa failed (RF-5303)', async () => {
+    const h = recoveryHarness()
+    const statuses: string[] = []
+    const m = new BackendManager(h.deps, (s) => statuses.push(s))
+    await m.start(config)
+    h.next.exitsAtOnce = true // todo processo novo cai logo ao subir
+
+    h.children[0].exit(2, null)
+
+    await vi.waitFor(() => expect(statuses[statuses.length - 1]).toBe('failed'))
+    expect(h.spawnCalls).toHaveLength(1 + 3)
+    expect(statuses.filter((s) => s === 'restarting')).toHaveLength(3)
+    expect(statuses).not.toContain('up')
+  })
+
+  it('partida do reinício que falha avisa failed (RF-5303)', async () => {
+    const h = recoveryHarness()
+    const statuses: string[] = []
+    const m = new BackendManager(h.deps, (s) => statuses.push(s))
+    await m.start(config)
+    h.deps.spawn = () => {
+      throw new Error('ENOENT')
+    }
+
+    h.children[0].exit(2, null)
+
+    await vi.waitFor(() => expect(statuses).toEqual(['down', 'restarting', 'failed']))
+  })
+
+  it('não reinicia depois de stop() nem de forceKillSync() (RF-5303, RNF-5305)', async () => {
+    const h = recoveryHarness()
+    const statuses: string[] = []
+    const m = new BackendManager(h.deps, (s) => statuses.push(s))
+    await m.start(config)
+    await m.stop()
+    expect(h.children[0].exitCode).toBe(0)
+
+    const h2 = recoveryHarness()
+    const m2 = new BackendManager(h2.deps, (s) => statuses.push(s))
+    await m2.start(config)
+    m2.forceKillSync()
+    await vi.waitFor(() => expect(h2.children[0].exitCode).toBe(1))
+    await new Promise((r) => setTimeout(r, 20))
+
+    expect(statuses).toEqual([])
+    expect(h.spawnCalls).toHaveLength(1)
+    expect(h2.spawnCalls).toHaveLength(1)
+  })
+})
