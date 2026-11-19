@@ -1,7 +1,8 @@
 # Versionamento do MLab
 
 Status: **oficial** desde 2026-11-02, a partir da versão **1.7.1**.
-Decisão registrada em `spec-kit/docs/adrs/0007-versionamento-semantico.md`.
+Decisão registrada em `spec-kit/docs/adrs/0007-versionamento-semantico.md`; fluxo de entrega e release pela
+`spec-kit/docs/adrs/0011-fluxo-de-entrega-somente-main.md`.
 
 O MLab segue o [Versionamento Semântico 2.0.0](https://semver.org/lang/pt-BR/) no formato **`MAJOR.MINOR.PATCH`**.
 Este documento define o que cada nível significa no MLab, quando a versão muda e como uma release é publicada. Ele
@@ -12,13 +13,13 @@ versão correspondente**, decidido pelas regras da seção 2.
 
 1. **Versão única.** O monorepo inteiro tem uma só versão: `package.json` da raiz, `apps/desktop`, `apps/web`,
    `apps/backend`, `packages/types`, `packages/ui` e as entradas correspondentes no `package-lock.json`.
-2. **A versão muda no PR da mudança.** Cada PR para a `development` que altera o que é entregue ao professor ou ao
+2. **A versão muda no PR da mudança.** Cada PR para a `main` que altera o que é entregue ao professor ou ao
    aluno inclui um único incremento de versão, no nível da seção 2. PRs sem impacto no app não mudam a versão.
 3. **Só pelo script.** Use `npm run bump -- patch|minor|major` (ou `--set`). Não edite `"version"` à mão nem use
    `npm version`. Nenhum build (`npm run make*`, `npm run build`) altera a versão.
 4. **Versões não voltam.** Uma versão nunca é reaproveitada; `--set` recusa versão menor que a atual.
 5. **Release = tag.** Uma versão só é publicada quando recebe a tag `vMAJOR.MINOR.PATCH` (seção 5). Versões
-   intermediárias que nunca viram release são normais: a release usa a versão acumulada na `development`.
+   intermediárias que nunca viram release são normais: a release usa a versão acumulada na `main`.
 
 ## 2. Escopo de cada nível
 
@@ -66,8 +67,7 @@ Não mudam a versão os PRs que só tocam o que **não vai no app**:
 
 - documentação (`docs`), testes (`test`), CI (`ci`), formatação de código (`style`);
 - artefatos do Spec Kit (`spec-kit/**`) sem mudança de código;
-- ferramentas de desenvolvimento e build que não mudam o instalador (`build`, `chore`);
-- PRs de sincronização `development → main`.
+- ferramentas de desenvolvimento e build que não mudam o instalador (`build`, `chore`).
 
 ### Tabela de decisão pelo tipo de commit
 
@@ -99,9 +99,9 @@ Ao concluir um PR que altera `apps/` ou `packages/`:
    git commit -am "chore(release): versao X.Y.Z"
    ```
 
-5. **Se a `development` mudou de versão** enquanto o PR estava aberto (conflito nos `package.json`), atualize a
-   branch com a `development`, aceite a versão dela nos conflitos e rode o `bump` de novo a partir dela.
-6. **Não incremente** em PRs sem impacto no app (seção 2, "Sem incremento") nem em PRs `development → main`.
+5. **Se a `main` mudou de versão** enquanto o PR estava aberto (conflito nos `package.json`), atualize a
+   branch com a `main`, aceite a versão dela nos conflitos e rode o `bump` de novo a partir dela.
+6. **Não incremente** em PRs sem impacto no app (seção 2, "Sem incremento").
 7. **Nunca** crie tag nem release: a publicação (seção 5) é feita pelo responsável.
 
 ## 4. Comandos
@@ -116,21 +116,21 @@ Ao concluir um PR que altera `apps/` ou `packages/`:
 
 ## 5. Publicação de uma release
 
-Pré-requisitos: tudo o que vai sair na release está mergeado na `development`, com `npx turbo run build test` e
+Pré-requisitos: tudo o que vai sair na release está mergeado na `main`, com `npx turbo run build test` e
 `npm run spec:check` verdes. A versão já está certa: ela foi incrementada em cada PR.
 
-1. **Escrever as notas** em `docs/releases/vX.Y.Z.md`, num PR `docs` para a `development` antes do PR de release.
+1. **Escrever as notas** em `docs/releases/vX.Y.Z.md`, num PR `docs` para a `main` antes da tag.
    Use a release anterior como modelo: destaques, downloads, novidades **por versão** desde a última release
    publicada (a partir dos commits `chore(release): versao X.Y.Z` e dos `converge.md`) e limitações conhecidas.
    O workflow usa esse arquivo como texto da release e acrescenta ao final a lista automática de PRs; sem o arquivo,
    a release sai só com a lista automática.
 
-2. **Levar à `main`**: PR `development → main`. O CI gera os instaladores nos três sistemas
-   (`.github/workflows/build-all.yml`); faça o merge com **merge commit** (sem squash) depois dos três builds verdes.
+   Não há PR de release (ADR 0011): todo PR para a `main` já roda o build dos três sistemas
+   (`.github/workflows/build-all.yml`) e é mergeado com **merge commit** (sem squash) depois dos três builds verdes.
    No PR o build só valida: os instaladores não são publicados (cota de armazenamento da conta, #112). Eles saem
-   apenas pela release do passo 3.
+   apenas pela release do passo 2.
 
-3. **Publicar** com a tag, a partir da `main` atualizada:
+2. **Publicar** com a tag, a partir da `main` atualizada:
 
    ```bash
    git switch main && git pull
@@ -148,7 +148,7 @@ Pré-requisitos: tudo o que vai sair na release está mergeado na `development`,
    Alternativa sem tag local: na aba **Actions**, rode o workflow manualmente com os campos em branco; a release usa a
    versão do `package.json`.
 
-4. **Conferir** na página de [Releases](https://github.com/MateusARJ/MLAB/releases) os arquivos
+3. **Conferir** na página de [Releases](https://github.com/MateusARJ/MLAB/releases) os arquivos
    `MLab-Setup-X.Y.Z.exe`, `MLab-Mac-X.Y.Z.dmg`/`.zip` e `MLab-Linux-X.Y.Z.AppImage`/`.deb`/`.tar.gz`.
 
 > **A release traz o código-fonte.** A tag aponta para o commit da `main` que gerou a versão, e o GitHub anexa

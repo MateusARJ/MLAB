@@ -12,6 +12,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"runtime/debug"
 	"strconv"
 	"strings"
 	"sync"
@@ -144,6 +145,18 @@ func openLogOutput(path string, fallback io.Writer) (out io.Writer, closeFn func
 		return fallback, func() {}
 	}
 	return tolerantWriter{writers: []io.Writer{f, fallback}}, func() { _ = f.Close() }
+}
+
+// setCrashLog grava também no arquivo de log a saída de crash do runtime (panic não tratado, fatal error,
+// exceção), que o runtime escreve direto no stderr, fora do log.SetOutput (052/RF-5202). O arquivo é aberto em
+// append; o runtime duplica o descritor, então ele é fechado aqui. O stderr continua recebendo a saída.
+func setCrashLog(path string) error {
+	f, err := os.OpenFile(path, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0o644)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+	return debug.SetCrashOutput(f, debug.CrashOptions{})
 }
 
 // logStartup registra a partida do processo (RF-3414). Nunca registra o ambiente (RNF-3402).

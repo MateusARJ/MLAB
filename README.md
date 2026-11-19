@@ -433,8 +433,8 @@ npm run bump -- patch            # ou minor | major: último commit do PR, "chor
 
 **Fluxo de release:**
 
-1. Cada PR para a `development` que muda o app termina com o commit de versão.
-2. Para publicar, as novidades de cada versão são escritas em `docs/releases/vX.Y.Z.md` e abre-se um PR `development → main`. O CI valida o build de Windows, macOS e Linux, e o merge é feito com merge commit, sem squash.
+1. Cada PR para a `main` que muda o app termina com o commit de versão. O CI valida o build de Windows, macOS e Linux em todo PR, e o merge é feito com merge commit, sem squash.
+2. Para publicar, as novidades de cada versão são escritas em `docs/releases/vX.Y.Z.md`, num PR `docs` para a `main`.
 3. O responsável cria a tag `vX.Y.Z` na `main`. O workflow publica a release com os instaladores, o código-fonte, o texto de `docs/releases/vX.Y.Z.md` e a lista automática de PRs.
 
 ---
@@ -640,6 +640,7 @@ Os números 011 e 028 não foram usados.
 | [0007](spec-kit/docs/adrs/0007-versionamento-semantico.md) | Versionamento semântico a partir da 1.7.1 |
 | [0009](spec-kit/docs/adrs/0009-remocao-da-claim-email-do-professor.md) | Remoção da claim `email` do JWT do professor |
 | [0010](spec-kit/docs/adrs/0010-sessao-unica-recusa-nova-entrada.md) | Matrícula já conectada recusa a nova entrada |
+| [0011](spec-kit/docs/adrs/0011-fluxo-de-entrega-somente-main.md) | Fluxo de entrega somente com a `main` |
 
 ---
 
@@ -648,11 +649,11 @@ Os números 011 e 028 não foram usados.
 As regras completas estão no [`AGENTS.md`](AGENTS.md) e valem para pessoas e agentes de IA.
 
 1. **Comece pela spec.** Nenhuma mudança de comportamento entra sem um `tasks.md` aprovado (fluxo SDD acima). Se a ideia é nova, abra uma issue e crie a feature em `spec-kit/specs/`.
-2. **Branch a partir da `development`** atualizada, com o nome `<tipo>/<descricao-em-kebab-case>` (ex.: `fix/lista-arquivos-celular`). Nunca commite direto na `development` nem na `main`.
+2. **Branch a partir da `main`** atualizada, com o nome `<tipo>/<descricao-em-kebab-case>` (ex.: `fix/lista-arquivos-celular`). Nunca commite direto na `main`.
 3. **Commits atômicos**, um por entrega, no formato `tipo(escopo): descrição em português` (tipos em inglês: `feat`, `fix`, `docs`, `refactor`, `test`, `ci`, `chore`…), com `Ref: Txxx` da tarefa. O template fica em `.gitmessage` (`git config commit.template .gitmessage`).
 4. **Versão:** se o PR muda `apps/` ou `packages/`, o último commit é o `npm run bump -- patch|minor|major` (veja [Versionamento e Releases](#versionamento-e-releases)).
 5. **Antes do PR**, rode `npm run spec:check`, `npm run lint`, `npm test` e `npm run version:check`.
-6. **Pull Request para a `development`**, preenchendo o [template](.github/pull_request_template.md): tarefa do Spec Kit, impacto de versão e desvios encontrados.
+6. **Pull Request para a `main`**, preenchendo o [template](.github/pull_request_template.md): tarefa do Spec Kit, impacto de versão e desvios encontrados.
 7. **Achou um bug fora do escopo?** Não corrija no mesmo PR. Abra uma issue com o template [Bug ou desvio](.github/ISSUE_TEMPLATE/bug-desvio.md), que segue o tratamento de desvios do `AGENTS.md` (§14).
 
 ---
