@@ -24,6 +24,11 @@ export default defineConfig({
     host: true,
     port: 5173,
     allowedHosts: true,
+    // 051/RF-5102: artefatos do e2e (traces com .html, capturas, relatórios) não podem recarregar a página em teste.
+    // O Vite soma estes globs aos padrões dele (.git, node_modules, test-results).
+    watch: {
+      ignored: ['**/test-results/**', '**/e2e-results/**', '**/playwright-report/**'],
+    },
     proxy: {
       '/rooms': {
         target: 'http://localhost:8080',

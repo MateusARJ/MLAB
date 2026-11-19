@@ -8,7 +8,7 @@
  *
  * Fontes:
  *   - smoke de backend: `go test -tags smoke -json` (apps/backend/cmd/server)
- *   - E2E do aluno:     apps/web/e2e-results/results.json (reporter JSON do Playwright)
+ *   - E2E do aluno:     apps/web/test-results/e2e-results.json (reporter JSON do Playwright, 051)
  *   - roteiro manual:   docs/metrics/smoke-manual.json
  * Saída: docs/metrics/smoke-2026-11.md
  */
@@ -20,7 +20,7 @@ const root = path.resolve(__dirname, '..');
 const backendDir = path.join(root, 'apps', 'backend');
 const webDir = path.join(root, 'apps', 'web');
 const backendJson = path.join(root, 'docs', 'metrics', 'smoke-backend.jsonl');
-const e2eJson = path.join(webDir, 'e2e-results', 'results.json');
+const e2eJson = path.join(webDir, 'test-results', 'e2e-results.json');
 const manualJson = path.join(root, 'docs', 'metrics', 'smoke-manual.json');
 const outFile = path.join(root, 'docs', 'metrics', 'smoke-2026-11.md');
 
