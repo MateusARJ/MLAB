@@ -9,15 +9,15 @@ Regras:
 - um commit atômico por task, com `Ref: T540x` e `Refs #164`.
 
 ### T5401 — Nomes únicos no teste da sondagem
-[ ] T5401
+[x] T5401
 Allowed Paths: `apps/backend/internal/room/mdns_probe_test.go`,
 `spec-kit/specs/054-teste-mdns-rede-compartilhada/tasks.md`
 Prohibited Paths: `apps/backend/internal/room/mdns_probe.go`, `apps/backend/internal/room/mdns_test.go`,
 `apps/backend/cmd/**`, `apps/desktop/**`, `apps/web/**`, `packages/**`
 Checks:
-- [ ] Nomes `mlab-teste-<8 hex>.local`, `-2`, `-3` gerados por execução, usados nos responders e no `probe` (RF-5401).
-- [ ] Asserções e limite de 1,5 s iguais (RF-5402).
-- [ ] `-count=5` verde com o MLab do professor anunciando `mlab.local` na LAN; `go vet` e `go test ./...` verdes
+- [x] Nomes `mlab-teste-<8 hex>.local`, `-2`, `-3` gerados por execução, usados nos responders e no `probe` (RF-5401).
+- [x] Asserções e limite de 1,5 s iguais (RF-5402).
+- [x] `-count=5` verde com o MLab do professor anunciando `mlab.local` na LAN; `go vet` e `go test ./...` verdes
   (RNF-5402).
 
 ### T5402 — Converge
