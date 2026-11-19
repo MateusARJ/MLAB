@@ -34,13 +34,13 @@ Checks:
 - [x] `go vet ./...` verde; `go test ./cmd/server` verde com Go 1.26.11.
 
 ### T5203 — Converge
-[ ] T5203
+[x] T5203
 Depends On: T5202
 Allowed Paths: `spec-kit/specs/052-crash-runtime-go-udp-windows/**`
 Prohibited Paths: `apps/**`, `packages/**`, `.github/**`, `spec-kit/docs/adrs/**`
 Checks:
-- [ ] `converge.md` com evidências, desvios e impacto de versão (PATCH, C-5203).
-- [ ] `npm run spec:check -- spec-kit/specs/052-crash-runtime-go-udp-windows` com PASS.
+- [x] `converge.md` com evidências, desvios e impacto de versão (PATCH, C-5203).
+- [x] `npm run spec:check -- spec-kit/specs/052-crash-runtime-go-udp-windows` com PASS.
 
 ### T5204 — Versão
 [ ] T5204
