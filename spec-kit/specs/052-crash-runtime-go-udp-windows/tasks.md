@@ -2,7 +2,7 @@
 
 Feature: `052-crash-runtime-go-udp-windows`
 Prerequisites: spec/clarify/plan/checklist/analyze aprovados
-Status: IN PROGRESS
+Status: DONE
 
 Regras:
 - `go vet ./...` e `go test ./...` em `apps/backend` verdes antes de marcar `[x]`;
@@ -43,10 +43,10 @@ Checks:
 - [x] `npm run spec:check -- spec-kit/specs/052-crash-runtime-go-udp-windows` com PASS.
 
 ### T5204 — Versão
-[ ] T5204
+[x] T5204
 Depends On: T5203
 Allowed Paths: `package.json`, `package-lock.json`, `apps/*/package.json`, `packages/*/package.json`,
 `spec-kit/specs/052-crash-runtime-go-udp-windows/tasks.md`
 Prohibited Paths: `apps/**/src/**`, `packages/**/src/**`, `.github/**`
 Checks:
-- [ ] `npm run bump -- patch` e `npm run version:check`; commit `chore(release): versao 2.2.2`.
+- [x] `npm run bump -- patch` e `npm run version:check`; commit `chore(release): versao 2.2.2`.
