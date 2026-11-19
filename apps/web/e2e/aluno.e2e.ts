@@ -43,7 +43,9 @@ test('A13 @mobile aluno lista e baixa o arquivo enviado pelo professor', async (
   await joinAsStudent(page, prof.slug, 'Aluno Arquivos', MATRICULA);
   const file = await prof.upload('material-aula.txt', 'conteudo do material');
 
-  await page.getByRole('button', { name: /Arquivos da aula/i }).first().click();
+  // 050/RF-5004: o nome do botão traz a contagem; esperar por ela confirma que o aviso do arquivo chegou ao aluno e
+  // não depende da ordem entre o clique e esse aviso (#149).
+  await page.getByRole('button', { name: /Arquivos da aula \(1 arquivo\)/i }).first().click();
   const link = page.locator(`a[download="${file.name}"]`).first();
   await expect(link).toBeVisible();
   expect(await link.getAttribute('href')).toContain('token=');
