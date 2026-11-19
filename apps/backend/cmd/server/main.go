@@ -26,6 +26,12 @@ func main() {
 	logOut, closeLog := openLogOutput(os.Getenv(logFileEnv), os.Stderr)
 	defer closeLog()
 	log.SetOutput(logOut)
+	// Crash do runtime também no log persistente (052/RF-5202); sem o arquivo, segue só no stderr (RF-5203).
+	if path := os.Getenv(logFileEnv); path != "" {
+		if err := setCrashLog(path); err != nil {
+			log.Printf("AVISO: a saída de crash não irá para %s: %v", path, err)
+		}
+	}
 	watchdogOn := watchdogEnabled()
 	parentPID := parseParentPID(os.Getenv(parentPIDEnv))
 	logStartup(watchdogOn, parentPID)

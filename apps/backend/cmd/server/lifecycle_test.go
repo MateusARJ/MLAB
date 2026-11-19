@@ -316,8 +316,59 @@ func TestLifecycleHelperProcess(t *testing.T) {
 		case <-time.After(15 * time.Second):
 			os.Exit(2) // nunca sobra processo se o watchdog falhar
 		}
+	case "crash":
+		if err := setCrashLog(os.Getenv(logFileEnv)); err != nil {
+			fmt.Println("erro:", err)
+			os.Exit(1)
+		}
+		panic("crash de teste 052")
 	default:
 		t.Skip("ponto de entrada de processo auxiliar")
+	}
+}
+
+// TestSetCrashLog_PanicVaiParaArquivoEStderr cobre 052/RF-5202: o panic não tratado chega ao arquivo de log, em
+// append, e continua no stderr.
+func TestSetCrashLog_PanicVaiParaArquivoEStderr(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "mlab-backend.log")
+	if err := os.WriteFile(path, []byte("linha anterior\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	cmd := exec.Command(os.Args[0], "-test.run=^TestLifecycleHelperProcess$")
+	cmd.Env = append(os.Environ(), helperModeEnv+"=crash", logFileEnv+"="+path)
+	var stderr bytes.Buffer
+	cmd.Stderr = &stderr
+	if err := cmd.Run(); err == nil {
+		t.Fatal("o processo auxiliar deveria terminar com erro pelo panic")
+	}
+
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := string(data)
+	if !strings.HasPrefix(got, "linha anterior\n") {
+		t.Fatalf("o log deve ser aberto em append: %q", got)
+	}
+	for _, want := range []string{"panic: crash de teste 052", "goroutine "} {
+		if !strings.Contains(got, want) {
+			t.Errorf("o arquivo deveria conter %q:\n%s", want, got)
+		}
+	}
+	if !strings.Contains(stderr.String(), "panic: crash de teste 052") {
+		t.Errorf("o stderr deveria continuar com o panic:\n%s", stderr.String())
+	}
+}
+
+// TestSetCrashLog_CaminhoInvalidoDevolveErro cobre 052/RF-5203: sem conseguir abrir o arquivo, devolve o erro para o
+// main avisar e seguir.
+func TestSetCrashLog_CaminhoInvalidoDevolveErro(t *testing.T) {
+	blocker := filepath.Join(t.TempDir(), "arquivo")
+	if err := os.WriteFile(blocker, nil, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := setCrashLog(filepath.Join(blocker, "mlab-backend.log")); err == nil {
+		t.Fatal("caminho dentro de um arquivo deveria falhar")
 	}
 }
 
