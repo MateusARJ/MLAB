@@ -33,8 +33,9 @@ Branch: `fix/crash-runtime-go-udp-windows`, a partir da `main` @ `39fde1e` (2.2.
 
 ## 3. Desvios registrados
 
-- Issue a abrir (o `gh issue create` foi negado nesta sessão; texto entregue ao responsável):
-  `fix(backend): teste da sondagem mdns falha com outro mlab na mesma rede`. Não bloqueante:
+Issue do crash: #163.
+
+- #164 — `fix(backend): teste da sondagem mdns falha com outro mlab na mesma rede`. Não bloqueante:
   `TestLegacyProberDetectaNomeOcupado` usa multicast real e espera que `mlab.local` esteja ocupado pelo responder
   simulado (192.0.2.10). Com outro MLab anunciando `mlab.local` na LAN (192.168.1.78), a resposta real vem antes e o
   teste falha. Falha igual na `main` com Go 1.26.0; não depende desta feature.
