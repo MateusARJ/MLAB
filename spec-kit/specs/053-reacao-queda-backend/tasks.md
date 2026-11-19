@@ -61,13 +61,13 @@ Checks:
 - [x] Testes existentes do `Room` verdes.
 
 ### T5305 — Converge
-[ ] T5305
+[x] T5305
 Depends On: T5304
 Allowed Paths: `spec-kit/specs/053-reacao-queda-backend/**`
 Prohibited Paths: `apps/**`, `packages/**`, `.github/**`, `spec-kit/docs/adrs/**`
 Checks:
-- [ ] `converge.md` com evidências, desvios e impacto de versão (MINOR, C-5304).
-- [ ] `npm run spec:check -- spec-kit/specs/053-reacao-queda-backend` com PASS.
+- [x] `converge.md` com evidências, desvios e impacto de versão (MINOR, C-5304).
+- [x] `npm run spec:check -- spec-kit/specs/053-reacao-queda-backend` com PASS.
 
 ### T5306 — Versão
 [ ] T5306
