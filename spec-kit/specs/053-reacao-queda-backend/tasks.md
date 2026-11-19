@@ -33,7 +33,7 @@ Checks:
 - [x] Nenhum token ou chave no log (RNF-5303).
 
 ### T5303 — Retomada no renderer
-[ ] T5303
+[x] T5303
 Depends On: T5302
 Allowed Paths: `apps/desktop/src/renderer/hooks/useBackendRecovery.ts`,
 `apps/desktop/src/renderer/hooks/useBackendRecovery.test.ts`, `apps/desktop/src/renderer/App.tsx`,
@@ -41,11 +41,11 @@ Allowed Paths: `apps/desktop/src/renderer/hooks/useBackendRecovery.ts`,
 Prohibited Paths: `apps/desktop/src/renderer/services/**`, `apps/desktop/src/renderer/hooks/useWebRTCPublisher.ts`,
 `apps/desktop/src/main/**`, `apps/backend/**`, `apps/web/**`, `packages/**`
 Checks:
-- [ ] `up` após `down`: renova a sessão com o nome guardado; em sala, recria a sala com o mesmo título e chama
+- [x] `up` após `down`: renova a sessão com o nome guardado; em sala, recria a sala com o mesmo título e chama
   `onRoomRecreated` (RF-5305).
-- [ ] No dashboard: só renova a sessão (US-5303).
-- [ ] `failed` ou erro na renovação ou na recriação → `failed`; sucesso → `recovered` por 10 s (RF-5307).
-- [ ] `App` atualiza a sala e o `setActiveRoom`; `Dashboard` passa o `title`.
+- [x] No dashboard: só renova a sessão (US-5303).
+- [x] `failed` ou erro na renovação ou na recriação → `failed`; sucesso → `recovered` por 10 s (RF-5307).
+- [x] `App` atualiza a sala e o `setActiveRoom`; `Dashboard` passa o `title`.
 
 ### T5304 — Aviso e republicação na sala
 [ ] T5304

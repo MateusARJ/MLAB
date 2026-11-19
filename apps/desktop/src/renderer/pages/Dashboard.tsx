@@ -22,6 +22,7 @@ interface DashboardProps {
     id: string;
     slug: string;
     link: string;
+    title: string;
     ipLink?: string;
     mdnsLink?: string;
     shortIpLink?: string;
@@ -39,6 +40,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ onEnterRoom, onLogout }) =
     id: string;
     slug: string;
     link: string;
+    title: string;
     ipLink?: string;
     mdnsLink?: string;
     shortIpLink?: string;
@@ -76,6 +78,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ onEnterRoom, onLogout }) =
         id: roomId,
         slug: resp.slug,
         link: roomLink,
+        title,
         ipLink: resp.ip_link,
         mdnsLink: resp.mdns_link,
         shortIpLink: resp.short_ip_link,
