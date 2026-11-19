@@ -21,16 +21,17 @@ Checks:
 - [x] `go mod tidy` não alterou `go.sum` (RNF-5202).
 
 ### T5202 — Saída de crash no log persistente
-[ ] T5202
+[x] T5202
 Depends On: T5201
 Allowed Paths: `apps/backend/cmd/server/main.go`, `apps/backend/cmd/server/lifecycle.go`,
 `apps/backend/cmd/server/lifecycle_test.go`, `spec-kit/specs/052-crash-runtime-go-udp-windows/tasks.md`
 Prohibited Paths: `apps/backend/internal/**`, `apps/backend/go.mod`, `apps/desktop/**`, `apps/web/**`, `packages/**`
 Checks:
-- [ ] `setCrashLog` grava a saída de crash em append no `MLAB_LOG_FILE` (RF-5202).
-- [ ] Teste com subprocesso: `panic` no arquivo e no stderr (RF-5202).
-- [ ] Teste: caminho inválido devolve erro; `main` avisa e segue (RF-5203).
-- [ ] Nenhuma variável de ambiente gravada (RNF-5203).
+- [x] `setCrashLog` grava a saída de crash em append no `MLAB_LOG_FILE` (RF-5202).
+- [x] Teste com subprocesso: `panic` no arquivo (em append) e no stderr (RF-5202).
+- [x] Teste: caminho inválido devolve erro; `main` avisa e segue (RF-5203).
+- [x] Nenhuma variável de ambiente gravada: a saída é só a do runtime (`CrashOptions` vazio) (RNF-5203).
+- [x] `go vet ./...` verde; `go test ./cmd/server` verde com Go 1.26.11.
 
 ### T5203 — Converge
 [ ] T5203
