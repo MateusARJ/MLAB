@@ -2,7 +2,7 @@
 
 Feature: `053-reacao-queda-backend`
 Prerequisites: spec/clarify/plan/checklist/analyze aprovados
-Status: IN PROGRESS
+Status: DONE
 
 Regras:
 - `npm run test --workspace=apps/desktop` e `npm run lint --workspace=apps/desktop` verdes antes de marcar `[x]`;
@@ -70,10 +70,10 @@ Checks:
 - [x] `npm run spec:check -- spec-kit/specs/053-reacao-queda-backend` com PASS.
 
 ### T5306 — Versão
-[ ] T5306
+[x] T5306
 Depends On: T5305
 Allowed Paths: `package.json`, `package-lock.json`, `apps/*/package.json`, `packages/*/package.json`,
 `spec-kit/specs/053-reacao-queda-backend/tasks.md`
 Prohibited Paths: `apps/**/src/**`, `packages/**/src/**`, `.github/**`
 Checks:
-- [ ] `npm run bump -- minor` e `npm run version:check`; commit `chore(release): versao X.Y.0`.
+- [x] `npm run bump -- minor` e `npm run version:check`; commit `chore(release): versao X.Y.0`.
