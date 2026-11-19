@@ -9,17 +9,17 @@ Regras:
 - um commit atômico por task, com `Ref: T530x`.
 
 ### T5301 — Detecção e reinício no BackendManager
-[ ] T5301
+[x] T5301
 Allowed Paths: `apps/desktop/src/main/backendManager.ts`, `apps/desktop/src/main/backendManager.test.ts`,
 `spec-kit/specs/053-reacao-queda-backend/tasks.md`
 Prohibited Paths: `apps/desktop/src/renderer/**`, `apps/backend/**`, `apps/web/**`, `packages/**`
 Checks:
-- [ ] Saída sem `stopping` → `down`, `restarting`, `start()` com a mesma config, `up` após `/health` OK (RF-5301,
+- [x] Saída sem `stopping` → `down`, `restarting`, `start()` com a mesma config, `up` após `/health` OK (RF-5301,
   RF-5303).
-- [ ] `/health` armado no 1º OK; 3 falhas seguidas → `forceKill` + `down` (RF-5302, RNF-5302).
-- [ ] 3 reinícios em 60 s → `failed`; partida falhando → `failed` (RF-5303).
-- [ ] Nada reinicia depois de `stop()`/`forceKillSync()` (RF-5303, RNF-5305).
-- [ ] Testes existentes do `BackendManager` verdes.
+- [x] `/health` armado no 1º OK; 3 falhas seguidas → `forceKill` + `down` (RF-5302, RNF-5302).
+- [x] 3 reinícios em 60 s → `failed`; partida falhando → `failed` (RF-5303).
+- [x] Nada reinicia depois de `stop()`/`forceKillSync()` (RF-5303, RNF-5305).
+- [x] Testes existentes do `BackendManager` verdes.
 
 ### T5302 — Canal IPC `backend:status`
 [ ] T5302
