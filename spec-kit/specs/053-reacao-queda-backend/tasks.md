@@ -50,7 +50,8 @@ Checks:
 ### T5304 — Aviso e republicação na sala
 [ ] T5304
 Depends On: T5303
-Allowed Paths: `apps/desktop/src/renderer/pages/Room.tsx`, `apps/desktop/src/renderer/App.tsx`,
+Allowed Paths: `apps/desktop/src/renderer/pages/Room.tsx`, `apps/desktop/src/renderer/pages/Room.test.tsx`,
+`apps/desktop/src/renderer/App.tsx`,
 `spec-kit/specs/053-reacao-queda-backend/tasks.md`
 Prohibited Paths: `apps/desktop/src/renderer/services/**`, `apps/desktop/src/renderer/hooks/useWebRTCPublisher.ts`,
 `apps/desktop/src/main/**`, `apps/backend/**`, `apps/web/**`, `packages/**`

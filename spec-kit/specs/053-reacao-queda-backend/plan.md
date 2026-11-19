@@ -78,7 +78,7 @@ BackendManager (main)                       main.ts                 renderer
 - `apps/desktop/src/main/backendManager.ts`, `apps/desktop/src/main/backendManager.test.ts`
 - `apps/desktop/src/main/main.ts`, `apps/desktop/src/main/preload.ts`
 - `apps/desktop/src/renderer/App.tsx`, `apps/desktop/src/renderer/pages/Dashboard.tsx`,
-  `apps/desktop/src/renderer/pages/Room.tsx`
+  `apps/desktop/src/renderer/pages/Room.tsx`, `apps/desktop/src/renderer/pages/Room.test.tsx`
 - `apps/desktop/src/renderer/hooks/useBackendRecovery.ts`, `apps/desktop/src/renderer/hooks/useBackendRecovery.test.ts`
 - `apps/desktop/src/env.d.ts` (tipo do `electronAPI`, se declarado ali)
 - `apps/desktop/src/test/setup.ts` (mock global do `electronAPI` nos testes; precisa do método novo para o `tsc`)
