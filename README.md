@@ -17,7 +17,7 @@
   <a href="#solução-de-problemas">Problemas</a>
 </p>
 
-> **Esta é a branch `edicao/https-lan`.** Ela fica sempre atualizada com a `development` por rebase, mas **nunca é
+> **Esta é a branch `edicao/https-lan`.** Ela fica sempre atualizada com a `main` por rebase, mas **nunca é
 > mergeada nela**. O MLab principal continua em HTTP. Para a documentação geral do MLab (funcionalidades, requisitos,
 > primeira aula, desenvolvimento), veja o [README da branch `main`](https://github.com/MateusARJ/MLAB/blob/main/README.md).
 
@@ -155,12 +155,12 @@ A pasta `apps/backend/tls-dev/` está no `.gitignore`: **nunca versione a chave 
 
 ### Manter a edição atualizada
 
-A branch é protegida (PR obrigatório, commits assinados, sem force push). Para trazer as novidades da `development`:
+A branch é protegida (PR obrigatório, commits assinados, sem force push). Para trazer as novidades da `main`:
 
-1. Rebase local: `git rebase mlab/development` na `edicao/https-lan`.
+1. Rebase local: `git rebase mlab/main` na `edicao/https-lan`.
 2. Em conflito no `README.md`, mantenha **este** README (o da edição).
 3. O push do rebase exige desligar temporariamente a ruleset da edição.
 
 ## Licença
 
-[MIT](LICENSE).
+[Apache 2.0](LICENSE), a partir da 2.3.1. Quem redistribuir o MLab HTTPS deve repassar também o arquivo [`NOTICE`](NOTICE) ([ADR 0012](spec-kit/docs/adrs/0012-licenca-apache-2-0.md)).
