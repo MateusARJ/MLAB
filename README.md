@@ -163,4 +163,4 @@ A branch é protegida (PR obrigatório, commits assinados, sem force push). Para
 
 ## Licença
 
-[MIT](LICENSE).
+[Apache 2.0](LICENSE), a partir da 2.3.1. Quem redistribuir o MLab HTTPS deve repassar também o arquivo [`NOTICE`](NOTICE) ([ADR 0012](spec-kit/docs/adrs/0012-licenca-apache-2-0.md)).
