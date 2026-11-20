@@ -16,7 +16,7 @@
   <img src="https://img.shields.io/badge/React-18-61DAFB?style=flat&logo=react&logoColor=black" alt="React" />
   <img src="https://img.shields.io/badge/Vite-Fast-646CFF?style=flat&logo=vite&logoColor=white" alt="Vite" />
   <img src="https://img.shields.io/badge/Methodology-SDD_%26_AI-7c3aed?style=flat" alt="SDD" />
-  <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-green.svg" alt="License" /></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/License-Apache_2.0-blue.svg" alt="License" /></a>
   <a href="https://github.com/MateusARJ/MLAB/releases/latest"><img src="https://img.shields.io/github/v/release/MateusARJ/MLAB?label=vers%C3%A3o&color=0f62fe" alt="Versão" /></a>
 </p>
 
@@ -695,7 +695,9 @@ mlab/
 
 ## Licença e Menções a Terceiros
 
-O código-fonte do **MLab** é distribuído sob os termos da **[Licença MIT](LICENSE)**, © 2026 Mateus de Araujo.
+O código-fonte do **MLab** é distribuído sob os termos da **[Licença Apache 2.0](LICENSE)**, © 2026 Mateus de Araujo. Quem redistribuir o MLab deve repassar também o arquivo [`NOTICE`](NOTICE).
+
+A Licença Apache 2.0 vale a partir da versão 2.3.1. Versões anteriores foram publicadas sob a Licença MIT e não são mais distribuídas ([ADR 0012](spec-kit/docs/adrs/0012-licenca-apache-2-0.md)).
 
 ### Atribuições e Licenças de Bibliotecas de Terceiros
 O MLab é construído sobre tecnologias de código aberto. Agradecemos e reconhecemos os autores e mantenedores dos seguintes projetos:
