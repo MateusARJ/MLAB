@@ -1,7 +1,8 @@
 {
   "name": "mlab",
-  "version": "2.3.0",
+  "version": "2.3.1",
   "private": true,
+  "license": "Apache-2.0",
   "repository": {
     "type": "git",
     "url": "https://github.com/MateusARJ/MLAB.git"

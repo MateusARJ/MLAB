@@ -1,6 +1,6 @@
 {
   "name": "@mlab/desktop",
-  "version": "2.3.0",
+  "version": "2.3.1",
   "description": "Plataforma de transmissão de tela e interação para aulas ao vivo",
   "homepage": "https://mlab.com",
   "author": {
@@ -8,6 +8,7 @@
     "email": "contato@mlab.com"
   },
   "private": true,
+  "license": "Apache-2.0",
   "repository": {
     "type": "git",
     "url": "https://github.com/MateusARJ/MLAB.git"
@@ -80,6 +81,14 @@
       {
         "from": "../web/dist",
         "to": "web"
+      },
+      {
+        "from": "../../LICENSE",
+        "to": "LICENSE"
+      },
+      {
+        "from": "../../NOTICE",
+        "to": "NOTICE"
       }
     ],
     "win": {
