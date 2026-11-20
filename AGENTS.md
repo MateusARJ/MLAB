@@ -232,6 +232,7 @@ ADRs aprovadas existentes (fonte: `spec-kit/docs/adrs/`; manter esta lista sincr
 - `spec-kit/docs/adrs/0009-remocao-da-claim-email-do-professor.md` — remove a claim `email` fixa do JWT do professor; substitui o item 5 da ADR 0006.
 - `spec-kit/docs/adrs/0010-sessao-unica-recusa-nova-entrada.md` — matrícula já conectada recusa a nova entrada (`409`/`4002`); substitui a ADR 0004 §2.1.C.
 - `spec-kit/docs/adrs/0011-fluxo-de-entrega-somente-main.md` — fim da `development`: branches e PRs partem da `main` e voltam a ela; release só pela tag.
+- `spec-kit/docs/adrs/0012-licenca-apache-2-0.md` — Apache 2.0 a partir da 2.3.1; releases antigas (MIT) apagadas do GitHub, tags mantidas.
 
 Fluxo:
 
