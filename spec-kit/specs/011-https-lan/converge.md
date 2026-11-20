@@ -112,3 +112,25 @@ Edição isolada, sem PR para a `development`: **sem `npm run bump`** e versão 
   confirmado como funcional.
 - **Gaps:** continuam os da §3 (aparelhos reais com a CA instalada e o instalador `make:win`). Nenhum teste
   automatizado cobre o cartão no Dashboard.
+
+### 2026-11-20 — rebase sobre a `main` 2.3.1
+
+- **Base:** com o fim da `development` (ADR 0011), a edição passa a ser rebaseada sobre a `main`. Os 13 commits da
+  edição saíram de `315209e` (#156) para `84594ff` (#168, `main` 2.3.1), que estava 41 commits à frente. O merge commit
+  do #158 foi linearizado pelo rebase, e todos os commits seguem assinados. O push forçado exige desligar a ruleset
+  `Rule-edicao-https-lan` só durante o envio.
+- **Versão:** a edição acompanha a `main` e passa a **2.3.1** (instalador `MLab HTTPS-Setup-2.3.1`), sem bump
+  próprio (§4).
+- **Licença:** a edição herda da `main` a Apache 2.0 (ADR 0012): `LICENSE`, `NOTICE`, o campo `license` dos
+  `package.json` e os dois arquivos em `extraResources`. O README da edição, que ainda citava a MIT, foi atualizado.
+- **Conflitos resolvidos:** só o `README.md`, mantido o da edição. Sem conflito no `apps/desktop/package.json`
+  (identidade "MLab HTTPS" ao lado do campo `license` e dos novos `extraResources`), no `main.ts`, no `Dashboard.tsx`
+  e no backend.
+- **Fluxo:** o README e o `docs/https-lan.md` passam a citar a `main` no lugar da `development`.
+- **Verificação automática:**
+  - `npm run spec:check` PASS e `npm run version:check` 2.3.1;
+  - backend: `go vet` e `go test ./...` verdes, incluindo `internal/tlsca` e `cmd/server`;
+  - web: `vitest` 85/85 e lint;
+  - desktop: `vitest` 410/410 e `npm run lint` (`tsc --noEmit`).
+- **Gaps:** continuam os da §3. O teste manual do cartão **HTTPS na rede local** e do backend com `MLAB_TLS=1` não
+  foi repetido neste rebase, porque nenhum arquivo da edição teve conflito de código.
