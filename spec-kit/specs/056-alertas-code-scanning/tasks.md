@@ -43,13 +43,14 @@ Checks:
 - [x] `npm test` (411 testes) e `npm run lint` do `apps/desktop` verdes (RNF-5601).
 
 ### T5604 — Escapar a barra invertida no relatório de smoke
-[ ] T5604
+[x] T5604
 Depends On: T5603
 Allowed Paths: `scripts/smoke-report.js`, `spec-kit/specs/056-alertas-code-scanning/tasks.md`
 Prohibited Paths: `apps/**`, `packages/**`, `.github/**`
 Checks:
-- [ ] Barra invertida escapada antes da barra vertical no detalhe das falhas (RF-5604, alerta #8).
-- [ ] `node --check scripts/smoke-report.js` e verificação do escape registrada.
+- [x] Barra invertida escapada antes da barra vertical no detalhe das falhas (RF-5604, alerta #8).
+- [x] `node --check scripts/smoke-report.js` OK; a expressão do script, aplicada a `a|b`, `x \| y`, `c:\pasta\arq` e
+  texto sem metacaractere, deixa toda barra vertical precedida por um número ímpar de barras invertidas.
 
 ### T5605 — Converge
 [ ] T5605

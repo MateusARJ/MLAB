@@ -169,7 +169,9 @@ function main() {
     const final = combine(parts);
     counts[final] = (counts[final] || 0) + 1;
     rows.push(`| ${id} | ${desc} | **${final}** | ${parts.map((p) => `${p.label}: ${p.status}`).join('<br>')} |`);
-    for (const p of parts) if (p.status === 'FALHA' && p.detail) failures.push(`- **${id}** (${p.label}): ${p.detail.replace(/\|/g, '\\|')}`);
+    // Barra invertida antes da barra vertical: senão um "\|" no detalhe vira "\\|" e a barra vertical volta a
+    // valer como separador no Markdown (056/RF-5604).
+    for (const p of parts) if (p.status === 'FALHA' && p.detail) failures.push(`- **${id}** (${p.label}): ${p.detail.replace(/\\/g, '\\\\').replace(/\|/g, '\\|')}`);
   }
 
   const now = new Date().toISOString().slice(0, 16).replace('T', ' ');
