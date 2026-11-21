@@ -19,15 +19,16 @@ Checks:
 - [x] `npm test` (81 testes) e `npm run lint` do `apps/web` verdes (RNF-5601).
 
 ### T5602 — Conter o spaHandler na pasta web
-[ ] T5602
+[x] T5602
 Depends On: T5601
 Allowed Paths: `apps/backend/cmd/server/main.go`, `apps/backend/cmd/server/main_test.go`,
 `spec-kit/specs/056-alertas-code-scanning/tasks.md`
 Prohibited Paths: `apps/backend/internal/**`, `apps/web/**`, `apps/desktop/**`, `packages/**`, `scripts/**`
 Checks:
-- [ ] `spaHandler` usa `os.Root` para a verificação de existência (RF-5602, alerta #1).
-- [ ] Testes com arquivo físico, rota de SPA e caminhos com `..` e barra invertida fora da pasta (RF-5602).
-- [ ] `go test ./...`, `go vet ./...` e `gofmt -l .` vazio no `apps/backend` (RNF-5601).
+- [x] `spaHandler` usa `os.Root` (aberto e fechado a cada verificação, em `isWebFile`) e a guarda
+  `filepath.IsLocal` (RF-5602, alerta #1).
+- [x] Testes com arquivo físico, rota de SPA e caminhos com `..` e barra invertida fora da pasta (RF-5602).
+- [x] `go test ./...`, `go vet ./...` e `gofmt -l` vazio nos arquivos alterados (RNF-5601).
 
 ### T5603 — Escapar o payload type no SDP do desktop
 [ ] T5603
