@@ -149,7 +149,7 @@ Pré-requisitos: tudo o que vai sair na release está mergeado na `main`, com `n
    versão do `package.json`.
 
 3. **Conferir** na página de [Releases](https://github.com/MateusARJ/MLAB/releases) os arquivos
-   `MLab-Setup-X.Y.Z.exe`, `MLab-Mac-X.Y.Z.dmg`/`.zip` e `MLab-Linux-X.Y.Z.AppImage`/`.deb`/`.tar.gz`.
+   `MLab-Setup-X.Y.Z.exe`, `MLab-Mac-X.Y.Z.dmg`/`.zip` e `MLab-Linux-X.Y.Z.AppImage`/`.deb`.
 
 > **A release traz o código-fonte.** A tag aponta para o commit da `main` que gerou a versão, e o GitHub anexa
 > automaticamente `Source code (zip)` e `Source code (tar.gz)` ao lado dos instaladores.

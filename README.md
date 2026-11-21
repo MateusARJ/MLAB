@@ -232,7 +232,7 @@ Os instaladores ficam na página de [Releases](https://github.com/MateusARJ/MLAB
   ```bash
   sudo apt install ./MLab-Linux-<versão>.deb
   ```
-- **Outras distribuições (.tar.gz):** extraia o arquivo e execute o binário `mlab` (ou `MLab`) da pasta.
+- **Outras distribuições (Fedora, Arch, openSUSE…):** use o AppImage, que roda em qualquer distribuição.
 - **Wayland:** a captura de tela usa o portal do sistema (`xdg-desktop-portal` + PipeWire), que mostra a janela de escolha da tela. Se a captura falhar, verifique se esses pacotes estão instalados ou entre numa sessão Xorg.
 
 ### Código-fonte da versão
@@ -393,7 +393,7 @@ O aplicativo do professor é empacotado com `electron-builder`. Cada comando com
 |---|---|---|
 | Windows | `npm run make:win` | `MLab-Setup-<versão>.exe` (NSIS) e `win-unpacked/` |
 | macOS (em um Mac) | `npm run make:mac` | `MLab-Mac-<versão>.dmg` e `.zip` |
-| Linux (em Linux) | `npm run make:linux` | `MLab-Linux-<versão>.AppImage`, `.deb` e `.tar.gz` |
+| Linux (em Linux) | `npm run make:linux` | `MLab-Linux-<versão>.AppImage` e `.deb` |
 | Linux só AppImage / só .deb | `npm run make:linux:appimage` / `npm run make:linux:deb` | o pacote escolhido |
 | Windows + Linux | `npm run make` | todos os acima, exceto macOS |
 

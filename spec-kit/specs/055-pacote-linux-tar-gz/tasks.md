@@ -19,14 +19,14 @@ Checks:
   rodado (registrado no converge).
 
 ### T5502 — Deixar de anunciar o tar.gz na documentação
-[ ] T5502
+[x] T5502
 Depends On: T5501
 Allowed Paths: `README.md`, `docs/versionamento.md`, `spec-kit/specs/055-pacote-linux-tar-gz/tasks.md`
 Prohibited Paths: `docs/releases/**`, `apps/**`, `packages/**`, `.github/**`
 Checks:
-- [ ] README indica o AppImage para outras distribuições e a tabela de builds lista `.AppImage` e `.deb` (RF-5503).
-- [ ] `docs/versionamento.md` §5 lista só `.AppImage` e `.deb` no Linux (RF-5503).
-- [ ] `git grep "tar.gz"` sem menção ao pacote Linux do app fora das notas antigas e do `Source code (tar.gz)`.
+- [x] README indica o AppImage para outras distribuições e a tabela de builds lista `.AppImage` e `.deb` (RF-5503).
+- [x] `docs/versionamento.md` §5 lista só `.AppImage` e `.deb` no Linux (RF-5503).
+- [x] `git grep "tar.gz"` sem menção ao pacote Linux do app fora das notas antigas e do `Source code (tar.gz)`.
 
 ### T5503 — Converge
 [ ] T5503
