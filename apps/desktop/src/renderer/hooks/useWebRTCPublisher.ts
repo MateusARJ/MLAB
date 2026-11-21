@@ -10,6 +10,14 @@ export interface UseWebRTCPublisherProps {
 }
 
 /**
+ * Escapa os metacaracteres de expressão regular. O payload type vem do SDP, que pode ser a answer do servidor;
+ * mesmo capturado como dígitos, ele passa pelo escape antes de entrar num `new RegExp` (056/RF-5603).
+ */
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+/**
  * Injeta diretivas no SDP para cravar a taxa de transmissão em alta qualidade (1080p @ 4 Mbps para 30fps ou 6 Mbps para 60fps)
  * Força o motor Chromium WebRTC a iniciar imediatamente no bitrate pretendido via x-google-start-bitrate e max-fr
  */
@@ -30,7 +38,7 @@ export function enforceHighBitrateSDP(
   while ((match = rtpmapRegex.exec(result)) !== null) {
     const pt = match[1];
     const codec = match[2];
-    const fmtpRegex = new RegExp(`a=fmtp:${pt} (.*)\r\n`);
+    const fmtpRegex = new RegExp(`a=fmtp:${escapeRegExp(pt)} (.*)\r\n`);
     const params = `x-google-min-bitrate=${minBitrateKbps};x-google-start-bitrate=${bitrateKbps};x-google-max-bitrate=${burstBitrateKbps};max-fr=${maxFramerate}`;
     if (fmtpRegex.test(result)) {
       result = result.replace(fmtpRegex, `a=fmtp:${pt} $1;${params}\r\n`);
@@ -49,7 +57,7 @@ export function enforceHighBitrateSDP(
   const opusMatch = opusRegex.exec(result);
   if (opusMatch) {
     const pt = opusMatch[1];
-    const fmtpRegex = new RegExp(`a=fmtp:${pt} (.*)\r\n`);
+    const fmtpRegex = new RegExp(`a=fmtp:${escapeRegExp(pt)} (.*)\r\n`);
     if (fmtpRegex.test(result)) {
       result = result.replace(fmtpRegex, (_m, existing) => {
         let updated = existing;

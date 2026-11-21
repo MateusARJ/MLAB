@@ -496,4 +496,51 @@ describe('useWebRTCPublisher SDP Transformation (Opus DTX & Anti-Microfonia)', (
 
     expect(transformedSDP).toContain('a=fmtp:111 minptime=10;useinbandfec=1;usedtx=1;stereo=0;sprop-stereo=0');
   });
+
+  it('mantém a saída exata com VP8, H264 e Opus, com e sem fmtp prévio (056/RF-5603)', () => {
+    const inputSDP = [
+      'v=0',
+      'm=audio 9 UDP/TLS/RTP/SAVPF 111',
+      'a=rtpmap:111 opus/48000/2',
+      'a=fmtp:111 minptime=10;useinbandfec=1',
+      'm=video 9 UDP/TLS/RTP/SAVPF 96 102',
+      'a=rtpmap:96 VP8/90000',
+      'a=rtpmap:102 H264/90000',
+      'a=fmtp:102 level-asymmetry-allowed=1;packetization-mode=1;profile-level-id=42e01f',
+      '',
+    ].join('\r\n');
+
+    expect(enforceHighBitrateSDP(inputSDP, 4000, 30).split('\r\n')).toMatchInlineSnapshot(`
+      [
+        "v=0",
+        "m=audio 9 UDP/TLS/RTP/SAVPF 111",
+        "a=rtpmap:111 opus/48000/2",
+        "a=fmtp:111 minptime=10;useinbandfec=1;usedtx=1;stereo=0;sprop-stereo=0",
+        "m=video 9 UDP/TLS/RTP/SAVPF 96 102",
+        "b=AS:4000",
+        "b=TIAS:4000000",
+        "a=rtpmap:96 VP8/90000",
+        "a=fmtp:96 x-google-min-bitrate=3200;x-google-start-bitrate=4000;x-google-max-bitrate=5500;max-fr=30",
+        "a=rtpmap:102 H264/90000",
+        "a=fmtp:102 level-asymmetry-allowed=1;packetization-mode=1;profile-level-id=42e01f;x-google-min-bitrate=3200;x-google-start-bitrate=4000;x-google-max-bitrate=5500;max-fr=30",
+        "",
+      ]
+    `);
+    expect(enforceHighBitrateSDP(inputSDP, 6000, 60).split('\r\n')).toMatchInlineSnapshot(`
+      [
+        "v=0",
+        "m=audio 9 UDP/TLS/RTP/SAVPF 111",
+        "a=rtpmap:111 opus/48000/2",
+        "a=fmtp:111 minptime=10;useinbandfec=1;usedtx=1;stereo=0;sprop-stereo=0",
+        "m=video 9 UDP/TLS/RTP/SAVPF 96 102",
+        "b=AS:6000",
+        "b=TIAS:6000000",
+        "a=rtpmap:96 VP8/90000",
+        "a=fmtp:96 x-google-min-bitrate=4500;x-google-start-bitrate=6000;x-google-max-bitrate=7500;max-fr=60",
+        "a=rtpmap:102 H264/90000",
+        "a=fmtp:102 level-asymmetry-allowed=1;packetization-mode=1;profile-level-id=42e01f;x-google-min-bitrate=4500;x-google-start-bitrate=6000;x-google-max-bitrate=7500;max-fr=60",
+        "",
+      ]
+    `);
+  });
 });

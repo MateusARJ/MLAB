@@ -31,15 +31,16 @@ Checks:
 - [x] `go test ./...`, `go vet ./...` e `gofmt -l` vazio nos arquivos alterados (RNF-5601).
 
 ### T5603 — Escapar o payload type no SDP do desktop
-[ ] T5603
+[x] T5603
 Depends On: T5602
 Allowed Paths: `apps/desktop/src/renderer/hooks/useWebRTCPublisher.ts`,
 `apps/desktop/src/renderer/hooks/useScreenCapture.test.ts`, `spec-kit/specs/056-alertas-code-scanning/tasks.md`
 Prohibited Paths: `apps/desktop/src/main/**`, `apps/web/**`, `apps/backend/**`, `packages/**`, `scripts/**`
 Checks:
-- [ ] `escapeRegExp` aplicado nos dois `new RegExp` (RF-5603, alertas #2 e #3).
-- [ ] Teste compara a saída exata de um SDP com VP8 e opus, com e sem `a=fmtp` (RF-5603).
-- [ ] `npm test` e `npm run lint` do `apps/desktop` verdes (RNF-5601).
+- [x] `escapeRegExp` aplicado nos dois `new RegExp` (RF-5603, alertas #2 e #3).
+- [x] Teste compara a saída exata de um SDP com VP8, H264 e opus, com e sem `a=fmtp`, em 30 e 60 fps; o snapshot foi
+  gravado sobre o código anterior à mudança e continua igual depois dela (RF-5603).
+- [x] `npm test` (411 testes) e `npm run lint` do `apps/desktop` verdes (RNF-5601).
 
 ### T5604 — Escapar a barra invertida no relatório de smoke
 [ ] T5604
