@@ -134,3 +134,6 @@ Edição isolada, sem PR para a `development`: **sem `npm run bump`** e versão 
   - desktop: `vitest` 410/410 e `npm run lint` (`tsc --noEmit`).
 - **Gaps:** continuam os da §3. O teste manual do cartão **HTTPS na rede local** e do backend com `MLAB_TLS=1` não
   foi repetido neste rebase, porque nenhum arquivo da edição teve conflito de código.
+- **Correção posterior (2026-11-20, #172):** o `docs/https-lan.md` ainda mandava liberar o `server.exe` no firewall. O
+  backend se chama `mlab-backend.exe` desde a 1.15.4, e o guia passou a citar esse nome. O `plan.md` (riscos) fica com
+  o nome da época, e o `installer.nsh` continua citando o `server.exe` de propósito, para encerrar o binário legado.
