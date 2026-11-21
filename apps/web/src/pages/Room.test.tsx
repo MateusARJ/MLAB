@@ -607,6 +607,44 @@ describe('Room — altura da lista de arquivos (024)', () => {
   });
 });
 
+describe('Room — link de download montado pelo cliente (056/RF-5601)', () => {
+  const token = 'student-jwt-123';
+  const roomInfo = { room_id: 'room-101', ws_url: 'ws://localhost:8080/ws/rooms/room-101/signal', ice_servers: [] };
+  const expected = '/rooms/room-101/files/f1/download?token=student-jwt-123';
+
+  beforeEach(() => {
+    mockSubscriberState.sharedFiles = [
+      { id: 'f1', name: 'material-1.pdf', size: 1024, url: 'javascript:alert(document.cookie)' },
+    ];
+  });
+
+  afterEach(() => {
+    mockSubscriberState.sharedFiles = [];
+    window.innerWidth = 1024;
+    fireEvent(window, new Event('resize'));
+  });
+
+  it('na gaveta do desktop, ignora o url recebido e aponta para o download da sala', () => {
+    window.innerWidth = 1024;
+    fireEvent(window, new Event('resize'));
+    render(<Room token={token} roomInfo={roomInfo} onLeave={vi.fn()} />);
+
+    fireEvent.click(screen.getAllByTitle('Arquivos da Aula')[0]);
+    const link = screen.getByTestId('files-list').querySelector('a');
+    expect(link).toHaveAttribute('href', expected);
+  });
+
+  it('na aba Arquivos do celular, ignora o url recebido e aponta para o download da sala', () => {
+    window.innerWidth = 400;
+    fireEvent(window, new Event('resize'));
+    render(<Room token={token} roomInfo={roomInfo} onLeave={vi.fn()} />);
+
+    fireEvent.click(screen.getByRole('button', { name: /^Arquivos( \d+)?$/i }));
+    const link = screen.getByTestId('mobile-files-list').querySelector('a');
+    expect(link).toHaveAttribute('href', expected);
+  });
+});
+
 describe('Room — controles do aluno no celular (043)', () => {
   const dummyToken = 'student-jwt-123';
   const dummyRoomInfo = { room_id: 'room-101', ws_url: 'ws://localhost:8080/ws/rooms/room-101/signal', ice_servers: [] };

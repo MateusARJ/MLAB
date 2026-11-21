@@ -1,5 +1,18 @@
 import { describe, it, expect } from 'vitest';
-import { fileDownloadUrl } from './api';
+import { fileDownloadPath, fileDownloadUrl } from './api';
+
+describe('fileDownloadPath (056/RF-5601)', () => {
+  it('monta o caminho do contrato a partir da sala e do arquivo', () => {
+    expect(fileDownloadPath('r1', 'f1')).toBe('/rooms/r1/files/f1/download');
+  });
+
+  it('codifica sala e arquivo para não sair da rota nem da origem', () => {
+    expect(fileDownloadPath('r/1', 'javascript:alert(1)?x#y')).toBe(
+      '/rooms/r%2F1/files/javascript%3Aalert(1)%3Fx%23y/download'
+    );
+    expect(fileDownloadPath('r1', '//evil.example')).toBe('/rooms/r1/files/%2F%2Fevil.example/download');
+  });
+});
 
 describe('fileDownloadUrl', () => {
   it('acrescenta o token do aluno como parâmetro', () => {

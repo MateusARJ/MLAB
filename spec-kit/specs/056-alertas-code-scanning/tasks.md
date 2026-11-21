@@ -8,14 +8,15 @@ Regras:
 - um commit atômico por task, com `Ref: T560x`, na ordem abaixo (uma de cada vez).
 
 ### T5601 — Montar o link de download do aluno no cliente
-[ ] T5601
+[x] T5601
 Allowed Paths: `apps/web/src/services/api.ts`, `apps/web/src/services/api.test.ts`, `apps/web/src/pages/Room.tsx`,
 `apps/web/src/pages/Room.test.tsx`, `spec-kit/specs/056-alertas-code-scanning/tasks.md`
 Prohibited Paths: `apps/web/src/hooks/**`, `apps/backend/**`, `apps/desktop/**`, `packages/**`, `scripts/**`
 Checks:
-- [ ] `fileDownloadPath` monta `/rooms/{roomId}/files/{fileId}/download` com `encodeURIComponent` (RF-5601).
-- [ ] Os dois `href` de `Room.tsx` ignoram `file.url`; teste com `url: 'javascript:...'` (RF-5601, alertas #4 a #7).
-- [ ] `npm test` e `npm run lint` do `apps/web` verdes (RNF-5601).
+- [x] `fileDownloadPath` monta `/rooms/{roomId}/files/{fileId}/download` com `encodeURIComponent` (RF-5601).
+- [x] Os dois `href` de `Room.tsx` ignoram `file.url` e usam `roomInfo.room_id`; teste com
+  `url: 'javascript:...'` nas gavetas do desktop e do celular (RF-5601, alertas #4 a #7).
+- [x] `npm test` (81 testes) e `npm run lint` do `apps/web` verdes (RNF-5601).
 
 ### T5602 — Conter o spaHandler na pasta web
 [ ] T5602

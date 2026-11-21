@@ -71,6 +71,16 @@ export async function joinRoom(slug: string, req: JoinRoomRequest): Promise<Join
 }
 
 /**
+ * Monta o caminho de download de um arquivo da sala no formato fixo do contrato
+ * (003-classroom-interaction/contracts/files.md). O cliente não usa o campo `url` recebido do servidor:
+ * com prefixo fixo e na mesma origem, um payload adulterado não injeta esquema (`javascript:`) nem host
+ * (056/RF-5601).
+ */
+export function fileDownloadPath(roomId: string, fileId: string): string {
+  return `/rooms/${encodeURIComponent(roomId)}/files/${encodeURIComponent(fileId)}/download`;
+}
+
+/**
  * Monta a URL de download de um arquivo da sala com o token do aluno no parâmetro `token`,
  * exigido pelo backend porque links `<a href download>` não enviam o header Authorization
  * (contracts/files.md — 002-security-hardening/S4).

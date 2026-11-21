@@ -24,7 +24,7 @@ import {
 } from '@mlab/ui';
 import React, { useRef, useEffect, useState } from 'react';
 import { useWebRTCSubscriber } from '../hooks/useWebRTCSubscriber';
-import { fileDownloadUrl } from '../services/api';
+import { fileDownloadPath, fileDownloadUrl } from '../services/api';
 
 interface RoomProps {
   token: string;
@@ -1064,7 +1064,7 @@ export const Room: React.FC<RoomProps> = ({ token, roomInfo, onLeave }) => {
                       <span style={styles.fileSize}>{formatFileSize(file.size)}</span>
                     </div>
                     <a
-                      href={fileDownloadUrl(file.url, token)}
+                      href={fileDownloadUrl(fileDownloadPath(roomInfo.room_id, file.id), token)}
                       download={file.name}
                       target="_blank"
                       rel="noopener noreferrer"
@@ -1165,7 +1165,7 @@ export const Room: React.FC<RoomProps> = ({ token, roomInfo, onLeave }) => {
                         <span style={styles.fileSize}>{formatFileSize(file.size)}</span>
                       </div>
                       <a
-                        href={fileDownloadUrl(file.url, token)}
+                        href={fileDownloadUrl(fileDownloadPath(roomInfo.room_id, file.id), token)}
                         download={file.name}
                         target="_blank"
                         rel="noopener noreferrer"
