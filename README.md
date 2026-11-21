@@ -198,7 +198,7 @@ uma, está em [Features e Decisões de Arquitetura](#features-e-decisões-de-arq
 | Computador do professor | Windows 10/11 (64 bits), macOS 13+ (Ventura ou superior) ou Linux 64 bits (Ubuntu/Debian/Fedora) |
 | Alunos | Qualquer computador ou smartphone com navegador moderno (Chrome, Edge, Firefox, Safari ou Opera) |
 | Rede | Professor e alunos na mesma rede local (cabo ou Wi-Fi) |
-| Desenvolvimento | Node.js 20+ (npm 10+), Go 1.26+ (`apps/backend/go.mod`), Git |
+| Desenvolvimento | Node.js 20+ (npm 10+), Go 1.26.11+ (`apps/backend/go.mod`), Git |
 
 ---
 
@@ -338,10 +338,10 @@ O repositório é um monorepo [Turborepo](https://turbo.build/) com `apps/deskto
      ```bash
      sudo dnf install -y git nodejs npm golang
      ```
-   - **Go 1.26+:** se o pacote da distribuição for mais antigo, instale pelo site oficial:
+   - **Go 1.26.11+:** se o pacote da distribuição for mais antigo, instale pelo site oficial:
      ```bash
-     curl -LO https://go.dev/dl/go1.26.0.linux-amd64.tar.gz
-     sudo rm -rf /usr/local/go && sudo tar -C /usr/local -xzf go1.26.0.linux-amd64.tar.gz
+     curl -LO https://go.dev/dl/go1.26.11.linux-amd64.tar.gz
+     sudo rm -rf /usr/local/go && sudo tar -C /usr/local -xzf go1.26.11.linux-amd64.tar.gz
      echo 'export PATH=$PATH:/usr/local/go/bin' >> ~/.bashrc && source ~/.bashrc
      ```
    - Dependências de execução do Electron (Ubuntu/Debian): `sudo apt install -y libnss3 libatk-bridge2.0-0 libgtk-3-0 libgbm1 libasound2`
