@@ -20,6 +20,17 @@ Branch: `fix/alertas-code-scanning`, a partir da `main` @ `e5de09d` (2.3.2)
 - Script: `node --check` OK; a expressão de escape verificada com entradas que têm barra vertical e barra invertida.
 - `npm run spec:check` com PASS em todas as features.
 
+### Validação manual (2026-11-20, depois do merge do PR #176, na 2.3.3)
+
+Feita pelo responsável no app rodando, com a web do aluno compilada e servida pelo backend:
+
+- RF-5602: `curl.exe --path-as-is http://localhost:8080/../go.mod` recebe o `307` do `http.ServeMux` para `/go.mod`;
+  seguindo o redirecionamento (`-L`), a resposta é o `index.html` da web do aluno, sem o conteúdo do `go.mod`.
+  `/..%5c..%5cgo.mod` recebe `400 invalid URL path`; a rota de entrada do aluno carrega a página normalmente.
+- RF-5601: o `href` do botão "Baixar" ficou em `/rooms/<sala>/files/<arquivo>/download?token=...`, com o nome do
+  arquivo no atributo `download`; o download funcionou na gaveta "Arquivos da Aula" (desktop) e na aba "Arquivos" em
+  largura de celular.
+
 ## 2. Requisitos
 
 | Requisito | Evidência |
