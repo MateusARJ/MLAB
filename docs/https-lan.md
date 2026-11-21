@@ -37,7 +37,7 @@ autoridade certificadora (CA), e cada aparelho de aluno passa a confiar nela.
   certificado.
 - O MLab HTTPS pode ficar instalado ao lado do MLab normal, mas **não rode os dois ao mesmo tempo**: eles usam as
   mesmas portas.
-- Firewall: o Windows pede liberação por programa (`server.exe`). Libere para redes privadas, e a 8443 fica liberada
+- Firewall: o Windows pede liberação por programa (`mlab-backend.exe`). Libere para redes privadas, e a 8443 fica liberada
   junto com a 8080.
 
 ## Para o aluno (resumo; a página mostra o passo a passo do sistema detectado)
