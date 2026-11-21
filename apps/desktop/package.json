@@ -133,8 +133,7 @@
     "linux": {
       "target": [
         "AppImage",
-        "deb",
-        "tar.gz"
+        "deb"
       ],
       "category": "Education",
       "icon": "resources/icon-dark.png",

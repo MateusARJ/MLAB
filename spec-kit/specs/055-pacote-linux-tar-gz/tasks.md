@@ -8,14 +8,15 @@ Regras:
 - um commit atômico por task, com `Ref: T550x` e `Refs #169`.
 
 ### T5501 — Remover o tar.gz da configuração de build
-[ ] T5501
+[x] T5501
 Allowed Paths: `apps/desktop/package.json`, `.github/workflows/build-all.yml`,
 `spec-kit/specs/055-pacote-linux-tar-gz/tasks.md`
 Prohibited Paths: `scripts/**`, `apps/desktop/src/**`, `apps/web/**`, `apps/backend/**`, `packages/**`
 Checks:
-- [ ] `build.linux.target` com `AppImage` e `deb` (RF-5501).
-- [ ] `release_files` da perna Linux com `*.AppImage` e `*.deb` (RF-5502).
-- [ ] `npm run make:linux` gera `.AppImage` e `.deb`; job "Build linux" verde no PR (RNF-5502).
+- [x] `build.linux.target` com `AppImage` e `deb` (RF-5501).
+- [x] `release_files` da perna Linux com `*.AppImage` e `*.deb` (RF-5502).
+- [x] Job "Build linux" verde no PR, que roda `npm run make:linux` (RNF-5502); o `make:linux` local via WSL não foi
+  rodado (registrado no converge).
 
 ### T5502 — Deixar de anunciar o tar.gz na documentação
 [ ] T5502
