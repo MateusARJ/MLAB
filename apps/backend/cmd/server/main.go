@@ -10,7 +10,9 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"path"
 	"path/filepath"
+	"strings"
 	"syscall"
 	"time"
 
@@ -297,11 +299,7 @@ func spaHandler(webDir string) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// Se for requisição GET ou HEAD, verifica se existe arquivo estático físico
 		if r.Method == http.MethodGet || r.Method == http.MethodHead {
-			cleanPath := filepath.Clean(r.URL.Path)
-			fullPath := filepath.Join(webDir, cleanPath)
-
-			info, err := os.Stat(fullPath)
-			if err == nil && !info.IsDir() {
+			if isWebFile(webDir, r.URL.Path) {
 				fileServer.ServeHTTP(w, r)
 				return
 			}
@@ -316,6 +314,24 @@ func spaHandler(webDir string) http.Handler {
 
 		http.NotFound(w, r)
 	})
+}
+
+// isWebFile diz se o caminho da URL aponta para um arquivo (não pasta) dentro de webDir. O caminho vem da
+// requisição: caminhos que não são locais depois de limpos (subida por "..", volume, nome reservado do Windows)
+// nunca contam como arquivo, e a verificação passa pelo os.Root, que recusa sair da pasta inclusive por link
+// simbólico (056/RF-5602). O Root é aberto e fechado a cada chamada para não manter a pasta presa.
+func isWebFile(webDir, urlPath string) bool {
+	rel := strings.TrimPrefix(path.Clean("/"+urlPath), "/")
+	if !filepath.IsLocal(rel) {
+		return false
+	}
+	root, err := os.OpenRoot(webDir)
+	if err != nil {
+		return false
+	}
+	defer root.Close()
+	info, err := root.Stat(rel)
+	return err == nil && !info.IsDir()
 }
 
 // corsMiddleware aplica a allowlist de origem (002-security-hardening/S6): reflete a origem

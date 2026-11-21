@@ -1,0 +1,63 @@
+# Tasks: Correção dos Alertas do Code Scanning
+
+Feature: `056-alertas-code-scanning`
+Prerequisites: spec/clarify/plan/checklist/analyze aprovados
+Status: DONE
+
+Regras:
+- um commit atômico por task, com `Ref: T560x`, na ordem abaixo (uma de cada vez).
+
+### T5601 — Montar o link de download do aluno no cliente
+[x] T5601
+Allowed Paths: `apps/web/src/services/api.ts`, `apps/web/src/services/api.test.ts`, `apps/web/src/pages/Room.tsx`,
+`apps/web/src/pages/Room.test.tsx`, `spec-kit/specs/056-alertas-code-scanning/tasks.md`
+Prohibited Paths: `apps/web/src/hooks/**`, `apps/backend/**`, `apps/desktop/**`, `packages/**`, `scripts/**`
+Checks:
+- [x] `fileDownloadPath` monta `/rooms/{roomId}/files/{fileId}/download` com `encodeURIComponent` (RF-5601).
+- [x] Os dois `href` de `Room.tsx` ignoram `file.url` e usam `roomInfo.room_id`; teste com
+  `url: 'javascript:...'` nas gavetas do desktop e do celular (RF-5601, alertas #4 a #7).
+- [x] `npm test` (81 testes) e `npm run lint` do `apps/web` verdes (RNF-5601).
+
+### T5602 — Conter o spaHandler na pasta web
+[x] T5602
+Depends On: T5601
+Allowed Paths: `apps/backend/cmd/server/main.go`, `apps/backend/cmd/server/main_test.go`,
+`spec-kit/specs/056-alertas-code-scanning/tasks.md`
+Prohibited Paths: `apps/backend/internal/**`, `apps/web/**`, `apps/desktop/**`, `packages/**`, `scripts/**`
+Checks:
+- [x] `spaHandler` usa `os.Root` (aberto e fechado a cada verificação, em `isWebFile`) e a guarda
+  `filepath.IsLocal` (RF-5602, alerta #1).
+- [x] Testes com arquivo físico, rota de SPA e caminhos com `..` e barra invertida fora da pasta (RF-5602).
+- [x] `go test ./...`, `go vet ./...` e `gofmt -l` vazio nos arquivos alterados (RNF-5601).
+
+### T5603 — Escapar o payload type no SDP do desktop
+[x] T5603
+Depends On: T5602
+Allowed Paths: `apps/desktop/src/renderer/hooks/useWebRTCPublisher.ts`,
+`apps/desktop/src/renderer/hooks/useScreenCapture.test.ts`, `spec-kit/specs/056-alertas-code-scanning/tasks.md`
+Prohibited Paths: `apps/desktop/src/main/**`, `apps/web/**`, `apps/backend/**`, `packages/**`, `scripts/**`
+Checks:
+- [x] `escapeRegExp` aplicado nos dois `new RegExp` (RF-5603, alertas #2 e #3).
+- [x] Teste compara a saída exata de um SDP com VP8, H264 e opus, com e sem `a=fmtp`, em 30 e 60 fps; o snapshot foi
+  gravado sobre o código anterior à mudança e continua igual depois dela (RF-5603).
+- [x] `npm test` (411 testes) e `npm run lint` do `apps/desktop` verdes (RNF-5601).
+
+### T5604 — Escapar a barra invertida no relatório de smoke
+[x] T5604
+Depends On: T5603
+Allowed Paths: `scripts/smoke-report.js`, `spec-kit/specs/056-alertas-code-scanning/tasks.md`
+Prohibited Paths: `apps/**`, `packages/**`, `.github/**`
+Checks:
+- [x] Barra invertida escapada antes da barra vertical no detalhe das falhas (RF-5604, alerta #8).
+- [x] `node --check scripts/smoke-report.js` OK; a expressão do script, aplicada a `a|b`, `x \| y`, `c:\pasta\arq` e
+  texto sem metacaractere, deixa toda barra vertical precedida por um número ímpar de barras invertidas.
+
+### T5605 — Converge
+[x] T5605
+Depends On: T5604
+Allowed Paths: `spec-kit/specs/056-alertas-code-scanning/**`
+Prohibited Paths: `apps/**`, `packages/**`, `.github/**`, `spec-kit/docs/adrs/**`
+Checks:
+- [x] `converge.md` com evidências e impacto de versão (PATCH, C-5603).
+- [x] Alertas #1 a #8 conferidos na análise do CodeQL do PR #176: 0 resultados em todas as linguagens (RNF-5603).
+- [x] `npm run spec:check -- spec-kit/specs/056-alertas-code-scanning` com PASS.

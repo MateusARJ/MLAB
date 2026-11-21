@@ -3,6 +3,7 @@ package main
 import (
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
@@ -67,6 +68,85 @@ func TestSpaHandler(t *testing.T) {
 	if !strings.Contains(rec.Body.String(), "mlab-test") {
 		t.Errorf("expected body to contain 'mlab-test', got %q", rec.Body.String())
 	}
+}
+
+// TestSpaHandler_NaoSaiDaPastaWeb confere que caminhos que tentam subir para fora da pasta web nunca servem o arquivo
+// vizinho: caem no index.html ou, com ".." no caminho, no 400 do http.ServeFile, como antes (056/RF-5602).
+func TestSpaHandler_NaoSaiDaPastaWeb(t *testing.T) {
+	// t.TempDir também confere que o handler não deixa a pasta presa (a limpeza falha no Windows se deixar).
+	parent := t.TempDir()
+	webDir := filepath.Join(parent, "web")
+	if err := os.MkdirAll(webDir, 0755); err != nil {
+		t.Fatalf("failed to create web dir: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(webDir, "index.html"), []byte("MLab Web App"), 0644); err != nil {
+		t.Fatalf("failed to write index.html: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(parent, "segredo.txt"), []byte("conteudo-secreto"), 0644); err != nil {
+		t.Fatalf("failed to write segredo.txt: %v", err)
+	}
+
+	handler := spaHandler(webDir)
+	paths := []string{
+		"/segredo.txt",
+		"/../segredo.txt",
+		"/..%2fsegredo.txt",
+		"/..%5csegredo.txt",
+		"/..%5c..%5csegredo.txt",
+		"/assets/..%5c..%5csegredo.txt",
+	}
+	for _, p := range paths {
+		req := httptest.NewRequest("GET", "/", nil)
+		req.URL.RawPath = ""
+		req.URL.Path = mustUnescape(t, p)
+		rec := httptest.NewRecorder()
+		handler.ServeHTTP(rec, req)
+		body := rec.Body.String()
+		if strings.Contains(body, "conteudo-secreto") {
+			t.Errorf("%s: serviu arquivo de fora da pasta web", p)
+		}
+		indexFallback := rec.Code == http.StatusOK && strings.Contains(body, "MLab Web App")
+		if !indexFallback && rec.Code != http.StatusBadRequest {
+			t.Errorf("%s: esperado index.html ou 400, veio %d %q", p, rec.Code, body)
+		}
+	}
+}
+
+// TestIsWebFile cobre a verificação contida na pasta web (056/RF-5602).
+func TestIsWebFile(t *testing.T) {
+	webDir := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(webDir, "assets"), 0755); err != nil {
+		t.Fatalf("failed to create assets dir: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(webDir, "assets", "app.js"), []byte("x"), 0644); err != nil {
+		t.Fatalf("failed to write app.js: %v", err)
+	}
+	cases := map[string]bool{
+		"/assets/app.js":           true,
+		"/assets/../assets/app.js": true,
+		"/":                        false,
+		"/assets":                  false,
+		"/nao-existe.js":           false,
+		"/../app.js":               false,
+		`/..\app.js`:               false,
+	}
+	for p, want := range cases {
+		if got := isWebFile(webDir, p); got != want {
+			t.Errorf("isWebFile(%q) = %v, want %v", p, got, want)
+		}
+	}
+	if isWebFile(filepath.Join(webDir, "nao-existe"), "/assets/app.js") {
+		t.Error("isWebFile com pasta inexistente deve ser false")
+	}
+}
+
+func mustUnescape(t *testing.T, p string) string {
+	t.Helper()
+	u, err := url.PathUnescape(p)
+	if err != nil {
+		t.Fatalf("unescape %q: %v", p, err)
+	}
+	return u
 }
 
 func TestEnsureJWTSecret_GeneratesRandomWhenMissing(t *testing.T) {
