@@ -2,7 +2,7 @@
 
 Feature: `055-pacote-linux-tar-gz`
 Prerequisites: spec/clarify/plan/checklist/analyze aprovados
-Status: IN PROGRESS
+Status: DONE
 
 Regras:
 - um commit atômico por task, com `Ref: T550x` e `Refs #169`.
@@ -29,10 +29,10 @@ Checks:
 - [x] `git grep "tar.gz"` sem menção ao pacote Linux do app fora das notas antigas e do `Source code (tar.gz)`.
 
 ### T5503 — Converge
-[ ] T5503
+[x] T5503
 Depends On: T5502
 Allowed Paths: `spec-kit/specs/055-pacote-linux-tar-gz/**`
 Prohibited Paths: `apps/**`, `packages/**`, `.github/**`, `spec-kit/docs/adrs/**`
 Checks:
-- [ ] `converge.md` com evidências e impacto de versão (PATCH, C-5502).
-- [ ] `npm run spec:check -- spec-kit/specs/055-pacote-linux-tar-gz` com PASS.
+- [x] `converge.md` com evidências e impacto de versão (PATCH, C-5502).
+- [x] `npm run spec:check -- spec-kit/specs/055-pacote-linux-tar-gz` com PASS.
