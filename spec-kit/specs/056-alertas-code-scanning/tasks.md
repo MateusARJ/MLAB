@@ -2,7 +2,7 @@
 
 Feature: `056-alertas-code-scanning`
 Prerequisites: spec/clarify/plan/checklist/analyze aprovados
-Status: IN PROGRESS
+Status: DONE
 
 Regras:
 - um commit atômico por task, com `Ref: T560x`, na ordem abaixo (uma de cada vez).
@@ -53,11 +53,11 @@ Checks:
   texto sem metacaractere, deixa toda barra vertical precedida por um número ímpar de barras invertidas.
 
 ### T5605 — Converge
-[ ] T5605
+[x] T5605
 Depends On: T5604
 Allowed Paths: `spec-kit/specs/056-alertas-code-scanning/**`
 Prohibited Paths: `apps/**`, `packages/**`, `.github/**`, `spec-kit/docs/adrs/**`
 Checks:
-- [ ] `converge.md` com evidências e impacto de versão (PATCH, C-5603).
-- [ ] Alertas #1 a #8 conferidos na análise do CodeQL do PR (RNF-5603).
-- [ ] `npm run spec:check -- spec-kit/specs/056-alertas-code-scanning` com PASS.
+- [x] `converge.md` com evidências e impacto de versão (PATCH, C-5603).
+- [x] Alertas #1 a #8 conferidos na análise do CodeQL do PR #176: 0 resultados em todas as linguagens (RNF-5603).
+- [x] `npm run spec:check -- spec-kit/specs/056-alertas-code-scanning` com PASS.

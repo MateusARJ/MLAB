@@ -79,7 +79,7 @@ Clarify: `./clarify.md` (C-5601 a C-5603)
 - [x] Princípio V: nenhum contrato muda.
 - [x] Princípio VI: Scope Lock e paths por task.
 - [x] Princípio VII: mudanças mínimas e locais.
-- [ ] Princípio VIII: converge ao final (T5605).
+- [x] Princípio VIII: converge ao final (T5605).
 
 ## 5. Decision Log
 
