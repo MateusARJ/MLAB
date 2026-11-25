@@ -137,3 +137,32 @@ Edição isolada, sem PR para a `development`: **sem `npm run bump`** e versão 
 - **Correção posterior (2026-11-20, #172):** o `docs/https-lan.md` ainda mandava liberar o `server.exe` no firewall. O
   backend se chama `mlab-backend.exe` desde a 1.15.4, e o guia passou a citar esse nome. O `plan.md` (riscos) fica com
   o nome da época, e o `installer.nsh` continua citando o `server.exe` de propósito, para encerrar o binário legado.
+
+### 2026-11-25 — rebase sobre a `main` 2.3.3 e primeira release da edição
+
+- **Base:** os 19 commits da edição saíram de `84594ff` (#168, `main` 2.3.1) para `19ee0ad` (#178, `main` 2.3.3), que
+  estava 23 commits à frente. Os merge commits #171 e #173 foram linearizados pelo rebase, e todos os commits seguem
+  assinados.
+- **Versão:** a edição acompanha a `main` e passa a **2.3.3** (instalador `MLab HTTPS-Setup-2.3.3`), sem bump
+  próprio (§4).
+- **Herdado da `main`:** a remoção do pacote Linux `.tar.gz` (#174), que sai também do `apps/desktop/package.json` da
+  edição e do `build-all.yml`, e as correções do Code Scanning (#176): link de download montado no cliente, `spaHandler`
+  contido na pasta web e escape do payload type no SDP.
+- **Conflitos resolvidos:** só o `README.md`, mantido o da edição (que não cita Go 1.26 nem `.tar.gz`). O
+  `apps/desktop/package.json` e o `apps/backend/cmd/server/main.go` mesclaram sozinhos.
+- **Verificação automática:**
+  - `npm run spec:check` PASS e `npm run version:check` 2.3.3;
+  - backend: `go vet` e `go test ./...` verdes, incluindo `internal/tlsca` e `cmd/server`;
+  - web: `vitest` 89/89 e lint;
+  - desktop: `vitest` 411/411 e `npm run lint` (`tsc --noEmit`).
+- **Backend com `MLAB_TLS=1`** (portas de teste 18080/18443, pasta temporária, build novo do web): a CA foi criada na
+  primeira subida; `/tls/info` respondeu `enabled: true` com a impressão digital; `/tls/ok` e uma rota da página do
+  aluno responderam 200 por HTTPS com a cadeia validada pela CA (`curl --cacert`; no Windows o schannel exige
+  `--ssl-no-revoke`, porque a CA local não publica revogação); `/mlab-ca.crt` baixou o mesmo certificado da pasta; um
+  caminho com `../` não saiu da pasta web.
+- **Release:** a edição passa a ter release própria, com a tag `https-v2.3.3` gerada pelo `workflow_dispatch` da
+  `edicao/https-lan` e as notas em `docs/releases/https-v2.3.3.md`. O `build-all.yml` da edição publica tags `https-*`
+  com `--latest=false`, para a `v2.3.3` continuar como **Latest**, e usa o título padrão "MLab HTTPS X.Y.Z". Esse
+  ajuste vale só para a edição.
+- **Gaps:** continuam os da §3. O teste manual do cartão **HTTPS na rede local** não foi repetido, porque nenhum
+  arquivo da edição teve conflito de código.
