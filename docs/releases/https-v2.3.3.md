@@ -37,8 +37,9 @@ aviso de download inseguro atrapalha a aula.
 
 | Sistema | Arquivo |
 | --- | --- |
-| Windows 10/11 | `MLab HTTPS-Setup-2.3.3.exe` |
-| Linux | `MLab HTTPS-Linux-2.3.3.AppImage` (qualquer distribuição) ou `.deb` (Debian/Ubuntu) |
+| Windows 10/11 | `MLab.HTTPS-Setup-2.3.3.exe` |
+| macOS | `MLab.HTTPS-Mac-2.3.3.dmg` (ou `.zip`) — ainda não testado na edição |
+| Linux | `MLab.HTTPS-Linux-2.3.3.AppImage` (qualquer distribuição) ou `.deb` (Debian/Ubuntu) |
 
 1. Instale o MLab HTTPS como o MLab normal. As instruções de cada sistema estão no
    [README](https://github.com/MateusARJ/MLAB#instala%C3%A7%C3%A3o-para-uso-professor).
@@ -124,7 +125,8 @@ e o histórico completo, nas do [MLab 2.3.1](https://github.com/MateusARJ/MLAB/r
 - Cada aparelho de aluno instala o certificado uma vez. No Android, a instalação exige bloqueio de tela.
 - O download do próprio certificado é feito por HTTP. Se o navegador avisar, escolha **Manter**.
 - Reinstalar o app troca a CA, e os aparelhos precisam do novo certificado.
-- Não há instalador do MLab HTTPS para macOS.
+- O instalador do MLab HTTPS para macOS sai pela primeira vez nesta versão e **ainda não foi testado num Mac real**
+  com a edição. Ele não é assinado nem notarizado: na primeira abertura, use **botão direito → Abrir**.
 - Depois de uma retomada do servidor, o aluno precisa abrir o link de novo e informar nome e matrícula.
 - No Linux com XWayland, a presença do cursor na transmissão pode congelar quando o ponteiro está fora de janelas X11
   ([#140](https://github.com/MateusARJ/MLAB/issues/140)).

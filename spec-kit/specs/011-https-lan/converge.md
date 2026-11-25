@@ -166,3 +166,7 @@ Edição isolada, sem PR para a `development`: **sem `npm run bump`** e versão 
   ajuste vale só para a edição.
 - **Gaps:** continuam os da §3. O teste manual do cartão **HTTPS na rede local** não foi repetido, porque nenhum
   arquivo da edição teve conflito de código.
+- **Correção posterior (2026-11-25):** os instaladores do macOS (`.dmg` e `.zip`), apagados na primeira publicação,
+  voltaram à `https-v2.3.3` por um novo run do job "Build macos". As notas passam a listar o macOS como não testado na
+  edição, não assinado e não notarizado, e citam os nomes reais dos arquivos (o GitHub troca o espaço de
+  "MLab HTTPS" por ponto). O teste da edição num Mac real continua pendente (§3).
