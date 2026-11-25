@@ -39,7 +39,11 @@ jobs:
         run: |
           if [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ -n "${{ github.event.inputs.tag_name }}" ]; then
             echo "tag=${{ github.event.inputs.tag_name }}" >> $GITHUB_OUTPUT
-            echo "title=${{ github.event.inputs.release_title || format('MLab {0}', github.event.inputs.tag_name) }}" >> $GITHUB_OUTPUT
+            TAG_NAME="${{ github.event.inputs.tag_name }}"
+            DEFAULT_TITLE="MLab $TAG_NAME"
+            if [[ "$TAG_NAME" == https-v* ]]; then DEFAULT_TITLE="MLab HTTPS ${TAG_NAME#https-v}"; fi
+            TITLE="${{ github.event.inputs.release_title }}"
+            echo "title=${TITLE:-$DEFAULT_TITLE}" >> $GITHUB_OUTPUT
           elif [[ "${{ github.ref }}" == refs/tags/* ]]; then
             TAG_NAME="${GITHUB_REF#refs/tags/}"
             echo "tag=$TAG_NAME" >> $GITHUB_OUTPUT
@@ -177,5 +181,7 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAG: ${{ needs.prepare.outputs.tag }}
         run: |
-          gh release edit "$TAG" --repo "$GITHUB_REPOSITORY" --draft=false --latest
+          # Edição MLab HTTPS (ADR 0008): a release https-* nunca tira o selo "Latest" da versão principal.
+          if [[ "$TAG" == https-* ]]; then LATEST="--latest=false"; else LATEST="--latest"; fi
+          gh release edit "$TAG" --repo "$GITHUB_REPOSITORY" --draft=false "$LATEST"
           gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json url,assets -q '"Publicada: \(.url)\n" + ([.assets[].name] | join("\n"))'
